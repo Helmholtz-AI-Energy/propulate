@@ -3,13 +3,19 @@ propulate
 =========
 
 
-Add a short description here!
+Parallel propagator of populations.
 
 
 Description
 ===========
 
-A longer description of your project goes here...
+Evolutionary hyperparameter-optimization in MPI-parallelized fashion.
+For usage example see scripts.
+
+Installation
+============
+
+Pull and run '''pip install -e .'''' or '''python setup.py develop'''
 
 
 Note
