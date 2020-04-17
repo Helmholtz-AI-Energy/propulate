@@ -15,7 +15,7 @@ For usage example see scripts.
 Installation
 ============
 
-Pull and run '''pip install -e .'''' or '''python setup.py develop'''
+Pull and run ``pip install -e .`` or ``python setup.py develop``
 
 
 Note
