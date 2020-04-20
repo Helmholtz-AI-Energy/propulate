@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 
-import random
 
 from propulate import Propulator
 from propulate.utils import get_default_propagator
 
 
-random.seed(42)
-num_generations = 100
+num_generations = 1000
 
 limits = {
         'x' : (-10., 10.),

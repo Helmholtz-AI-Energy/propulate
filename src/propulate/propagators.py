@@ -52,7 +52,7 @@ class Cascade(Propagator):
 
 # TODO random number of points to mutate
 class PointMutation(Propagator):
-    def __init__(self, limits, probability=1., points=1):
+    def __init__(self, limits, points=1, probability=1.):
         super(PointMutation, self).__init__(1, 1, probability)
         self.points = points
         self.limits = limits
@@ -77,7 +77,7 @@ class PointMutation(Propagator):
 
 
 class IntervalMutationNormal(Propagator):
-    def __init__(self, limits, sigma_factor=.1, probability=1., points=1):
+    def __init__(self, limits, sigma_factor=.1, points=1, probability=1.):
         super(IntervalMutationNormal, self).__init__(1, 1, probability)
         self.points = points
         self.limits = limits
