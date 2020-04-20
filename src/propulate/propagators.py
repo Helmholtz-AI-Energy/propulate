@@ -1,26 +1,132 @@
 import random
 import copy
 
-# TODO develop a zoo of propagators that can be assembled by user akin to torch dataset transforms
+from.population import Individual
 
-def mutate(ind, limits):
-    individual = copy.deepcopy(ind)
-    to_mutate = random.choice(list(individual.keys()))
-    if type(individual[to_mutate]) == int:
-        individual[to_mutate] = random.randrange(*limits[to_mutate])
-    elif type(individual[to_mutate]) == float:
-        individual[to_mutate] = random.uniform(*limits[to_mutate])
-    elif type(individual[to_mutate]) == str:
-        individual[to_mutate] = random.choice(limits[to_mutate])
 
-    return individual
+def _check_compatible(out1, in2):
+    if out1 == in2 or in2==-1:
+        return True
+    return False
 
-# TODO add boltzmann mating (or whatever they would call it)
-def mate(parent1, parent2):
-    ind = copy.deepcopy(parent1)
 
-    for k in parent2.keys():
-        if random.random() > 0.5:
-            ind[k] = parent2[k]
-    return ind
+class Propagator():
+    """
+    A Propagator takes a collection of individuals and uses them to breed a new collection of individuals.
+    """
+    parents = 0  # NOTE number of input individuals should be integer >=0 or -1 (any)
+    offspring = 0
+    def __init__(self, parents=0, offspring=0, probability=1.):
+        """
+        parents: number of input individuals. -1 for any
+        offspring: number of output individuals
+        probability: probability of applying the propagator
+        """
+        self.parents = parents
+        self.offspring = offspring
+        self.probability = probability
+        if offspring == 0:
+            raise ValueError("Propagator has to sire more than 0 offspring.")
+        return
+    def __call__(self, inds):
+        return
 
+
+class Cascade(Propagator):
+    def __init__(self, propagators, probability=1.):
+        super(Cascade, self).__init__(propagators[0].parents, propagators[-1].offspring, probability)
+        self.propagators = propagators
+        for i in range(len(propagators)-1):
+            if not _check_compatible(propagators[i].offspring, propagators[i+1].parents):
+                outp = propagators[i]
+                inp = propagators[i+1]
+                outd = outp.offspring
+                ind = indp.parents
+
+                raise ValueError("Incompatible combination of {} output individuals of {} and {} input individuals of {}".format(outd, outp, ind, inp))
+
+    def __call__(self, inds):
+        for p in self.propagators:
+            inds = p(inds)
+        return inds
+
+
+class PointMutation(Propagator):
+    def __init__(self, limits, probability=1., points=1):
+        super(PointMutation, self).__init__(1, 1, probability)
+        self.points = points
+        self.limits = limits
+        if len(limits) < points:
+            raise ValueError("Too many points to mutate for individual with {} traits".format(len(limits)))
+        return
+
+    def __call__(self, ind):
+        if random.random() < self.probability:
+            ind = copy.deepcopy(ind)
+            ind.loss = None
+            to_mutate = random.sample(ind.keys(), self.offspring)
+            for i in to_mutate:
+                if type(ind[i]) == int:
+                    ind[i] = random.randrange(*self.limits[i])
+                elif type(ind[i]) == float:
+                    ind[i] = random.uniform(*self.limits[i])
+                elif type(ind[i]) == str:
+                    ind[i] = random.choice(self.limits[i])
+
+        return ind
+
+
+class MateUniform(Propagator):
+    def __init__(self, probability):
+        super(MateUniform, self).__init__(2, 1, probability)
+        return
+    def __call__(self, inds):
+        ind = copy.deepcopy(inds[0])
+        if random.random() < self.probability:
+            ind.loss = None
+            for k in inds[1].keys():
+                if random.random() > 0.5:
+                    ind[k] = inds[1][k]
+        return ind
+
+
+class SelectBest(Propagator):
+    def __init__(self, offspring):
+        super(SelectBest, self).__init__(-1, offspring, 1.)
+        return
+
+    def __call__(self, inds):
+        if len(inds) < self.offspring:
+            raise ValueError("Has to have at least{} individuals to select the {} best ones".format(self.offspring, self.offspring))
+        return sorted(inds, key=lambda ind: ind.loss)[:self.offspring]
+
+
+class SelectUniform(Propagator):
+    def __init__(self, offspring):
+        super(SelectUniform, self).__init__(-1, offspring, 1.)
+        return
+
+    def __call__(self, inds):
+        if len(inds) < self.offspring:
+            raise ValueError("Has to have at least{} individuals to select {} from them".format(self.offspring, self.offspring))
+        # TODO sorted?
+        return random.sample(inds, self.offspring)
+
+
+class InitUniform(Propagator):
+    def __init__(self, limits):
+        super(InitUniform, self).__init__(0, 1, 1.)
+        self.limits = limits
+        return
+    def __call__(self):
+        ind = Individual()
+        for limit in self.limits:
+            if type(self.limits[limit][0]) == int:
+                ind[limit] = random.randrange(*self.limits[limit])
+            elif type(self.limits[limit][0]) == float:
+                ind[limit] = random.uniform(*self.limits[limit])
+            elif type(self.limits[limit][0]) == str:
+                ind[limit] = random.choice(self.limits[limit])
+            else:
+                raise ValueError("Unknown type of limits. Has to be float for interval, int for ordinal, or string for categorical.")
+        return ind

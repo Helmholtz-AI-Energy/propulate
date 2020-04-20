@@ -12,3 +12,4 @@ finally:
 
 from .propulator import Propulator
 from . import propagators
+from . import population
