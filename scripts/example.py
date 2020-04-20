@@ -21,7 +21,7 @@ limits = {
 def loss(params):
     return sum([params[x]**2 for x in params])
 
-propagator, fallback = get_default_propagator(8, limits, .7, .8)
+propagator, fallback = get_default_propagator(8, limits, .7, .8, .1)
 
 propulator = Propulator(loss, propagator, fallback, num_generations=num_generations)
 
