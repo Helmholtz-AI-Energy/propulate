@@ -5,9 +5,7 @@ from.population import Individual
 
 
 def _check_compatible(out1, in2):
-    if out1 == in2 or in2==-1:
-        return True
-    return False
+    return out1 == in2 or in2==-1
 
 
 class Propagator():
