@@ -5,7 +5,7 @@ from propulate import Propulator
 from propulate.utils import get_default_propagator
 
 
-num_generations = 1000
+num_generations = 100
 
 limits = {
         'x' : (-10., 10.),
@@ -19,7 +19,7 @@ limits = {
 def loss(params):
     return sum([params[x]**2 for x in params])
 
-propagator, fallback = get_default_propagator(8, limits, .7, .8, .1)
+propagator, fallback = get_default_propagator(8, limits, .7, .4, .1)
 
 propulator = Propulator(loss, propagator, fallback, num_generations=num_generations)
 
