@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
-from mpi4py import MPI
+import random
+
 from propulate import Propulator
+from propulate.utils import get_default_propagator
 
 
-comm = MPI.COMM_WORLD
-num_generations = 1000
-pop_size = comm.Get_size()
+random.seed(42)
+num_generations = 100
 
 limits = {
         'x' : (-10., 10.),
@@ -20,6 +21,10 @@ limits = {
 def loss(params):
     return sum([params[x]**2 for x in params])
 
-propulator = Propulator(loss, limits, comm=comm, num_generations=num_generations)
+propagator, fallback = get_default_propagator(8, limits, .7, .8)
+
+propulator = Propulator(loss, propagator, fallback, num_generations=num_generations)
 
 propulator.propulate()
+
+propulator.summarize()
