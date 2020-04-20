@@ -130,7 +130,7 @@ class Propulator():
             self.terminated_ranks += 1
         return
 
-    def summarize(self):
+    def summarize(self, out_file=None):
         if self.comm.Get_rank() == coordinator_rank:
             import matplotlib.pyplot as plt
             xs = [i.generation for i in self.population]
@@ -143,5 +143,8 @@ class Propulator():
             plt.xlabel("generation")
             plt.ylabel("loss")
             legend = ax.legend(*scatter.legend_elements(), title="rank")
-            plt.show()
+            if out_file is None:
+                plt.show()
+            else:
+                plt.savefig(outfile)
         return
