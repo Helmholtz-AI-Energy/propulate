@@ -137,7 +137,11 @@ class Propulator():
             ys = [i.loss for i in self.population]
             zs = [i.rank for i in self.population]
 
-            print(self.best)
-            plt.scatter(xs,ys, c=zs)
+            print("Best loss: ", self.best)
+            fig, ax = plt.subplots()
+            scatter = ax.scatter(xs,ys, c=zs)
+            plt.xlabel("generation")
+            plt.ylabel("loss")
+            legend = ax.legend(*scatter.legend_elements(), title="rank")
             plt.show()
         return
