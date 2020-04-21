@@ -23,6 +23,7 @@ Installation
 ============
 
 Pull and run ``pip install -e .`` or ``python setup.py develop``
+Requires a MPI  implementation (currently only tested with  OpenMPI) and ``mpi4py`` 
 
 
 Note
