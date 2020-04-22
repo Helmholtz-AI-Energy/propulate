@@ -92,8 +92,9 @@ class Propulator():
     # TODO different algorithms
     def _coordinate(self):
 
+        # TODO warn if resume but there is no checkpoint file
         if self.checkpoint_file is not None:
-            if os.path.isfile(checkpoint_file) and self.load_checkpoint == True:
+            if os.path.isfile(checkpoint_file) and self.load_checkpoint:
                 with open(checkpoint_file, 'rb') as f:
                     self.population, self.running = pickle.load(f)
 
