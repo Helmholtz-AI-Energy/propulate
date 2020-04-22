@@ -56,6 +56,7 @@ class Propulator():
         return
 
     # NOTE individual level checkpointing is left to the user
+    # TODO only receive individuals, the send requeset was for an old version of the algorithm
     def _work(self):
         g = 0
         rank = self.comm.Get_rank()
