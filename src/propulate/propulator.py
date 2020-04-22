@@ -17,6 +17,7 @@ LOSS_REPORT_SUBTAG = 2
 coordinator_rank = 0
 
 
+# TODO set perpetual propulating to num_generations = -1 ?
 class Propulator():
     def __init__(self, loss_fn, propagator, fallback_propagator, comm=None, num_generations=0, checkpoint_file=None):
         self.loss_fn = loss_fn
