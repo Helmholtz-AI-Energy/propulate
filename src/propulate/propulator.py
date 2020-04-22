@@ -8,16 +8,12 @@ from mpi4py import MPI
 from .population import Individual
 
 
-COORD_REQUEST_TAG = 1
-COORD_REPLY_TAG = 2
+INDIVIDUAL_TAG = 1
+LOSS_REPORT_TAG = 2
 
-IND_REQUEST_SUBTAG = 1
-LOSS_REPORT_SUBTAG = 2
-
-coordinator_rank = 0
+COORDINATOR_RANK = 0
 
 
-# TODO set perpetual propulating to num_generations = -1 ?
 class Propulator():
     def __init__(self, loss_fn, propagator, fallback_propagator, comm=None, num_generations=0, checkpoint_file=None):
         self.loss_fn = loss_fn
@@ -25,60 +21,47 @@ class Propulator():
         self.fallback_propagator = fallback_propagator
         if fallback_propagator.parents != 0 or fallback_propagator.offspring != 1:
             raise ValueError("Fallback propagator has create 1 offspring from 0 parents")
-        self.generations = num_generations
-        self.comm = comm
-        if comm is None:
-            self.comm = MPI.COMM_WORLD
-
+        self.generations = int(num_generations)
+        if self.generations < -1:
+            raise ValueError("Invalid number of generations, needs to be larger than -1, but was {}".format(self.generations))
+        self.comm = comm if comm is not None else MPI.COMM_WORLD
         self.best = float('inf')
 
         self.running = [None] * self.comm.Get_size()
         self.population = []
         self.retired = []
 
-        self.checkpoint_file = checkpoint_file
-
-        self.coordinator_message_processing_functions = [
-            None,
-            self._process_individual_request,
-            self._process_loss_report,
-        ]
-
-        return
+        self.checkpoint_file = str(checkpoint_file)
 
     def propulate(self, resume=False):
         self.load_checkpoint = resume
-        if self.comm.Get_rank() == coordinator_rank:
+        if self.comm.Get_rank() == COORDINATOR_RANK:
             thread = threading.Thread(target=self._coordinate, name="coord_thread")
             thread.start()
         self._work()
-        if self.comm.Get_rank() == coordinator_rank:
+        if self.comm.Get_rank() == COORDINATOR_RANK:
             thread.join()
-        return
 
     # NOTE individual level checkpointing is left to the user
-    # TODO only receive individuals, the send requeset was for an old version of the algorithm
     def _work(self):
-        g = 0
+        generation = 0
         rank = self.comm.Get_rank()
 
-        while self.generations < 1 or g < self.generations:
-            message = (IND_REQUEST_SUBTAG, g)
-            self.comm.send(message, dest=coordinator_rank, tag=COORD_REQUEST_TAG)
-            individual = self.comm.recv(source=coordinator_rank, tag=COORD_REPLY_TAG)
+        while self.generations == -1 or generation < self.generations:
+            individual = self.comm.recv(source=COORDINATOR_RANK, tag=INDIVIDUAL_TAG)
 
             loss = self.loss_fn(individual)
             # NOTE report loss to coordinator
-            message = (LOSS_REPORT_SUBTAG, (loss, g))
-            self.comm.send(message, dest=coordinator_rank, tag=COORD_REQUEST_TAG)
+            message = (loss, generation,)
+            req = self.comm.isend(message, dest=COORDINATOR_RANK, tag=LOSS_REPORT_TAG)
 
+            generation += 1
 
-            g += 1
-
-        return
+        req.wait()
 
     def _breed(self, generation, rank):
         ind = None
+
         try:
             ind = self.propagator(self.population)
             if ind.loss is not None:
@@ -88,53 +71,50 @@ class Propulator():
 
         ind.generation = generation
         ind.rank = rank
+
         return ind
 
     # TODO different algorithms
     def _coordinate(self):
-
-        # TODO warn if resume but there is no checkpoint file
         if self.checkpoint_file is not None:
-            if os.path.isfile(checkpoint_file) and self.load_checkpoint:
-                with open(checkpoint_file, 'rb') as f:
+            if os.path.isfile(self.checkpoint_file) and self.load_checkpoint:
+                with open(self.checkpoint_file, 'rb') as f:
                     self.population, self.running = pickle.load(f)
+
+        size = self.comm.Get_size()
+        for i in range(size):
+            individual = self._breed(0, i)
+            self.running[i] = individual
+
+        if self.generations == 0:
+            return
+
+        for i in range(size):
+            self.comm.isend(self.running[i], dest=i, tag=INDIVIDUAL_TAG)
 
         self.terminated_ranks = 0
         while self.terminated_ranks < self.comm.Get_size():
             status = MPI.Status()
-            message = self.comm.recv(source=MPI.ANY_SOURCE, tag=COORD_REQUEST_TAG, status=status)
-            tag = status.tag
+            message = self.comm.recv(source=MPI.ANY_SOURCE, tag=LOSS_REPORT_TAG, status=status)
             source = status.source
-            # NOTE 'decode' message
-            subtag, message = message
-            # NOTE process message
-            self.coordinator_message_processing_functions[subtag](source, message)
 
-        return
+            loss, generation = message
+            if loss < self.best:
+                self.best = loss
 
-    def _process_individual_request(self, source, message):
-        ind = self._breed(message, source)
+            self.running[source].loss = loss
+            self.population.append(self.running[source])
 
-        if self.running[source] is not None:
-            raise ValueError()
-        self.running[source] = ind
-        self.comm.send(ind, dest=source, tag=COORD_REPLY_TAG)
-        # TODO save checkpoint
-        return
+            if generation == self.generations - 1:
+                self.running[source] = None
+                self.terminated_ranks += 1
+            else:
+                self.running[source] = self._breed(generation + 1, source)
+                self.comm.isend(self.running[source], dest=source, tag=INDIVIDUAL_TAG)
 
-    def _process_loss_report(self, source, message):
-        loss, generation = message
-        self.running[source].loss = loss
-        self.population.append(self.running[source])
-        self.running[source] = None
-        if loss < self.best:
-            self.best = loss
-        if generation == self.generations-1:
-            self.terminated_ranks += 1
-        return
 
     def summarize(self, out_file=None):
-        if self.comm.Get_rank() == coordinator_rank:
+        if self.comm.Get_rank() == COORDINATOR_RANK:
             import matplotlib.pyplot as plt
             xs = [i.generation for i in self.population]
             ys = [i.loss for i in self.population]
@@ -150,4 +130,3 @@ class Propulator():
                 plt.show()
             else:
                 plt.savefig(outfile)
-        return
