@@ -1,7 +1,10 @@
 import os
 import pickle
 
+import mpi4py
+mpi4py.rc.initialize = False
 from mpi4py import MPI
+MPI.Init()
 
 from .population import Individual
 
