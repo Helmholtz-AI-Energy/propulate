@@ -1,7 +1,7 @@
 import os
 import pickle
 
-# NOTE MPI has to already initialized by propulator at this point
+# NOTE MPI has to already initialized by propulator at this point for MPIs that have not been installed with thread_multiple
 from mpi4py import MPI
 
 from .population import Individual
@@ -69,8 +69,6 @@ class Coordinator():
             loss, generation = message
             if loss < self.best:
                 self.best = loss
-
-            print(generation)
 
             self.running[source].loss = loss
             self.population.append(self.running[source])
