@@ -1,10 +1,8 @@
 import os
 import pickle
 
-import mpi4py
-mpi4py.rc.initialize = False
+# NOTE MPI has to already initialized by propulator at this point
 from mpi4py import MPI
-MPI.Init()
 
 from .population import Individual
 
