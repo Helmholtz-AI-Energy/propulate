@@ -3,8 +3,6 @@
 from propulate import Propulator
 from propulate.utils import get_default_propagator
 
-from mpi4py import MPI
-
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
@@ -15,7 +13,7 @@ from torchvision.transforms import Compose, ToTensor, Normalize
 from ignite.engine import Events, create_supervised_trainer, create_supervised_evaluator
 from ignite.metrics import Accuracy, Loss
 
-num_generations = 10
+num_generations = 3
 GPUS_PER_NODE = 4
 
 limits = {
@@ -41,7 +39,7 @@ class Net(nn.Module):
     def forward(self, x):
         b, c, w, h = x.size()
         x = self.conv_layers(x)
-        x = x.view(8, 10*28*28)
+        x = x.view(b, 10*28*28)
         x = self.fc(x)
         return x
 
@@ -52,10 +50,13 @@ def get_data_loaders(batch_size):
     return train_loader, val_loader
 
 def ind_loss(params):
+
+    from mpi4py import MPI
+
     convlayers = params['convlayers']
     activation = params['activation']
     lr = params['lr']
-    epochs = 10
+    epochs = 2
 
     activations = {'relu' : nn.ReLU, 'sigmoid' : nn.Sigmoid, 'tanh' : nn.Tanh}
 
@@ -75,24 +76,25 @@ def ind_loss(params):
     trainer = create_supervised_trainer(model, optimizer, loss_fn, device=device)
     evaluator = create_supervised_evaluator(model, metrics={'acc': Accuracy(), 'ce': Loss(loss_fn)}, device=device)
 
-    best_accuracy = 0.
-
+    trainer.best_accuracy = 0.
     @trainer.on(Events.EPOCH_COMPLETED)
     def validate(trainer):
         evaluator.run(val_loader)
         metrics = evaluator.state.metrics
-        if metrics['acc'] < best_accuracy:
-            best_accuracy = metrics['acc']
+
+        if metrics['acc'] > trainer.best_accuracy:
+            trainer.best_accuracy = metrics['acc']
+
 
     trainer.run(train_loader, max_epochs=epochs)
 
-    return -best_accuracy
+    return -trainer.best_accuracy
 
 
 
 propagator, fallback = get_default_propagator(8, limits, .7, .4, .1)
 
-propulator = Propulator(ind_loss, propagator, fallback, num_generations=num_generations)
+propulator = Propulator(ind_loss, propagator, fallback, generations=num_generations)
 
 propulator.propulate()
 
