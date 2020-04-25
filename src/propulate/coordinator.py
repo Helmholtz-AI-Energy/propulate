@@ -33,6 +33,7 @@ class Coordinator():
             ind = self.propagator(self.population)
             if ind.loss is not None:
                 raise ValueError("No propagator applied, individual already evaluated")
+        # TODO fallback should be part of the propagator
         except ValueError:
             ind = self.fallback_propagator()
 
