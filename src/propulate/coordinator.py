@@ -82,5 +82,6 @@ class Coordinator():
                 self.running[source] = self._breed(generation + 1, source)
                 self.comm.isend(self.running[source], dest=source, tag=INDIVIDUAL_TAG)
 
+    # NOTE this is here to work around the bug (?) in mpi4py that would sometimes cause an mpi_abort
     def __del__(self):
         MPI.Finalize()

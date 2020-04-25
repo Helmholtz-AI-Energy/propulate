@@ -82,5 +82,6 @@ class Propulator():
             else:
                 plt.savefig(outfile)
 
+    # NOTE this is here to work around the bug (?) in mpi4py that would sometimes cause an mpi_abort
     def __del__(self):
         MPI.Finalize()
