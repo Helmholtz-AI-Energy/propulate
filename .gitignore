@@ -50,3 +50,5 @@ MANIFEST
 .venv*/
 
 *.pkl
+
+MNIST
