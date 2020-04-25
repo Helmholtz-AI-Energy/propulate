@@ -6,7 +6,7 @@ from mpi4py import MPI
 
 from .population import Individual
 
-from ._globals import INDIVIDUAL_TAG, LOSS_REPORT_TAG, INIT_TAG, POPULATION_TAG, COORDINATOR_RANK
+from ._globals import INDIVIDUAL_TAG, LOSS_REPORT_TAG, INIT_TAG, POPULATION_TAG
 
 
 class Coordinator():

@@ -11,6 +11,7 @@ from ._globals import INDIVIDUAL_TAG, LOSS_REPORT_TAG, INIT_TAG, POPULATION_TAG,
 
 
 # TODO top n results instead of top 1, for neural network ensembles
+# TODO put coordinator rank last
 class Propulator():
     def __init__(self, loss_fn, propagator, fallback_propagator, comm=None, generations=0, checkpoint_file=None):
         self.loss_fn = loss_fn
