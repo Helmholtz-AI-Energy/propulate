@@ -51,7 +51,7 @@ class Coordinator():
 
         size = self.comm.Get_size()
         for i in range(1, size):
-            individual = self._breed(0, i+1)
+            individual = self._breed(0, i)
             self.running[i] = individual
 
         if self.generations == 0:
@@ -73,8 +73,7 @@ class Coordinator():
             self.running[source].loss = loss
             self.population.append(self.running[source])
 
-            # if source == 1:
-            #     self.comm.send(self.population, dest=source, tag=POPULATION_TAG)
+            self.comm.send((self.population, self.best), dest=source, tag=POPULATION_TAG)
 
             if generation == self.generations - 1:
                 self.running[source] = None
@@ -83,3 +82,5 @@ class Coordinator():
                 self.running[source] = self._breed(generation + 1, source)
                 self.comm.isend(self.running[source], dest=source, tag=INDIVIDUAL_TAG)
 
+    def __del__(self):
+        MPI.Finalize()

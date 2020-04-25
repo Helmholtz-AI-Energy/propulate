@@ -7,12 +7,10 @@ mpi4py.rc.initialize = False
 from mpi4py import MPI
 MPI.Init()
 
-# from .population import Individual
-
-
 from ._globals import INDIVIDUAL_TAG, LOSS_REPORT_TAG, INIT_TAG, POPULATION_TAG, COORDINATOR_RANK
 
 
+# TODO top n results instead of top 1, for neural network ensembles
 class Propulator():
     def __init__(self, loss_fn, propagator, fallback_propagator, comm=None, generations=0, checkpoint_file=None):
         self.loss_fn = loss_fn
@@ -25,7 +23,7 @@ class Propulator():
             raise ValueError("Invalid number of generations, needs to be larger than -1, but was {}".format(self.generations))
         self.comm = comm if comm is not None else MPI.COMM_WORLD
 
-        self._population = []
+        self.population = []
         self.retired = []
 
         self.checkpoint_file = str(checkpoint_file)
@@ -56,34 +54,33 @@ class Propulator():
             loss = self.loss_fn(individual)
             # NOTE report loss to coordinator
             message = (loss, generation,)
-            req = self.coord_comm.isend(message, dest=COORDINATOR_RANK, tag=LOSS_REPORT_TAG)
+            self.coord_comm.send(message, dest=COORDINATOR_RANK, tag=LOSS_REPORT_TAG)
+
+            # NOTE receives population and stats from coordinator, so user has access to them
+            self.population, self.best = self.coord_comm.recv(source=COORDINATOR_RANK, tag=POPULATION_TAG)
 
             generation += 1
 
-        req.wait()
-
-    # TODO
-    # @property
-    # def population(self):
-    #
-    #     return
-
-    # TODO
     def summarize(self, out_file=None):
-        return
-        # if self.comm.Get_rank() == 0:
-        #     import matplotlib.pyplot as plt
-        #     xs = [i.generation for i in self.population]
-        #     ys = [i.loss for i in self.population]
-        #     zs = [i.rank for i in self.population]
+        # self.population = self.comm.gather(self.population, root=0)
+        self.population = self.comm.allgather(self.population)
+        self.population = max(self.population, key=len)
+        if self.comm.Get_rank() == 0:
+            import matplotlib.pyplot as plt
+            xs = [x.generation for x in self.population]
+            ys = [x.loss for x in self.population]
+            zs = [x.rank for x in self.population]
 
-        #     print("Best loss: ", self.best)
-        #     fig, ax = plt.subplots()
-        #     scatter = ax.scatter(xs,ys, c=zs)
-        #     plt.xlabel("generation")
-        #     plt.ylabel("loss")
-        #     legend = ax.legend(*scatter.legend_elements(), title="rank")
-        #     if out_file is None:
-        #         plt.show()
-        #     else:
-        #         plt.savefig(outfile)
+            print("Best loss: ", self.best)
+            fig, ax = plt.subplots()
+            scatter = ax.scatter(xs,ys, c=zs)
+            plt.xlabel("generation")
+            plt.ylabel("loss")
+            legend = ax.legend(*scatter.legend_elements(), title="rank")
+            if out_file is None:
+                plt.show()
+            else:
+                plt.savefig(outfile)
+
+    def __del__(self):
+        MPI.Finalize()
