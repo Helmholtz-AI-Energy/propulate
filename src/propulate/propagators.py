@@ -3,6 +3,8 @@ import copy
 
 from.population import Individual
 
+# TODO add crossover
+# TODO add simplex step?
 
 def _check_compatible(out1, in2):
     return out1 == in2 or in2==-1
