@@ -2,6 +2,7 @@
 # TODO invalidate loss, when entry is modified so this does not have to be done by the propagator
 # TODO switch to ordered dict
 # TODO genealogy
+# TODO have ordinal vs categorical inferred from list vs set
 class Individual(dict):
     def __init__(self, generation=None, rank=None, traits=[]):
         super(Individual, self).__init__(list())
