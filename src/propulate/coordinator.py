@@ -46,10 +46,12 @@ class Coordinator():
     # TODO fix checkpointing
     def _coordinate(self):
         if self.checkpoint_file is not None:
+            # TODO checks and error messages here
             if os.path.isfile(self.checkpoint_file) and self.load_checkpoint:
                 with open(self.checkpoint_file, 'rb') as f:
                     self.population, self.running = pickle.load(f)
 
+        # TODO this should only happen if not resuming from a checkpoint
         size = self.comm.Get_size()
         for i in range(1, size):
             individual = self._breed(0, i)
@@ -82,6 +84,9 @@ class Coordinator():
             else:
                 self.running[source] = self._breed(generation + 1, source)
                 self.comm.isend(self.running[source], dest=source, tag=INDIVIDUAL_TAG)
+            if self.checkpoint_file is not None:
+                with open(self.checkpoint_file, 'wb') as f:
+                    pickle.dump((self.population, self.running), f)
 
     # NOTE this is here to work around the bug (?) in mpi4py that would sometimes cause an mpi_abort
     def __del__(self):
