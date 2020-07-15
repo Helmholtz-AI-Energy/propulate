@@ -7,11 +7,10 @@ mpi4py.rc.initialize = False
 from mpi4py import MPI
 MPI.Init()
 
-from ._globals import INDIVIDUAL_TAG, LOSS_REPORT_TAG, INIT_TAG, POPULATION_TAG, COORDINATOR_RANK
+from ._globals import INDIVIDUAL_TAG, LOSS_REPORT_TAG, INIT_TAG, POPULATION_TAG
 
 
 # TODO top n results instead of top 1, for neural network ensembles
-# TODO put coordinator rank last
 # TODO get rid of the fallback at this place. should be in the propagator if needed
 class Propulator():
     def __init__(self, loss_fn, propagator, fallback_propagator, comm=None, generations=0, checkpoint_file=None):
@@ -31,14 +30,16 @@ class Propulator():
         self.checkpoint_file = str(checkpoint_file)
 
         coord_comm = self.comm.Spawn("python", ['-c', "import propulate; coordinator=propulate.Coordinator();coordinator._coordinate()"])
-        self.coord_comm = coord_comm.Merge(True)
+        self.coord_comm = coord_comm.Merge(False)
         coord_comm.Disconnect()
 
-        if self.coord_comm.Get_rank() == 1:
-            self.coord_comm.send(self.generations, dest=COORDINATOR_RANK, tag=INIT_TAG)
-            self.coord_comm.send(self.checkpoint_file, dest=COORDINATOR_RANK, tag=INIT_TAG)
-            self.coord_comm.send(self.propagator, dest=COORDINATOR_RANK, tag=INIT_TAG)
-            self.coord_comm.send(self.fallback_propagator, dest=COORDINATOR_RANK, tag=INIT_TAG)
+        self.coordinator_rank = self.comm.Get_size()
+
+        if self.coord_comm.Get_rank() == 0:
+            self.coord_comm.send(self.generations, dest=self.coordinator_rank, tag=INIT_TAG)
+            self.coord_comm.send(self.checkpoint_file, dest=self.coordinator_rank, tag=INIT_TAG)
+            self.coord_comm.send(self.propagator, dest=self.coordinator_rank, tag=INIT_TAG)
+            self.coord_comm.send(self.fallback_propagator, dest=self.coordinator_rank, tag=INIT_TAG)
 
 
     def propulate(self, resume=False):
@@ -51,15 +52,15 @@ class Propulator():
         rank = self.comm.Get_rank()
 
         while self.generations == -1 or generation < self.generations:
-            individual = self.coord_comm.recv(source=COORDINATOR_RANK, tag=INDIVIDUAL_TAG)
+            individual = self.coord_comm.recv(source=self.coordinator_rank, tag=INDIVIDUAL_TAG)
 
             loss = self.loss_fn(individual)
             # NOTE report loss to coordinator
             message = (loss, generation,)
-            self.coord_comm.send(message, dest=COORDINATOR_RANK, tag=LOSS_REPORT_TAG)
+            self.coord_comm.send(message, dest=self.coordinator_rank, tag=LOSS_REPORT_TAG)
 
             # NOTE receives population and stats from coordinator, so user has access to them
-            self.population, self.best = self.coord_comm.recv(source=COORDINATOR_RANK, tag=POPULATION_TAG)
+            self.population, self.best = self.coord_comm.recv(source=self.coordinator_rank, tag=POPULATION_TAG)
 
             generation += 1
 

@@ -12,19 +12,20 @@ from ._globals import INDIVIDUAL_TAG, LOSS_REPORT_TAG, INIT_TAG, POPULATION_TAG
 class Coordinator():
     def __init__(self):
         comm = MPI.COMM_WORLD.Get_parent()
-        self.comm = comm.Merge(False)
+        self.comm = comm.Merge(True)
         comm.Disconnect()
 
-        self.running = [None] * self.comm.Get_size()
+        self.num_workers = self.comm.Get_size()-1
+        self.running = [None] * self.num_workers
         self.population = []
         self.best = float('inf')
 
-        self.generations = self.comm.recv(source=1, tag=INIT_TAG)
-        self.checkpoint_file = self.comm.recv(source=1, tag=INIT_TAG)
-        self.propagator = self.comm.recv(source=1, tag=INIT_TAG)
-        self.fallback_propagator = self.comm.recv(source=1, tag=INIT_TAG)
+        self.generations = self.comm.recv(source=0, tag=INIT_TAG)
+        self.checkpoint_file = self.comm.recv(source=0, tag=INIT_TAG)
+        self.propagator = self.comm.recv(source=0, tag=INIT_TAG)
+        self.fallback_propagator = self.comm.recv(source=0, tag=INIT_TAG)
         self.load_checkpoint = False
-        return
+
 
     def _breed(self, generation, rank):
         ind = None
@@ -52,19 +53,18 @@ class Coordinator():
                     self.population, self.running = pickle.load(f)
 
         # TODO this should only happen if not resuming from a checkpoint
-        size = self.comm.Get_size()
-        for i in range(1, size):
+        for i in range(0, self.num_workers):
             individual = self._breed(0, i)
             self.running[i] = individual
 
         if self.generations == 0:
             return
 
-        for i in range(1, size):
+        for i in range(0, self.num_workers):
             self.comm.isend(self.running[i], dest=i, tag=INDIVIDUAL_TAG)
 
         self.terminated_ranks = 0
-        while self.terminated_ranks < self.comm.Get_size()-1:
+        while self.terminated_ranks < self.num_workers:
             status = MPI.Status()
             message = self.comm.recv(source=MPI.ANY_SOURCE, tag=LOSS_REPORT_TAG, status=status)
             source = status.source
