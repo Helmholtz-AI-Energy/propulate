@@ -1,7 +1,7 @@
 import os
 import pickle
 
-# NOTE MPI has to already initialized by propulator at this point for MPIs that have not been installed with thread_multiple
+# NOTE MPI has to already be initialized by propulator at this point for MPIs that have not been installed with thread_multiple
 from mpi4py import MPI
 
 from .population import Individual

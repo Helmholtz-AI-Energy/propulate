@@ -65,7 +65,6 @@ class Propulator():
             generation += 1
 
     def summarize(self, out_file=None):
-        # self.population = self.comm.gather(self.population, root=0)
         self.population = self.comm.allgather(self.population)
         self.population = max(self.population, key=len)
         if self.comm.Get_rank() == 0:
