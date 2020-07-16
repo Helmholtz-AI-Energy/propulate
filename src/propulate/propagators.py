@@ -127,7 +127,7 @@ class SelectBest(Propagator):
 
     def __call__(self, inds):
         if len(inds) < self.offspring:
-            raise ValueError("Has to have at least{} individuals to select the {} best ones".format(self.offspring, self.offspring))
+            raise ValueError("Has to have at least {} individuals to select the {} best ones".format(self.offspring, self.offspring))
         return sorted(inds, key=lambda ind: ind.loss)[:self.offspring]
 
 
@@ -138,7 +138,7 @@ class SelectUniform(Propagator):
 
     def __call__(self, inds):
         if len(inds) < self.offspring:
-            raise ValueError("Has to have at least{} individuals to select {} from them".format(self.offspring, self.offspring))
+            raise ValueError("Has to have at least {} individuals to select {} from them".format(self.offspring, self.offspring))
         # TODO sorted?
         return random.sample(inds, self.offspring)
 
