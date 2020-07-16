@@ -14,16 +14,33 @@ class Propagator():
     """
     A Propagator takes a collection of individuals and uses them to breed a new collection of individuals.
     """
-    parents = 0  # NOTE number of input individuals should be integer >=0 or -1 (any)
-    offspring = 0
+    def __init__(self, parents=0, offspring=0):
+        """
+        parents: number of input individuals. -1 for any
+        offspring: number of output individuals
+        """
+        self.parents = parents
+        self.offspring = offspring
+        if offspring == 0:
+            raise ValueError("Propagator has to sire more than 0 offspring.")
+        return
+    def __call__(self, inds):
+        raise NotImplementedError()
+        return
+
+
+class StochasticPropagator(Propagator):
+    """
+    A StochasticPropagator is only applied with a given probability.
+    If it is not applied the output still has to adhere to the defined number of offspring.
+    """
     def __init__(self, parents=0, offspring=0, probability=1.):
         """
         parents: number of input individuals. -1 for any
         offspring: number of output individuals
         probability: probability of applying the propagator
         """
-        self.parents = parents
-        self.offspring = offspring
+        super(Cascade, self).__init__(parents, offspring)
         self.probability = probability
         if offspring == 0:
             raise ValueError("Propagator has to sire more than 0 offspring.")
@@ -34,8 +51,8 @@ class Propagator():
 
 
 class Cascade(Propagator):
-    def __init__(self, propagators, probability=1.):
-        super(Cascade, self).__init__(propagators[0].parents, propagators[-1].offspring, probability)
+    def __init__(self, propagators):
+        super(Cascade, self).__init__(propagators[0].parents, propagators[-1].offspring)
         self.propagators = propagators
         for i in range(len(propagators)-1):
             if not _check_compatible(propagators[i].offspring, propagators[i+1].parents):
@@ -53,7 +70,7 @@ class Cascade(Propagator):
 
 
 # TODO random number of points to mutate
-class PointMutation(Propagator):
+class PointMutation(StochasticPropagator):
     def __init__(self, limits, points=1, probability=1.):
         super(PointMutation, self).__init__(1, 1, probability)
         self.points = points
@@ -78,8 +95,8 @@ class PointMutation(Propagator):
         return ind
 
 
-# TODO rename to IntervalMutationClampedRelativeNormal?
-class IntervalMutationNormal(Propagator):
+# TODO rename to IntervalMutationClampedRelativeNormal? Or do this all in parameters if mu is set absolute and so on
+class IntervalMutationNormal(StochasticPropagator):
     def __init__(self, limits, sigma_factor=.1, points=1, probability=1.):
         super(IntervalMutationNormal, self).__init__(1, 1, probability)
         self.points = points
@@ -107,7 +124,7 @@ class IntervalMutationNormal(Propagator):
         return ind
 
 
-class MateUniform(Propagator):
+class MateUniform(StochasticPropagator):
     def __init__(self, probability):
         super(MateUniform, self).__init__(2, 1, probability)
         return
@@ -121,7 +138,7 @@ class MateUniform(Propagator):
         return ind
 
 
-class SelectBest(Propagator):
+class SelectBest(StochasticPropagator):
     def __init__(self, offspring):
         super(SelectBest, self).__init__(-1, offspring, 1.)
         return
@@ -132,7 +149,7 @@ class SelectBest(Propagator):
         return sorted(inds, key=lambda ind: ind.loss)[:self.offspring]
 
 
-class SelectUniform(Propagator):
+class SelectUniform(StochasticPropagator):
     def __init__(self, offspring):
         super(SelectUniform, self).__init__(-1, offspring, 1.)
         return
@@ -145,7 +162,7 @@ class SelectUniform(Propagator):
 
 
 # TODO children != 1 case
-class InitUniform(Propagator):
+class InitUniform(StochasticPropagator):
     def __init__(self, limits, parents=0, probability=1.):
         """
         In case of parents > 0 and probability < 1., call returns input individual without change
