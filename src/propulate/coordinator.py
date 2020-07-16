@@ -23,20 +23,13 @@ class Coordinator():
         self.generations = self.comm.recv(source=0, tag=INIT_TAG)
         self.checkpoint_file = self.comm.recv(source=0, tag=INIT_TAG)
         self.propagator = self.comm.recv(source=0, tag=INIT_TAG)
-        self.fallback_propagator = self.comm.recv(source=0, tag=INIT_TAG)
         self.load_checkpoint = False
 
 
     def _breed(self, generation, rank):
         ind = None
 
-        try:
-            ind = self.propagator(self.population)
-            if ind.loss is not None:
-                raise ValueError("No propagator applied, individual already evaluated")
-        # TODO fallback should be part of the propagator
-        except ValueError:
-            ind = self.fallback_propagator()
+        ind = self.propagator(self.population)
 
         ind.generation = generation
         ind.rank = rank
@@ -51,16 +44,18 @@ class Coordinator():
             if os.path.isfile(self.checkpoint_file) and self.load_checkpoint:
                 with open(self.checkpoint_file, 'rb') as f:
                     self.population, self.running = pickle.load(f)
+                    # NOTE in case we load a checkpoint from a run with fewer workers
+                    self.running.extend([None] * (self.num_workers-len(self.running)))
 
-        # TODO this should only happen if not resuming from a checkpoint
-        for i in range(0, self.num_workers):
-            individual = self._breed(0, i)
-            self.running[i] = individual
+        for i in range(self.num_workers):
+            if self.running[i] is None:
+                individual = self._breed(0, i)
+                self.running[i] = individual
 
         if self.generations == 0:
             return
 
-        for i in range(0, self.num_workers):
+        for i in range(self.num_workers):
             self.comm.isend(self.running[i], dest=i, tag=INDIVIDUAL_TAG)
 
         self.terminated_ranks = 0

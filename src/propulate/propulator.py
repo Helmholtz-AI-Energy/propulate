@@ -11,14 +11,10 @@ from ._globals import INDIVIDUAL_TAG, LOSS_REPORT_TAG, INIT_TAG, POPULATION_TAG
 
 
 # TODO top n results instead of top 1, for neural network ensembles
-# TODO get rid of the fallback at this place. should be in the propagator if needed
 class Propulator():
-    def __init__(self, loss_fn, propagator, fallback_propagator, comm=None, generations=0, checkpoint_file=None):
+    def __init__(self, loss_fn, propagator, comm=None, generations=0, checkpoint_file=None):
         self.loss_fn = loss_fn
         self.propagator = propagator
-        self.fallback_propagator = fallback_propagator
-        if fallback_propagator.parents != 0 or fallback_propagator.offspring != 1:
-            raise ValueError("Fallback propagator has create 1 offspring from 0 parents")
         self.generations = int(generations)
         if self.generations < -1:
             raise ValueError("Invalid number of generations, needs to be larger than -1, but was {}".format(self.generations))
@@ -39,7 +35,6 @@ class Propulator():
             self.coord_comm.send(self.generations, dest=self.coordinator_rank, tag=INIT_TAG)
             self.coord_comm.send(self.checkpoint_file, dest=self.coordinator_rank, tag=INIT_TAG)
             self.coord_comm.send(self.propagator, dest=self.coordinator_rank, tag=INIT_TAG)
-            self.coord_comm.send(self.fallback_propagator, dest=self.coordinator_rank, tag=INIT_TAG)
 
 
     def propulate(self, resume=False):
