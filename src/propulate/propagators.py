@@ -26,10 +26,9 @@ class Propagator():
         return
     def __call__(self, inds):
         raise NotImplementedError()
-        return
 
 
-class StochasticPropagator(Propagator):
+class Stochastic(Propagator):
     """
     A StochasticPropagator is only applied with a given probability.
     If it is not applied the output still has to adhere to the defined number of offspring.
@@ -40,7 +39,7 @@ class StochasticPropagator(Propagator):
         offspring: number of output individuals
         probability: probability of applying the propagator
         """
-        super(Cascade, self).__init__(parents, offspring)
+        super(Stochastic, self).__init__(parents, offspring)
         self.probability = probability
         if offspring == 0:
             raise ValueError("Propagator has to sire more than 0 offspring.")
@@ -48,6 +47,27 @@ class StochasticPropagator(Propagator):
     def __call__(self, inds):
         raise NotImplementedError()
         return
+
+
+# TODO this turned not quite out like i imagined. if the user defines a conditional function, i have to ship that over mpi
+# TODO so for now it's the one condition i want to have now and for the rest we'll wait for feedback
+class Conditional(Propagator):
+    """
+    """
+    def __init__(self, pop_size, true_prop, false_prop, parents=-1, offspring=-1):
+        """
+        condition: callable, if it returns True when called with input to call, true_prop is applied, false_prop otherwise.
+        """
+        super(Conditional, self).__init__(parents, offspring)
+        self.pop_size = pop_size
+        self.true_prop = true_prop
+        self.false_prop = false_prop
+
+    def __call__(self, inds):
+        if len(inds) >= self.pop_size:
+            return self.true_prop(inds)
+        else:
+            return self.false_prop(inds)
 
 
 class Cascade(Propagator):
@@ -70,7 +90,7 @@ class Cascade(Propagator):
 
 
 # TODO random number of points to mutate
-class PointMutation(StochasticPropagator):
+class PointMutation(Stochastic):
     def __init__(self, limits, points=1, probability=1.):
         super(PointMutation, self).__init__(1, 1, probability)
         self.points = points
@@ -96,7 +116,7 @@ class PointMutation(StochasticPropagator):
 
 
 # TODO rename to IntervalMutationClampedRelativeNormal? Or do this all in parameters if mu is set absolute and so on
-class IntervalMutationNormal(StochasticPropagator):
+class IntervalMutationNormal(Stochastic):
     def __init__(self, limits, sigma_factor=.1, points=1, probability=1.):
         super(IntervalMutationNormal, self).__init__(1, 1, probability)
         self.points = points
@@ -124,7 +144,7 @@ class IntervalMutationNormal(StochasticPropagator):
         return ind
 
 
-class MateUniform(StochasticPropagator):
+class MateUniform(Stochastic):
     def __init__(self, probability):
         super(MateUniform, self).__init__(2, 1, probability)
         return
@@ -138,7 +158,7 @@ class MateUniform(StochasticPropagator):
         return ind
 
 
-class SelectBest(StochasticPropagator):
+class SelectBest(Stochastic):
     def __init__(self, offspring):
         super(SelectBest, self).__init__(-1, offspring, 1.)
         return
@@ -149,7 +169,7 @@ class SelectBest(StochasticPropagator):
         return sorted(inds, key=lambda ind: ind.loss)[:self.offspring]
 
 
-class SelectUniform(StochasticPropagator):
+class SelectUniform(Stochastic):
     def __init__(self, offspring):
         super(SelectUniform, self).__init__(-1, offspring, 1.)
         return
@@ -162,7 +182,8 @@ class SelectUniform(StochasticPropagator):
 
 
 # TODO children != 1 case
-class InitUniform(StochasticPropagator):
+# TODO parents should be fixed to one NOTE see utils reason why it is not right now
+class InitUniform(Stochastic):
     def __init__(self, limits, parents=0, probability=1.):
         """
         In case of parents > 0 and probability < 1., call returns input individual without change
