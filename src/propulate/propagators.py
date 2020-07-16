@@ -78,6 +78,7 @@ class PointMutation(Propagator):
         return ind
 
 
+# TODO rename to IntervalMutationClampedRelativeNormal?
 class IntervalMutationNormal(Propagator):
     def __init__(self, limits, sigma_factor=.1, points=1, probability=1.):
         super(IntervalMutationNormal, self).__init__(1, 1, probability)
