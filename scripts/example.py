@@ -19,9 +19,9 @@ limits = {
 def loss(params):
     return sum([params[x]**2 for x in params])
 
-propagator, fallback = get_default_propagator(8, limits, .7, .4, .1)
+propagator = get_default_propagator(8, limits, .7, .4, .1)
 
-propulator = Propulator(loss, propagator, fallback, generations=num_generations)
+propulator = Propulator(loss, propagator, generations=num_generations)
 
 propulator.propulate()
 
