@@ -77,7 +77,7 @@ class Propulator():
             if out_file is None:
                 plt.show()
             else:
-                plt.savefig(outfile)
+                plt.savefig(out_file)
 
     # NOTE this is here to work around the bug (?) in mpi4py that would sometimes cause an mpi_abort
     def __del__(self):
