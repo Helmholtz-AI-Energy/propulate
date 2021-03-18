@@ -16,27 +16,22 @@ limits = {
         'w' : (-10., 10.),
         }
 
+
 def loss(params):
     return sum([params[x]**2 for x in params])
+
+
+propagator = get_default_propagator(8, limits, .7, .4, .1)
 
 if not os.path.isfile(checkpoint_file):
     print("No checkpoint found. Running 10 generations from scratch")
     num_generations = 10
-
-    propagator, fallback = get_default_propagator(8, limits, .7, .4, .1)
-
-    propulator = Propulator(loss, propagator, fallback, generations=num_generations, checkpoint_file=checkpoint_file)
-
+    propulator = Propulator(loss, propagator, generations=num_generations, checkpoint_file=checkpoint_file)
     propulator.propulate()
-
     propulator.summarize()
-
 else:
     print("Resuming from checkpoint. Running another 10 generations.")
     num_generations = 20
-
-    propulator = Propulator(loss, propagator, fallback, generations=num_generations, checkpoint_file=checkpoint_file)
-
+    propulator = Propulator(loss, propagator, generations=num_generations, checkpoint_file=checkpoint_file)
     propulator.propulate(resume=True)
-
     propulator.summarize()
