@@ -13,14 +13,15 @@ from torchvision.transforms import Compose, ToTensor, Normalize
 from ignite.engine import Events, create_supervised_trainer, create_supervised_evaluator
 from ignite.metrics import Accuracy, Loss
 
-num_generations = 3
+NUM_GENERATIONS = 3
 GPUS_PER_NODE = 4
 
 limits = {
-        'convlayers' : (2, 10),
-        'activation' : ('relu', 'sigmoid', 'tanh'),
-        'lr' : (0.01, 0.0001),
+        'convlayers': (2, 10),
+        'activation': ('relu', 'sigmoid', 'tanh'),
+        'lr': (0.01, 0.0001),
         }
+
 
 class Net(nn.Module):
     def __init__(self, convlayers, activation):
@@ -31,10 +32,7 @@ class Net(nn.Module):
         layers += [nn.Sequential(nn.Conv2d(10, 10, kernel_size=3, padding=1), activation()) for _ in range(convlayers-1)]
 
         self.fc = nn.Linear(7840, 10)
-
         self.conv_layers = nn.Sequential(*layers)
-
-        return
 
     def forward(self, x):
         b, c, w, h = x.size()
@@ -43,14 +41,15 @@ class Net(nn.Module):
         x = self.fc(x)
         return x
 
+
 def get_data_loaders(batch_size):
     data_transform = Compose([ToTensor(), Normalize((0.1307,), (0.3081,))])
     train_loader = DataLoader(MNIST(download=False, root=".", transform=data_transform, train=True), batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(MNIST(download=False, root=".", transform=data_transform, train=False), batch_size=1, shuffle=False)
     return train_loader, val_loader
 
-def ind_loss(params):
 
+def ind_loss(params):
     from mpi4py import MPI
 
     convlayers = params['convlayers']
@@ -58,13 +57,12 @@ def ind_loss(params):
     lr = params['lr']
     epochs = 2
 
-    activations = {'relu' : nn.ReLU, 'sigmoid' : nn.Sigmoid, 'tanh' : nn.Tanh}
-
+    activations = {'relu': nn.ReLU, 'sigmoid': nn.Sigmoid, 'tanh': nn.Tanh}
     activation = activations[activation]
 
     rank = MPI.COMM_WORLD.Get_rank()
 
-    device = "cuda:{}".format(rank%GPUS_PER_NODE)
+    device = "cuda:{}".format(rank % GPUS_PER_NODE)
 
     model = Net(convlayers, activation)
     model.to(device)
@@ -75,8 +73,8 @@ def ind_loss(params):
 
     trainer = create_supervised_trainer(model, optimizer, loss_fn, device=device)
     evaluator = create_supervised_evaluator(model, metrics={'acc': Accuracy(), 'ce': Loss(loss_fn)}, device=device)
-
     trainer.best_accuracy = 0.
+
     @trainer.on(Events.EPOCH_COMPLETED)
     def validate(trainer):
         evaluator.run(val_loader)
@@ -85,17 +83,11 @@ def ind_loss(params):
         if metrics['acc'] > trainer.best_accuracy:
             trainer.best_accuracy = metrics['acc']
 
-
     trainer.run(train_loader, max_epochs=epochs)
-
     return -trainer.best_accuracy
 
 
-
-propagator, fallback = get_default_propagator(8, limits, .7, .4, .1)
-
-propulator = Propulator(ind_loss, propagator, fallback, generations=num_generations)
-
+propagator = get_default_propagator(8, limits, .7, .4, .1)
+propulator = Propulator(ind_loss, propagator, generations=NUM_GENERATIONS)
 propulator.propulate()
-
 propulator.summarize()
