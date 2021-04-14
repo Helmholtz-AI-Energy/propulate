@@ -37,7 +37,6 @@ class Coordinator():
         return ind
 
     # TODO different algorithms
-    # TODO fix checkpointing
     def _coordinate(self):
         if self.checkpoint_file is not None:
             # TODO checks and error messages here

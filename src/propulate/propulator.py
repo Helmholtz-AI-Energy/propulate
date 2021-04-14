@@ -23,7 +23,9 @@ class Propulator():
         self.population = []
         self.retired = []
 
-        self.checkpoint_file = str(checkpoint_file)
+        self.checkpoint_file = None
+        if checkpoint_file is not None:
+            self.checkpoint_file = str(checkpoint_file)
 
         coord_comm = self.comm.Spawn("python", ['-c', "import propulate; coordinator=propulate.Coordinator();coordinator._coordinate()"])
         self.coord_comm = coord_comm.Merge(False)
