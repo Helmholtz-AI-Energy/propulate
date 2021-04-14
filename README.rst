@@ -28,11 +28,14 @@ Requires a MPI  implementation (currently only tested with  OpenMPI) and ``mpi4p
 TODO
 ====
 
-- checkpointing + example
 - soft reproducibility + tests
-- add thread based coordinator back in for systems where that works with the MPI
 - weight/parameter succession from parents or hall of fame
-- 
+- fix ignite
+- fix example output
+- fix checkpoint example
+- simplify extracting best result/enesemble
+- include more algorithms and operators, covariance matric adaptation
+
 
 Note
 ====
