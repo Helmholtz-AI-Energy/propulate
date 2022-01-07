@@ -22,4 +22,3 @@ def loss(params):
 propagator = get_default_propagator(8, limits, .7, .4, .1)
 propulator = Propulator(loss, propagator, generations=NUM_GENERATIONS)
 propulator.propulate()
-propulator.summarize()
