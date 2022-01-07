@@ -10,19 +10,25 @@ from ._globals import INDIVIDUAL_TAG, LOSS_REPORT_TAG, INIT_TAG, POPULATION_TAG
 
 
 class Coordinator():
-    def __init__(self):
-        comm = MPI.COMM_WORLD.Get_parent()
-        self.comm = comm.Merge(True)
-        comm.Disconnect()
+    def __init__(self, merge=True):
+        if merge:
+            comm = MPI.COMM_WORLD.Get_parent()
+            self.comm = comm.Merge(True)
+            comm.Disconnect()
+        else:
+            self.comm = MPI.COMM_WORLD
 
         self.num_workers = self.comm.Get_size()-1
         self.running = [None] * self.num_workers
         self.population = []
         self.best = float('inf')
 
-        self.generations = self.comm.recv(source=0, tag=INIT_TAG)
-        self.checkpoint_file = self.comm.recv(source=0, tag=INIT_TAG)
-        self.propagator = self.comm.recv(source=0, tag=INIT_TAG)
+        param_source = 0
+        if self.comm.Get_rank() == 0:
+            param_source = 1
+        self.generations = self.comm.recv(source=param_source, tag=INIT_TAG)
+        self.checkpoint_file = self.comm.recv(source=param_source, tag=INIT_TAG)
+        self.propagator = self.comm.recv(source=param_source, tag=INIT_TAG)
         self.load_checkpoint = False
 
 

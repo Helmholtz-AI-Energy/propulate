@@ -12,7 +12,7 @@ from ._globals import INDIVIDUAL_TAG, LOSS_REPORT_TAG, INIT_TAG, POPULATION_TAG
 
 # TODO top n results instead of top 1, for neural network ensembles
 class Propulator():
-    def __init__(self, loss_fn, propagator, comm=None, generations=0, checkpoint_file=None):
+    def __init__(self, loss_fn, propagator, comm=None, generations=0, checkpoint_file=None, coordinator_rank=None):
         self.loss_fn = loss_fn
         self.propagator = propagator
         self.generations = int(generations)
@@ -27,13 +27,22 @@ class Propulator():
         if checkpoint_file is not None:
             self.checkpoint_file = str(checkpoint_file)
 
-        coord_comm = self.comm.Spawn("python", ['-c', "import propulate; coordinator=propulate.Coordinator();coordinator._coordinate()"])
-        self.coord_comm = coord_comm.Merge(False)
-        coord_comm.Disconnect()
+        if coordinator_rank is None:
+            coord_comm = self.comm.Spawn("python", ['-c', "import propulate; coordinator=propulate.Coordinator();coordinator._coordinate()"])
+            self.coord_comm = coord_comm.Merge(False)
+            coord_comm.Disconnect()
 
-        self.coordinator_rank = self.comm.Get_size()
+            self.coordinator_rank = self.comm.Get_size()
 
-        if self.coord_comm.Get_rank() == 0:
+        else:
+            self.coordinator_rank = coordinator_rank
+            self.coord_comm = self.comm
+
+        if self.coord_comm.Get_rank() == 0 and self.coordinator_rank != 0:
+            self.coord_comm.send(self.generations, dest=self.coordinator_rank, tag=INIT_TAG)
+            self.coord_comm.send(self.checkpoint_file, dest=self.coordinator_rank, tag=INIT_TAG)
+            self.coord_comm.send(self.propagator, dest=self.coordinator_rank, tag=INIT_TAG)
+        if self.coordinator_rank == 0 and self.coord_comm.Get_rank() == 1:
             self.coord_comm.send(self.generations, dest=self.coordinator_rank, tag=INIT_TAG)
             self.coord_comm.send(self.checkpoint_file, dest=self.coordinator_rank, tag=INIT_TAG)
             self.coord_comm.send(self.propagator, dest=self.coordinator_rank, tag=INIT_TAG)
@@ -61,25 +70,25 @@ class Propulator():
 
             generation += 1
 
-    def summarize(self, out_file=None):
-        self.population = self.comm.allgather(self.population)
-        self.population = max(self.population, key=len)
-        if self.comm.Get_rank() == 0:
-            import matplotlib.pyplot as plt
-            xs = [x.generation for x in self.population]
-            ys = [x.loss for x in self.population]
-            zs = [x.rank for x in self.population]
+    # def summarize(self, out_file=None):
+    #     self.population = self.comm.allgather(self.population)
+    #     self.population = max(self.population, key=len)
+    #     if self.comm.Get_rank() == 0:
+    #         import matplotlib.pyplot as plt
+    #         xs = [x.generation for x in self.population]
+    #         ys = [x.loss for x in self.population]
+    #         zs = [x.rank for x in self.population]
 
-            print("Best loss: ", self.best)
-            fig, ax = plt.subplots()
-            scatter = ax.scatter(xs,ys, c=zs)
-            plt.xlabel("generation")
-            plt.ylabel("loss")
-            legend = ax.legend(*scatter.legend_elements(), title="rank")
-            if out_file is None:
-                plt.show()
-            else:
-                plt.savefig(out_file)
+    #         print("Best loss: ", self.best)
+    #         fig, ax = plt.subplots()
+    #         scatter = ax.scatter(xs,ys, c=zs)
+    #         plt.xlabel("generation")
+    #         plt.ylabel("loss")
+    #         legend = ax.legend(*scatter.legend_elements(), title="rank")
+    #         if out_file is None:
+    #             plt.show()
+    #         else:
+    #             plt.savefig(out_file)
 
     # NOTE this is here to work around the bug (?) in mpi4py that would sometimes cause an mpi_abort
     def __del__(self):
