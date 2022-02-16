@@ -1,7 +1,25 @@
 from .propagators import Conditional, Cascade, PointMutation, MateUniform, SelectBest, SelectUniform, InitUniform, IntervalMutationNormal
 
 def get_default_propagator(pop_size, limits, mate_prob, mut_prob, random_prob, sigma_factor=0.05):
-    propagator = Cascade(
+    """
+    Get propulate's default propagator.
+
+    
+    Parameters
+    ----------
+    pop_size : int
+               number of individuals in breeding population
+    limits : dict
+    mate_prob : float
+                uniform-crossover probability
+    mut_prob : float
+               point-mutation probability
+    random_prob : float
+                  random-initialization probability
+    sigma_factor : float
+                   scaling factor for obtaining std from search-space boundaries for interval mutation
+    """
+    propagator = Cascade( # Compose propagator out of basic evolutionary operators with Cascade(...).
             [
                 SelectBest(pop_size),
                 SelectUniform(2),
@@ -14,5 +32,13 @@ def get_default_propagator(pop_size, limits, mate_prob, mut_prob, random_prob, s
 
     init = InitUniform(limits)
 
-    propagator = Conditional(pop_size, propagator, init)
+    propagator = Conditional(pop_size, propagator, init) # Initialize random if current population size < specified `pop_size`.
     return propagator
+
+def set_seed(seed=None):
+    """
+    Set MPI-rank specific random seed.
+    """
+    if seed is not None:
+        from mpi4py import MPI
+        random.seed(seed + MPI.COMM_WORLD.rank)
