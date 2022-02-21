@@ -11,5 +11,6 @@ finally:
     del get_distribution, DistributionNotFound
 
 from .propulator import Propulator
+from .wrapper import Islands
 from . import propagators
 from . import population

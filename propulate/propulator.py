@@ -6,22 +6,52 @@ from mpi4py import MPI
 from ._globals import INDIVIDUAL_TAG, LOSS_REPORT_TAG, INIT_TAG, POPULATION_TAG, DUMP_TAG
 from .population import Individual
 
+DEBUG = False
+
 class Propulator():
     """
+    Parallel propagator of populations.
     """
-    def __init__(self, loss_fn, propagator, comm=MPI.COMM_WORLD, generations=0, load_checkpoint = "pop_cpt.p", save_checkpoint="pop_cpt.p", seed=9):
-        self.loss_fn = loss_fn              # Set callable loss function to use.
-        self.propagator = propagator        # Set propagator to use.
-        self.generations = int(generations) # Set number of generations, i.e., number of evaluation per individual.
-        if self.generations < -1:
-            raise ValueError("Invalid number of generations, needs to be larger than -1, but was {}".format(self.generations))
-        self.comm = comm
-        self.load_checkpoint = str(load_checkpoint)
-        self.save_checkpoint = str(save_checkpoint)
+    def __init__(self, loss_fn, propagator, comm=MPI.COMM_WORLD, generations=0, 
+                 load_checkpoint = "pop_cpt.p", save_checkpoint="pop_cpt.p", 
+                 seed=9, migrator=None, comm_migrate=MPI.COMM_WORLD):
+        """
+        Constructor of Propulator class.
+
+        Parameters
+        ----------
+        loss_fn : callable
+                  loss function to be minimized
+        propagator : propulate.propagators.Propagator
+                     propagator to apply for breeding
+        comm : MPI communicator
+               intra-island communicator
+        generations : int
+                      number of generations to run
+        load_checkpoint : str
+                          checkpoint file to resume optimization from
+        save_checkpoint : str
+                          checkpoint file to write checkpoints to
+        seed : int
+               base seed for random number generator
+        migrator : 
+                   migration strategy to use for migration between separate evolutionary islands
+        comm_migrate : MPI communicator
+                       inter-island communicator for migration
+        """
+        # Set class attributes.
+        self.loss_fn = loss_fn                      # callable loss function
+        self.propagator = propagator                # propagator
+        self.generations = int(generations)         # number of generations, i.e., number of evaluation per individual
+        self.comm = comm                            # intra-island communicator for actual evolutionary optimization within island
+        self.comm_migrate = comm_migrate            # inter-island communicator for migration between islands
+        self.load_checkpoint = str(load_checkpoint) # path to checkpoint file to be read
+        self.save_checkpoint = str(save_checkpoint) # path to checkpoint file to be written
 
         # Load initial population of evaluated individuals from checkpoint if exists.
-        # TODO checks and error messages here.
-        # TODO if usual checkpoint file does not exist, check for checkpoint.bkp
+        if not os.path.isfile(self.load_checkpoint): # If not exists, check for backup file.
+            self.load_checkpoint = self.load_checkpoint+'.bkp'
+
         if os.path.isfile(self.load_checkpoint):
             with open(self.load_checkpoint, 'rb') as f:
                 try:
@@ -34,34 +64,33 @@ class Propulator():
                     self.best = None
                     if self.comm.rank == 0:
                         print("NOTE: No valid checkpoint file found. Initializing population randomly...")
-
         else:
-            if os.path.isfile(self.load_checkpoint+'.bkp'):
-                with open(self.load_checkpoint+'bkp', 'rb') as f:
-                    try:
-                        self.population = pickle.load(f)
-                        self.best = min(self.population, key=attrgetter('loss'))
-                        if self.comm.rank == 0:
-                            print("NOTE: Valid checkpoint file found. Resuming from loaded population...")
-                    except Exception:
-                        self.population = []
-                        self.best = None
-                        if self.comm.rank == 0:
-                            print("NOTE: No valid checkpoint file found. Initializing population randomly...")
-            else:
-                self.population=[]
-                self.best = None
-                if self.comm.rank == 0: 
-                    print("NOTE: No valid checkpoint file given. Initializing population randomly...")
+            self.population=[]
+            self.best = None
+            if self.comm.rank == 0: 
+                print("NOTE: No valid checkpoint file given. Initializing population randomly...")
 
 
     def propulate(self):
+        """
+        Run actual evolutionary optimization.""
+        """
         self._work()
 
 
     def _breed(self, generation):
         """
         Apply propagator to current population to breed new individual.
+
+        Parameters
+        ----------
+        generation : int
+                     generation of newly bred individual
+
+        Returns
+        -------
+        ind : propulate.population.Individual
+              newly bred individual
         """
         ind = None                             # Initialize new individual.
         ind = self.propagator(self.population) # Breed new individual from current population.
@@ -82,15 +111,14 @@ class Propulator():
         dump = True if rank == 0 else False
 
         if self.generations == 0: # If number of iterations requested == 0.
-            if rank == 0: print("Number of requested generations is zero...[RETURN]")
+            if rank == 0: print("Island", self.comm_migrate.rank, ": Number of requested generations is zero...[RETURN]")
             return
 
-
         while self.generations == -1 or generation < self.generations:
-            print("Worker", rank, "in generation", generation, "...") 
-            ind = self._breed(generation) # Breed new individual to evaluate.
-            ind.loss = self.loss_fn(ind)  # Evaluate individual's loss.
-            self.population.append(ind)  # Append own result to own history list.
+            print("Island", self.comm_migrate.rank, "Worker", rank, "in generation", generation, "...") 
+            ind = self._breed(generation)   # Breed new individual to evaluate.
+            ind.loss = self.loss_fn(ind)    # Evaluate individual's loss.
+            self.population.append(ind)     # Append own result to own history list.
 
             # Tell the world about your great results.
             # Use immediate send for asynchronous communication.
@@ -101,23 +129,24 @@ class Propulator():
             # Check for incoming messages.
             probe = True
             while probe:
-                print("Worker", rank, "checking for incoming messages...")
+                if DEBUG: print("Island", self.comm_migrate.rank, "Worker", rank, "checking for incoming messages...")
                 stat = MPI.Status()
                 probe = self.comm.iprobe(source=MPI.ANY_SOURCE, tag=LOSS_REPORT_TAG, status=stat)
                 if stat.Get_source() >=0:
-                    print("Worker", rank, "incoming message from worker", stat.Get_source(), "...")
+                    if DEBUG: print("Island", self.comm_migrate.rank, "Worker", rank, "incoming message from worker", stat.Get_source(), "...")
                 if probe:
                     req = self.comm.irecv(source=stat.Get_source(), tag=LOSS_REPORT_TAG)
                     ind_temp = req.wait()
-                    print("Worker", rank, "received message from worker", stat.Get_source())
+                    if DEBUG: print("Island", self.comm_migrate.rank, "Worker", rank, "received message from worker", stat.Get_source())
                     self.population.append(ind_temp)
 
-            print("Worker", self.comm.rank, "checking for incoming messages...[DONE]")
+            if DEBUG: print("Island", self.comm_migrate.rank, "Worker", self.comm.rank, "checking for incoming messages...[DONE]")
             # Determine current best as individual with minimum loss.
             self.best = min(self.population, key=attrgetter('loss'))
 
             if dump: # Dump checkpoint.
-                print("Worker", rank, "dumping checkpoint...")
+                #if DEBUG: 
+                print("Island", self.comm_migrate.rank, "Worker", rank, "dumping checkpoint...")
                 if os.path.isfile(self.save_checkpoint):
                     os.replace(self.save_checkpoint, self.save_checkpoint+".bkp")
                 with open(self.save_checkpoint, 'wb') as f:
@@ -132,7 +161,7 @@ class Propulator():
             if probe:
                 req_dump = self.comm.irecv(source=stat.Get_source(), tag=DUMP_TAG)
                 dump = req_dump.wait()
-                print("Worker", rank, "is going to dump next:", dump, ". Before: worker", stat.Get_source())
+                if DEBUG: print("Island", self.comm_migrate.rank, "Worker", rank, "is going to dump next:", dump, ". Before: worker", stat.Get_source())
 
             generation += 1
         
@@ -164,21 +193,33 @@ class Propulator():
                 with open(self.save_checkpoint, 'wb') as f:
                     pickle.dump((self.population), f)
 
+        self.comm_migrate.barrier()
 
-    def summarize(self, n=1, out_file='summary.png'):
-        n = int(n)
-        if self.comm.rank == 0:
+
+    def summarize(self, top_n=1, out_file='summary.png'):
+        """
+        Get top-n results from propulate optimization.
+
+        Parameters
+        ----------
+        top_n : int
+                number of best results to report
+        out_file : string
+                   path to results plot (rank-specific loss vs. generation)
+        """
+        top_n = int(top_n)
+        total = self.comm_migrate.reduce(len(self.population), root=0)
+        if self.comm_migrate.rank == 0 and self.comm.rank == 0:
             print("#################################################")
             print("# PROPULATE: parallel PROpagator of POPULations #")
             print("#################################################\n")
-            print(len(self.population), "individuals have been evaluated in total.")
-            if n<=1: 
-                print("Minimum", self.best.loss, "found at", self.best, ".")
-            else:
-                self.population.sort(key=lambda x: x.loss)
-                print("Top", n, "results are:")#, self.population[:n])
-                for i in range(n):
-                    print("(", i+1,"):", self.population[i], "with loss", self.population[i].loss)
+            print(total, "individuals have been evaluated overall.")
+        if self.comm.rank == 0:
+            print(len(self.population), "individuals have been evaluated on island", self.comm_migrate.rank,".")
+            self.population.sort(key=lambda x: x.loss)
+            print("Top", top_n, "result(s):")
+            for i in range(top_n):
+                print("(", i+1,"):", self.population[i], "with loss", self.population[i].loss)
             import matplotlib.pyplot as plt
             xs = [x.generation for x in self.population]
             ys = [x.loss for x in self.population]
@@ -186,7 +227,7 @@ class Propulator():
 
             fig, ax = plt.subplots()
             scatter = ax.scatter(xs, ys, c=zs)
-            plt.xlabel("generation")
-            plt.ylabel("loss")
+            plt.xlabel("Generation")
+            plt.ylabel("Loss")
             legend = ax.legend(*scatter.legend_elements(), title="rank") 
             plt.savefig(out_file)
