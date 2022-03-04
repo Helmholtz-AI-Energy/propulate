@@ -4,6 +4,7 @@ import sys
 from propulate import Islands, Propulator
 from mpi4py import MPI
 from propulate.utils import set_seed, get_default_propagator
+import numpy as np
 
 ############
 # SETTINGS #
@@ -152,5 +153,8 @@ else:
 if __name__ == "__main__":
     
     propagator = get_default_propagator(POP_SIZE, limits, .7, .4, .1)
-    islands = Islands(function, propagator, num_islands=2, generations=NUM_GENERATIONS, load_checkpoint = "bla", save_checkpoint="pop_cpt.p", seed=9, migrator = None)
+    islands = Islands(function, propagator, generations=NUM_GENERATIONS,
+                      num_isles=2, isle_sizes=np.array([0,0,0,1]), 
+                      load_checkpoint = "pop_cpt.p", save_checkpoint="pop_cpt.p", seed=9,
+                      emigration_policy="best")
     islands.evolve(top_n=3)
