@@ -527,6 +527,40 @@ class SelectBest(Propagator):
         return sorted(inds, key=lambda ind: ind.loss)[:self.offspring] # Return `self.offspring` best individuals in terms of loss.
 
 
+class SelectWorst(Propagator):
+    """
+    Select specified number of worst performing individuals as evaluated by their losses.
+    """
+    def __init__(self, offspring):
+        """
+        Constructor of SelectBest class.
+
+        Parameters
+        ----------
+        offspring : int
+                    number of offsprings (individuals to be selected)
+        """
+        super(SelectWorst, self).__init__(-1, offspring)
+
+    def __call__(self, inds):
+        """
+        Apply anti-elitist-selection propagator.
+
+        Parameters
+        ----------
+        inds : list of propulate.population.Individual objects
+               individuals the propagator is applied to
+        
+        Returns
+        -------
+        ind : propulate.population.Individual
+              list of selected individuals after application of propagator
+        """
+        if len(inds) < self.offspring:
+            raise ValueError("Has to have at least {} individuals to select the {} best ones.".format(self.offspring, self.offspring))
+        # Sort elements of given iterable in specific order + return as list.
+        return sorted(inds, key=lambda ind: -ind.loss)[:self.offspring] # Return `self.offspring` worst individuals in terms of loss.
+
 class SelectUniform(Propagator):
     """
     Select specified number of individuals randomly.
@@ -567,7 +601,7 @@ class SelectUniform(Propagator):
 # TODO parents should be fixed to one NOTE see utils reason why it is not right now
 class InitUniform(Stochastic):
     """
-    Initiliaze individuls by uniformly sampling specified limits for each trait.
+    Initialize individuals by uniformly sampling specified limits for each trait.
     """
     def __init__(self, limits, parents=0, probability=1.):
         """

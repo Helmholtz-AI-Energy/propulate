@@ -14,8 +14,8 @@ class Islands():
     """
     def __init__(self, loss_fn, propagator, generations=0, 
                  num_isles=1, isle_sizes=None, migration_topology=None,
-                 migration_probability=0.1, emigration_policy=None, pollination=True, immigration_policy=None,
-                 load_checkpoint = "pop_cpt.p", save_checkpoint="pop_cpt.p", seed=9, ):
+                 migration_probability=0.1, emigration_policy="best", immigration_policy="worst", pollination=False,
+                 load_checkpoint = "pop_cpt.p", save_checkpoint="pop_cpt.p", seed=None):
         """
         Constructor of Islands() class.
 
@@ -86,7 +86,6 @@ class Islands():
                 else: temp = i* np.ones(base_size, dtype=int)
                 isle_sizes.append(temp)
             isle_sizes = np.concatenate(isle_sizes).ravel()
-            if rank == 0: print("NOTE: Using isle sizes of {}.".format(isle_sizes))
         
         # Heterogeneous case with user-defined isle sizes.
         if isle_sizes.size != size: 
@@ -100,10 +99,9 @@ class Islands():
         # inter-isle communicator (for communication between different isles)
         # Determine unique elements, where # unique elements equals number of isles.
         _, unique_ind, unique_counts = np.unique(isle_sizes, return_index=True, return_counts=True) 
-        if rank == 0: print(isle_sizes, unique_ind, unique_counts)
         num_isles = unique_ind.size     # Determine number of isles as number of unique elements.
         inter_color = np.zeros(size)    # Initialize inter color with only zeros.
-        if rank==0: print("Island sizes {} with start displacements {}.".format(isle_sizes, unique_ind))
+        if rank==0: print("Island sizes {} with counts {} and start displacements {}.".format(isle_sizes, unique_counts, unique_ind))
         inter_color[unique_ind] = 1 
         inter_color = inter_color[rank]
         inter_key  = rank
@@ -138,8 +136,10 @@ class Islands():
         if migration_probability > 1.: 
             raise ValueError("Migration probability must be in [0, 1] but was set to {}.".format(migration_probability))
         migration_prob = float(migration_probability) / comm_intra.size
-        print("NOTE: Isle migration probability of {} results in per-rank migration probability of {}.".format(migration_probability, migration_prob))
 
+        if rank==0: 
+            print("NOTE: Isle migration probability of {} results in per-rank migration probability of {}.".format(migration_probability, 
+                                                                                                                   migration_prob))
         load_rank_cpt = "isle_" + str(isle_idx) + "_" + load_checkpoint
         save_rank_cpt = "isle_" + str(isle_idx) + "_" + save_checkpoint
 
@@ -149,12 +149,12 @@ class Islands():
                                      load_checkpoint=load_rank_cpt, save_checkpoint=save_rank_cpt, 
                                      seed=9, comm_migrate=comm_inter, migration_topology=migration_topology,
                                      migration_prob=migration_prob, emigration_policy=emigration_policy, 
-                                     pollination=True, immigration_policy=None,
+                                     immigration_policy=immigration_policy, pollination=pollination,
                                      unique_ind=unique_ind, unique_counts=unique_counts)
 
 
 
-    def _run(self, top_n):        
+    def _run(self, top_n=3, logging_interval=10):        
         """
         Run propulate optimization.
 
@@ -163,11 +163,11 @@ class Islands():
         top_n : int
                 number of best results to report
         """
-        self.propulator.propulate()
+        self.propulator.propulate(logging_interval)
         self.propulator.summarize(top_n)
 
 
-    def evolve(self, top_n):
+    def evolve(self, top_n=3, logging_interval=10):
         """
         Run propulate optimization.
 
@@ -176,4 +176,4 @@ class Islands():
         top_n : int
                 number of best results to report
         """
-        self._run(top_n)
+        self._run(top_n, logging_interval)

@@ -10,4 +10,8 @@ class Individual(dict):
         self.generation = generation # For continuous population in propulate, generation just equals iteration for each individual.
         self.rank = rank
         self.loss = None  # NOTE set to None instead of inf since there are no comparisons
-        return
+        self.active = True
+        self.isle = None # birth island of origin
+
+    def __repr__(self):
+        return super().__repr__()+f", isle {self.isle}, worker {self.rank}, generation {self.generation}, active {self.active}"
