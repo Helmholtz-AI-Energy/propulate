@@ -1,0 +1,234 @@
+#################################################
+# PROPULATE: parallel PROpagator of POPULations #
+#################################################
+
+Island sizes [0 0 1 1] with counts [2 2] and start displacements [0 2].
+NOTE: No migration topology given, using fully connected top-1 topology...
+Isle 0: Worker 1 in generation 0...
+NOTE: No valid checkpoint file given. Initializing population randomly...
+Isle 1: Worker 1 in generation 0...
+Migration topology [[0 1]
+ [1 0]] has shape (2, 2).
+NOTE: Isle migration probability of 0.1 results in per-rank migration probability of 0.05.
+Starting parallel optimization process...
+Isle 1 has a population of 2 individuals.
+Isle 1: Worker 0 in generation 0...
+NOTE: No valid checkpoint file given. Initializing population randomly...
+Isle 0 has a population of 2 individuals.
+Isle 0: Worker 0 in generation 0...
+Isle 1: Worker 1 chose 1 emigrant(s): [{'x': 3.065966777334725, 'y': -1.09136857504539}, loss 10.591237646316884, isle 1, worker 1, generation 1, active True]
+Isle 1: Worker 1 sent 1 individual(s) to worker 0 on target isle 0.
+Isle 1: Emigrated [{'x': 3.065966777334725, 'y': -1.09136857504539}, loss 10.591237646316884, isle 1, worker 1, generation 1, active True]
+Isle 1: Worker 0 received emigrant(s) [{'x': 3.065966777334725, 'y': -1.09136857504539}, loss 10.591237646316884, isle 1, worker 1, generation 1, active True] from worker 1 to be deactivated.
+Isle 1: 0 individuals in emigrated.
+Isle 1: Worker 1 sent 1 individual(s) to worker 1 on target isle 0.
+Isle 0: Worker 0 received 1 immigrant(s) from global worker 3: [{'x': 3.065966777334725, 'y': -1.09136857504539}, loss 10.591237646316884, isle 1, worker 1, generation 1, active True]
+Isle 0: Worker 1 received 1 immigrant(s) from global worker 3: [{'x': 3.065966777334725, 'y': -1.09136857504539}, loss 10.591237646316884, isle 1, worker 1, generation 1, active True]
+Isle 1: Worker 0 chose 1 emigrant(s): [{'x': -0.050155235444186985, 'y': 1.137540433118942}, loss 1.296513784622892, isle 1, worker 0, generation 2, active True]
+Isle 1: Worker 0 sent 1 individual(s) to worker 0 on target isle 0.
+Isle 0: Worker 0 received 1 immigrant(s) from global worker 2: [{'x': -0.050155235444186985, 'y': 1.137540433118942}, loss 1.296513784622892, isle 1, worker 0, generation 2, active True]
+Isle 1: Worker 0 sent 1 individual(s) to worker 1 on target isle 0.
+Isle 1: Emigrated [{'x': -0.050155235444186985, 'y': 1.137540433118942}, loss 1.296513784622892, isle 1, worker 0, generation 2, active True]
+Isle 1: Worker 1 received emigrant(s) [{'x': -0.050155235444186985, 'y': 1.137540433118942}, loss 1.296513784622892, isle 1, worker 0, generation 2, active True] from worker 0 to be deactivated.
+Isle 1: 0 individuals in emigrated.
+Isle 0: Worker 0 in generation 10...
+Isle 1: Worker 1 in generation 10...
+Isle 0: Worker 0 in generation 20...
+Isle 1: Worker 1 in generation 20...
+Isle 0: Worker 0 in generation 30...
+Isle 1: Worker 1 chose 1 emigrant(s): [{'x': -0.16987845008291735, 'y': -0.1826821094291608}, loss 0.062231440908062124, isle 1, worker 1, generation 18, active True]
+Isle 0: Worker 0 chose 1 emigrant(s): [{'x': 0.10076356465818148, 'y': -0.19822562008921718}, loss 0.04944669242237818, isle 0, worker 0, generation 28, active True]
+Isle 1: Worker 1 sent 1 individual(s) to worker 0 on target isle 0.
+Isle 1: Worker 1 sent 1 individual(s) to worker 1 on target isle 0.
+Isle 0: Worker 0 sent 1 individual(s) to worker 1 on target isle 1.
+Isle 0: Worker 0 sent 1 individual(s) to worker 2 on target isle 1.
+Isle 1: Worker 1 received 1 immigrant(s) from global worker 0: [{'x': 0.10076356465818148, 'y': -0.19822562008921718}, loss 0.04944669242237818, isle 0, worker 0, generation 28, active True]
+Isle 0: Worker 0 chose 1 emigrant(s): [{'x': 0.1814591820129408, 'y': -0.19822562008921718}, loss 0.07222083119656024, isle 0, worker 0, generation 25, active True]
+Isle 0: Worker 0 sent 1 individual(s) to worker 1 on target isle 1.
+Isle 0: Worker 0 sent 1 individual(s) to worker 2 on target isle 1.
+Isle 1: Worker 1 received 1 immigrant(s) from global worker 0: [{'x': 0.1814591820129408, 'y': -0.19822562008921718}, loss 0.07222083119656024, isle 0, worker 0, generation 25, active True]
+Isle 0: Worker 0 received 1 immigrant(s) from global worker 3: [{'x': -0.16987845008291735, 'y': -0.1826821094291608}, loss 0.062231440908062124, isle 1, worker 1, generation 18, active True]
+Isle 1: Worker 1 in generation 30...
+Isle 0: Worker 0 chose 1 emigrant(s): [{'x': -0.099113633904225, 'y': -0.0711736659767448}, loss 0.014889203154269977, isle 0, worker 0, generation 37, active True]
+Isle 0: Worker 0 sent 1 individual(s) to worker 1 on target isle 1.
+Isle 0: Worker 0 sent 1 individual(s) to worker 2 on target isle 1.
+Isle 1: Worker 1 received 1 immigrant(s) from global worker 0: [{'x': -0.099113633904225, 'y': -0.0711736659767448}, loss 0.014889203154269977, isle 0, worker 0, generation 37, active True]
+Isle 0: Worker 0 in generation 40...
+Isle 1: Worker 1 in generation 40...
+Isle 0: Worker 0 chose 1 emigrant(s): [{'x': 0.08901972160543958, 'y': -0.19822562008921718}, loss 0.04721790729446462, isle 0, worker 0, generation 33, active True]
+Isle 0: Worker 0 sent 1 individual(s) to worker 1 on target isle 1.
+Isle 0: Worker 0 sent 1 individual(s) to worker 2 on target isle 1.
+Isle 1: Worker 1 received 1 immigrant(s) from global worker 0: [{'x': 0.08901972160543958, 'y': -0.19822562008921718}, loss 0.04721790729446462, isle 0, worker 0, generation 33, active True]
+Isle 0: Worker 0 in generation 50...
+Isle 1: Worker 1 in generation 50...
+Isle 0: Worker 0 in generation 60...
+Isle 1: Worker 1 in generation 60...
+Isle 0: Worker 0 in generation 70...
+Isle 1: Worker 1 in generation 70...
+Isle 0: Worker 0 chose 1 emigrant(s): [{'x': 0.13903962703302675, 'y': -0.1826821094291608}, loss 0.05270477099097107, isle 0, worker 0, generation 78, active True]
+Isle 0: Worker 0 sent 1 individual(s) to worker 1 on target isle 1.
+Isle 0: Worker 0 sent 1 individual(s) to worker 2 on target isle 1.
+Isle 1: Worker 1 received 1 immigrant(s) from global worker 0: [{'x': 0.13903962703302675, 'y': -0.1826821094291608}, loss 0.05270477099097107, isle 0, worker 0, generation 78, active True]
+Isle 0: Worker 0 in generation 80...
+Isle 1: Worker 1 in generation 80...
+Isle 1: Worker 1 chose 1 emigrant(s): [{'x': -0.01279784889675556, 'y': -0.026336492291963012}, loss 0.0008573957626288146, isle 1, worker 1, generation 57, active True]
+Isle 1: Worker 1 sent 1 individual(s) to worker 0 on target isle 0.
+Isle 1: Worker 1 sent 1 individual(s) to worker 1 on target isle 0.
+Isle 0: Worker 0 received 1 immigrant(s) from global worker 3: [{'x': -0.01279784889675556, 'y': -0.026336492291963012}, loss 0.0008573957626288146, isle 1, worker 1, generation 57, active True]
+Isle 1: Worker 1 chose 1 emigrant(s): [{'x': -0.01650968154422937, 'y': -0.026336492291963012}, loss 0.0009661804109364951, isle 1, worker 1, generation 67, active True]
+Isle 1: Worker 1 sent 1 individual(s) to worker 0 on target isle 0.
+Isle 1: Worker 1 sent 1 individual(s) to worker 1 on target isle 0.
+Isle 0: Worker 0 received 1 immigrant(s) from global worker 3: [{'x': -0.01650968154422937, 'y': -0.026336492291963012}, loss 0.0009661804109364951, isle 1, worker 1, generation 67, active True]
+Isle 0: Worker 0 in generation 90...
+Isle 1: Worker 1 chose 1 emigrant(s): [{'x': -0.08087177873145193, 'y': -0.026336492291963012}, loss 0.007233855421433549, isle 1, worker 1, generation 50, active True]
+Isle 1: Worker 1 sent 1 individual(s) to worker 0 on target isle 0.
+Isle 1: Worker 1 sent 1 individual(s) to worker 1 on target isle 0.
+Isle 0: Worker 0 received 1 immigrant(s) from global worker 3: [{'x': -0.08087177873145193, 'y': -0.026336492291963012}, loss 0.007233855421433549, isle 1, worker 1, generation 50, active True]
+Isle 1: Worker 1 in generation 90...
+Isle 0: Worker 0 chose 1 emigrant(s): [{'x': -0.01279784889675556, 'y': -0.026336492291963012}, loss 0.0008573957626288146, isle 1, worker 1, generation 57, active True]
+Isle 0: Worker 0 sent 1 individual(s) to worker 1 on target isle 1.
+Isle 0: Worker 0 sent 1 individual(s) to worker 2 on target isle 1.
+Isle 1: Worker 1 received 1 immigrant(s) from global worker 0: [{'x': -0.01279784889675556, 'y': -0.026336492291963012}, loss 0.0008573957626288146, isle 1, worker 1, generation 57, active True]
+Isle 0: Worker 0 chose 1 emigrant(s): [{'x': -0.01650968154422937, 'y': -0.026336492291963012}, loss 0.0009661804109364951, isle 1, worker 1, generation 67, active True]
+Isle 1: Worker 1 chose 1 emigrant(s): [{'x': -0.01279784889675556, 'y': -0.026336492291963012}, loss 0.0008573957626288146, isle 1, worker 1, generation 57, active True]
+Isle 0: Worker 0 sent 1 individual(s) to worker 1 on target isle 1.
+Isle 0: Worker 0 sent 1 individual(s) to worker 2 on target isle 1.
+Isle 1: Worker 1 sent 1 individual(s) to worker 0 on target isle 0.
+Isle 1: Worker 1 sent 1 individual(s) to worker 1 on target isle 0.
+Isle 0: Worker 0 received 1 immigrant(s) from global worker 3: [{'x': -0.01279784889675556, 'y': -0.026336492291963012}, loss 0.0008573957626288146, isle 1, worker 1, generation 57, active True]
+Isle 1: Worker 1 received 1 immigrant(s) from global worker 0: [{'x': -0.01650968154422937, 'y': -0.026336492291963012}, loss 0.0009661804109364951, isle 1, worker 1, generation 67, active True]
+Isle 0: Worker 1 in generation 10...
+Isle 0: Worker 1 received 1 immigrant(s) from global worker 2: [{'x': -0.050155235444186985, 'y': 1.137540433118942}, loss 1.296513784622892, isle 1, worker 0, generation 2, active True]
+Isle 0: Worker 1 received 1 immigrant(s) from global worker 3: [{'x': -0.16987845008291735, 'y': -0.1826821094291608}, loss 0.062231440908062124, isle 1, worker 1, generation 18, active True]
+Isle 0: Worker 1 received 1 immigrant(s) from global worker 3: [{'x': -0.01279784889675556, 'y': -0.026336492291963012}, loss 0.0008573957626288146, isle 1, worker 1, generation 57, active True]
+Isle 0: Worker 1 received 1 immigrant(s) from global worker 3: [{'x': -0.01650968154422937, 'y': -0.026336492291963012}, loss 0.0009661804109364951, isle 1, worker 1, generation 67, active True]
+Isle 0: Worker 1 received 1 immigrant(s) from global worker 3: [{'x': -0.08087177873145193, 'y': -0.026336492291963012}, loss 0.007233855421433549, isle 1, worker 1, generation 50, active True]
+Isle 0: Worker 1 received 1 immigrant(s) from global worker 3: [{'x': -0.01279784889675556, 'y': -0.026336492291963012}, loss 0.0008573957626288146, isle 1, worker 1, generation 57, active True]
+Isle 1: Worker 0 received 1 immigrant(s) from global worker 0: [{'x': 0.10076356465818148, 'y': -0.19822562008921718}, loss 0.04944669242237818, isle 0, worker 0, generation 28, active True]
+Isle 1: Worker 0 received 1 immigrant(s) from global worker 0: [{'x': 0.1814591820129408, 'y': -0.19822562008921718}, loss 0.07222083119656024, isle 0, worker 0, generation 25, active True]
+Isle 1: Worker 0 received 1 immigrant(s) from global worker 0: [{'x': -0.099113633904225, 'y': -0.0711736659767448}, loss 0.014889203154269977, isle 0, worker 0, generation 37, active True]
+Isle 1: Worker 0 received 1 immigrant(s) from global worker 0: [{'x': 0.08901972160543958, 'y': -0.19822562008921718}, loss 0.04721790729446462, isle 0, worker 0, generation 33, active True]
+Isle 1: Worker 0 received 1 immigrant(s) from global worker 0: [{'x': 0.13903962703302675, 'y': -0.1826821094291608}, loss 0.05270477099097107, isle 0, worker 0, generation 78, active True]
+Isle 1: Worker 0 received 1 immigrant(s) from global worker 0: [{'x': -0.01279784889675556, 'y': -0.026336492291963012}, loss 0.0008573957626288146, isle 1, worker 1, generation 57, active True]
+Isle 1: Worker 0 received 1 immigrant(s) from global worker 0: [{'x': -0.01650968154422937, 'y': -0.026336492291963012}, loss 0.0009661804109364951, isle 1, worker 1, generation 67, active True]
+Isle 0: Emigrated [{'x': 0.10076356465818148, 'y': -0.19822562008921718}, loss 0.04944669242237818, isle 0, worker 0, generation 28, active True]
+Isle 0: Worker 1 received emigrant(s) [{'x': 0.10076356465818148, 'y': -0.19822562008921718}, loss 0.04944669242237818, isle 0, worker 0, generation 28, active True] from worker 0 to be deactivated.
+Isle 0: 0 individuals in emigrated.
+Isle 0: Emigrated [{'x': 0.1814591820129408, 'y': -0.19822562008921718}, loss 0.07222083119656024, isle 0, worker 0, generation 25, active True]
+Isle 0: Worker 1 received emigrant(s) [{'x': 0.1814591820129408, 'y': -0.19822562008921718}, loss 0.07222083119656024, isle 0, worker 0, generation 25, active True] from worker 0 to be deactivated.
+Isle 0: 0 individuals in emigrated.
+Isle 0: Emigrated [{'x': -0.099113633904225, 'y': -0.0711736659767448}, loss 0.014889203154269977, isle 0, worker 0, generation 37, active True]
+Isle 0: Worker 1 received emigrant(s) [{'x': -0.099113633904225, 'y': -0.0711736659767448}, loss 0.014889203154269977, isle 0, worker 0, generation 37, active True] from worker 0 to be deactivated.
+Isle 0: 0 individuals in emigrated.
+Isle 0: Emigrated [{'x': 0.08901972160543958, 'y': -0.19822562008921718}, loss 0.04721790729446462, isle 0, worker 0, generation 33, active True]
+Isle 0: Worker 1 received emigrant(s) [{'x': 0.08901972160543958, 'y': -0.19822562008921718}, loss 0.04721790729446462, isle 0, worker 0, generation 33, active True] from worker 0 to be deactivated.
+Isle 0: 0 individuals in emigrated.
+Isle 0: Emigrated [{'x': 0.13903962703302675, 'y': -0.1826821094291608}, loss 0.05270477099097107, isle 0, worker 0, generation 78, active True]
+Isle 0: Worker 1 received emigrant(s) [{'x': 0.13903962703302675, 'y': -0.1826821094291608}, loss 0.05270477099097107, isle 0, worker 0, generation 78, active True] from worker 0 to be deactivated.
+Isle 0: 0 individuals in emigrated.
+Isle 0: Emigrated [{'x': -0.01279784889675556, 'y': -0.026336492291963012}, loss 0.0008573957626288146, isle 1, worker 1, generation 57, active True]
+Isle 0: Worker 1 received emigrant(s) [{'x': -0.01279784889675556, 'y': -0.026336492291963012}, loss 0.0008573957626288146, isle 1, worker 1, generation 57, active True] from worker 0 to be deactivated.
+Isle 0: 0 individuals in emigrated.
+Isle 0: Emigrated [{'x': -0.01650968154422937, 'y': -0.026336492291963012}, loss 0.0009661804109364951, isle 1, worker 1, generation 67, active True]
+Isle 0: Worker 1 received emigrant(s) [{'x': -0.01650968154422937, 'y': -0.026336492291963012}, loss 0.0009661804109364951, isle 1, worker 1, generation 67, active True] from worker 0 to be deactivated.
+Isle 0: 0 individuals in emigrated.
+Isle 1: Emigrated [{'x': -0.16987845008291735, 'y': -0.1826821094291608}, loss 0.062231440908062124, isle 1, worker 1, generation 18, active True]
+Isle 1: Worker 0 received emigrant(s) [{'x': -0.16987845008291735, 'y': -0.1826821094291608}, loss 0.062231440908062124, isle 1, worker 1, generation 18, active True] from worker 1 to be deactivated.
+Isle 1: 0 individuals in emigrated.
+Isle 1: Emigrated [{'x': -0.01279784889675556, 'y': -0.026336492291963012}, loss 0.0008573957626288146, isle 1, worker 1, generation 57, active True]
+Isle 1: Worker 0 received emigrant(s) [{'x': -0.01279784889675556, 'y': -0.026336492291963012}, loss 0.0008573957626288146, isle 1, worker 1, generation 57, active True] from worker 1 to be deactivated.
+Isle 1: 0 individuals in emigrated.
+Isle 1: Emigrated [{'x': -0.01650968154422937, 'y': -0.026336492291963012}, loss 0.0009661804109364951, isle 1, worker 1, generation 67, active True]
+Isle 1: Worker 0 received emigrant(s) [{'x': -0.01650968154422937, 'y': -0.026336492291963012}, loss 0.0009661804109364951, isle 1, worker 1, generation 67, active True] from worker 1 to be deactivated.
+Isle 1: 0 individuals in emigrated.
+Isle 1: Emigrated [{'x': -0.08087177873145193, 'y': -0.026336492291963012}, loss 0.007233855421433549, isle 1, worker 1, generation 50, active True]
+Isle 1: Worker 0 received emigrant(s) [{'x': -0.08087177873145193, 'y': -0.026336492291963012}, loss 0.007233855421433549, isle 1, worker 1, generation 50, active True] from worker 1 to be deactivated.
+Isle 1: 0 individuals in emigrated.
+Isle 1: Emigrated [{'x': -0.01279784889675556, 'y': -0.026336492291963012}, loss 0.0008573957626288146, isle 1, worker 1, generation 57, active True]
+Isle 1: Worker 0 received emigrant(s) [{'x': -0.01279784889675556, 'y': -0.026336492291963012}, loss 0.0008573957626288146, isle 1, worker 1, generation 57, active True] from worker 1 to be deactivated.
+Isle 1: 0 individuals in emigrated.
+Isle 1: Worker 0 in generation 10...
+Isle 0: Worker 1 in generation 20...
+Isle 1: Worker 0 chose 1 emigrant(s): [{'x': -0.01279784889675556, 'y': -0.026336492291963012}, loss 0.0008573957626288146, isle 1, worker 1, generation 57, active True]
+Isle 1: Worker 0 sent 1 individual(s) to worker 0 on target isle 0.
+Isle 1: Worker 0 sent 1 individual(s) to worker 1 on target isle 0.
+Isle 0: Worker 1 received 1 immigrant(s) from global worker 2: [{'x': -0.01279784889675556, 'y': -0.026336492291963012}, loss 0.0008573957626288146, isle 1, worker 1, generation 57, active True]
+Isle 0: Worker 1 in generation 30...
+Isle 1: Worker 0 in generation 20...
+Isle 0: Worker 1 in generation 40...
+Isle 1: Worker 0 in generation 30...
+Isle 0: Worker 1 in generation 50...
+Isle 1: Worker 0 chose 1 emigrant(s): [{'x': -0.01650968154422937, 'y': -0.026336492291963012}, loss 0.0009661804109364951, isle 1, worker 1, generation 67, active True]
+Isle 1: Worker 0 sent 1 individual(s) to worker 0 on target isle 0.
+Isle 1: Worker 0 sent 1 individual(s) to worker 1 on target isle 0.
+Isle 0: Worker 1 received 1 immigrant(s) from global worker 2: [{'x': -0.01650968154422937, 'y': -0.026336492291963012}, loss 0.0009661804109364951, isle 1, worker 1, generation 67, active True]
+Isle 1: Worker 0 in generation 40...
+Isle 0: Worker 1 in generation 60...
+Isle 0: Worker 1 in generation 70...
+Isle 1: Worker 0 in generation 50...
+Isle 0: Worker 1 in generation 80...
+Isle 0: Worker 1 chose 1 emigrant(s): [{'x': 0.0043752452100435865, 'y': 0.012498208357709012}, loss 0.00017534798280071674, isle 0, worker 1, generation 76, active True]
+Isle 0: Worker 1 sent 1 individual(s) to worker 1 on target isle 1.
+Isle 0: Worker 1 sent 1 individual(s) to worker 2 on target isle 1.
+Isle 1: Worker 0 received 1 immigrant(s) from global worker 1: [{'x': 0.0043752452100435865, 'y': 0.012498208357709012}, loss 0.00017534798280071674, isle 0, worker 1, generation 76, active True]
+Isle 1: Worker 0 in generation 60...
+Isle 0: Worker 1 chose 1 emigrant(s): [{'x': -0.027533558369877503, 'y': -0.0024985114526445244}, loss 0.0007643393959864474, isle 0, worker 1, generation 66, active True]
+Isle 0: Worker 1 sent 1 individual(s) to worker 1 on target isle 1.
+Isle 0: Worker 1 sent 1 individual(s) to worker 2 on target isle 1.
+Isle 1: Worker 0 received 1 immigrant(s) from global worker 1: [{'x': -0.027533558369877503, 'y': -0.0024985114526445244}, loss 0.0007643393959864474, isle 0, worker 1, generation 66, active True]
+Isle 0: Worker 1 chose 1 emigrant(s): [{'x': -0.024931344374511694, 'y': 0.012498208357709012}, loss 0.0007777771444732033, isle 0, worker 1, generation 81, active True]
+Isle 0: Worker 1 sent 1 individual(s) to worker 1 on target isle 1.
+Isle 0: Worker 1 sent 1 individual(s) to worker 2 on target isle 1.
+Isle 0: Worker 1 in generation 90...
+Isle 1: Worker 0 received 1 immigrant(s) from global worker 1: [{'x': -0.024931344374511694, 'y': 0.012498208357709012}, loss 0.0007777771444732033, isle 0, worker 1, generation 81, active True]
+Isle 1: Worker 0 in generation 70...
+Isle 1: Worker 0 in generation 80...
+Isle 1: Worker 0 in generation 90...
+Isle 1: Worker 0 chose 1 emigrant(s): [{'x': 0.0043752452100435865, 'y': 0.012498208357709012}, loss 0.00017534798280071674, isle 0, worker 1, generation 76, active True]
+Isle 1: Worker 0 sent 1 individual(s) to worker 0 on target isle 0.
+Isle 1: Worker 0 sent 1 individual(s) to worker 1 on target isle 0.
+OPTIMIZATION DONE.
+NEXT: Final checks for incoming messages...
+Isle 1: Worker 0 final check for immigrants...probe_migrants: False
+Isle 1: Worker 1 final check for immigrants...probe_migrants: True
+Isle 1: Worker 1 received 1 immigrant(s) from global worker 1: [{'x': 0.0043752452100435865, 'y': 0.012498208357709012}, loss 0.00017534798280071674, isle 0, worker 1, generation 76, active True]
+Isle 0: Worker 0 final check for immigrants...probe_migrants: True
+Isle 0: Worker 0 received 1 immigrant(s) from global worker 2: [{'x': -0.01279784889675556, 'y': -0.026336492291963012}, loss 0.0008573957626288146, isle 1, worker 1, generation 57, active True]
+Isle 0: Worker 0 final check for immigrants...probe_migrants: True
+Isle 0: Worker 1 final check for immigrants...probe_migrants: True
+Isle 0: Worker 1 received 1 immigrant(s) from global worker 2: [{'x': 0.0043752452100435865, 'y': 0.012498208357709012}, loss 0.00017534798280071674, isle 0, worker 1, generation 76, active True]
+Isle 0: Worker 1 final check for immigrants...probe_migrants: False
+Isle 1: Worker 1 final check for immigrants...probe_migrants: True
+Isle 1: Worker 1 received 1 immigrant(s) from global worker 1: [{'x': -0.027533558369877503, 'y': -0.0024985114526445244}, loss 0.0007643393959864474, isle 0, worker 1, generation 66, active True]
+Isle 0: Worker 0 received 1 immigrant(s) from global worker 2: [{'x': -0.01650968154422937, 'y': -0.026336492291963012}, loss 0.0009661804109364951, isle 1, worker 1, generation 67, active True]
+Isle 0: Worker 0 final check for immigrants...probe_migrants: True
+Isle 1: Worker 1 final check for immigrants...probe_migrants: True
+Isle 0: Worker 0 received 1 immigrant(s) from global worker 2: [{'x': 0.0043752452100435865, 'y': 0.012498208357709012}, loss 0.00017534798280071674, isle 0, worker 1, generation 76, active True]
+Isle 1: Worker 1 received 1 immigrant(s) from global worker 1: [{'x': -0.024931344374511694, 'y': 0.012498208357709012}, loss 0.0007777771444732033, isle 0, worker 1, generation 81, active True]
+Isle 1: Worker 1 final check for immigrants...probe_migrants: False
+Isle 0: Worker 0 final check for immigrants...probe_migrants: False
+Isle 0: Worker 0 received emigrant(s) from worker 1 to be deactivated.
+Isle 1: Worker 1 received emigrant(s) from worker 0 to be deactivated.
+Isle 0: Worker 0 deactivated 1 emigrant(s) [{'x': 0.0043752452100435865, 'y': 0.012498208357709012}, loss 0.00017534798280071674, isle 0, worker 1, generation 76, active True] sent by worker 1 from population.
+Isle 1: Worker 1 deactivated 1 emigrant(s) [{'x': -0.01279784889675556, 'y': -0.026336492291963012}, loss 0.0008573957626288146, isle 1, worker 1, generation 57, active True] sent by worker 0 from population.
+Isle 1: Worker 1 received emigrant(s) from worker 0 to be deactivated.
+Isle 0: Worker 0 received emigrant(s) from worker 1 to be deactivated.
+Isle 1: Worker 1 deactivated 1 emigrant(s) [{'x': -0.01650968154422937, 'y': -0.026336492291963012}, loss 0.0009661804109364951, isle 1, worker 1, generation 67, active True] sent by worker 0 from population.
+Isle 0: Worker 0 deactivated 1 emigrant(s) [{'x': -0.027533558369877503, 'y': -0.0024985114526445244}, loss 0.0007643393959864474, isle 0, worker 1, generation 66, active True] sent by worker 1 from population.
+Isle 0: Worker 0 received emigrant(s) from worker 1 to be deactivated.
+Isle 1: Worker 1 received emigrant(s) from worker 0 to be deactivated.
+Isle 1: Worker 1 deactivated 1 emigrant(s) [{'x': 0.0043752452100435865, 'y': 0.012498208357709012}, loss 0.00017534798280071674, isle 0, worker 1, generation 76, active True] sent by worker 0 from population.
+Isle 0: Worker 0 deactivated 1 emigrant(s) [{'x': -0.024931344374511694, 'y': 0.012498208357709012}, loss 0.0007777771444732033, isle 0, worker 1, generation 81, active True] sent by worker 1 from population.
+
+###########
+# SUMMARY #
+###########
+
+Isle 0 Worker 0: 200/210 individuals active.
+Isle 1 Worker 1: 202/210 individuals active.
+Isle 0 Worker 1: 200/210 individuals active.
+Isle 1 Worker 0: 201/210 individuals active.
+Top 1 result(s) on isle 0:
+(1): {'x': 0.0043752452100435865, 'y': 0.012498208357709012}, loss 0.00017534798280071674, isle 0, worker 1, generation 76, active False
+Top 1 result(s) on isle 1:
+(1): {'x': 0.0043752452100435865, 'y': 0.012498208357709012}, loss 0.00017534798280071674, isle 0, worker 1, generation 76, active False

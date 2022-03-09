@@ -14,4 +14,4 @@ class Individual(dict):
         self.isle = None # birth island of origin
 
     def __repr__(self):
-        return super().__repr__()+f", isle {self.isle}, worker {self.rank}, generation {self.generation}, active {self.active}"
+        return super().__repr__()+f", loss {self.loss}, isle {self.isle}, worker {self.rank}, generation {self.generation}, active {self.active}"

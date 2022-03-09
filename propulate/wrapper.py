@@ -4,17 +4,16 @@ from operator import attrgetter
 from mpi4py import MPI
 import numpy as np
 
-from ._globals import INDIVIDUAL_TAG, LOSS_REPORT_TAG, INIT_TAG, POPULATION_TAG, DUMP_TAG
 from .population import Individual
-from .propulator import Propulator
-
+from .propulator import Propulator, PolliPropulator
+from .propagators import SelectBest, SelectUniform, SelectWorst
 class Islands():
     """
     Wrapper class for propulate optimization runs with multiple separate evolutionary isles.
     """
     def __init__(self, loss_fn, propagator, generations=0, 
                  num_isles=1, isle_sizes=None, migration_topology=None,
-                 migration_probability=0.1, emigration_policy="best", immigration_policy="worst", pollination=False,
+                 migration_probability=0.1, emigration_propagator=SelectBest, immigration_policy="worst", pollination=False,
                  load_checkpoint = "pop_cpt.p", save_checkpoint="pop_cpt.p", seed=None):
         """
         Constructor of Islands() class.
@@ -74,36 +73,38 @@ class Islands():
         
         # Homogeneous case with equal isle sizes (differences of +-1 possible due to load balancing).
         if isle_sizes is None: 
-            if num_isles < 1:
-                raise ValueError("Invalid number of evolutionary isles, needs to be >= 1, but was {}".format(num_isles))
-            num_isles = int(num_isles) # number of separate isles
-            base_size = size // num_isles
-            remainder = size % num_isles
+            if num_isles < 1: raise ValueError(f"Invalid number of evolutionary isles, needs to be >= 1, but was {num_isles}.")
+            num_isles = int(num_isles)          # number of separate isles
+            base_size = int(size // num_isles)  # base size of each isle
+            remainder = int(size % num_isles)   # remaining workers to be distributed equally for load balancing
 
             isle_sizes = []
             for i in range(num_isles):
-                if i < remainder: temp = i* np.ones(base_size+1, dtype=int)
-                else: temp = i* np.ones(base_size, dtype=int)
-                isle_sizes.append(temp)
-            isle_sizes = np.concatenate(isle_sizes).ravel()
+                if i < remainder: temp = isle_sizes.append(base_size+1)
+                else: isle_sizes.append(base_size)
         
+        isle_sizes = np.array(isle_sizes)
+
         # Heterogeneous case with user-defined isle sizes.
-        if isle_sizes.size != size: 
-            raise ValueError(
-                    "`isle_sizes` should have MPI.COMM_WORLD.size (i.e., {}) elements but has only {}.".format(size, isle_sizes.size)
-                    )
+        if np.sum(isle_sizes) != size: 
+            raise ValueError(f"There should be MPI.COMM_WORLD.size (i.e., {size}) workers but only {np.sum(isle_sizes)} were specified.")
+
         # intra-isle communicator (for communication within each separate isle)
-        intra_color = isle_sizes[rank]
+        Intra_color = []
+        for idx, el in enumerate(isle_sizes):
+            Intra_color.append(idx*np.ones(el, dtype=int))
+        Intra_color = np.concatenate(Intra_color).ravel()
+        intra_color = Intra_color[rank]
         intra_key   = rank
 
         # inter-isle communicator (for communication between different isles)
         # Determine unique elements, where # unique elements equals number of isles.
-        _, unique_ind, unique_counts = np.unique(isle_sizes, return_index=True, return_counts=True) 
+        _, unique_ind = np.unique(Intra_color, return_index=True) 
         num_isles = unique_ind.size     # Determine number of isles as number of unique elements.
-        inter_color = np.zeros(size)    # Initialize inter color with only zeros.
-        if rank==0: print("Island sizes {} with counts {} and start displacements {}.".format(isle_sizes, unique_counts, unique_ind))
-        inter_color[unique_ind] = 1 
-        inter_color = inter_color[rank]
+        Inter_color = np.zeros(size)    # Initialize inter color with only zeros.
+        if rank==0: print("Island sizes {} with counts {} and start displacements {}.".format(Intra_color, isle_sizes, unique_ind))
+        Inter_color[unique_ind] = 1 
+        inter_color = Inter_color[rank]
         inter_key  = rank
         
         # Create new communicators by "splitting" MPI.COMM_WORLD into group of sub-communicators based on
@@ -143,14 +144,24 @@ class Islands():
         load_rank_cpt = "isle_" + str(isle_idx) + "_" + load_checkpoint
         save_rank_cpt = "isle_" + str(isle_idx) + "_" + save_checkpoint
 
+        self.emigration_propagator = emigration_propagator
+        
         if rank == 0: print("Starting parallel optimization process...")
         # Set up Propulator objects, one for each isle.
-        self.propulator = Propulator(loss_fn, propagator, comm=comm_intra, generations=generations, isle_idx=isle_idx,
-                                     load_checkpoint=load_rank_cpt, save_checkpoint=save_rank_cpt, 
-                                     seed=9, comm_migrate=comm_inter, migration_topology=migration_topology,
-                                     migration_prob=migration_prob, emigration_policy=emigration_policy, 
-                                     immigration_policy=immigration_policy, pollination=pollination,
-                                     unique_ind=unique_ind, unique_counts=unique_counts)
+        if pollination == False:
+            self.propulator = Propulator(loss_fn, propagator, comm=comm_intra, generations=generations, isle_idx=isle_idx,
+                                         load_checkpoint=load_rank_cpt, save_checkpoint=save_rank_cpt, 
+                                         seed=9, comm_inter=comm_inter, migration_topology=migration_topology,
+                                         migration_prob=migration_prob, emigration_propagator=emigration_propagator, 
+                                         immigration_policy=immigration_policy,
+                                         unique_ind=unique_ind, unique_counts=isle_sizes)
+        elif pollination == True:
+            self.propulator = PolliPropulator(loss_fn, propagator, comm=comm_intra, generations=generations, isle_idx=isle_idx,
+                                              load_checkpoint=load_rank_cpt, save_checkpoint=save_rank_cpt, 
+                                              seed=9, comm_inter=comm_inter, migration_topology=migration_topology,
+                                              migration_prob=migration_prob, emigration_propagator=emigration_propagator, 
+                                              immigration_policy=immigration_policy,
+                                              unique_ind=unique_ind, unique_count=isle_sizes)
 
 
 

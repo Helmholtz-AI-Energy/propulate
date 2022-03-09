@@ -4,6 +4,7 @@ import sys
 from propulate import Islands, Propulator
 from mpi4py import MPI
 from propulate.utils import set_seed, get_default_propagator
+from propulate.propagators import SelectBest, SelectWorst, SelectUniform
 import numpy as np
 
 ############
@@ -15,7 +16,7 @@ import numpy as np
 # This is shared between all other imports of random as long as the seed is not reset elsewhere.
 
 fname = sys.argv[1]                         # Get function to optimize from command-line.
-NUM_GENERATIONS = 100                        # Set number of generations.
+NUM_GENERATIONS = 100                       # Set number of generations.
 POP_SIZE = 2 * MPI.COMM_WORLD.size          # Set size of breeding population.
 
 # BUKIN N.6
@@ -157,8 +158,7 @@ if __name__ == "__main__":
 
     propagator = get_default_propagator(POP_SIZE, limits, .7, .4, .1)
     islands = Islands(function, propagator, generations=NUM_GENERATIONS,
-                      num_isles=2, isle_sizes=np.array([0,1]), #migration_topology=migration_topology, 
+                      num_isles=2, isle_sizes=[2, 2], #migration_topology=migration_topology, 
                       load_checkpoint = "pop_cpt.p", save_checkpoint="pop_cpt.p", seed=9,
-                      migration_probability=1.,
-                      emigration_policy="best", pollination=False)
+                      migration_probability=0.1, emigration_propagator=SelectBest, pollination=False)
     islands.evolve(top_n=1, logging_interval=10)
