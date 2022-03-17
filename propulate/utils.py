@@ -1,4 +1,5 @@
 from .propagators import Conditional, Cascade, PointMutation, MateUniform, SelectBest, SelectUniform, InitUniform, IntervalMutationNormal
+from .population import Individual
 
 def get_default_propagator(pop_size, limits, mate_prob, mut_prob, random_prob, sigma_factor=0.05):
     """

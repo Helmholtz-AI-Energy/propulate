@@ -13,7 +13,7 @@ class Islands():
     """
     def __init__(self, loss_fn, propagator, generations=0, 
                  num_isles=1, isle_sizes=None, migration_topology=None,
-                 migration_probability=0.1, emigration_propagator=SelectBest, immigration_policy="worst", pollination=False,
+                 migration_probability=0.1, emigration_propagator=SelectBest, immigration_propagator=SelectWorst, pollination=False,
                  load_checkpoint = "pop_cpt.p", save_checkpoint="pop_cpt.p", seed=None):
         """
         Constructor of Islands() class.
@@ -29,26 +29,25 @@ class Islands():
         num_isles : int
                     number of separate, equally sized evolutionary isles (ignored if `isle_sizes` is not None)
                     (differences +-1 possible due to load balancing)
-        isle_sizes : array
-                     array with sizes of different evolutionary isles (heterogeneous case)
-        migration_topology : array
+        isle_sizes : list
+                     list with numbers of workers for each evolutionary isle (heterogeneous case)
+        migration_topology : numpy array
                              2D matrix where entry (i,j) specifies how many individuals are sent
                              by isle i to isle j 
                              (int: absolute number, float: relative fraction of population)
         migration_probability : float
                                 probability of migration after each generation
-        emigration_policy : str
-                            emigration policy, i.e., how to choose individuals for emigration
-                            that are sent to destination island
-
+        emigration_propagator : propulate.propagators.Propagator
+                                emigration propagator, i.e., how to choose individuals for emigration
+                                that are sent to destination island.
+                                Should be some kind of selection operator.
+        immigration_propagator : propulate.propagators.Propagator
+                                 immigration propagator, i.e., how to choose individuals on target isle 
+                                 to be replaced by immigrants.
+                                 Should be some kind of selection operator.
         pollination : bool
                       If True, copies of emigrants are sent, otherwise, emigrants are removed from
                       original isle.
-
-        immigration_policy : str
-                             immigration policy, i.e., how to replace individuals on destination isle
-                             with immigrating individuals
-
         load_checkpoint : str
                           checkpoint file to resume optimization from
         save_checkpoint : str
@@ -147,21 +146,21 @@ class Islands():
         self.emigration_propagator = emigration_propagator
         
         if rank == 0: print("Starting parallel optimization process...")
+        MPI.COMM_WORLD.barrier()
         # Set up Propulator objects, one for each isle.
         if pollination == False:
             self.propulator = Propulator(loss_fn, propagator, comm=comm_intra, generations=generations, isle_idx=isle_idx,
                                          load_checkpoint=load_rank_cpt, save_checkpoint=save_rank_cpt, 
-                                         seed=9, comm_inter=comm_inter, migration_topology=migration_topology,
-                                         migration_prob=migration_prob, emigration_propagator=emigration_propagator, 
-                                         immigration_policy=immigration_policy,
-                                         unique_ind=unique_ind, unique_counts=isle_sizes)
+                                         comm_inter=comm_inter, migration_topology=migration_topology,
+                                         migration_prob=migration_prob, emigration_propagator=emigration_propagator,
+                                         unique_ind=unique_ind, unique_counts=isle_sizes, seed=seed)
         elif pollination == True:
             self.propulator = PolliPropulator(loss_fn, propagator, comm=comm_intra, generations=generations, isle_idx=isle_idx,
                                               load_checkpoint=load_rank_cpt, save_checkpoint=save_rank_cpt, 
-                                              seed=9, comm_inter=comm_inter, migration_topology=migration_topology,
+                                              comm_inter=comm_inter, migration_topology=migration_topology,
                                               migration_prob=migration_prob, emigration_propagator=emigration_propagator, 
-                                              immigration_policy=immigration_policy,
-                                              unique_ind=unique_ind, unique_count=isle_sizes)
+                                              immigration_propagator=immigration_propagator,
+                                              unique_ind=unique_ind, unique_count=isle_sizes, seed=seed)
 
 
 

@@ -522,6 +522,9 @@ class SelectBest(Propagator):
               list of selected individuals after application of propagator
         """
         if len(inds) < self.offspring:
+            #self.offspring=len(inds)
+            #print("NOTE: Population currently contains of less than requested number of individuals to select.")
+            #print("NOTE: Set number of individuals to be selected to current population size.")
             raise ValueError("Has to have at least {} individuals to select the {} best ones.".format(self.offspring, self.offspring))
         # Sort elements of given iterable in specific order + return as list.
         return sorted(inds, key=lambda ind: ind.loss)[:self.offspring] # Return `self.offspring` best individuals in terms of loss.
@@ -557,7 +560,10 @@ class SelectWorst(Propagator):
               list of selected individuals after application of propagator
         """
         if len(inds) < self.offspring:
-            raise ValueError("Has to have at least {} individuals to select the {} best ones.".format(self.offspring, self.offspring))
+            #self.offspring=len(inds)
+            #print("NOTE: Population currently contains of less than requested number of individuals to select.")
+            #print("NOTE: Set number of individuals to be selected to current population size.")
+            raise ValueError("Has to have at least {} individuals to select the {} worst ones.".format(self.offspring, self.offspring))
         # Sort elements of given iterable in specific order + return as list.
         return sorted(inds, key=lambda ind: -ind.loss)[:self.offspring] # Return `self.offspring` worst individuals in terms of loss.
 
@@ -591,13 +597,12 @@ class SelectUniform(Propagator):
               list of selected individuals after application of propagator
         """
         if len(inds) < self.offspring:
-            raise ValueError("Has to have at least {} individuals to select {} from them".format(self.offspring, self.offspring))
+            raise ValueError(f"Has to have at least {self.offspring} individuals to select {self.offspring} from them.")
         # Return a `self.offspring` length list of unique elements chosen from `inds`. 
         # Used for random sampling without replacement.
         return random.sample(inds, self.offspring)
 
 
-# TODO children != 1 case
 # TODO parents should be fixed to one NOTE see utils reason why it is not right now
 class InitUniform(Stochastic):
     """

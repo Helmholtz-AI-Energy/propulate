@@ -4,14 +4,24 @@
 # TODO genealogy
 # TODO have ordinal vs categorical inferred from list vs set
 
+from decimal import Decimal
+
 class Individual(dict):
-    def __init__(self, generation=None, rank=None, traits=[]):
+    def __init__(self, generation=None, rank=None):
         super(Individual, self).__init__(list())
-        self.generation = generation # For continuous population in propulate, generation just equals iteration for each individual.
+        self.generation = generation # Equals each worker's iteration for continuous population in propulate.
         self.rank = rank
-        self.loss = None  # NOTE set to None instead of inf since there are no comparisons
+        self.loss = None    # NOTE set to None instead of inf since there are no comparisons
         self.active = True
-        self.isle = None # birth island of origin
+        self.isle = None    # isle of origin
+        self.current = None
 
     def __repr__(self):
-        return super().__repr__()+f", loss {self.loss}, isle {self.isle}, worker {self.rank}, generation {self.generation}, active {self.active}"
+        rep = {key : f"{Decimal(self[key]):.2E}" for key in self}
+        Active = "active" if self.active else "deactivated"
+        return f"[{rep}, loss {Decimal(self.loss):.2E}, I{self.isle}, W{self.rank}, G{self.generation}, w{self.current}, {Active}]"
+
+    def __eq__(self, ind):
+        if self != ind or self.generation != ind.generation or self.rank != ind.rank or self.loss != ind.loss or self.active != ind.active or self.isle != ind.isle:
+            return False
+        return True
