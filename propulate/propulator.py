@@ -52,7 +52,8 @@ class Propulator():
         self.loss_fn = loss_fn                      # callable loss function
         self.propagator = propagator                # propagator
         if generations == 0: # If number of iterations requested == 0.
-            if MPI.COMM_WORLD.rank == 0: print("Requested number of generations is zero...[RETURN]")
+            if MPI.COMM_WORLD.rank == 0: 
+                print("Requested number of generations is zero...[RETURN]")
             return
         self.generations = int(generations)         # number of generations, i.e., number of evaluation per individual
         self.isle_idx = int(isle_idx)               # isle index
@@ -65,28 +66,32 @@ class Propulator():
         self.unique_ind = unique_ind
         self.unique_counts = unique_counts
         self.emigration_propagator = emigration_propagator
+        self.emigrated = []
 
         # Load initial population of evaluated individuals from checkpoint if exists.
         if not os.path.isfile(self.load_checkpoint): # If not exists, check for backup file.
-            self.load_checkpoint = self.load_checkpoint+'.bkp'
+            self.load_checkpoint = self.load_checkpoint+".bkp"
 
         if os.path.isfile(self.load_checkpoint):
-            with open(self.load_checkpoint, 'rb') as f:
+            with open(self.load_checkpoint, "rb") as f:
                 try:
                     self.population = pickle.load(f)
-                    self.best = min(self.population, key=attrgetter('loss'))
+                    self.best = min(self.population, key=attrgetter("loss"))
                     if self.comm.rank == 0: 
-                        print("NOTE: Valid checkpoint file found. Resuming from loaded population...")
+                        print("NOTE: Valid checkpoint file found. " \
+                              "Resuming from loaded population...")
                 except Exception:
                     self.population = []
                     self.best = None
                     if self.comm.rank == 0:
-                        print("NOTE: No valid checkpoint file found. Initializing population randomly...")
+                        print("NOTE: No valid checkpoint file found. " \
+                              "Initializing population randomly...")
         else:
             self.population=[]
             self.best = None
             if self.comm.rank == 0: 
-                print("NOTE: No valid checkpoint file given. Initializing population randomly...")
+                print("NOTE: No valid checkpoint file given. " \
+                      "Initializing population randomly...")
 
 
     def propulate(self, logging_interval=10):
@@ -111,35 +116,220 @@ class Propulator():
               newly bred individual
         """
         active_pop = [ind for ind in self.population if ind.active == True]
-        if DEBUG: print(f"I{self.isle_idx}: {len(active_pop)}/{len(self.population)} individuals active for breeding.")
+        if DEBUG: 
+            print(f"I{self.isle_idx}: {len(active_pop)}/{len(self.population)} " \
+                   "individuals active for breeding.")
         ind = self.propagator(active_pop)   # Breed new individual from current active population only.
         ind.generation = generation         # Set generation.
         ind.rank = self.comm.rank           # Set worker rank.
         ind.active = True                   # If True, individual is active for breeding.
         ind.isle = self.isle_idx            # Set birth island.
         ind.current = self.comm.rank        # Set worker responsible for migration.
+        ind.migration_steps = 0             # Set number of migration steps performed
         return ind                          # Return new individual.
+            
+
+    def _receive_intra_isle_individuals(self, generation, DEBUG=False):
+        """
+        Check for and possibly receive incoming individuals from other intra-isle workers.
+        """
+        probe_ind = True 
+        while probe_ind:
+            stat = MPI.Status() # Retrieve status of reception operation, containing source, tag, and error.
+            probe_ind = self.comm.iprobe(source=MPI.ANY_SOURCE, tag=INDIVIDUAL_TAG, status=stat)
+            # If True, continue checking for incoming messages. 
+            # Tells whether message corresponding to filters passed is waiting for reception or not, via a flag that it sets. 
+            # If no such message has arrived yet, it does not wait but sets the flag to false and returns.
+            if DEBUG: 
+                print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
+                      f"Checking for incoming individuals...{probe_ind}")
+            if probe_ind:
+                # MPI Receive with immediate return; does not block until message is received.
+                # To know if message has been received, use MPI wait or MPI test on MPI request filled.
+                req_ind = self.comm.irecv(source=stat.Get_source(), tag=INDIVIDUAL_TAG)
+                ind_temp = req_ind.wait()           # Wait for non-blocking operation to complete.
+                if DEBUG: 
+                    print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
+                          f"Received individual from W{stat.Get_source()}.")
+                self.population.append(ind_temp)    # Append received individual to worker-specific population list.
+        active_pop = [ind for ind in self.population if ind.active == True]
+        print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
+              f"After probing within isle: {len(active_pop)}/{len(self.population)} active: ")# \
+              #f"\n{self.population}")
 
 
-    def _work(self, logging_interval=10):
+    def _send_emigrants(self, generation, DEBUG=False):
+        """
+        Perform migration, i.e. isle sends individuals out to other islands.
+        """
+        # Determine relevant line of migration topology.
+        to_migrate = self.migration_topology[self.isle_idx,:] 
+        num_emigrants = np.sum(to_migrate)
+        eligible_emigrants = [ind for ind in self.population if ind.active == True and ind.current == self.comm.rank]
+                
+        if num_emigrants <= len(eligible_emigrants):
+            # Loop through relevant part of migration topology.
+            for target_isle, offspring in enumerate(to_migrate):
+                if offspring == 0: continue
+                eligible_emigrants = [ind for ind in self.population if ind.active == True and ind.current == self.comm.rank]
+                displ = self.unique_ind[target_isle]
+                count = self.unique_counts[target_isle]
+                dest_isle = np.arange(displ, displ+count)
+                
+                # Worker in principle sends *different* individuals to each target isle.
+                emigrator = self.emigration_propagator(offspring) 
+                emigrants = emigrator(eligible_emigrants) # Choose `offspring` emigrants from eligible emigrants.
+                print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
+                      f"Chose {len(emigrants)} emigrant(s): {emigrants}")
+                    
+                # Deactivate emigrants in population of sending isle, i.e., for all workers on original isle, for breeding.        
+                for r in range(self.comm.size): # Send emigrants to other intra-isle workers so they can deactivate them.
+                    if r == self.comm.rank: continue      # No self-talk.
+                    self.comm.isend(copy.deepcopy(emigrants), dest=r, tag=SYNCHRONIZATION_TAG)
+                    print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
+                          f"Sent {len(emigrants)} individual(s) to intra-isle W{r} for deactivation.")
+
+                # Send emigrants to all workers of target island.
+                departing = copy.deepcopy(emigrants)
+                for ind in departing:
+                    print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
+                          f"W{ind.current} responsible on sending I{self.isle_idx}.")
+                    ind.current = random.randrange(0, count)
+                    print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
+                          f"W{ind.current} responsible on target I{target_isle}.")
+                for r in dest_isle:
+                    if offspring == 0: continue
+                    MPI.COMM_WORLD.isend(departing, dest=r, tag=MIGRATION_TAG)
+                    print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
+                          f"Sent {len(departing)} individual(s) to W{r-self.unique_ind[target_isle]} " \
+                          f"on target I{target_isle}.")
+
+                # Deactive emigrants for sending worker.
+                for emigrant in emigrants: 
+                    to_deactivate = [ind for ind in self.population if ind == emigrant and ind.migration_steps == emigrant.migration_steps]
+                    #to_deactivate = [ind for ind in self.population if ind == emigrant and ind.migration_steps == emigrant.migration_steps]
+                    assert len(to_deactivate) == 1
+                    to_deactivate[0].active = False
+                    print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
+                          f"Deactivated own emigrant {to_deactivate[0]}.")
+
+            active_pop = [ind for ind in self.population if ind.active == True]
+            print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
+                  f"After emigration: {len(active_pop)}/{len(self.population)} active:" )#\
+                  #f"\n{self.population}")
+                        
+        else: 
+            print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
+                  f"Population size {len(eligible_emigrants)} too small " \
+                  f"to select {num_emigrants} migrants.")
+       
+
+    def _receive_immigrants(self, generation, DEBUG=False):
+        """
+        Check for and possibly receive immigrants send by other islands.
+        """
+        probe_migrants = True
+        while probe_migrants:
+            stat = MPI.Status()
+            probe_migrants = MPI.COMM_WORLD.iprobe(source=MPI.ANY_SOURCE, tag=MIGRATION_TAG, status=stat)
+            if DEBUG: 
+                print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
+                      f"Checking for immigrants...: {probe_migrants}")
+            if probe_migrants:
+                req_immigr = MPI.COMM_WORLD.irecv(source=stat.Get_source(), tag=MIGRATION_TAG)
+                immigrants = req_immigr.wait()
+                print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
+                      f"Received {len(immigrants)} immigrant(s) from global " \
+                      f"W{stat.Get_source()}: {immigrants}")
+                for immigrant in immigrants: 
+                    immigrant.migration_steps += 1
+                    assert immigrant.active == True
+                    immigrant_obsolete = len([ind for ind in self.population if ind == immigrant and immigrant.migration_steps < ind.migration_steps]) > 0
+                    #existing_obsolete = [ind for ind in self.population if ind == immigrant and immigrant.migration_steps > ind.migration_steps]
+                    catastrophic_failure = len([ind for ind in self.population if ind == immigrant and immigrant.migration_steps == ind.migration_steps]) > 0
+                    if catastrophic_failure:
+                        raise RuntimeError(f"Identical immigrant {immigrant} already " \
+                                           f"active on target island I{self.isle_idx}.")
+                    if immigrant_obsolete:
+                        immigrant.active = False
+                    # NOTE Do not remove obsolete individuals from population upon immigration
+                    # as they should be deactivated in the next step nevertheless.
+                    #for ind in existing_obsolete:
+                    #    ind.active = False
+                        #print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
+                        #      f"{immigrant} already in population...: {e}")
+                        #continue
+                    self.population.append(immigrant) # Append immigrant to population.
+
+        active_pop = [ind for ind in self.population if ind.active == True]
+        print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: After immigration: " \
+              f"{len(active_pop)}/{len(self.population)} active:")#\n{self.population}")
+
+    def _deactivate_emigrants(self, generation, DEBUG=False):
+        """
+        Check for and possibly receive emigrants from other intra-isle workers to be deactivated.
+        """
+        probe_sync = True
+        while probe_sync:
+            if DEBUG: 
+                print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
+                      f"Checking for emigrants from others to be deactivated...")
+            stat = MPI.Status()
+            probe_sync = self.comm.iprobe(source=MPI.ANY_SOURCE, tag=SYNCHRONIZATION_TAG, status=stat)
+            if probe_sync:
+                req_sync = self.comm.irecv(source=stat.Get_source(), tag=SYNCHRONIZATION_TAG)
+                new_emigrants = req_sync.wait()
+                self.emigrated = self.emigrated + new_emigrants
+                if DEBUG: 
+                    print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: Emigrated {self.emigrated}")
+                print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
+                      f"Got {len(new_emigrants)} new emigrant(s) {new_emigrants} " \
+                      f"from W{stat.Get_source()} to be deactivated.")
+                emigrated_copy = copy.deepcopy(self.emigrated)
+                for emigrant in emigrated_copy:
+                    assert emigrant.active == True
+                    #to_deactivate = [idx for idx, ind in enumerate(self.population) if ind == emigrant and ind.migration_steps <= emigrant.migration_steps]
+                    to_deactivate = [ind for ind in self.population if ind == emigrant and ind.migration_steps == emigrant.migration_steps]
+                    if len(to_deactivate) == 0: 
+                        print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
+                              f"Individual {emigrant} to deactivate not yet received " \
+                               "or already deactivated before.")
+                        continue
+                    #assert len(to_deactivate) == 1
+                    for ind in to_deactivate:
+                        ind.active = False
+                        print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
+                              f"Deactivated {ind}.")
+                    #self.population[to_deactivate[0]].active = False
+                    self.emigrated.remove(emigrant)
+
+        active_pop = [ind for ind in self.population if ind.active == True]
+        print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: After synchronization: "\
+              f"{len(active_pop)}/{len(self.population)} active:")#\n{self.population}")
+
+        if DEBUG: 
+            print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
+                  f"{len(self.emigrated)} individuals in emigrated.")
+
+
+    def _work(self, logging_interval=10, DEBUG=False):
         """
         Execute evolutionary algorithm in parallel.
         """
         generation = 0        # Start from generation 0.
-        rank = self.comm.rank # Determine individual worker's MPI rank.
-        emigrated = []
 
-        if rank == 0: print(f"I{self.isle_idx} has {self.comm.size} workers.") 
+        if self.comm.rank == 0: 
+            print(f"I{self.isle_idx} has {self.comm.size} workers.") 
         
-        dump = True if rank == 0 else False
+        dump = True if self.comm.rank == 0 else False
+        migration = True if self.migration_prob > 0 else False
         MPI.COMM_WORLD.barrier()
 
         # Loop over generations.
-        # TODO Implement variable number of generations with stopping criterion.
-        # while self.generations == -1 or generation < self.generations: 
-        for generation in range(self.generations):
+        while self.generations == -1 or generation < self.generations: 
 
-            if DEBUG and generation % int(logging_interval) == 0: print(f"I{self.isle_idx} W{rank}: In generation {generation}...") 
+            if DEBUG and generation % int(logging_interval) == 0: 
+                print(f"I{self.isle_idx} W{self.comm.rank}: In generation {generation}...") 
             
             # Evaluate individual.
             ind = self._breed(generation)   # Breed new individual.
@@ -148,207 +338,34 @@ class Propulator():
 
             # Tell other intra-isle workers about results to keep worker-specific populations synchronous.
             for r in range(self.comm.size):                                     # Loop over ranks in intra-isle communicator.
-                if r == rank: continue                                          # No self-talk.
+                if r == self.comm.rank: continue                                          # No self-talk.
                 self.comm.isend(copy.deepcopy(ind), dest=r, tag=INDIVIDUAL_TAG) # Immediate send for asynchronous communication.
             
-            # Check for incoming individuals from other intra-isle workers.
-            probe_ind = True # If True, continue checking for incoming messages.
-            while probe_ind:
-                stat = MPI.Status() # Retrieve status of reception operation, containing source, tag, and error.
-                probe_ind = self.comm.iprobe(source=MPI.ANY_SOURCE, tag=INDIVIDUAL_TAG, status=stat)
-                # Tells whether message corresponding to filters passed is waiting for reception or not, via a flag that it sets. 
-                # If no such message has arrived yet, it does not wait but sets the flag to false and returns.
-                if DEBUG: print(f"I{self.isle_idx} W{rank} G{generation}: Checking for incoming individuals...{probe_ind}")
-                if probe_ind:
-                    # MPI Receive with immediate return; does not block until message is received.
-                    # To know if message has been received, use MPI wait or MPI test on MPI request filled.
-                    req_ind = self.comm.irecv(source=stat.Get_source(), tag=INDIVIDUAL_TAG)
-                    ind_temp = req_ind.wait()           # Wait for non-blocking operation to complete.
-                    if DEBUG: print(f"I{self.isle_idx} W{rank} G{generation}: Received individual from W{stat.Get_source()}.")
-                    self.population.append(ind_temp)    # Append received individual to worker-specific population list.
+            # Check for and possibly receive incoming individuals from other intra-isle workers.
+            self._receive_intra_isle_individuals(generation, DEBUG)
             
-            active_pop = [ind for ind in self.population if ind.active == True]
-            print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: After probing within isle: {len(active_pop)}/{len(self.population)} active:\n{self.population}")
+            if migration:
+                # Emigration: Isle sends individuals out.
+                # Happens on per-worker basis with certain probability.
+                if random.random() < self.migration_prob: 
+                    self._send_emigrants(generation, DEBUG)
 
-#            # TODO: Is this helpful? Can be removed with one emigration-responsible worker per individual only.
-#            # Emigration: Check for emigrants from other intra-isle workers to be deactivated before choosing.
-#            probe_sync = True if self.migration_prob > 0 else False # Only check if migration probability > 0.
-#            while probe_sync:
-#                stat = MPI.Status()
-#                probe_sync = self.comm.iprobe(source=MPI.ANY_SOURCE, tag=SYNCHRONIZATION_TAG, status=stat)
-#                if DEBUG: print(f"I{self.isle_idx} W{rank} G{generation}: Checking for emigrants from others to be deactivated...{probe_sync}")
-#                if probe_sync:
-#                    req_sync = self.comm.irecv(source=stat.Get_source(), tag=SYNCHRONIZATION_TAG)
-#                    new_emigrants = req_sync.wait()        # Receive emigrants from other intra-isle workers to be deactivated.
-#                    emigrated = emigrated + new_emigrants  # Append emigrants to process-local `emigrated` history list.
-#                    if DEBUG: print(f"I{self.isle_idx} W{rank} G{generation}: Emigrated {emigrated}")
-#                    print(f"I{self.isle_idx} W{rank} G{generation}: Got {len(new_emigrants)} new emigrant(s) {new_emigrants} from W{stat.Get_source()} to be deactivated.")
-#                    iterator = copy.deepcopy(emigrated)
-#                    for ind in iterator:
-#                        IDX = [idx for idx, inds in enumerate(self.population) if inds.equals(ind)]
-#                        if len(IDX) == 0: 
-#                            print(f"I{self.isle_idx} W{rank} G{generation}: Individual {ind} to deactivate not yet received or already deactivated before.")
-#                            continue
-#                        assert len(IDX) == 1    
-#                        print(f"I{self.isle_idx} W{rank} G{generation}: Found index {IDX}.")
-#                        self.population[IDX[0]].active = False
-#                        emigrated.remove(ind)
-#                        print(f"I{self.isle_idx} W{rank} G{generation}: Deactivated {self.population[IDX[0]]}.")
-#
-#                    if DEBUG: print(f"I{self.isle_idx} W{rank} G{generation}: Emigrated {emigrated}")
-#            
-#            active_pop = [ind for ind in self.population if ind.active == True]
-#            print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: After probe_sync: {len(active_pop)}/{len(self.population)} active:\n{self.population}")
+                # Immigration: Isle checks for incoming individuals from other islands.
+                self._receive_immigrants(generation, DEBUG)
 
-            # Emigration: Isle sends individuals out.
-            # Happens on per-worker basis with certain probability.
-
-            if random.random() < self.migration_prob: 
-                if DEBUG: print(f"I{self.isle_idx} W{rank} G{generation}: Per-rank migration probability is {self.migration_prob}.")
-                if DEBUG: print(f"I{self.isle_idx} W{rank} G{generation}: Wants to send migrants.")
-                # Determine relevant line of migration topology.
-                to_migrate = self.migration_topology[self.isle_idx,:] 
-                # NOTE Possible alternative: Check total number of emigrants in relevant part of migration topology and
-                # compare to current total number of eligible emigrants. If larger, migration occurs, otherwise not.
-                # This prevents that isles with low index are favoured in the migration process.
-                if DEBUG: print(f"I{self.isle_idx} W{rank} G{generation}: Relevant line of migration topology: {to_migrate}")
-                num_emigrants = np.sum(to_migrate)
-                eligible_emigrants = [ind for ind in self.population if ind.active == True and ind.current == self.comm.rank]
-                
-                if num_emigrants <= len(eligible_emigrants):
-                    # Loop through relevant part of migration topology.
-                    for target_isle, offspring in enumerate(to_migrate):
-                        if offspring == 0: continue
-                        #active_pop = [ind for ind in self.population if ind.active == True]
-                        #eligible_emigrants = [ind for ind in self.population if ind.active == True and ind.rank % self.comm.size == self.comm.rank]
-                        eligible_emigrants = [ind for ind in self.population if ind.active == True and ind.current == self.comm.rank]
-                        #if len(active_pop) < offspring: 
-                        #if len(eligible_emigrants) < offspring: 
-                        #    #print(f"I{self.isle_idx} W{rank} G{generation}: Population size {len(active_pop)} too small to select {offspring} migrants.")
-                        #    print(f"I{self.isle_idx} W{rank} G{generation}: Population size {len(eligible_emigrants)} too small to select {offspring} migrants.")
-                        #    continue
-                        displ = self.unique_ind[target_isle]
-                        count = self.unique_counts[target_isle]
-                        if DEBUG: print(f"{count} worker(s) on target isle {target_isle}, COMM_WORLD displ is {displ}.")
-                        dest_isle = np.arange(displ, displ+count)
-                        if DEBUG: print(f"MPI.COMM_WORLD dest ranks: {dest}")
-                        
-                        # Worker in principle sends *different* individuals to each target isle.
-                        emigrator = self.emigration_propagator(offspring)
-                        #emigrants = emigrator(active_pop) # Choose `offspring` emigrants from active population.
-                        emigrants = emigrator(eligible_emigrants) # Choose `offspring` emigrants from active population.
-                        print(f"I{self.isle_idx} W{rank} G{generation}: Chose {len(emigrants)} emigrant(s): {emigrants}")
-                        
-                        # Deactivate emigrants in population of sending isle, i.e., for all workers on original isle, for breeding.
-                        
-                        for r in range(self.comm.size): # Send emigrants to other intra-isle workers so they can deactivate them.
-                            if r == rank: continue      # No self-talk.
-                            self.comm.isend(copy.deepcopy(emigrants), dest=r, tag=SYNCHRONIZATION_TAG)
-                            print(f"I{self.isle_idx} W{rank} G{generation}: Sent {len(emigrants)} individual(s) to intra-isle W{r} for deactivation.")
-
-                        # Send emigrants to all workers of target island.
-                        departing = copy.deepcopy(emigrants)
-                        for ind in departing:
-                            print(f"I{self.isle_idx} W{rank} G{generation}: W{ind.current} responsible on sending I{self.isle_idx}.")
-                            ind.current = random.randrange(0, count)
-                            print(f"I{self.isle_idx} W{rank} G{generation}: W{ind.current} responsible on target I{target_isle}.")
-                        for r in dest_isle:
-                            if offspring == 0: continue
-                            #MPI.COMM_WORLD.isend(copy.deepcopy(emigrants), dest=r, tag=MIGRATION_TAG)
-                            MPI.COMM_WORLD.isend(departing, dest=r, tag=MIGRATION_TAG)
-                            print(f"I{self.isle_idx} W{rank} G{generation}: Sent {len(departing)} individual(s) to W{r-self.unique_ind[target_isle]} on target I{target_isle}.")
-
-                        # Deactive emigrants for sending worker.
-                        # TODO Check for more readable alternative to list comprehension.
-                        for emigrant in emigrants: 
-                            to_deactivate = [idx for idx, ind in enumerate(self.population) if ind == emigrant]
-                            assert len(to_deactivate) == 1
-                            #to_deactivate = self.population.index(emigrant)
-                            self.population[to_deactivate[0]].active = False
-                            print(f"I{self.isle_idx} W{rank} G{generation}: Deactivated own emigrant {self.population[to_deactivate[0]]}.")
-                            
-                else: print(f"I{self.isle_idx} W{rank} G{generation}: Population size {len(eligible_emigrants)} too small to select {num_emigrants} migrants.")
-
-                active_pop = [ind for ind in self.population if ind.active == True]
-                print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: After emigration: {len(active_pop)}/{len(self.population)} active:\n{self.population}")
-
-            # Immigration: Isle checks for incoming individuals from other islands.
-            probe_migrants = True if self.migration_prob > 0 else False
-            while probe_migrants:
-                stat = MPI.Status()
-                probe_migrants = MPI.COMM_WORLD.iprobe(source=MPI.ANY_SOURCE, tag=MIGRATION_TAG, status=stat)
-                if DEBUG: print(f"I{self.isle_idx} W{rank} G{generation}: Checking for immigrants...: {probe_migrants}")
-                if probe_migrants:
-                    req_immigr = MPI.COMM_WORLD.irecv(source=stat.Get_source(), tag=MIGRATION_TAG)
-                    immigrants = req_immigr.wait()
-                    print(f"I{self.isle_idx} W{rank} G{generation}: Received {len(immigrants)} immigrant(s) from global W{stat.Get_source()}: {immigrants}")
-                    for immigrant in immigrants: 
-                        assert immigrant.active == True
-                        exists = [ind for ind in self.population if ind == immigrant]
-                        if len(exists) > 0:
-                            if DEBUG: raise RuntimeError(f"Immigrating individual {ind} already active on target island I{self.isle_idx}.")
-                            print(f"I{self.isle_idx} W{rank} G{generation}: {ind} already in population...: {exists}")
-                            continue
-                        self.population.append(immigrant) # Append immigrant to population.
-                        
-            active_pop = [ind for ind in self.population if ind.active == True]
-            print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: After immigration: {len(active_pop)}/{len(self.population)} active:\n{self.population}")
-
-            # # Repeated check seems to be necessary for correct book-keeping and synchronization
-            # # of population lists between workers within each isle.
-            # # Check once more for incoming individuals from other intra-isle workers.
-            # probe_ind = True # If True, continue checking for incoming messages.
-            # while probe_ind:
-            #     stat = MPI.Status() # Retrieve status of reception operation, containing source, tag, and error.
-            #     probe_ind = self.comm.iprobe(source=MPI.ANY_SOURCE, tag=INDIVIDUAL_TAG, status=stat)
-            #     if DEBUG: print(f"I{self.isle_idx} W{rank} G{generation}: Checking for incoming individuals...{probe_ind}")
-            #     if probe_ind:
-            #         req_ind = self.comm.irecv(source=stat.Get_source(), tag=INDIVIDUAL_TAG)
-            #         ind_temp = req_ind.wait() # Wait for non-blocking operation to complete.
-            #         if DEBUG: print(f"I{self.isle_idx} W{rank} G{generation}: Received individual from W{stat.Get_source()}.")
-            #         self.population.append(ind_temp) # Append received individual to worker-specific population list.
-            # if DEBUG: print(f"I{self.isle_idx} W{rank} G{generation}: Checking for incoming individuals...[DONE]")
-            # 
-            # active_pop = [ind for ind in self.population if ind.active == True]
-            # print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: After repeated probe_ind: {len(active_pop)}/{len(self.population)} active:\n{self.population}")
-
-            # Emigration: Check for emigrants from other intra-isle workers to be deactivated.
-            probe_sync = True if self.migration_prob > 0 else False
-            while probe_sync:
-                if DEBUG: print(f"I{self.isle_idx} W{rank} G{generation}: Checking for emigrants from others to be deactivated...")
-                stat = MPI.Status()
-                probe_sync = self.comm.iprobe(source=MPI.ANY_SOURCE, tag=SYNCHRONIZATION_TAG, status=stat)
-                if probe_sync:
-                    req_sync = self.comm.irecv(source=stat.Get_source(), tag=SYNCHRONIZATION_TAG)
-                    new_emigrants = req_sync.wait()
-                    emigrated = emigrated + new_emigrants
-                    if DEBUG: print(f"I{self.isle_idx} W{rank} G{generation}: Emigrated {emigrated}")
-                    print(f"I{self.isle_idx} W{rank} G{generation}: Got {len(new_emigrants)} new emigrant(s) {new_emigrants} from W{stat.Get_source()} to be deactivated.")
-                    emigrated_copy = copy.deepcopy(emigrated)
-                    for emigrant in emigrated_copy:
-                        to_deactivate = [idx for idx, ind in enumerate(self.population) if ind == emigrant]
-                        if len(to_deactivate) == 0: 
-                            print(f"I{self.isle_idx} W{rank} G{generation}: Individual {emigrant} to deactivate not yet received or already deactivated before.")
-                            continue
-                        assert len(to_deactivate) == 1
-                        self.population[to_deactivate[0]].active = False
-                        emigrated.remove(emigrant)
-                        print(f"I{self.isle_idx} W{rank} G{generation}: Deactivated {self.population[to_deactivate[0]]}.")
-
-                    if DEBUG: print(f"I{self.isle_idx} W{rank} G{generation}: {len(emigrated)} individuals in emigrated.")
-
-            active_pop = [ind for ind in self.population if ind.active == True]
-            print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: After synchronization: {len(active_pop)}/{len(self.population)} active:\n{self.population}")
+                # Emigration: Check for emigrants from other intra-isle workers to be deactivated.
+                self._deactivate_emigrants(generation, DEBUG)
             
             if dump: # Dump checkpoint.
-                if DEBUG: print(f"I{self.isle_idx} W{rank} G{generation}: Dumping checkpoint...")
+                if DEBUG: 
+                    print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: Dumping checkpoint...")
                 if os.path.isfile(self.save_checkpoint):
                     try: os.replace(self.save_checkpoint, self.save_checkpoint+".bkp")
                     except Exception as e: print(e)
                 with open(self.save_checkpoint, 'wb') as f:
                     pickle.dump((self.population), f)
                 
-                dest = rank+1 if rank+1 < self.comm.size else 0
+                dest = self.comm.rank+1 if self.comm.rank+1 < self.comm.size else 0
                 self.comm.isend(dump, dest=dest, tag=DUMP_TAG)
                 dump = False
             
@@ -357,10 +374,12 @@ class Propulator():
             if probe_dump:
                 req_dump = self.comm.irecv(source=stat.Get_source(), tag=DUMP_TAG)
                 dump = req_dump.wait()
-                if DEBUG: print(f"I{self.isle_idx} W{rank} G{generation}: Going to dump next: {dump}. Before: W{stat.Get_source()}")
+                if DEBUG: 
+                    print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: "\
+                          f"Going to dump next: {dump}. Before: W{stat.Get_source()}")
             
             # Go to next generation.
-            #generation += 1
+            generation += 1
         
         # Having completed all generations, the workers have to wait for each other.
         # Once all workers are done, they should check for incoming messages once again
@@ -368,95 +387,52 @@ class Propulator():
         # irrespective of the order they finished.
 
         MPI.COMM_WORLD.barrier()
-        if MPI.COMM_WORLD.rank == 0: print("OPTIMIZATION DONE.\nNEXT: Final checks for incoming messages...")
+        if MPI.COMM_WORLD.rank == 0: 
+            print("OPTIMIZATION DONE.\nNEXT: Final checks for incoming messages...")
         MPI.COMM_WORLD.barrier()
 
         # Final check for incoming individuals evaluated by other intra-isle workers.
-        probe_ind = True
-        while probe_ind:
-            stat = MPI.Status()
-            probe_ind = self.comm.iprobe(source=MPI.ANY_SOURCE, tag=INDIVIDUAL_TAG, status=stat)
-            if probe_ind:
-                req_ind = self.comm.irecv(source=stat.Get_source(), tag=INDIVIDUAL_TAG)
-                ind_temp = req_ind.wait()
-                self.population.append(ind_temp)
-        
+        self._receive_intra_isle_individuals(generation, DEBUG)
         active_pop = [ind for ind in self.population if ind.active == True]
-        print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: After final probe_ind: {len(active_pop)}/{len(self.population)} active:\n{self.population}")
+        print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: After final probe_ind: " \
+              f"{len(active_pop)}/{len(self.population)} active:")#\n{self.population}")
    
         MPI.COMM_WORLD.barrier()
 
-        # Final check for incoming individuals from other islands.
-        probe_migrants = True if self.migration_prob > 0 else False
-        while probe_migrants:
-            stat = MPI.Status()
-            probe_migrants = MPI.COMM_WORLD.iprobe(source=MPI.ANY_SOURCE, tag=MIGRATION_TAG, status=stat)
-            print(f"I{self.isle_idx} W{rank} G{generation}: Final check for immigrants...{probe_migrants}")
-            if probe_migrants:
-                req_migr = MPI.COMM_WORLD.irecv(source=stat.Get_source(), tag=MIGRATION_TAG)
-                immigrants = req_migr.wait()
-                print(f"I{self.isle_idx} W{rank} G{generation}: Received {len(immigrants)} immigrant(s) from global W{stat.Get_source()}: {immigrants}")
-                for ind in immigrants: 
-                    assert ind.active == True
-                    exists = [inds for inds in self.population if inds==ind]
-                    if len(exists) > 0:
-                        print(f"I{self.isle_idx} W{rank} G{generation}: {ind} already in population...: {exists}")
-                        continue
-                    self.population.append(ind) # Append immigrant to population.
-        
-        active_pop = [ind for ind in self.population if ind.active == True]
-        print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: After immigration: {len(active_pop)}/{len(self.population)} active:\n{self.population}")
+        if migration:
+            # Final check for incoming individuals from other islands.
+            self._receive_immigrants(generation, DEBUG)
+            active_pop = [ind for ind in self.population if ind.active == True]
+            print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: After immigration: " \
+                  f"{len(active_pop)}/{len(self.population)} active:")#\n{self.population}")
+            MPI.COMM_WORLD.barrier()
 
-        MPI.COMM_WORLD.barrier()
-        # Emigration: Final check for emigrants from other intra-isle workers to be deactivated.
-        probe_sync = True if self.migration_prob > 0 else False
-        while probe_sync:
-            stat = MPI.Status()
-            probe_sync = self.comm.iprobe(source=MPI.ANY_SOURCE, tag=SYNCHRONIZATION_TAG, status=stat)
-            print(f"I{self.isle_idx} W{rank} G{generation}: Final check for intra-isle emigrants to be deactivated...{probe_sync}")
-            if probe_sync:
-                req_sync = self.comm.irecv(source=stat.Get_source(), tag=SYNCHRONIZATION_TAG)
-                new_emigrants = req_sync.wait()
-                emigrated = emigrated + new_emigrants
-                if DEBUG: print(f"I{self.isle_idx} W{rank} G{generation}: Emigrated {emigrated}")
-                print(f"I{self.isle_idx} W{rank} G{generation}: Got {len(new_emigrants)} new emigrant(s) {new_emigrants} from W{stat.Get_source()} to be deactivated.")
-                iterator = copy.deepcopy(emigrated)
-                for ind in iterator:
-                    IDX = [idx for idx, inds in enumerate(self.population) if inds==ind]
-                    print(f"I{self.isle_idx} W{rank} G{generation}: Found IDX = {IDX}.")
-                    if len(IDX) == 0: 
-                        print(f"I{self.isle_idx} W{rank} G{generation}: Individual {ind} to deactivate not yet received or already deactivated before.")
-                        continue
-                    assert len(IDX) == 1
-                    self.population[IDX[0]].active = False
-                    emigrated.remove(ind)
-                    print(f"I{self.isle_idx} W{rank} G{generation}: Deactivated {self.population[IDX[0]]}.")
+            # Emigration: Final check for emigrants from other intra-isle workers to be deactivated.
+            self._deactivate_emigrants(generation, DEBUG)
+            #active_pop = [ind for ind in self.population if ind.active == True]
+            MPI.COMM_WORLD.barrier()
 
-                if DEBUG: print(f"I{self.isle_idx} W{rank} G{generation}: Emigrated {emigrated}")
-        
-        active_pop = [ind for ind in self.population if ind.active == True]
-        print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: After synchronization: {len(active_pop)}/{len(self.population)} active:\n{self.population}")
-
-        MPI.COMM_WORLD.barrier()
-
-        print(f"I{self.isle_idx} W{rank} G{generation}: Currently {len(emigrated)} individuals in emigrated.")
-        iterator = copy.deepcopy(emigrated)
-        for ind in iterator:
-            IDX = [idx for idx, inds in enumerate(self.population) if inds==ind]
-            if DEBUG: print(f"I{self.isle_idx} W{rank} G{generation}: Found IDX = {IDX}.")
-            if len(IDX) == 0: 
-                print(f"I{self.isle_idx} W{rank} G{generation}: Individual {ind} to deactivate not yet received or already deactivated before.")
-                continue
-            assert len(IDX) == 1
-            self.population[IDX[0]].active = False
-            print(f"I{self.isle_idx} W{rank} G{generation}: Deactivated individual {self.population[IDX[0]]}.")
-            emigrated.remove(ind)
-
-        print(f"I{self.isle_idx} W{rank} G{generation}: Finally {len(emigrated)} individuals in emigrated.")
-        MPI.COMM_WORLD.barrier()
+            print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
+                    f"Currently {len(self.emigrated)} individuals in emigrated: {self.emigrated}")
+            self._deactivate_emigrants(generation, DEBUG)
+            print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
+                    f"Finally {len(self.emigrated)} individuals in emigrated: {self.emigrated}.")
+            #emigrated_copy = copy.deepcopy(self.emigrated)
+            #for emigrant in emigrated_copy:
+            #    to_deactivate = [idx for idx, ind in enumerate(self.population) if ind == emigrant]
+            #    if len(to_deactivate) == 0: 
+            #        print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
+            #              f"Individual {emigrant} to deactivate not yet received or already deactivated before.")
+            #        continue
+            #    assert len(to_deactivate) == 1
+            #    self.population[to_deactivate[0]].active = False
+            #    print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
+            #          f"Deactivated individual {self.population[to_deactivate[0]]}.")
+            #    self.emigrated.remove(emigrant)
+            MPI.COMM_WORLD.barrier()
         
         # Final checkpointing on rank 0.
-        if rank == 0: # Dump checkpoint.
+        if self.comm.rank == 0: # Dump checkpoint.
             if os.path.isfile(self.save_checkpoint):
                 os.replace(self.save_checkpoint, self.save_checkpoint+".bkp")
                 with open(self.save_checkpoint, 'wb') as f:
@@ -484,9 +460,11 @@ class Propulator():
             print("\n###########")
             print("# SUMMARY #")
             print("###########\n")
-            print(f"Number of currently active individuals is {total}.\nExpected overall number of evaluations is {self.generations*MPI.COMM_WORLD.size}.")
+            print(f"Number of currently active individuals is {total}. "\
+                  f"\nExpected overall number of evaluations is {self.generations*MPI.COMM_WORLD.size}.")
         MPI.COMM_WORLD.barrier()
-        print(f"I{self.isle_idx} W{self.comm.rank}: {len(active_pop)}/{len(self.population)} individuals active:")#\n{self.population}")
+        print(f"I{self.isle_idx} W{self.comm.rank}: " \
+              f"{len(active_pop)}/{len(self.population)} individuals active:")#\n{self.population}")
         MPI.COMM_WORLD.barrier()
         if self.comm.rank == 0:
             #print("{} individuals have been evaluated on isle {}.".format(len(active_pop), self.isle_idx))
