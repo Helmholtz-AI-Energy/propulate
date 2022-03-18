@@ -15,13 +15,14 @@ class Individual(dict):
         self.active = True
         self.isle = None    # isle of origin
         self.current = None
+        self.migration_steps = None
 
     def __repr__(self):
         rep = {key : f"{Decimal(self[key]):.2E}" for key in self}
         Active = "active" if self.active else "deactivated"
-        return f"[{rep}, loss {Decimal(self.loss):.2E}, I{self.isle}, W{self.rank}, G{self.generation}, w{self.current}, {Active}]"
+        return f"[{rep}, loss {Decimal(self.loss):.2E}, I{self.isle}, W{self.rank}, G{self.generation}, w{self.current}, m{self.migration_steps}, {Active}]"
 
     def __eq__(self, ind):
-        if self != ind or self.generation != ind.generation or self.rank != ind.rank or self.loss != ind.loss or self.active != ind.active or self.isle != ind.isle:
+        if self != ind or self.generation != ind.generation or self.rank != ind.rank or self.loss != ind.loss or self.active != ind.active or self.isle != ind.isle: #or self.migration_steps != ind.migration_steps:
             return False
         return True
