@@ -115,7 +115,7 @@ class Propulator():
         ind : propulate.population.Individual
               newly bred individual
         """
-        active_pop = [ind for ind in self.population if ind.active == True]
+        active_pop = [ind for ind in self.population if ind.active]
         if DEBUG: 
             print(f"I{self.isle_idx}: {len(active_pop)}/{len(self.population)} " \
                    "individuals active for breeding.")
@@ -152,7 +152,7 @@ class Propulator():
                     print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
                           f"Received individual from W{stat.Get_source()}.")
                 self.population.append(ind_temp)    # Append received individual to worker-specific population list.
-        active_pop = [ind for ind in self.population if ind.active == True]
+        active_pop = [ind for ind in self.population if ind.active]
         print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
               f"After probing within isle: {len(active_pop)}/{len(self.population)} active: ")# \
               #f"\n{self.population}")
@@ -213,7 +213,7 @@ class Propulator():
                     print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
                           f"Deactivated own emigrant {to_deactivate[0]}.")
 
-            active_pop = [ind for ind in self.population if ind.active == True]
+            active_pop = [ind for ind in self.population if ind.active]
             print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
                   f"After emigration: {len(active_pop)}/{len(self.population)} active:" )#\
                   #f"\n{self.population}")
@@ -261,9 +261,28 @@ class Propulator():
                         #continue
                     self.population.append(immigrant) # Append immigrant to population.
 
-        active_pop = [ind for ind in self.population if ind.active == True]
+        active_pop = [ind for ind in self.population if ind.active]
         print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: After immigration: " \
               f"{len(active_pop)}/{len(self.population)} active:")#\n{self.population}")
+
+    def _check_emigrants_to_deactivate(self, generation):
+        bla = []
+        check=False
+        for idx, emigrant in enumerate(self.emigrated):
+            BLA = [ind for ind in self.population if ind == emigrant and ind.migration_steps == emigrant.migration_steps]
+            bla.append(BLA)
+            if len(BLA) > 0: 
+                check =True
+                IDX = idx
+                break
+        if check:
+            print(f"### I{self.isle_idx} W{self.comm.rank} G{generation}: emigrated: {self.emigrated} " \
+                  f"Currently in population: {bla}")
+            print("###", bla[IDX][0]==self.emigrated[IDX], bla[IDX][0]['x']==self.emigrated[IDX]['x'], \
+                    bla[IDX][0]['y']==self.emigrated[IDX]['y'], bla[IDX][0].loss==self.emigrated[IDX].loss, \
+                    bla[IDX][0].active == self.emigrated[IDX].active, bla[IDX][0].current==self.emigrated[IDX].current, \
+                    bla[IDX][0].isle == self.emigrated[IDX].isle, bla[IDX][0].migration_steps==self.emigrated[IDX].migration_steps)
+        return check
 
     def _deactivate_emigrants(self, generation, DEBUG=False):
         """
@@ -285,25 +304,29 @@ class Propulator():
                 print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
                       f"Got {len(new_emigrants)} new emigrant(s) {new_emigrants} " \
                       f"from W{stat.Get_source()} to be deactivated.")
-                emigrated_copy = copy.deepcopy(self.emigrated)
-                for emigrant in emigrated_copy:
-                    assert emigrant.active == True
-                    #to_deactivate = [idx for idx, ind in enumerate(self.population) if ind == emigrant and ind.migration_steps <= emigrant.migration_steps]
-                    to_deactivate = [ind for ind in self.population if ind == emigrant and ind.migration_steps == emigrant.migration_steps]
-                    if len(to_deactivate) == 0: 
-                        print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
-                              f"Individual {emigrant} to deactivate not yet received " \
-                               "or already deactivated before.")
-                        continue
-                    #assert len(to_deactivate) == 1
-                    for ind in to_deactivate:
-                        ind.active = False
+                #emigrated_copy = copy.deepcopy(self.emigrated)
+                #for emigrant in emigrated_copy:
+                for emigrant in self.emigrated:
+                    #assert emigrant.active == True
+                    if emigrant.active:
+                        to_deactivate = [ind for ind in self.population if ind == emigrant and ind.migration_steps == emigrant.migration_steps]
+                        #to_deactivate = [idx for idx, ind in enumerate(self.population) if ind == emigrant and ind.migration_steps == emigrant.migration_steps]
+                        if len(to_deactivate) == 0: 
+                            print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
+                                f"Individual {emigrant} to deactivate not yet received.")
+                            continue
+                        #assert len(to_deactivate) == 1
+                        for ind in to_deactivate:
+                            ind.active = False
                         print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
                               f"Deactivated {ind}.")
-                    #self.population[to_deactivate[0]].active = False
-                    self.emigrated.remove(emigrant)
-
-        active_pop = [ind for ind in self.population if ind.active == True]
+                        #for idx in to_deactivate:
+                        #    self.population[idx].active = False
+                        #    print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
+                        #          f"Deactivated {self.population[idx]}.")
+                        emigrant.active = False
+                        #self.emigrated.remove(emigrant)
+        active_pop = [ind for ind in self.population if ind.active]
         print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: After synchronization: "\
               f"{len(active_pop)}/{len(self.population)} active:")#\n{self.population}")
 
@@ -393,7 +416,7 @@ class Propulator():
 
         # Final check for incoming individuals evaluated by other intra-isle workers.
         self._receive_intra_isle_individuals(generation, DEBUG)
-        active_pop = [ind for ind in self.population if ind.active == True]
+        active_pop = [ind for ind in self.population if ind.active]
         print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: After final probe_ind: " \
               f"{len(active_pop)}/{len(self.population)} active:")#\n{self.population}")
    
@@ -402,21 +425,22 @@ class Propulator():
         if migration:
             # Final check for incoming individuals from other islands.
             self._receive_immigrants(generation, DEBUG)
-            active_pop = [ind for ind in self.population if ind.active == True]
+            active_pop = [ind for ind in self.population if ind.active]
             print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: After immigration: " \
                   f"{len(active_pop)}/{len(self.population)} active:")#\n{self.population}")
             MPI.COMM_WORLD.barrier()
 
             # Emigration: Final check for emigrants from other intra-isle workers to be deactivated.
             self._deactivate_emigrants(generation, DEBUG)
-            #active_pop = [ind for ind in self.population if ind.active == True]
+            #active_pop = [ind for ind in self.population if ind.active]
             MPI.COMM_WORLD.barrier()
-
+            active_emigrated = [ind for ind in self.emigrated if ind.active]
             print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
-                    f"Currently {len(self.emigrated)} individuals in emigrated: {self.emigrated}")
+                    f"Currently {len(active_emigrated)} individual(s) in emigrated: {active_emigrated}")
             self._deactivate_emigrants(generation, DEBUG)
+            active_emigrated = [ind for ind in self.emigrated if ind.active]
             print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
-                    f"Finally {len(self.emigrated)} individuals in emigrated: {self.emigrated}.")
+                    f"Finally {len(active_emigrated)} individual(s) in emigrated: {active_emigrated}.")
             #emigrated_copy = copy.deepcopy(self.emigrated)
             #for emigrant in emigrated_copy:
             #    to_deactivate = [idx for idx, ind in enumerate(self.population) if ind == emigrant]
@@ -453,7 +477,7 @@ class Propulator():
                    path to results plot (rank-specific loss vs. generation)
         """
         top_n = int(top_n)
-        active_pop = [ind for ind in self.population if ind.active == True]
+        active_pop = [ind for ind in self.population if ind.active]
         total = self.comm_inter.reduce(len(active_pop), root=0)
         MPI.COMM_WORLD.barrier()
         if MPI.COMM_WORLD.rank == 0:
