@@ -22,7 +22,16 @@ class Individual(dict):
         Active = "active" if self.active else "deactivated"
         return f"[{rep}, loss {Decimal(self.loss):.2E}, I{self.isle}, W{self.rank}, G{self.generation}, w{self.current}, m{self.migration_steps}, {Active}]"
 
-    def __eq__(self, ind):
-        if self != ind or self.generation != ind.generation or self.rank != ind.rank or self.loss != ind.loss or self.active != ind.active or self.isle != ind.isle: #or self.migration_steps != ind.migration_steps:
-            return False
-        return True
+    def __eq__(self, other):
+        # Check if object to compare to is of the same class.
+        assert isinstance(other, self.__class__)
+        # Check equivalence of actual traits, i.e., hyperparameter values.
+        compare_traits = True
+        for key in self.keys():
+            if self[key] == other[key]:
+                continue
+            else:
+                compare_traits = False
+                break
+        # Additionally check for equivalence of attributes (except for `self.migration_steps`).
+        return compare_traits and self.loss == other.loss and self.generation == other.generation and self.rank == other.rank and self.isle == other.isle and self.active == other.active
