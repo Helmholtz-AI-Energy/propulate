@@ -58,7 +58,6 @@ class Islands():
         # Set attributes.
         self.loss_fn = loss_fn              # callable loss function
         self.propagator = propagator        # propagator
-        if generations < -1: raise ValueError("Invalid number of generations, needs to be > -1, but was {}.".format(generations))
         self.generations = int(generations) # number of generations, i.e., evaluations per individual
 
         # Set up communicators.
@@ -72,15 +71,18 @@ class Islands():
         
         # Homogeneous case with equal isle sizes (differences of +-1 possible due to load balancing).
         if isle_sizes is None: 
-            if num_isles < 1: raise ValueError(f"Invalid number of evolutionary isles, needs to be >= 1, but was {num_isles}.")
+            if num_isles < 1: 
+                raise ValueError(f"Invalid number of evolutionary isles, needs to be >= 1, but was {num_isles}.")
             num_isles = int(num_isles)          # number of separate isles
             base_size = int(size // num_isles)  # base size of each isle
             remainder = int(size % num_isles)   # remaining workers to be distributed equally for load balancing
 
             isle_sizes = []
             for i in range(num_isles):
-                if i < remainder: temp = isle_sizes.append(base_size+1)
-                else: isle_sizes.append(base_size)
+                if i < remainder: 
+                    temp = isle_sizes.append(base_size+1)
+                else: 
+                    isle_sizes.append(base_size)
         
         isle_sizes = np.array(isle_sizes)
 
@@ -101,7 +103,8 @@ class Islands():
         _, unique_ind = np.unique(Intra_color, return_index=True) 
         num_isles = unique_ind.size     # Determine number of isles as number of unique elements.
         Inter_color = np.zeros(size)    # Initialize inter color with only zeros.
-        if rank==0: print("Island sizes {} with counts {} and start displacements {}.".format(Intra_color, isle_sizes, unique_ind))
+        if rank==0: 
+            print(f"Island sizes {Intra_color} with counts {isle_sizes} and start displacements {unique_ind}.")
         Inter_color[unique_ind] = 1 
         inter_color = Inter_color[rank]
         inter_key  = rank
@@ -116,36 +119,39 @@ class Islands():
         comm_inter  = MPI.COMM_WORLD.Split(color=inter_color, key=inter_key)
 
         # Determine isle index and broadcast to all ranks in intra-isle communicator.
-        if comm_intra.rank == 0: isle_idx = comm_inter.rank
-        else: isle_idx = None
+        if comm_intra.rank == 0: 
+            isle_idx = comm_inter.rank
+        else: 
+            isle_idx = None
         isle_idx = comm_intra.bcast(isle_idx, root=0)
 
         if migration_topology is None:
             migration_topology = np.ones((num_isles, num_isles), dtype=int)
             np.fill_diagonal(migration_topology, 0)
-            if rank == 0: print("NOTE: No migration topology given, using fully connected top-1 topology...")
+            if rank == 0: 
+                print("NOTE: No migration topology given, using fully connected top-1 topology...")
         
-        if rank == 0: print("Migration topology {} has shape {}.".format(migration_topology, migration_topology.shape))
+        if rank == 0: 
+            print(f"Migration topology {migration_topology} has shape {migration_topology.shape}.")
 
         if migration_topology.shape != (num_isles, num_isles):
-            raise ValueError(
-                    "Migration topology must be a quadratic matrix of size {} x {} but has shape {}.".format(unique.size, 
-                        unique.size, migration_topology.shape)
-                    )
+            raise ValueError(f"Migration topology must be a quadratic matrix of size " \
+                             f"{unique.size} x {unique.size} but has shape {migration_topology.shape}.")
 
         if migration_probability > 1.: 
-            raise ValueError("Migration probability must be in [0, 1] but was set to {}.".format(migration_probability))
+            raise ValueError(f"Migration probability must be in [0, 1] but was set to {migration_probability}.")
         migration_prob = float(migration_probability) / comm_intra.size
 
         if rank==0: 
-            print("NOTE: Isle migration probability of {} results in per-rank migration probability of {}.".format(migration_probability, 
-                                                                                                                   migration_prob))
+            print(f"NOTE: Isle migration probability of {migration_probability} " \
+                  f"results in per-rank migration probability of {migration_prob}.")
         load_rank_cpt = "isle_" + str(isle_idx) + "_" + load_checkpoint
         save_rank_cpt = "isle_" + str(isle_idx) + "_" + save_checkpoint
 
         self.emigration_propagator = emigration_propagator
         
-        if rank == 0: print("Starting parallel optimization process...")
+        if rank == 0: 
+            print("Starting parallel optimization process...")
         MPI.COMM_WORLD.barrier()
         # Set up Propulator objects, one for each isle.
         if pollination == False:
@@ -160,7 +166,7 @@ class Islands():
                                               comm_inter=comm_inter, migration_topology=migration_topology,
                                               migration_prob=migration_prob, emigration_propagator=emigration_propagator, 
                                               immigration_propagator=immigration_propagator,
-                                              unique_ind=unique_ind, unique_count=isle_sizes, seed=seed)
+                                              unique_ind=unique_ind, unique_counts=isle_sizes, seed=seed)
 
 
 
