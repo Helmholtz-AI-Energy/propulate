@@ -520,6 +520,12 @@ class Propulator():
             if migration:
                 # Emigration: Isle sends individuals out.
                 # Happens on per-worker basis with certain probability.
+                # TODO Is this repeated check necessary? Worker can only deactivate emigrant sent 
+                # by other worker, and those individuals the worker cannot send out as emigrants
+                # anyway because their responsible-worker attribute / rank does not match.
+                self._deactivate_emigrants(generation, DEBUG)
+                check = self._check_emigrants_to_deactivate(generation)
+                assert check == False
                 if random.random() < self.migration_prob: 
                     self._send_emigrants(generation, DEBUG)
 
