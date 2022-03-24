@@ -93,19 +93,16 @@ class Propulator():
             with open(self.load_checkpoint, "rb") as f:
                 try:
                     self.population = pickle.load(f)
-                    self.best = min(self.population, key=attrgetter("loss"))
                     if self.comm.rank == 0: 
                         print("NOTE: Valid checkpoint file found. " \
                               "Resuming from loaded population...")
                 except Exception:
                     self.population = []
-                    self.best = None
                     if self.comm.rank == 0:
                         print("NOTE: No valid checkpoint file found. " \
                               "Initializing population randomly...")
         else:
             self.population=[]
-            self.best = None
             if self.comm.rank == 0: 
                 print("NOTE: No valid checkpoint file given. " \
                       "Initializing population randomly...")
@@ -124,6 +121,14 @@ class Propulator():
         """
         self._work(logging_interval)
 
+    def _get_active_individuals(self):
+        """
+        """
+        active_pop = [ind for ind in self.population if ind.active]
+        num_actives = len(active_pop)
+
+        return active_pop, num_actives
+
 
     def _breed(self, generation):
         """
@@ -140,7 +145,7 @@ class Propulator():
         ind : propulate.population.Individual
               newly bred individual
         """
-        active_pop = [ind for ind in self.population if ind.active]
+        active_pop, _ = self._get_active_individuals()
         ind = self.propagator(active_pop)   # Breed new individual from active population.
         ind.generation = generation         # Set generation.
         ind.rank = self.comm.rank           # Set worker rank.
@@ -163,6 +168,8 @@ class Propulator():
         ind = self._breed(generation)   # Breed new individual.
         ind.loss = self.loss_fn(ind)    # Evaluate its loss.
         self.population.append(ind)     # Add evaluated individual to own worker-local population.
+        print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
+              f"Bred and evaluated individual {ind}.")
 
         # Tell other workers in own isle about results to synchronize their populations.
         # Use immediate send for asynchronous communication.
@@ -199,13 +206,13 @@ class Propulator():
                 # To know if message has been received, use MPI wait or MPI test on MPI request filled.
                 req_ind = self.comm.irecv(source=stat.Get_source(), tag=INDIVIDUAL_TAG)
                 ind_temp = req_ind.wait()           # Wait for non-blocking operation to complete.
-                if DEBUG: 
-                    print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
-                          f"Received individual from W{stat.Get_source()}.")
+                #if DEBUG: 
                 self.population.append(ind_temp)    # Add received individual to own worker-local population.
-        active_pop = [ind for ind in self.population if ind.active]
+                print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
+                      f"Added individual {ind_temp} from W{stat.Get_source()} to own population.")
+        _, n_active = self._get_active_individuals()
         print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
-              f"After probing within isle: {len(active_pop)}/{len(self.population)} active.")
+              f"After probing within isle: {n_active}/{len(self.population)} active.")
 
 
     def _send_emigrants(self, generation, DEBUG=False):
@@ -232,7 +239,8 @@ class Propulator():
             for target_isle, offspring in enumerate(to_migrate):
                 if offspring == 0: 
                     continue
-                eligible_emigrants = [ind for ind in self.population if ind.active and ind.current == self.comm.rank]
+                eligible_emigrants = [ind for ind in self.population if ind.active \
+                                      and ind.current == self.comm.rank]
                 # Determine MPI.COMM_WORLD ranks of workers on target isle.
                 displ = self.unique_ind[target_isle]
                 count = self.unique_counts[target_isle]
@@ -244,13 +252,13 @@ class Propulator():
                 print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
                       f"Chose {len(emigrants)} emigrant(s): {emigrants}")
                     
-                # Deactivate emigrants on sending isle for breeding (true migration).
+                # Deactivate emigrants on sending isle (true migration).
                 for r in range(self.comm.size): # Send emigrants to other intra-isle workers for deactivation.
                     if r == self.comm.rank: 
                         continue # No self-talk.
                     self.comm.isend(emigrants, dest=r, tag=SYNCHRONIZATION_TAG)
                     print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
-                          f"Sent {len(emigrants)} individual(s) to intra-isle W{r} to deactivate.")
+                          f"Sent {len(emigrants)} individual(s) {emigrants} to intra-isle W{r} to deactivate.")
 
                 # Send emigrants to target island.
                 departing = copy.deepcopy(emigrants)
@@ -265,12 +273,19 @@ class Propulator():
 
                 # Deactivate emigrants for sending worker.
                 for emigrant in emigrants: 
-                    emigrant.active = False
+                    # Look for emigrant to deactivate in original population list.
+                    to_deactivate = [idx for idx, ind in enumerate(self.population) if ind == emigrant \
+                                     and ind.migration_steps == emigrant.migration_steps]
+                    assert len(to_deactivate) == 1  # There should be exactly one!
+                    _, n_active_before = self._get_active_individuals()
+                    self.population[to_deactivate[0]].active = False # Deactivate emigrant in population.
+                    _, n_active_after = self._get_active_individuals()
                     print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
-                          f"Deactivated own emigrant {emigrant}.")
-            active_pop = [ind for ind in self.population if ind.active]
+                          f"Deactivated own emigrant {self.population[to_deactivate[0]]}. " \
+                          f"Active before/after: {n_active_before}/{n_active_after}")
+            _, n_active = self._get_active_individuals()
             print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
-                  f"After emigration: {len(active_pop)}/{len(self.population)} active.")
+                  f"After emigration: {n_active}/{len(self.population)} active.")
                         
         else: 
             print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
@@ -310,18 +325,20 @@ class Propulator():
                     if catastrophic_failure:
                         raise RuntimeError(f"Identical immigrant {immigrant} already " \
                                            f"active on target I{self.isle_idx}.")
-                    immigrant_obsolete = len([ind for ind in self.population if ind == immigrant and \
-                                             immigrant.migration_steps < ind.migration_steps]) > 0
-                    if immigrant_obsolete:
-                        immigrant.active = False
+                    #immigrant_obsolete = len([ind for ind in self.population if ind == immigrant and \
+                    #                         immigrant.migration_steps < ind.migration_steps]) > 0
+                    #if immigrant_obsolete:
+                    #    immigrant.active = False
+                    #    print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
+                    #          f"Received obsolete immigrant from global {immigrant}")
                     self.population.append(immigrant) # Append immigrant to population.
 
                     # NOTE Do not remove obsolete individuals from population upon immigration
                     # as they should be deactivated in the next step anyways.
 
-        active_pop = [ind for ind in self.population if ind.active]
+        _, n_active = self._get_active_individuals()
         print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: After immigration: " \
-              f"{len(active_pop)}/{len(self.population)} active.")
+              f"{n_active}/{len(self.population)} active.")
 
 
     def _check_emigrants_to_deactivate(self, generation):
@@ -391,29 +408,22 @@ class Propulator():
                       f"from W{stat.Get_source()} to be deactivated.\n" \
                       f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
                       f"Overall {len(self.emigrated)} individuals to deactivate: {self.emigrated}")
-        emigrated_copy = copy.deepcopy(self.emigrated)
-        for emigrant in emigrated_copy:
-            assert emigrant.active == True
-            to_deactivate = [ind for ind in self.population if ind == emigrant and ind.migration_steps == emigrant.migration_steps]
-            if len(to_deactivate) == 0: 
-                print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
-                    f"Individual {emigrant} to deactivate not yet received.")
-                continue
-            assert len(to_deactivate) == 1
-            active_pop = [ind for ind in self.population if ind.active]
-            active_before = len(active_pop)
-            for ind in to_deactivate:
-                ind.active = False
-            self.emigrated.remove(emigrant)
-            active_pop = [ind for ind in self.population if ind.active]
-            active_after = len(active_pop)
-            print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: Before deactivation: " \
-                  f"{active_before}/{len(self.population)} active.\n" \
-                  f"I{self.isle_idx} W{self.comm.rank} G{generation}: Deactivated {ind}.\n" \
-                  f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
-                  f"{len(self.emigrated)} individuals in emigrated.\n" \
-                  f"I{self.isle_idx} W{self.comm.rank} G{generation}: After deactivation: " \
-                  f"{active_after}/{len(self.population)} active.")
+        # TODO In while loop or not?
+            emigrated_copy = copy.deepcopy(self.emigrated)
+            for emigrant in emigrated_copy:
+                assert emigrant.active == True
+                to_deactivate = [ind for ind in self.population if ind == emigrant and \
+                                 ind.migration_steps == emigrant.migration_steps]
+                if len(to_deactivate) == 0: 
+                    print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
+                        f"Individual {emigrant} to deactivate not yet received.")
+                    continue
+                assert len(to_deactivate) == 1
+                to_deactivate[0].active = False
+                self.emigrated.remove(emigrant)
+                print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: Deactivated {to_deactivate[0]}.\n" \
+                      f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
+                      f"{len(self.emigrated)} individuals in emigrated.")
         active_pop = [ind for ind in self.population if ind.active]
         print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: After synchronization: "\
               f"{len(active_pop)}/{len(self.population)} active.\n" \
@@ -457,6 +467,31 @@ class Propulator():
         return occurrences
 
 
+    def _check_intra_isle_synchronization(self, populations, DEBUG=False):
+        """
+        Check synchronization of populations of workers within one isle.
+
+        Parameters
+        ----------
+        populations : list of population lists with 
+                      propulate.population.Individual
+
+        Returns
+        -------
+        synchronized : bool
+                       If True, populations are synchronized.
+        """
+        synchronized = True
+        if DEBUG:
+            print(f"Populations: {populations}")
+        for population in populations:
+            population.sort(key=lambda x: (x.loss, -x.migration_steps))
+            if population == populations[0]:
+                continue
+            synchronized = False
+        return synchronized
+
+
     def _work(self, logging_interval=10, DEBUG=False):
         """
         Execute evolutionary algorithm in parallel.
@@ -492,6 +527,10 @@ class Propulator():
                 self._receive_immigrants(generation, DEBUG)
 
                 # Emigration: Check for emigrants from other intra-isle workers to be deactivated.
+                ###
+                # Check for and possibly receive incoming individuals from other intra-isle workers.
+                self._receive_intra_isle_individuals(generation, DEBUG)
+                ###
                 self._deactivate_emigrants(generation, DEBUG)
                 check = self._check_emigrants_to_deactivate(generation)
                 assert check == False
@@ -552,6 +591,8 @@ class Propulator():
                     f"Finally {len(self.emigrated)} individual(s) in emigrated: {self.emigrated}:\n" \
                     f"{self.population}"  )
                 self._deactivate_emigrants(generation, DEBUG)
+                check = self._check_emigrants_to_deactivate(generation)
+                assert check == False
             MPI.COMM_WORLD.barrier()
         
         # Final checkpointing on rank 0.
@@ -585,15 +626,22 @@ class Propulator():
             print("###########\n")
             print(f"Number of currently active individuals is {total}. "\
                   f"\nExpected overall number of evaluations is {self.generations*MPI.COMM_WORLD.size}.")
+        populations = self.comm.gather(self.population, root=0)
+        if self.comm.rank == 0:
+            if self._check_intra_isle_synchronization(populations):
+                print(f"I{self.isle_idx}: Populations among workers synchronized.")
+            else:
+                print(f"I{self.isle_idx}: Populations among workers not synchronized:\n" \
+                      f"{populations}")
         MPI.COMM_WORLD.barrier()
         occurrences = self._check_for_duplicates(self.generations-1, True)
         print(f"I{self.isle_idx} W{self.comm.rank}: " \
-              f"{len(active_pop)}/{len(self.population)} individuals active.\n" \
-              f"I{self.isle_idx} W{self.comm.rank}: {len(occurrences)} unique individuals: {occurrences}")
+              f"{len(active_pop)}/{len(self.population)} individuals active " \
+              f"({len(occurrences)} unique).")
         MPI.COMM_WORLD.barrier()
         if self.comm.rank == 0:
-            active_pop.sort(key=lambda x: x.loss)
-            self.population.sort(key=lambda x: x.loss)
+            active_pop.sort(key=lambda x: (x.loss, -x.migration_steps))
+            self.population.sort(key=lambda x: (x.loss, -x.migration_steps))
             res_str=f"Top {top_n} result(s) on isle {self.isle_idx}:\n"
             for i in range(top_n):
                 res_str += f"({i+1}): {self.population[i]}\n"
@@ -1042,6 +1090,29 @@ class PolliPropulator():
         return occurrences
 
 
+    def _check_intra_isle_synchronization(self, populations):
+        """
+        Check synchronization of populations of workers within one isle.
+
+        Parameters
+        ----------
+        populations : list of population lists with 
+                      propulate.population.Individual
+
+        Returns
+        -------
+        synchronized : bool
+                       If True, populations are synchronized.
+        """
+        synchronized = True
+        for population in populations:
+            population.sort(key=lambda x: x.loss)
+            if population == populations[0]:
+                continue
+            synchronized = False
+        return synchronized
+
+
     def _work(self, logging_interval=10, DEBUG=False):
         """
         Execute evolutionary algorithm in parallel.
@@ -1166,13 +1237,18 @@ class PolliPropulator():
             print("###########\n")
             print(f"Number of currently active individuals is {total}. " \
                   f"\nExpected overall number of evaluations is {self.generations*MPI.COMM_WORLD.size}.")
+        populations = self.comm.gather(self.population, root=0)
+        if self.comm.rank == 0:
+            if self._check_intra_isle_synchronization(populations):
+                print(f"I{self.isle_idx}: Populations among workers synchronized.")
+            else:
+                print(f"I{self.isle_idx}: Populations among workers not synchronized.")
         MPI.COMM_WORLD.barrier()
         occurrences = self._check_for_duplicates(self.generations-1, True)
         self.population.sort(key=lambda x: x.loss)
         print(f"I{self.isle_idx} W{self.comm.rank}: " \
-              f"{len(active_pop)}/{len(self.population)} individuals active.\n" \
-              #f"{self.population}\n" \
-              f"I{self.isle_idx} W{self.comm.rank}: {len(occurrences)} unique individuals: ")#{occurrences}")
+              f"{len(active_pop)}/{len(self.population)} individuals active " \
+              f"({len(occurrences)} unique). ")
         MPI.COMM_WORLD.barrier()
         if self.comm.rank == 0:
             active_pop.sort(key=lambda x: x.loss)
