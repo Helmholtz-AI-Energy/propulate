@@ -155,12 +155,16 @@ class Islands():
         MPI.COMM_WORLD.barrier()
         # Set up Propulator objects, one for each isle.
         if pollination == False:
+            if MPI.COMM_WORLD.rank == 0:
+                print("No pollination.")
             self.propulator = Propulator(loss_fn, propagator, comm=comm_intra, generations=generations, isle_idx=isle_idx,
                                          load_checkpoint=load_rank_cpt, save_checkpoint=save_rank_cpt, 
                                          comm_inter=comm_inter, migration_topology=migration_topology,
                                          migration_prob=migration_prob, emigration_propagator=emigration_propagator,
                                          unique_ind=unique_ind, unique_counts=isle_sizes, seed=seed)
         elif pollination == True:
+            if MPI.COMM_WORLD.rank == 0:
+                print("Pollination.")
             self.propulator = PolliPropulator(loss_fn, propagator, comm=comm_intra, generations=generations, isle_idx=isle_idx,
                                               load_checkpoint=load_rank_cpt, save_checkpoint=save_rank_cpt, 
                                               comm_inter=comm_inter, migration_topology=migration_topology,
