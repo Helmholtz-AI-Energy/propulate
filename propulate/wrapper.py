@@ -7,6 +7,7 @@ import numpy as np
 from .population import Individual
 from .propulator import Propulator, PolliPropulator
 from .propagators import SelectBest, SelectUniform, SelectWorst
+
 class Islands():
     """
     Wrapper class for propulate optimization runs with multiple separate evolutionary isles.
