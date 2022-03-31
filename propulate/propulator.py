@@ -185,7 +185,7 @@ class Propulator():
         for r in range(self.comm.size): # Loop over ranks in intra-isle communicator.
             if r == self.comm.rank: 
                 continue                # No self-talk.
-            self.comm.isend(ind, dest=r, tag=INDIVIDUAL_TAG) 
+            self.comm.isend(copy.deepcopy(ind), dest=r, tag=INDIVIDUAL_TAG) 
 
 
     def _receive_intra_isle_individuals(self, generation, DEBUG=False):
@@ -271,7 +271,7 @@ class Propulator():
                 for ind in departing:
                     ind.current = random.randrange(0, count)
                 for r in dest_isle: # Loop through MPI.COMM_WORLD destination ranks.
-                    MPI.COMM_WORLD.isend(departing, dest=r, tag=MIGRATION_TAG)
+                    MPI.COMM_WORLD.isend(copy.deepcopy(departing), dest=r, tag=MIGRATION_TAG)
                     log_string += f"Sent {len(departing)} individual(s) to W{r-self.unique_ind[target_isle]} " \
                                 + f"on target I{target_isle}.\n"
 
@@ -555,7 +555,7 @@ class Propulator():
                     pickle.dump((self.population), f)
                 
                 dest = self.comm.rank+1 if self.comm.rank+1 < self.comm.size else 0
-                self.comm.isend(dump, dest=dest, tag=DUMP_TAG)
+                self.comm.isend(copy.deepcopy(dump), dest=dest, tag=DUMP_TAG)
                 dump = False
             
             stat = MPI.Status()
@@ -848,7 +848,7 @@ class PolliPropulator():
         for r in range(self.comm.size): # Loop over ranks in intra-isle communicator.
             if r == self.comm.rank: 
                 continue                # No self-talk.
-            self.comm.isend(ind, dest=r, tag=INDIVIDUAL_TAG) 
+            self.comm.isend(copy.deepcopy(ind), dest=r, tag=INDIVIDUAL_TAG) 
 
 
     def _receive_intra_isle_individuals(self, generation, DEBUG=False):
@@ -934,7 +934,7 @@ class PolliPropulator():
                 for ind in departing:
                     ind.current = random.randrange(0, count)
                 for r in dest_isle: # Loop through MPI.COMM_WORLD destination ranks.
-                    MPI.COMM_WORLD.isend(departing, dest=r, tag=MIGRATION_TAG)
+                    MPI.COMM_WORLD.isend(copy.deepcopy(departing), dest=r, tag=MIGRATION_TAG)
                     print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
                           f"Sent {len(departing)} individual(s) to W{r-self.unique_ind[target_isle]} " \
                           f"on target I{target_isle}.")
@@ -1000,7 +1000,7 @@ class PolliPropulator():
                     for r in range(self.comm.size): 
                         if r == self.comm.rank: 
                             continue # No self-talk.
-                        self.comm.isend(to_replace, dest=r, tag=SYNCHRONIZATION_TAG)
+                        self.comm.isend(copy.deepcopy(to_replace), dest=r, tag=SYNCHRONIZATION_TAG)
                         print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: " \
                               f"Sent {len(to_replace)} individual(s) {to_replace} to " \
                               f"intra-isle W{r} for replacement.")
@@ -1186,7 +1186,7 @@ class PolliPropulator():
                     pickle.dump((self.population), f)
                 
                 dest = self.comm.rank+1 if self.comm.rank+1 < self.comm.size else 0
-                self.comm.isend(dump, dest=dest, tag=DUMP_TAG)
+                self.comm.isend(copy.deepcopy(dump), dest=dest, tag=DUMP_TAG)
                 dump = False
             
             stat = MPI.Status()
