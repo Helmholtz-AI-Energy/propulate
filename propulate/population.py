@@ -33,5 +33,6 @@ class Individual(dict):
             else:
                 compare_traits = False
                 break
-        # Additionally check for equivalence of attributes (except for `self.migration_steps`).
-        return compare_traits and self.loss == other.loss and self.generation == other.generation and self.rank == other.rank and self.isle == other.isle and self.active == other.active
+        # Additionally check for equivalence of attributes (except for `self.migration_steps` and `self.current`).
+        return compare_traits and self.loss == other.loss and self.generation == other.generation \
+                and self.rank == other.rank and self.isle == other.isle and self.active == other.active
