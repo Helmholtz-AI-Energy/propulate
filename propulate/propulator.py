@@ -181,11 +181,11 @@ class Propulator():
               f"Bred and evaluated individual {ind}.\n")
 
         # Tell other workers in own isle about results to synchronize their populations.
-        # Use immediate send for asynchronous communication.
         for r in range(self.comm.size): # Loop over ranks in intra-isle communicator.
             if r == self.comm.rank: 
-                continue                # No self-talk.
-            self.comm.isend(copy.deepcopy(ind), dest=r, tag=INDIVIDUAL_TAG) 
+                continue # No self-talk.
+            self.comm.send(copy.deepcopy(ind), dest=r, tag=INDIVIDUAL_TAG) 
+            # TODO deepcopy required here?
 
 
     def _receive_intra_isle_individuals(self, generation, DEBUG=False):
@@ -212,8 +212,7 @@ class Propulator():
             if probe_ind:
                 # MPI Receive with immediate return; does not block until message is received.
                 # To know if message has been received, use MPI wait or MPI test on MPI request filled.
-                req_ind = self.comm.irecv(source=stat.Get_source(), tag=INDIVIDUAL_TAG)
-                ind_temp = req_ind.wait()           # Wait for non-blocking operation to complete.
+                ind_temp = self.comm.recv(source=stat.Get_source(), tag=INDIVIDUAL_TAG)
                 self.population.append(ind_temp)    # Add received individual to own worker-local population.
                 log_string += f"Added individual {ind_temp} from W{stat.Get_source()} to own population.\n"
         _, n_active = self._get_active_individuals()
@@ -262,7 +261,7 @@ class Propulator():
                 for r in range(self.comm.size): # Send emigrants to other intra-isle workers for deactivation.
                     if r == self.comm.rank: 
                         continue # No self-talk.
-                    self.comm.isend(copy.deepcopy(emigrants), dest=r, tag=SYNCHRONIZATION_TAG)
+                    self.comm.send(copy.deepcopy(emigrants), dest=r, tag=SYNCHRONIZATION_TAG)
                     log_string += f"Sent {len(emigrants)} individual(s) {emigrants} to intra-isle W{r} to deactivate.\n"
 
                 # Send emigrants to target island.
@@ -271,7 +270,7 @@ class Propulator():
                 for ind in departing:
                     ind.current = random.randrange(0, count)
                 for r in dest_isle: # Loop through MPI.COMM_WORLD destination ranks.
-                    MPI.COMM_WORLD.isend(copy.deepcopy(departing), dest=r, tag=MIGRATION_TAG)
+                    MPI.COMM_WORLD.send(copy.deepcopy(departing), dest=r, tag=MIGRATION_TAG)
                     log_string += f"Sent {len(departing)} individual(s) to W{r-self.unique_ind[target_isle]} " \
                                 + f"on target I{target_isle}.\n"
 
@@ -315,15 +314,17 @@ class Propulator():
             probe_migrants = MPI.COMM_WORLD.iprobe(source=MPI.ANY_SOURCE, tag=MIGRATION_TAG, status=stat)
             log_string += f"Immigrant(s) to receive?...{probe_migrants}\n"
             if probe_migrants:
-                req_immigr = MPI.COMM_WORLD.irecv(source=stat.Get_source(), tag=MIGRATION_TAG)
-                immigrants = req_immigr.wait()
+                #req_immigr = MPI.COMM_WORLD.irecv(source=stat.Get_source(), tag=MIGRATION_TAG)
+                #immigrants = req_immigr.wait()
+                immigrants = MPI.COMM_WORLD.recv(source=stat.Get_source(), tag=MIGRATION_TAG)
                 log_string += f"Received {len(immigrants)} immigrant(s) from global " \
                               f"W{stat.Get_source()}: {immigrants}\n"
                 for immigrant in immigrants: 
                     immigrant.migration_steps += 1
                     assert immigrant.active == True
                     catastrophic_failure = len([ind for ind in self.population if ind == immigrant and \
-                                               immigrant.migration_steps == ind.migration_steps]) > 0
+                                               immigrant.migration_steps == ind.migration_steps and \
+                                               immigrant.current == ind.current]) > 0
                     if catastrophic_failure:
                         raise RuntimeError(f"Identical immigrant {immigrant} already " \
                                            f"active on target I{self.isle_idx}.")
@@ -402,9 +403,10 @@ class Propulator():
             probe_sync = self.comm.iprobe(source=MPI.ANY_SOURCE, tag=SYNCHRONIZATION_TAG, status=stat)
             log_string += "Emigrants from others to be deactivated to be received?...{probe_sync}"
             if probe_sync:
-                req_sync = self.comm.irecv(source=stat.Get_source(), tag=SYNCHRONIZATION_TAG)
+                #req_sync = self.comm.irecv(source=stat.Get_source(), tag=SYNCHRONIZATION_TAG)
                 # Receive new emigrants.
-                new_emigrants = req_sync.wait()
+                #new_emigrants = req_sync.wait()
+                new_emigrants = self.comm.recv(source=stat.Get_source(), tag=SYNCHRONIZATION_TAG)
                 # Add new emigrants to list of emigrants to be deactivated.
                 self.emigrated = self.emigrated + copy.deepcopy(new_emigrants) 
                 log_string += f"Got {len(new_emigrants)} new emigrant(s) {new_emigrants} " \
@@ -555,14 +557,13 @@ class Propulator():
                     pickle.dump((self.population), f)
                 
                 dest = self.comm.rank+1 if self.comm.rank+1 < self.comm.size else 0
-                self.comm.isend(copy.deepcopy(dump), dest=dest, tag=DUMP_TAG)
+                self.comm.send(copy.deepcopy(dump), dest=dest, tag=DUMP_TAG)
                 dump = False
             
             stat = MPI.Status()
             probe_dump = self.comm.iprobe(source=MPI.ANY_SOURCE, tag=DUMP_TAG, status=stat)
             if probe_dump:
-                req_dump = self.comm.irecv(source=stat.Get_source(), tag=DUMP_TAG)
-                dump = req_dump.wait()
+                dump = self.comm.recv(source=stat.Get_source(), tag=DUMP_TAG)
                 if DEBUG: 
                     print(f"I{self.isle_idx} W{self.comm.rank} G{generation}: "\
                           f"Going to dump next: {dump}. Before: W{stat.Get_source()}")
@@ -613,7 +614,11 @@ class Propulator():
                     pickle.dump((self.population), f)
 
         MPI.COMM_WORLD.barrier()
-
+        stat = MPI.Status()
+        probe_dump = self.comm.iprobe(source=MPI.ANY_SOURCE, tag=DUMP_TAG, status=stat)
+        if probe_dump:
+            dump = self.comm.recv(source=stat.Get_source(), tag=DUMP_TAG)
+        MPI.COMM_WORLD.barrier()
 
     def summarize(self, top_n=1, out_file='summary.png'):
         """
@@ -636,21 +641,22 @@ class Propulator():
             print("###########\n")
             print(f"Number of currently active individuals is {total}. "\
                   f"\nExpected overall number of evaluations is {self.generations*MPI.COMM_WORLD.size}.")
-        self.population.sort(key=lambda x: (x.loss, -x.migration_steps))
+        self.population.sort(key=lambda x: (x.isle, x.rank, x.generation, x.migration_steps))
         populations = self.comm.gather(self.population, root=0)
+        occurrences = self._check_for_duplicates(self.generations-1, True)
         if self.comm.rank == 0:
             if self._check_intra_isle_synchronization(populations):
                 print(f"I{self.isle_idx}: Populations among workers synchronized.")
             else:
-                print(f"I{self.isle_idx}: Populations among workers not synchronized:\n" \
-                      f"{populations}")
+                print(f"I{self.isle_idx}: Populations among workers not synchronized.")#\n" \
+                      #f"{occurrences}")
         MPI.COMM_WORLD.barrier()
-        occurrences = self._check_for_duplicates(self.generations-1, True)
         print(f"I{self.isle_idx} W{self.comm.rank}: " \
               f"{len(active_pop)}/{len(self.population)} individuals active " \
               f"({len(occurrences)} unique).")
         MPI.COMM_WORLD.barrier()
         if self.comm.rank == 0:
+            self.population.sort(key = lambda x: (x.loss, -x.migration_steps))
             res_str=f"Top {top_n} result(s) on isle {self.isle_idx}:\n"
             for i in range(top_n):
                 res_str += f"({i+1}): {self.population[i]}\n"
@@ -1263,7 +1269,7 @@ class PolliPropulator():
             print("###########\n")
             print(f"Number of currently active individuals is {total}. " \
                   f"\nExpected overall number of evaluations is {self.generations*MPI.COMM_WORLD.size}.")
-        self.population.sort(key=lambda x: (x.loss, -x.migration_steps, x.current))
+        self.population.sort(key=lambda x: (-x.loss, x.migration_steps))
         populations = self.comm.gather(self.population, root=0)
         if self.comm.rank == 0:
             if self._check_intra_isle_synchronization(populations):
