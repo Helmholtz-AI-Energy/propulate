@@ -20,7 +20,8 @@ class Individual(dict):
     def __repr__(self):
         rep = {key : f"{Decimal(self[key]):.2E}" for key in self}
         Active = "active" if self.active else "deactivated"
-        return f"[{rep}, loss {Decimal(self.loss):.2E}, I{self.isle}, W{self.rank}, G{self.generation}, w{self.current}, m{self.migration_steps}, {Active}]"
+        return f"[{rep}, loss {Decimal(self.loss):.2E}, I{self.isle}, W{self.rank}, " \
+               f"G{self.generation}, w{self.current}, m{self.migration_steps}, {Active}]"
 
     def __eq__(self, other):
         # Check if object to compare to is of the same class.
