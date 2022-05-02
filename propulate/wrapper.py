@@ -175,7 +175,7 @@ class Islands():
 
 
 
-    def _run(self, top_n=3, logging_interval=10):        
+    def _run(self, top_n, logging_interval, DEBUG):        
         """
         Run propulate optimization.
 
@@ -184,11 +184,11 @@ class Islands():
         top_n : int
                 number of best results to report
         """
-        self.propulator.propulate(logging_interval)
-        self.propulator.summarize(top_n)
+        self.propulator.propulate(logging_interval, DEBUG)
+        self.propulator.summarize(top_n, DEBUG=DEBUG)
 
 
-    def evolve(self, top_n=3, logging_interval=10):
+    def evolve(self, top_n=3, logging_interval=10, DEBUG=1):
         """
         Run propulate optimization.
 
@@ -197,4 +197,4 @@ class Islands():
         top_n : int
                 number of best results to report
         """
-        self._run(top_n, logging_interval)
+        self._run(top_n, logging_interval, DEBUG)
