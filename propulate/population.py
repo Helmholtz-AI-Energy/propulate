@@ -5,6 +5,7 @@
 # TODO have ordinal vs categorical inferred from list vs set
 
 from decimal import Decimal
+import time
 
 class Individual(dict):
     def __init__(self, generation=None, rank=None):
@@ -14,14 +15,24 @@ class Individual(dict):
         self.loss = None    # NOTE set to None instead of inf since there are no comparisons
         self.active = True
         self.isle = None    # isle of origin
-        self.current = None
-        self.migration_steps = None
+        self.current = None # current responsible worker
+        self.migration_steps = None     # number of migration steps performed
+        self.migration_history = None   # migration history
+        self.timestamp = None
+
+#    def __repr__(self):
+#        rep = {key : f"{Decimal(self[key]):.2E}" for key in self}
+#        Active = "active" if self.active else "deactivated"
+#        return f"[{rep}, loss {Decimal(self.loss):.2E}, I{self.isle}, W{self.rank}, " \
+#               f"G{self.generation}, w{self.current}, m{self.migration_steps}, {Active}]"
+
 
     def __repr__(self):
-        rep = {key : f"{Decimal(self[key]):.2E}" for key in self}
+        rep = {key : (f"{Decimal(self[key]):.2E}" if type(self[key]) == float else self[key]) for key in self}
         Active = "active" if self.active else "deactivated"
         return f"[{rep}, loss {Decimal(self.loss):.2E}, I{self.isle}, W{self.rank}, " \
                f"G{self.generation}, w{self.current}, m{self.migration_steps}, {Active}]"
+
 
     def __eq__(self, other):
         # Check if object to compare to is of the same class.
