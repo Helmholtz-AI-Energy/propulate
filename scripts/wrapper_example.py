@@ -16,7 +16,7 @@ import numpy as np
 # This is shared between all other imports of random as long as the seed is not reset elsewhere.
 
 fname = sys.argv[1]                         # Get function to optimize from command-line.
-NUM_GENERATIONS = 4000                      # Set number of generations.
+NUM_GENERATIONS = 10                         # Set number of generations.
 POP_SIZE = 2 * MPI.COMM_WORLD.size          # Set size of breeding population.
 num_migrants = 1
 
@@ -153,15 +153,16 @@ else:
     sys.exit("ERROR: Function undefined...exiting")
 
 if __name__ == "__main__":
-   
-    migration_topology = num_migrants*np.ones((2, 2), dtype=int)
-    np.fill_diagonal(migration_topology, 0)
+    while True:
+        #migration_topology = num_migrants*np.ones((4, 4), dtype=int)
+        #np.fill_diagonal(migration_topology, 0)
 
-    propagator = get_default_propagator(POP_SIZE, limits, .7, .4, .1)
-    islands = Islands(function, propagator, generations=NUM_GENERATIONS,
-                      num_isles=2, isle_sizes=[1, 3], migration_topology=migration_topology, 
-                      load_checkpoint = "pop_cpt.p", 
-                      save_checkpoint="pop_cpt.p", seed=9,
-                      migration_probability=0.9, emigration_propagator=SelectBest, immigration_propagator=SelectWorst,
-                      pollination=False)
-    islands.evolve(top_n=1, logging_interval=1)
+        propagator = get_default_propagator(POP_SIZE, limits, .7, .4, .1)
+        islands = Islands(function, propagator, generations=NUM_GENERATIONS,
+                          num_isles=2, isle_sizes=[19, 19, 19, 19], #migration_topology=migration_topology, 
+                          load_checkpoint = "bla",#pop_cpt.p", 
+                          save_checkpoint="pop_cpt.p", seed=9,
+                          migration_probability=0.9, emigration_propagator=SelectBest, immigration_propagator=SelectWorst,
+                          pollination=False)
+        islands.evolve(top_n=1, logging_interval=1, DEBUG=2)
+        break
