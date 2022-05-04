@@ -24,7 +24,7 @@ class Propulator():
                  load_checkpoint = "pop_cpt.p", save_checkpoint="pop_cpt.p", 
                  migration_topology=None, comm_inter=MPI.COMM_WORLD,
                  migration_prob=None, emigration_propagator=None,
-                 unique_ind=None, unique_counts=None, seed=None):
+                 unique_ind=None, unique_counts=None):
         """
         Constructor of Propulator class.
 
@@ -63,8 +63,6 @@ class Propulator():
         unique_counts : numpy array
                         array with number of workers per isle
                         Element i specifies number of workers on isle with index i.
-        seed : int
-               base seed for random number generator
         """
         # Set class attributes.
         self.loss_fn = loss_fn                              # callable loss function
@@ -681,7 +679,7 @@ class PolliPropulator():
                  load_checkpoint = "pop_cpt.p", save_checkpoint="pop_cpt.p", 
                  migration_topology=None, comm_inter=MPI.COMM_WORLD,
                  migration_prob=None, emigration_propagator=None, immigration_propagator=None,
-                 unique_ind=None, unique_counts=None, seed=None):
+                 unique_ind=None, unique_counts=None):
         """
         Constructor of Propulator class.
 
@@ -724,8 +722,6 @@ class PolliPropulator():
         unique_counts : numpy array
                         array with number of workers per isle
                         Element i specifies number of workers on isle with index i.
-        seed : int
-               base seed for random number generator
         """
         # Set class attributes.
         self.loss_fn = loss_fn                              # callable loss function
