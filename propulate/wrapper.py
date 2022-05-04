@@ -15,7 +15,7 @@ class Islands():
     def __init__(self, loss_fn, propagator, generations=0, 
                  num_isles=1, isle_sizes=None, migration_topology=None,
                  migration_probability=0.1, emigration_propagator=SelectBest, immigration_propagator=SelectWorst, pollination=False,
-                 load_checkpoint = "pop_cpt.p", save_checkpoint="pop_cpt.p", seed=None):
+                 load_checkpoint = "pop_cpt.p", save_checkpoint="pop_cpt.p"):
         """
         Constructor of Islands() class.
 
@@ -53,8 +53,6 @@ class Islands():
                           checkpoint file to resume optimization from
         save_checkpoint : str
                           checkpoint file to write checkpoints to
-        seed : int
-               base seed for random number generator
         """
         # Set attributes.
         self.loss_fn = loss_fn              # callable loss function
@@ -162,7 +160,7 @@ class Islands():
                                          load_checkpoint=load_rank_cpt, save_checkpoint=save_rank_cpt, 
                                          comm_inter=comm_inter, migration_topology=migration_topology,
                                          migration_prob=migration_prob, emigration_propagator=emigration_propagator,
-                                         unique_ind=unique_ind, unique_counts=isle_sizes, seed=seed)
+                                         unique_ind=unique_ind, unique_counts=isle_sizes)
         elif pollination == True:
             if MPI.COMM_WORLD.rank == 0:
                 print("Pollination.")
@@ -171,7 +169,7 @@ class Islands():
                                               comm_inter=comm_inter, migration_topology=migration_topology,
                                               migration_prob=migration_prob, emigration_propagator=emigration_propagator, 
                                               immigration_propagator=immigration_propagator,
-                                              unique_ind=unique_ind, unique_counts=isle_sizes, seed=seed)
+                                              unique_ind=unique_ind, unique_counts=isle_sizes)
 
 
 
