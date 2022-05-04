@@ -3,17 +3,13 @@ import random
 import sys
 from propulate import Islands, Propulator
 from mpi4py import MPI
-from propulate.utils import set_seed, get_default_propagator
+from propulate.utils import get_default_propagator
 from propulate.propagators import SelectBest, SelectWorst, SelectUniform
 import numpy as np
 
 ############
 # SETTINGS #
 ############
-
-# Set program-wide rank-specific random seed for reproducible initialization.
-# The main python module that is run should import random and call random.seed(n). 
-# This is shared between all other imports of random as long as the seed is not reset elsewhere.
 
 fname = sys.argv[1]                         # Get function to optimize from command-line.
 NUM_GENERATIONS = 10                         # Set number of generations.
@@ -161,7 +157,7 @@ if __name__ == "__main__":
         islands = Islands(function, propagator, generations=NUM_GENERATIONS,
                           num_isles=2, isle_sizes=[19, 19, 19, 19], #migration_topology=migration_topology, 
                           load_checkpoint = "bla",#pop_cpt.p", 
-                          save_checkpoint="pop_cpt.p", seed=9,
+                          save_checkpoint="pop_cpt.p",
                           migration_probability=0.9, emigration_propagator=SelectBest, immigration_propagator=SelectWorst,
                           pollination=False)
         islands.evolve(top_n=1, logging_interval=1, DEBUG=2)
