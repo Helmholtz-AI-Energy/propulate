@@ -240,20 +240,23 @@ class Propulator():
         # Only perform migration if overall number of emigrants to be sent
         # out is smaller than current number of eligible emigrants.
         if num_emigrants <= len(eligible_emigrants): 
+            # Select all migrants to be sent out in this migration step.
+            emigrator = self.emigration_propagator(num_emigrants)   # Set up emigration propagator.
+            all_emigrants = emigrator(eligible_emigrants)           # Choose `offspring` eligible emigrants.
+            random.shuffle(all_emigrants)
             # Loop through relevant part of migration topology.
+            offsprings_sent = 0
             for target_isle, offspring in enumerate(to_migrate):
                 if offspring == 0: 
                     continue
-                eligible_emigrants = [ind for ind in self.population if ind.active \
-                                      and ind.current == self.comm.rank]
                 # Determine MPI.COMM_WORLD ranks of workers on target isle.
                 displ = self.unique_ind[target_isle]
                 count = self.unique_counts[target_isle]
                 dest_isle = np.arange(displ, displ+count)
                 
                 # Worker sends *different* individuals to each target isle.
-                emigrator = self.emigration_propagator(offspring) # Set up emigration propagator.
-                emigrants = emigrator(eligible_emigrants)         # Choose `offspring` eligible emigrants.
+                emigrants = all_emigrants[offsprings_sent:offsprings_sent+offspring] # Choose `offspring` eligible emigrants.
+                offsprings_sent += offspring
                 log_string += f"Chose {len(emigrants)} emigrant(s): {emigrants}\n"
                     
                 # Deactivate emigrants on sending isle (true migration).
