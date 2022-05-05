@@ -328,8 +328,7 @@ class Propulator():
                                                immigrant.migration_steps == ind.migration_steps and \
                                                immigrant.current == ind.current]) > 0
                     if catastrophic_failure:
-                        raise RuntimeError(f"Identical immigrant {immigrant} already " \
-                                           f"active on target I{self.isle_idx}.")
+                        raise RuntimeError(log_string+f"Identical immigrant {immigrant} already active on target I{self.isle_idx}.")
                     self.population.append(copy.deepcopy(immigrant)) # Append immigrant to population.
                     log_string += f"Added immigrant {immigrant} to population.\n"
 
