@@ -1,6 +1,6 @@
-BSD 3-Clause License
+## BSD 3-Clause License
 
-Copyright (c) 2022, Oskar Taubert, Marie Weiel, Helmholtz AI Energy
+#### Copyright (c) 2022, Oskar Taubert, Marie Weiel, Helmholtz AI Energy
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
