@@ -23,7 +23,7 @@ Installation
 ============
 
 Pull and run ``pip install -e .`` or ``python setup.py develop``
-Requires a MPI  implementation (currently only tested with  OpenMPI) and ``mpi4py`` 
+Requires a MPI implementation (currently only tested with OpenMPI) and ``mpi4py`` 
 
 TODO
 ====
@@ -36,10 +36,8 @@ TODO
 - simplify extracting best result/enesemble
 - include more algorithms and operators, covariance matric adaptation
 
-
-Note
-====
-
-This project has been set up using PyScaffold 3.2.3. For details and usage
-information on PyScaffold see https://pyscaffold.org/.
+- move worker communication into member functions
+- implement pollination
+- check checkpointing + seed
+- fix book-keeping of populations (number of active individuals should equal number of evaluations)
 

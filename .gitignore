@@ -52,3 +52,6 @@ MANIFEST
 *.pkl
 
 MNIST
+*cpt.p
+*cpt.p.bkp
+scripts/*.png
