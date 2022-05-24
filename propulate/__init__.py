@@ -10,7 +10,10 @@ except DistributionNotFound:
 finally:
     del get_distribution, DistributionNotFound
 
+print("propulate has moved to https://github.com/Helmholtz-AI-Energy/propulate \n Find support and up to date versions there.")
+
 from .propulator import Propulator
 from .wrapper import Islands
 from . import propagators
 from . import population
+

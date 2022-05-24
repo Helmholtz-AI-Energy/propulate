@@ -3,6 +3,7 @@ propulate
 =========
 
 
+!!! NOTE propulate has moved to [https://github.com/Helmholtz-AI-Energy/propulate](https://github.com/Helmholtz-AI-Energy/propulate)
 Parallel propagator of populations.
 
 
@@ -24,20 +25,4 @@ Installation
 
 Pull and run ``pip install -e .`` or ``python setup.py develop``
 Requires a MPI implementation (currently only tested with OpenMPI) and ``mpi4py`` 
-
-TODO
-====
-
-- soft reproducibility + tests
-- weight/parameter succession from parents or hall of fame
-- fix ignite
-- fix example output
-- fix checkpoint example
-- simplify extracting best result/enesemble
-- include more algorithms and operators, covariance matric adaptation
-
-- move worker communication into member functions
-- implement pollination
-- check checkpointing + seed
-- fix book-keeping of populations (number of active individuals should equal number of evaluations)
 
