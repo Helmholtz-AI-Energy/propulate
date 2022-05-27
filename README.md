@@ -1,20 +1,21 @@
 ![Propulate Logo](./LOGO.svg)
 
-# propulate
+# Parallel propagator of populations
 
+``Propulate`` is a massively parallel evolutionary hyperparameter optimizer based on the island model with asynchronous propagation of populations and asynchronous migration. 
+In contrast to classical GAs, ``Propulate`` maintains a continuous population of already evaluated individuals with a softened notion of the typically strictly separated, discrete generations. 
+Our contributions include:
+- A novel parallel genetic algorithm based on a fully asynchronized island model with independently processing workers. 
+- Massive parallelism by asynchronous propagation of continuous populations and migration via efficient communication using the message passing interface.
+- Optimized use efficiency of parallel hardware by minimizing idle times in distributed computing environments.
 
-Parallel propagator of populations.
-
-## Description
-
-Evolution-inspired hyperparameter-optimization in MPI-parallelized fashion.
-To be more efficient generations are less well separated than they usually are in evolutionary algorithms.
-Instead, a new individual is generated from a pool of currently active, already evaluated individuals that may be from any generation.
+To be more efficient, the generations are less well separated than they usually are in evolutionary algorithms.
+New individuals are generated from a pool of currently active, already evaluated individuals that may be from any generation. 
 Individuals may be removed from the breeding population based on different criteria.
 
 ## Documentation
 
-For usage example see scripts.
+For usage example, see scripts.
 
 ## Installation
 
