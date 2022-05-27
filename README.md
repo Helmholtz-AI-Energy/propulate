@@ -1,6 +1,8 @@
 ![Propulate Logo](./LOGO.svg)
 
-# Parallel propagator of populations
+# Parallel Propagator of Populations
+## Project Status
+[![license: BSD-3](https://img.shields.io/badge/License-BSD--3-blue)](https://opensource.org/licenses/BSD-3-Clause)
 
 ``Propulate`` is a massively parallel evolutionary hyperparameter optimizer based on the island model with asynchronous propagation of populations and asynchronous migration. 
 In contrast to classical GAs, ``Propulate`` maintains a continuous population of already evaluated individuals with a softened notion of the typically strictly separated, discrete generations. 
@@ -26,3 +28,6 @@ Requires an MPI implementation (currently only tested with OpenMPI) and ``mpi4py
 
 - weight/parameter succession from parents or hall of fame
 - more algorithms and operators, covariance matrix adaptation evolution strategy
+
+## Acknowledgments
+*This work is supported by the Helmholtz AI platform grant.*
