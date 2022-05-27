@@ -1,3 +1,6 @@
+![Propulate Logo](./LOGO.svg)
+<img src="./LOGO.svg">
+
 # propulate
 
 
