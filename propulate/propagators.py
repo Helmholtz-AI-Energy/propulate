@@ -9,15 +9,16 @@ def _check_compatible(out1, in2):
     """
     Check compability of two propagators for stacking them together sequentially with Cascade().
     """
-    return out1 == in2 or in2==-1
+    return out1 == in2 or in2 == -1
 
 
-class Propagator():
+class Propagator:
     """
     Abstract base class for all propagators, i.e., evolutionary operators, in Propulate.
 
     Take a collection of individuals and use them to breed a new collection of individuals.
     """
+
     def __init__(self, parents=0, offspring=0):
         """
         Constructor of Propagator class.
@@ -52,7 +53,8 @@ class Stochastic(Propagator):
 
     If not applied, the output still has to adhere to the defined number of offsprings.
     """
-    def __init__(self, parents=0, offspring=0, probability=1.):
+
+    def __init__(self, parents=0, offspring=0, probability=1.0):
         """
         Constructor of StochasticPropagator class.
 
@@ -87,8 +89,9 @@ class Conditional(Propagator):
     Apply different propagators depending on whether breeding population is complete or not.
 
     If population consists of less than the specified number of individuals required for breeding,
-    a different propagator is applied than if this condition is fulfilled. 
+    a different propagator is applied than if this condition is fulfilled.
     """
+
     def __init__(self, pop_size, true_prop, false_prop, parents=-1, offspring=-1):
         """
         Constructor of Conditional class.
@@ -120,9 +123,11 @@ class Conditional(Propagator):
         inds: propulate.population.Individual
               individuals the propagator is applied to
         """
-        if len(inds) >= self.pop_size:  # If number of evaluated individuals >= pop_size apply true_prop.
+        if (
+            len(inds) >= self.pop_size
+        ):  # If number of evaluated individuals >= pop_size apply true_prop.
             return self.true_prop(inds)
-        else:                           # Else apply false_prop.
+        else:  # Else apply false_prop.
             return self.false_prop(inds)
 
 
@@ -130,6 +135,7 @@ class Cascade(Propagator):
     """
     Stack propagators together sequentially for successive application.
     """
+
     def __init__(self, propagators):
         """
         Constructor of Cascade class.
@@ -141,17 +147,25 @@ class Cascade(Propagator):
         """
         super(Cascade, self).__init__(propagators[0].parents, propagators[-1].offspring)
         self.propagators = propagators
-        for i in range(len(propagators)-1):
+        for i in range(len(propagators) - 1):
             # Check compability of consecutive propagators in terms of number of parents + offsprings.
-            if not _check_compatible(propagators[i].offspring, propagators[i+1].parents):
+            if not _check_compatible(
+                propagators[i].offspring, propagators[i + 1].parents
+            ):
                 outp = propagators[i]
-                inp = propagators[i+1]
+                inp = propagators[i + 1]
                 outd = outp.offspring
                 ind = indp.parents
 
-                raise ValueError("Incompatible combination of {} output individuals of {} and {} input individuals of {}".format(outd, outp, ind, inp))
+                raise ValueError(
+                    "Incompatible combination of {} output individuals of {} and {} input individuals of {}".format(
+                        outd, outp, ind, inp
+                    )
+                )
 
-    def __call__(self, inds): # Apply propagators sequentially as requested in Cascade(...)
+    def __call__(
+        self, inds
+    ):  # Apply propagators sequentially as requested in Cascade(...)
         """
         Apply Cascade propagator.
 
@@ -159,7 +173,7 @@ class Cascade(Propagator):
         ----------
         inds: list of propulate.population.Individual objects
               individuals the propagator is applied to
-        
+
         Returns
         -------
         inds: list of propulate.population.Individual objects
@@ -174,7 +188,8 @@ class PointMutation(Stochastic):
     """
     Point-mutate given number of traits with given probability.
     """
-    def __init__(self, limits, points=1, probability=1.):
+
+    def __init__(self, limits, points=1, probability=1.0):
         """
         Constructor of PointMutation class.
 
@@ -191,7 +206,11 @@ class PointMutation(Stochastic):
         self.points = points
         self.limits = limits
         if len(limits) < points:
-            raise ValueError("Too many points to mutate for individual with {} traits".format(len(limits)))
+            raise ValueError(
+                "Too many points to mutate for individual with {} traits".format(
+                    len(limits)
+                )
+            )
 
     def __call__(self, ind):
         """
@@ -201,15 +220,17 @@ class PointMutation(Stochastic):
         ----------
         ind: propulate.population.Individual
              individual the propagator is applied to
-        
+
         Returns
         -------
         ind : propulate.population.Individual
               possibly point-mutated individual after application of propagator
         """
-        if random.random() < self.probability: # Apply propagator only with specified `probability` 
+        if (
+            random.random() < self.probability
+        ):  # Apply propagator only with specified `probability`
             ind = copy.deepcopy(ind)
-            ind.loss = None # Initialize individual's loss attribute.
+            ind.loss = None  # Initialize individual's loss attribute.
             # Determine traits to mutate via random sampling.
             # Return `self.points` length list of unique elements chosen from `ind.keys()`.
             # Used for random sampling without replacement.
@@ -226,13 +247,15 @@ class PointMutation(Stochastic):
                     # Return random element from non-empty sequence.
                     ind[i] = random.choice(self.limits[i])
 
-        return ind # Return point-mutated individual.
+        return ind  # Return point-mutated individual.
+
 
 class RandomPointMutation(Stochastic):
     """
     Point-mutate random number of traits between min_points and max_points with given probability.
     """
-    def __init__(self, limits, min_points, max_points, probability=1.):
+
+    def __init__(self, limits, min_points, max_points, probability=1.0):
         """
         Constructor of RandomPointMutation class.
 
@@ -249,11 +272,23 @@ class RandomPointMutation(Stochastic):
         """
         super(RandomPointMutation, self).__init__(1, 1, probability)
         if min_points <= 0:
-            raise ValueError("Minimum number of points to mutate must be > 0 but was {}.".format(min_points))
+            raise ValueError(
+                "Minimum number of points to mutate must be > 0 but was {}.".format(
+                    min_points
+                )
+            )
         if len(limits) < max_points:
-            raise ValueError("Too many points to mutate for individual with {} traits.".format(len(limits)))
+            raise ValueError(
+                "Too many points to mutate for individual with {} traits.".format(
+                    len(limits)
+                )
+            )
         if min_points > max_points:
-            raise ValueError("Minimum number of traits to mutate must be <= respective maximum number but min_points = {} > {} = max_points.".format(min_points, max_points))
+            raise ValueError(
+                "Minimum number of traits to mutate must be <= respective maximum number but min_points = {} > {} = max_points.".format(
+                    min_points, max_points
+                )
+            )
         self.min_points = int(min_points)
         self.max_points = int(max_points)
         self.limits = limits
@@ -266,15 +301,17 @@ class RandomPointMutation(Stochastic):
         ----------
         ind : propulate.population.Individual
               individual the propagator is applied to
-        
+
         Returns
         -------
         ind : propulate.population.Individual
               possibly point-mutated individual after application of propagator
         """
-        if random.random() < self.probability: # Apply propagator only with specified `probability` 
+        if (
+            random.random() < self.probability
+        ):  # Apply propagator only with specified `probability`
             ind = copy.deepcopy(ind)
-            ind.loss = None # Initialize individual's loss attribute.
+            ind.loss = None  # Initialize individual's loss attribute.
             # Determine traits to mutate via random sampling.
             # Return `self.points` length list of unique elements chosen from `ind.keys()`.
             # Used for random sampling without replacement.
@@ -292,14 +329,15 @@ class RandomPointMutation(Stochastic):
                     # Return random element from non-empty sequence.
                     ind[i] = random.choice(self.limits[i])
 
-        return ind # Return point-mutated individual.
+        return ind  # Return point-mutated individual.
 
 
 class IntervalMutationNormal(Stochastic):
     """
     Mutate given number of traits according to Gaussian distribution around current value with given probability.
     """
-    def __init__(self, limits, sigma_factor=.1, points=1, probability=1.):
+
+    def __init__(self, limits, sigma_factor=0.1, points=1, probability=1.0):
         """
         Constructor of IntervalMutationNormal class.
 
@@ -315,12 +353,16 @@ class IntervalMutationNormal(Stochastic):
                       probability of application
         """
         super(IntervalMutationNormal, self).__init__(1, 1, probability)
-        self.points = points # number of traits to point-mutate
+        self.points = points  # number of traits to point-mutate
         self.limits = limits
         self.sigma_factor = sigma_factor
         n_interval_traits = len([x for x in limits if type(limits[x][0]) == float])
         if n_interval_traits < points:
-            raise ValueError("Too many points to mutate for individual with {} interval traits".format(n_interval_traits))
+            raise ValueError(
+                "Too many points to mutate for individual with {} interval traits".format(
+                    n_interval_traits
+                )
+            )
 
     def __call__(self, ind):
         """
@@ -330,37 +372,46 @@ class IntervalMutationNormal(Stochastic):
         ----------
         ind : propulate.population.Individual
               individual the propagator is applied to
-        
+
         Returns
         -------
         ind : propulate.population.Individual
               possibly interval-mutated individual after application of propagator
         """
-        if random.random() < self.probability: # Apply propagator only with specified `probability`.
+        if (
+            random.random() < self.probability
+        ):  # Apply propagator only with specified `probability`.
             ind = copy.deepcopy(ind)
-            ind.loss = None # Initialize individual's loss attribute.
+            ind.loss = None  # Initialize individual's loss attribute.
             # Determine traits of type float.
-            interval_keys = [x for x in ind.keys() if type(ind[x])==float]
+            interval_keys = [x for x in ind.keys() if type(ind[x]) == float]
             # Determine ´self.points` traits to mutate.
             to_mutate = random.sample(interval_keys, self.points)
             # Mutate traits by sampling from Gaussian distribution centered around current value
             # with `sigma_factor` scaled interval width as standard distribution.
             for i in to_mutate:
-                min_val, max_val = self.limits[i]           # Determine interval boundaries.
-                mu = ind[i]                                 # Current value is mean.
-                sigma = (max_val-min_val)*self.sigma_factor # Determine std from interval boundaries + sigma factor.
-                ind[i] = random.gauss(mu, sigma)            # Sample new value from Gaussian blob centered around current value.
-                ind[i] = min(max_val, ind[i])               # Make sure new value is within specified limits.
+                min_val, max_val = self.limits[i]  # Determine interval boundaries.
+                mu = ind[i]  # Current value is mean.
+                sigma = (
+                    max_val - min_val
+                ) * self.sigma_factor  # Determine std from interval boundaries + sigma factor.
+                ind[i] = random.gauss(
+                    mu, sigma
+                )  # Sample new value from Gaussian blob centered around current value.
+                ind[i] = min(
+                    max_val, ind[i]
+                )  # Make sure new value is within specified limits.
                 ind[i] = max(min_val, ind[i])
 
-        return ind # Return point-mutated individual.
+        return ind  # Return point-mutated individual.
 
 
-class MateUniform(Stochastic): # uniform crossover
+class MateUniform(Stochastic):  # uniform crossover
     """
     Generate new individual by uniform crossover of two parents with specified relative parent contribution.
     """
-    def __init__(self, rel_parent_contrib=.5, probability=1.):
+
+    def __init__(self, rel_parent_contrib=0.5, probability=1.0):
         """
         Constructor of MateUniform class.
 
@@ -371,9 +422,15 @@ class MateUniform(Stochastic): # uniform crossover
         probability : float
                       probability of application
         """
-        super(MateUniform, self).__init__(2, 1, probability) # Breed 1 offspring from 2 parents.
+        super(MateUniform, self).__init__(
+            2, 1, probability
+        )  # Breed 1 offspring from 2 parents.
         if rel_parent_contrib <= 0 or rel_parent_contrib >= 1:
-            raise ValueError("Relative parent contribution must be within (0, 1) but was {}.".format(rel_parent_contrib))
+            raise ValueError(
+                "Relative parent contribution must be within (0, 1) but was {}.".format(
+                    rel_parent_contrib
+                )
+            )
         self.rel_parent_contrib = rel_parent_contrib
 
     def __call__(self, inds):
@@ -384,26 +441,30 @@ class MateUniform(Stochastic): # uniform crossover
         ----------
         inds : list of propulate.population.Individual objects
                individuals the propagator is applied to
-        
+
         Returns
         -------
         ind : propulate.population.Individual
               possibly cross-bred individual after application of propagator
         """
-        ind = copy.deepcopy(inds[0]) # Consider 1st parent.
-        if random.random() < self.probability: # Apply propagator only with specified `probability`.
-            ind.loss = None # Initialize individual's loss attribute.
+        ind = copy.deepcopy(inds[0])  # Consider 1st parent.
+        if (
+            random.random() < self.probability
+        ):  # Apply propagator only with specified `probability`.
+            ind.loss = None  # Initialize individual's loss attribute.
             # Replace traits in 1st parent with values of 2nd parent with a probability of 0.5.
             for k in inds[1].keys():
                 if random.random() > self.rel_parent_contrib:
                     ind[k] = inds[1][k]
-        return ind # Return offspring.
+        return ind  # Return offspring.
 
-class MateMultiple(Stochastic): # uniform crossover
+
+class MateMultiple(Stochastic):  # uniform crossover
     """
     Generate new individual by uniform crossover of multiple parents.
     """
-    def __init__(self, parents=-1, probability=1.):
+
+    def __init__(self, parents=-1, probability=1.0):
         """
         Constructor of MateMultiple class.
 
@@ -414,7 +475,9 @@ class MateMultiple(Stochastic): # uniform crossover
         probability : float
                       probability of application
         """
-        super(MateMultiple, self).__init__(parents, 1, probability) # Breed 1 offspring from 2 parents.
+        super(MateMultiple, self).__init__(
+            parents, 1, probability
+        )  # Breed 1 offspring from 2 parents.
 
     def __call__(self, inds):
         """
@@ -424,31 +487,36 @@ class MateMultiple(Stochastic): # uniform crossover
         ----------
         inds : list of propulate.population.Individual objects
                individuals the propagator is applied to
-        
+
         Returns
         -------
         ind : propulate.population.Individual
               possibly cross-bred individual after application of propagator
         """
-        ind = copy.deepcopy(inds[0]) # Consider 1st parent.
-        if random.random() < self.probability: # Apply propagator only with specified `probability`.
-            ind.loss = None # Initialize individual's loss attribute.
+        ind = copy.deepcopy(inds[0])  # Consider 1st parent.
+        if (
+            random.random() < self.probability
+        ):  # Apply propagator only with specified `probability`.
+            ind.loss = None  # Initialize individual's loss attribute.
             # Replace traits in 1st parent with values of 2nd parent with a probability of 0.5.
             for k in ind.keys():
                 if random.random() > self.rel_parent_contrib:
                     temp = random.choice(inds)
                     ind[k] = temp[k]
-        return ind # Return offspring.
+        return ind  # Return offspring.
 
 
-class MateSigmoid(Stochastic): # crossover according to sigmoid probability of fitnesses
+class MateSigmoid(
+    Stochastic
+):  # crossover according to sigmoid probability of fitnesses
     """
     Generate new individual by crossover of two parents according to Boltzmann sigmoid probability.
 
-    Consider two parents `ind1` and `ind2` with fitnesses `f1` and `f2`. Let f1 <= f2. For each trait, 
+    Consider two parents `ind1` and `ind2` with fitnesses `f1` and `f2`. Let f1 <= f2. For each trait,
     the better parent's value is accepted with the probability sigmoid(- (f1-f2) / temperature).
     """
-    def __init__(self, temperature=1., probability=1.):
+
+    def __init__(self, temperature=1.0, probability=1.0):
         """
         Constructor of MateSigmoid class.
 
@@ -459,7 +527,9 @@ class MateSigmoid(Stochastic): # crossover according to sigmoid probability of f
         probability : float
                       probability of application
         """
-        super(MateBoltzmann, self).__init__(2, 1, probability) # Breed 1 offspring from 2 parents.
+        super(MateBoltzmann, self).__init__(
+            2, 1, probability
+        )  # Breed 1 offspring from 2 parents.
 
     def __call__(self, inds):
         """
@@ -469,33 +539,36 @@ class MateSigmoid(Stochastic): # crossover according to sigmoid probability of f
         ----------
         inds : list of propulate.population.Individual objects
                individuals the propagator is applied to
-        
+
         Returns
         -------
         ind : propulate.population.Individual
               possibly cross-bred individual after application of propagator
         """
-        ind = copy.deepcopy(inds[0]) # Consider 1st parent.
+        ind = copy.deepcopy(inds[0])  # Consider 1st parent.
         if inds[0].loss <= inds[1].loss:
             delta = inds[0].loss - inds[1].loss
-            fraction = 1 / (1 + numpy.exp(-delta/temperature)) 
+            fraction = 1 / (1 + numpy.exp(-delta / temperature))
         else:
             delta = inds[1].loss - inds[0].loss
-            fraction = 1 - 1 / (1 + numpy.exp(-delta/temperature)) 
+            fraction = 1 - 1 / (1 + numpy.exp(-delta / temperature))
 
-        if random.random() < self.probability: # Apply propagator only with specified `probability`.
-            ind.loss = None # Initialize individual's loss attribute.
+        if (
+            random.random() < self.probability
+        ):  # Apply propagator only with specified `probability`.
+            ind.loss = None  # Initialize individual's loss attribute.
             # Replace traits in 1st parent with values of 2nd parent with Boltzmann probability.
             for k in inds[1].keys():
                 if random.random() > fraction:
                     ind[k] = inds[1][k]
-        return ind # Return offspring.
+        return ind  # Return offspring.
 
 
 class SelectBest(Propagator):
     """
     Select specified number of best performing individuals as evaluated by their losses.
     """
+
     def __init__(self, offspring):
         """
         Constructor of SelectBest class.
@@ -515,22 +588,29 @@ class SelectBest(Propagator):
         ----------
         inds : list of propulate.population.Individual objects
                individuals the propagator is applied to
-        
+
         Returns
         -------
         ind : propulate.population.Individual
               list of selected individuals after application of propagator
         """
         if len(inds) < self.offspring:
-            raise ValueError("Has to have at least {} individuals to select the {} best ones.".format(self.offspring, self.offspring))
+            raise ValueError(
+                "Has to have at least {} individuals to select the {} best ones.".format(
+                    self.offspring, self.offspring
+                )
+            )
         # Sort elements of given iterable in specific order + return as list.
-        return sorted(inds, key=lambda ind: ind.loss)[:self.offspring] # Return `self.offspring` best individuals in terms of loss.
+        return sorted(inds, key=lambda ind: ind.loss)[
+            : self.offspring
+        ]  # Return `self.offspring` best individuals in terms of loss.
 
 
 class SelectWorst(Propagator):
     """
     Select specified number of worst performing individuals as evaluated by their losses.
     """
+
     def __init__(self, offspring):
         """
         Constructor of SelectBest class.
@@ -550,21 +630,29 @@ class SelectWorst(Propagator):
         ----------
         inds : list of propulate.population.Individual objects
                individuals the propagator is applied to
-        
+
         Returns
         -------
         ind : propulate.population.Individual
               list of selected individuals after application of propagator
         """
         if len(inds) < self.offspring:
-            raise ValueError("Has to have at least {} individuals to select the {} worst ones.".format(self.offspring, self.offspring))
+            raise ValueError(
+                "Has to have at least {} individuals to select the {} worst ones.".format(
+                    self.offspring, self.offspring
+                )
+            )
         # Sort elements of given iterable in specific order + return as list.
-        return sorted(inds, key=lambda ind: -ind.loss)[:self.offspring] # Return `self.offspring` worst individuals in terms of loss.
+        return sorted(inds, key=lambda ind: -ind.loss)[
+            : self.offspring
+        ]  # Return `self.offspring` worst individuals in terms of loss.
+
 
 class SelectUniform(Propagator):
     """
     Select specified number of individuals randomly.
     """
+
     def __init__(self, offspring):
         """
         Constructor of SelectRandom class.
@@ -584,15 +672,17 @@ class SelectUniform(Propagator):
         ----------
         inds : list of propulate.population.Individual objects
                individuals the propagator is applied to
-        
+
         Returns
         -------
         ind : propulate.population.Individual
               list of selected individuals after application of propagator
         """
         if len(inds) < self.offspring:
-            raise ValueError(f"Has to have at least {self.offspring} individuals to select {self.offspring} from them.")
-        # Return a `self.offspring` length list of unique elements chosen from `inds`. 
+            raise ValueError(
+                f"Has to have at least {self.offspring} individuals to select {self.offspring} from them."
+            )
+        # Return a `self.offspring` length list of unique elements chosen from `inds`.
         # Used for random sampling without replacement.
         return random.sample(inds, self.offspring)
 
@@ -602,12 +692,13 @@ class InitUniform(Stochastic):
     """
     Initialize individuals by uniformly sampling specified limits for each trait.
     """
-    def __init__(self, limits, parents=0, probability=1.):
+
+    def __init__(self, limits, parents=0, probability=1.0):
         """
         Constructor of InitUniform class.
 
         In case of parents > 0 and probability < 1., call returns input individual without change.
-        
+
         Parameters
         ----------
         limits : dict
@@ -617,7 +708,7 @@ class InitUniform(Stochastic):
         """
         super(InitUniform, self).__init__(parents, 1, probability)
         self.limits = limits
-    
+
     def __call__(self, *inds):
         """
         Apply uniform-initialization propagator.
@@ -626,25 +717,35 @@ class InitUniform(Stochastic):
         ----------
         inds : list of propulate.population.Individual objects
                individuals the propagator is applied to
-        
+
         Returns
         -------
         ind : propulate.population.Individual
               list of selected individuals after application of propagator
         """
-        if random.random() < self.probability: # Apply only with specified `probability`.
-            ind = Individual() # Instantiate new individual.
+        if (
+            random.random() < self.probability
+        ):  # Apply only with specified `probability`.
+            ind = Individual()  # Instantiate new individual.
             for limit in self.limits:
                 # Randomly sample from specified limits for each trait.
-                if type(self.limits[limit][0]) == int: # If ordinal trait of type integer.
+                if (
+                    type(self.limits[limit][0]) == int
+                ):  # If ordinal trait of type integer.
                     ind[limit] = random.randrange(*self.limits[limit])
-                elif type(self.limits[limit][0]) == float: # If interval trait of type float.
+                elif (
+                    type(self.limits[limit][0]) == float
+                ):  # If interval trait of type float.
                     ind[limit] = random.uniform(*self.limits[limit])
-                elif type(self.limits[limit][0]) == str: # If categorical trait of type string.
+                elif (
+                    type(self.limits[limit][0]) == str
+                ):  # If categorical trait of type string.
                     ind[limit] = random.choice(self.limits[limit])
                 else:
-                    raise ValueError("Unknown type of limits. Has to be float for interval, int for ordinal, or string for categorical.")
+                    raise ValueError(
+                        "Unknown type of limits. Has to be float for interval, int for ordinal, or string for categorical."
+                    )
             return ind
         else:
             ind = inds[0]
-            return ind # Return 1st input individual w/o changes.
+            return ind  # Return 1st input individual w/o changes.
