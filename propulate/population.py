@@ -23,12 +23,6 @@ class Individual(dict):
         self.migration_history = None  # migration history
         self.timestamp = None
 
-    #    def __repr__(self):
-    #        rep = {key : f"{Decimal(self[key]):.2E}" for key in self}
-    #        Active = "active" if self.active else "deactivated"
-    #        return f"[{rep}, loss {Decimal(self.loss):.2E}, I{self.isle}, W{self.rank}, " \
-    #               f"G{self.generation}, w{self.current}, m{self.migration_steps}, {Active}]"
-
     def __repr__(self):
         rep = {
             key: (
