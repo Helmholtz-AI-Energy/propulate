@@ -3,7 +3,7 @@ propulate
 =========
 
 
-!!! NOTE propulate has moved to [https://github.com/Helmholtz-AI-Energy/propulate](https://github.com/Helmholtz-AI-Energy/propulate)
+!!! NOTE: Propulate has moved to `https://github.com/Helmholtz-AI-Energy/propulate <https://github.com/Helmholtz-AI-Energy/propulate>`.
 Parallel propagator of populations.
 
 
@@ -23,6 +23,6 @@ For usage example see scripts.
 Installation
 ============
 
-Pull and run ``pip install -e .`` or ``python setup.py develop``
-Requires a MPI implementation (currently only tested with OpenMPI) and ``mpi4py`` 
+Pull and run ``pip install -e .`` or ``python setup.py develop``.
+Requires an MPI implementation (currently only tested with OpenMPI) and ``mpi4py``.
 
