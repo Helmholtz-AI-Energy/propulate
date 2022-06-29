@@ -3,7 +3,7 @@ propulate
 =========
 
 
-!!! NOTE: Propulate has moved to https://github.com/Helmholtz-AI-Energy/propulate .
+!!! NOTE: Propulate has moved to https://github.com/Helmholtz-AI-Energy/propulate . 
 Parallel propagator of populations.
 
 
