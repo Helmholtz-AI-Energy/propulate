@@ -783,10 +783,14 @@ class Propulator:
             )
         MPI.COMM_WORLD.barrier()
         if self.comm.rank == 0:
-            self.population.sort(key=lambda x: (x.loss, -x.migration_steps))
-            res_str = f"Top {top_n} result(s) on isle {self.isle_idx}:\n"
-            for i in range(top_n):
-                res_str += f"({i+1}): {self.population[i]}\n"
+            if DEBUG == 0:
+                best = min(self.population, key=attrgetter("loss"))
+                res_str = f"Top result on isle {self.isle_idx}: {best}\n"
+            else:
+                self.population.sort(key=lambda x: (x.loss, -x.migration_steps))
+                res_str = f"Top {top_n} result(s) on isle {self.isle_idx}:\n"
+                for i in range(top_n):
+                    res_str += f"({i+1}): {self.population[i]}\n"
             print(res_str)
             import matplotlib.pyplot as plt
 
@@ -1512,10 +1516,14 @@ class PolliPropulator:
             )
         MPI.COMM_WORLD.barrier()
         if self.comm.rank == 0:
-            self.population.sort(key=lambda x: (x.loss, -x.migration_steps))
-            res_str = f"Top {top_n} result(s) on isle {self.isle_idx}:\n"
-            for i in range(top_n):
-                res_str += f"({i+1}): {self.population[i]}\n"
+            if DEBUG == 0:
+                best = min(self.population, key=attrgetter("loss"))
+                res_str = f"Top result on isle {self.isle_idx}: {best}\n"
+            else:
+                self.population.sort(key=lambda x: (x.loss, -x.migration_steps))
+                res_str = f"Top {top_n} result(s) on isle {self.isle_idx}:\n"
+                for i in range(top_n):
+                    res_str += f"({i+1}): {self.population[i]}\n"
             print(res_str)
             import matplotlib.pyplot as plt
 
