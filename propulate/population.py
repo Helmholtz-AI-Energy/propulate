@@ -32,7 +32,7 @@ class Individual(dict):
         }
         Active = "active" if self.active else "deactivated"
         return (
-            f"[{rep}, loss {Decimal(self.loss):.2E}, I{self.isle}, W{self.rank}, "
+            f"[{rep}, loss {Decimal(float(self.loss)):.2E}, I{self.isle}, W{self.rank}, "
             f"G{self.generation}, w{self.current}, m{self.migration_steps}, {Active}]"
         )
 
