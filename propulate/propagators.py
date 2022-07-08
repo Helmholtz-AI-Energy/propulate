@@ -527,7 +527,7 @@ class MateSigmoid(
         probability : float
                       probability of application
         """
-        super(MateBoltzmann, self).__init__(
+        super(MateSigmoid, self).__init__(
             2, 1, probability
         )  # Breed 1 offspring from 2 parents.
 
