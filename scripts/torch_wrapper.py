@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 import random
 import sys
-from propulate import Islands, Propulator
-from mpi4py import MPI
-from propulate.utils import get_default_propagator
-from propulate.propagators import SelectBest, SelectWorst, SelectUniform
 import numpy as np
-from propulate import Propulator
+from mpi4py import MPI
+from propulate import Islands, Propulator
+from propulate.propagators import SelectBest, SelectWorst, SelectUniform
 from propulate.utils import get_default_propagator
 
 import torch
