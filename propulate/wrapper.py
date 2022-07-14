@@ -236,7 +236,8 @@ class Islands:
                 number of best results to report
         """
         self.propulator.propulate(logging_interval, DEBUG)
-        self.propulator.summarize(top_n, DEBUG=DEBUG)
+        best = self.propulator.summarize(top_n, DEBUG=DEBUG)
+        return best
 
     def evolve(self, top_n=3, logging_interval=10, DEBUG=1):
         """
@@ -247,4 +248,5 @@ class Islands:
         top_n : int
                 number of best results to report
         """
-        self._run(top_n, logging_interval, DEBUG)
+        best = self._run(top_n, logging_interval, DEBUG)
+        return best

@@ -789,6 +789,7 @@ class Propulator:
             else:
                 self.population.sort(key=lambda x: (x.loss, -x.migration_steps))
                 res_str = f"Top {top_n} result(s) on isle {self.isle_idx}:\n"
+                best = self.population[:top_n]
                 for i in range(top_n):
                     res_str += f"({i+1}): {self.population[i]}\n"
             print(res_str)
@@ -804,7 +805,12 @@ class Propulator:
             plt.ylabel("Loss")
             legend = ax.legend(*scatter.legend_elements(), title="Rank")
             plt.savefig(out_file)
-
+            Best = self.comm_inter.gather(best, root=0)
+        MPI.COMM_WORLD.barrier()
+        if MPI.COMM_WORLD.rank != 0:
+            Best = None
+        Best = MPI.COMM_WORLD.bcast(Best, root=0)
+        return Best 
 
 class PolliPropulator:
     """
@@ -1521,9 +1527,11 @@ class PolliPropulator:
                 res_str = f"Top result on isle {self.isle_idx}: {best}\n"
             else:
                 self.population.sort(key=lambda x: (x.loss, -x.migration_steps))
+                best = self.population[:top_n]
                 res_str = f"Top {top_n} result(s) on isle {self.isle_idx}:\n"
                 for i in range(top_n):
                     res_str += f"({i+1}): {self.population[i]}\n"
+
             print(res_str)
             import matplotlib.pyplot as plt
 
@@ -1537,3 +1545,9 @@ class PolliPropulator:
             plt.ylabel("Loss")
             legend = ax.legend(*scatter.legend_elements(), title="Rank")
             plt.savefig(out_file)
+            Best = self.comm_inter.gather(best, root=0)
+        MPI.COMM_WORLD.barrier()
+        if MPI.COMM_WORLD.rank != 0:
+            Best = None
+        Best = MPI.COMM_WORLD.bcast(Best, root=0)
+        return Best 
