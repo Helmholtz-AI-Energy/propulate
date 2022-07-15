@@ -226,7 +226,7 @@ class Islands:
                 unique_counts=isle_sizes,
             )
 
-    def _run(self, top_n, logging_interval, DEBUG):
+    def _run(self, top_n, out_file, logging_interval, DEBUG):
         """
         Run propulate optimization.
 
@@ -236,10 +236,10 @@ class Islands:
                 number of best results to report
         """
         self.propulator.propulate(logging_interval, DEBUG)
-        best = self.propulator.summarize(top_n, DEBUG=DEBUG)
+        best = self.propulator.summarize(top_n, out_file=out_file, DEBUG=DEBUG)
         return best
 
-    def evolve(self, top_n=3, logging_interval=10, DEBUG=1):
+    def evolve(self, top_n=3, out_file="summary.png", logging_interval=10, DEBUG=1):
         """
         Run propulate optimization.
 
@@ -248,5 +248,5 @@ class Islands:
         top_n : int
                 number of best results to report
         """
-        best = self._run(top_n, logging_interval, DEBUG)
+        best = self._run(top_n, out_file, logging_interval, DEBUG)
         return best

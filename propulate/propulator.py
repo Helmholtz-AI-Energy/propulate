@@ -804,7 +804,9 @@ class Propulator:
             plt.xlabel("Generation")
             plt.ylabel("Loss")
             legend = ax.legend(*scatter.legend_elements(), title="Rank")
-            plt.savefig(out_file)
+            plt.savefig(f"isle_{self.isle_idx}_"+out_file)
+            #plt.savefig(out_file)
+            plt.close()
             Best = self.comm_inter.gather(best, root=0)
         MPI.COMM_WORLD.barrier()
         if MPI.COMM_WORLD.rank != 0:
@@ -1544,7 +1546,8 @@ class PolliPropulator:
             plt.xlabel("Generation")
             plt.ylabel("Loss")
             legend = ax.legend(*scatter.legend_elements(), title="Rank")
-            plt.savefig(out_file)
+            plt.savefig(f"isle_{self.isle_idx}_"+out_file)
+            plt.close()
             Best = self.comm_inter.gather(best, root=0)
         MPI.COMM_WORLD.barrier()
         if MPI.COMM_WORLD.rank != 0:
