@@ -39,7 +39,7 @@ class Propulator:
         save_checkpoint="pop_cpt.p",
         migration_topology=None,
         comm_inter=MPI.COMM_WORLD,
-        migration_prob=None,
+        migration_prob=0.,
         emigration_propagator=None,
         unique_ind=None,
         unique_counts=None,
@@ -102,12 +102,15 @@ class Propulator:
         self.save_checkpoint = str(
             save_checkpoint
         )  # path to checkpoint file to be written
-        self.migration_prob = float(migration_prob)  # per-rank migration probability
-        self.migration_topology = migration_topology  # migration topology
-        self.unique_ind = unique_ind  # MPI.COMM_WORLD rank of each isle's worker 0
-        self.unique_counts = unique_counts  # number of workers on each isle
-        self.emigration_propagator = emigration_propagator  # emigration propagator
-        self.emigrated = []  # emigrated individuals to be deactivated on sending isle
+        if migration_topology is not None:
+            self.migration_prob = float(migration_prob)  # per-rank migration probability
+            self.migration_topology = migration_topology  # migration topology
+            self.unique_ind = unique_ind  # MPI.COMM_WORLD rank of each isle's worker 0
+            self.unique_counts = unique_counts  # number of workers on each isle
+            self.emigration_propagator = emigration_propagator  # emigration propagator
+            self.emigrated = []  # emigrated individuals to be deactivated on sending isle
+        else:
+            self.migration_prob = 0.
 
         # Load initial population of evaluated individuals from checkpoint if exists.
         if not os.path.isfile(
@@ -812,7 +815,7 @@ class Propulator:
         if MPI.COMM_WORLD.rank != 0:
             Best = None
         Best = MPI.COMM_WORLD.bcast(Best, root=0)
-        return Best 
+        return Best
 
 class PolliPropulator:
     """
@@ -1548,9 +1551,13 @@ class PolliPropulator:
             legend = ax.legend(*scatter.legend_elements(), title="Rank")
             plt.savefig(f"isle_{self.isle_idx}_"+out_file)
             plt.close()
-            Best = self.comm_inter.gather(best, root=0)
+            print("gather all the things")
+            if self.migration_prob > 0.:
+                Best = self.comm_inter.gather(best, root=0)
+            print("gathered all the things")
+
         MPI.COMM_WORLD.barrier()
         if MPI.COMM_WORLD.rank != 0:
             Best = None
         Best = MPI.COMM_WORLD.bcast(Best, root=0)
-        return Best 
+        return Best

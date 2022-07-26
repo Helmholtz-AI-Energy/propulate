@@ -1,19 +1,24 @@
 #!/usr/bin/env python3
 
-from propulate import Propulator
-from propulate.utils import get_default_propagator
-
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
 
+from pytorch_lightning import LightningModule, Trainer
+from torchmetrics import Accuracy
+
 from torchvision.datasets import MNIST
 from torchvision.transforms import Compose, ToTensor, Normalize
 
-from ignite.engine import Events, create_supervised_trainer, create_supervised_evaluator
-from ignite.metrics import Accuracy, Loss
+from mpi4py import MPI
 
-NUM_GENERATIONS = 3
+from propulate import Islands, Propulator
+from propulate.utils import get_default_propagator
+from propulate.propagators import SelectBest, SelectWorst, SelectUniform
+
+
+num_generations = 3
+pop_size = 2 * MPI.COMM_WORLD.size
 GPUS_PER_NODE = 4
 
 limits = {
@@ -23,28 +28,60 @@ limits = {
 }
 
 
-class Net(nn.Module):
-    def __init__(self, convlayers, activation):
+class Net(LightningModule):
+    def __init__(self, convlayers, activation, lr, loss_fn):
         super(Net, self).__init__()
 
+        self.lr = lr
+        self.loss_fn = loss_fn
         layers = []
         layers += [
-            nn.Sequential(nn.Conv2d(1, 10, kernel_size=3, padding=1), activation()),
+            nn.Sequential(nn.Conv2d(1,
+                                    10,
+                                    kernel_size=3,
+                                    padding=1),
+                          activation()),
         ]
         layers += [
-            nn.Sequential(nn.Conv2d(10, 10, kernel_size=3, padding=1), activation())
+            nn.Sequential(nn.Conv2d(10,
+                                    10,
+                                    kernel_size=3,
+                                    padding=1),
+                          activation())
             for _ in range(convlayers - 1)
         ]
 
         self.fc = nn.Linear(7840, 10)
         self.conv_layers = nn.Sequential(*layers)
 
+        self.val_acc = Accuracy()
+
     def forward(self, x):
         b, c, w, h = x.size()
         x = self.conv_layers(x)
         x = x.view(b, 10 * 28 * 28)
         x = self.fc(x)
+
         return x
+
+    def training_step(self, batch, batch_idx):
+        x, y = batch
+        loss = self.loss_fn(self(x), y)
+
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        x, y = batch
+        pred = self(x)
+        loss = self.loss_fn(pred, y)
+        val_acc = self.val_acc(torch.nn.functional.softmax(pred, dim=-1), y)
+        if val_acc > self.best_accuracy:
+            self.best_accuracy = val_acc
+        return loss
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.SGD(self.parameters(), lr=self.lr)
+        return optimizer
 
 
 def get_data_loaders(batch_size):
@@ -63,8 +100,6 @@ def get_data_loaders(batch_size):
 
 
 def ind_loss(params):
-    from mpi4py import MPI
-
     convlayers = params["convlayers"]
     activation = params["activation"]
     lr = params["lr"]
@@ -72,37 +107,41 @@ def ind_loss(params):
 
     activations = {"relu": nn.ReLU, "sigmoid": nn.Sigmoid, "tanh": nn.Tanh}
     activation = activations[activation]
-
-    rank = MPI.COMM_WORLD.Get_rank()
-
-    device = "cuda:{}".format(rank % GPUS_PER_NODE)
-
-    model = Net(convlayers, activation)
-    model.to(device)
-    optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.8)
     loss_fn = torch.nn.CrossEntropyLoss()
 
+    model = Net(convlayers, activation, lr, loss_fn)
+    model.best_accuracy = 0.0
+
     train_loader, val_loader = get_data_loaders(8)
+    trainer = Trainer(max_epochs=epochs,
+                      accelerator='gpu',
+                      devices=[
+                          MPI.COMM_WORLD.Get_rank() % GPUS_PER_NODE
+                              ],
+                      enable_progress_bar=False,
+                      )
+    trainer.fit(model, train_loader, val_loader)
 
-    trainer = create_supervised_trainer(model, optimizer, loss_fn, device=device)
-    evaluator = create_supervised_evaluator(
-        model, metrics={"acc": Accuracy(), "ce": Loss(loss_fn)}, device=device
-    )
-    trainer.best_accuracy = 0.0
-
-    @trainer.on(Events.EPOCH_COMPLETED)
-    def validate(trainer):
-        evaluator.run(val_loader)
-        metrics = evaluator.state.metrics
-
-        if metrics["acc"] > trainer.best_accuracy:
-            trainer.best_accuracy = metrics["acc"]
-
-    trainer.run(train_loader, max_epochs=epochs)
-    return -trainer.best_accuracy
+    return -model.best_accuracy.item()
 
 
-propagator = get_default_propagator(8, limits, 0.7, 0.4, 0.1)
-propulator = Propulator(ind_loss, propagator, generations=NUM_GENERATIONS)
-propulator.propulate()
-propulator.summarize()
+if __name__ == "__main__":
+    propagator = get_default_propagator(pop_size, limits, 0.7, 0.4, 0.1)
+    islands = Islands(
+            ind_loss,
+            propagator,
+            generations=num_generations,
+            num_isles=2,
+            load_checkpoint="bla",  # pop_cpt.p",
+            save_checkpoint="pop_cpt.p",
+            migration_probability=0.9,
+            emigration_propagator=SelectBest,
+            immigration_propagator=SelectWorst,
+            pollination=False,
+        )
+    islands.evolve(top_n=1, logging_interval=1, DEBUG=2)
+
+    # propulator = Propulator(ind_loss, propagator, 0, generations=num_generations)
+    # propulator.propulate(DEBUG=0)
+    # propulator.summarize()
+
