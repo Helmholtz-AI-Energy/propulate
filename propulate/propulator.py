@@ -206,6 +206,7 @@ class Propulator:
         """
         ind = self._breed(generation)  # Breed new individual.
         ind.loss = self.loss_fn(ind)  # Evaluate its loss.
+        ind.evaltime = time.time()
         self.population.append(
             ind
         )  # Add evaluated individual to own worker-local population.
@@ -782,19 +783,25 @@ class Propulator:
                 f"({len(occurrences)} unique)."
             )
         MPI.COMM_WORLD.barrier()
-        if self.comm.rank == 0:
-            if DEBUG == 0:
+        best = None
+        if DEBUG == 0:
+            if self.comm.rank == 0:
                 best = min(self.population, key=attrgetter("loss"))
                 res_str = f"Top result on isle {self.isle_idx}: {best}\n"
-            else:
+                print(res_str)
+            best = self.comm.bcast(best, root=0)
+        else:
+            if self.comm.rank == 0:
                 self.population.sort(key=lambda x: (x.loss, -x.migration_steps))
-                res_str = f"Top {top_n} result(s) on isle {self.isle_idx}:\n"
                 best = self.population[:top_n]
+                res_str = f"Top {top_n} result(s) on isle {self.isle_idx}:\n"
                 for i in range(top_n):
                     res_str += f"({i+1}): {self.population[i]}\n"
-            print(res_str)
-            import matplotlib.pyplot as plt
+                print(res_str)
+            best = self.comm.bcast(best, root=0)
 
+        if self.comm.rank == 0:
+            import matplotlib.pyplot as plt
             xs = [x.generation for x in self.population]
             ys = [x.loss for x in self.population]
             zs = [x.rank for x in self.population]
@@ -804,7 +811,7 @@ class Propulator:
             plt.xlabel("Generation")
             plt.ylabel("Loss")
             legend = ax.legend(*scatter.legend_elements(), title="Rank")
-            plt.savefig(f"isle_{self.isle_idx}_"+out_file)
+            plt.savefig(f"isle_{self.isle_idx}_{out_file}")
             #plt.savefig(out_file)
             plt.close()
             Best = self.comm_inter.gather(best, root=0)
@@ -996,7 +1003,6 @@ class PolliPropulator:
         ind.current = self.comm.rank  # Set worker responsible for migration.
         ind.migration_steps = 0  # Set number of migration steps performed.
         ind.migration_history = str(self.isle_idx)
-        ind.timestamp = time.time()
         return ind  # Return new individual.
 
     def _evaluate_individual(self, generation, DEBUG):
@@ -1010,8 +1016,9 @@ class PolliPropulator:
         DEBUG : int
                 verbosity level; 0 - silent; 1 - moderate, 2 - noisy (debug mode)
         """
-        ind = self._breed(generation)  # Breed new individual.
-        ind.loss = self.loss_fn(ind)  # Evaluate its loss.
+        ind = self._breed(generation)   # Breed new individual.
+        ind.loss = self.loss_fn(ind)    # Evaluate its loss.
+        ind.evaltime = time.time()
         self.population.append(
             ind
         )  # Add evaluated individual to own worker-local population.
@@ -1523,20 +1530,25 @@ class PolliPropulator:
                 f"({len(occurrences)} unique)."
             )
         MPI.COMM_WORLD.barrier()
-        if self.comm.rank == 0:
-            if DEBUG == 0:
+        best = None
+        if DEBUG == 0:
+            if self.comm.rank == 0:
                 best = min(self.population, key=attrgetter("loss"))
                 res_str = f"Top result on isle {self.isle_idx}: {best}\n"
-            else:
+                print(res_str)
+            best = self.comm.bcast(best, root=0)
+        else:
+            if self.comm.rank == 0:
                 self.population.sort(key=lambda x: (x.loss, -x.migration_steps))
                 best = self.population[:top_n]
                 res_str = f"Top {top_n} result(s) on isle {self.isle_idx}:\n"
                 for i in range(top_n):
                     res_str += f"({i+1}): {self.population[i]}\n"
+                print(res_str)
+            best = self.comm.bcast(best, root=0)
 
-            print(res_str)
+        if self.comm.rank == 0:
             import matplotlib.pyplot as plt
-
             xs = [x.generation for x in self.population]
             ys = [x.loss for x in self.population]
             zs = [x.rank for x in self.population]
@@ -1546,7 +1558,8 @@ class PolliPropulator:
             plt.xlabel("Generation")
             plt.ylabel("Loss")
             legend = ax.legend(*scatter.legend_elements(), title="Rank")
-            plt.savefig(f"isle_{self.isle_idx}_"+out_file)
+            plt.savefig(f"isle_{self.isle_idx}_{out_file}")
+            #plt.savefig(out_file)
             plt.close()
             Best = self.comm_inter.gather(best, root=0)
         MPI.COMM_WORLD.barrier()
@@ -1554,3 +1567,4 @@ class PolliPropulator:
             Best = None
         Best = MPI.COMM_WORLD.bcast(Best, root=0)
         return Best 
+        
