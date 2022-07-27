@@ -22,7 +22,7 @@ class Islands:
         num_isles=1,
         isle_sizes=None,
         migration_topology=None,
-        migration_probability=0.1,
+        migration_probability=0.0,
         emigration_propagator=SelectBest,
         immigration_propagator=SelectWorst,
         pollination=False,
