@@ -21,7 +21,7 @@ class Individual(dict):
         self.current = None  # current responsible worker
         self.migration_steps = None  # number of migration steps performed
         self.migration_history = None  # migration history
-        self.timestamp = None
+        self.evaltime = None
 
     def __repr__(self):
         rep = {
@@ -33,7 +33,7 @@ class Individual(dict):
         Active = "active" if self.active else "deactivated"
         return (
             f"[{rep}, loss {Decimal(float(self.loss)):.2E}, I{self.isle}, W{self.rank}, "
-            f"G{self.generation}, w{self.current}, m{self.migration_steps}, {Active}]"
+            f"G{self.generation}, {self.evaltime}, w{self.current}, m{self.migration_steps}, {Active}]"
         )
 
     def __eq__(self, other):
