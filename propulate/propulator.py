@@ -549,6 +549,30 @@ class Propulator:
         if DEBUG == 2:
             print(log_string)
 
+    def _get_unique_individuals(self):
+        """
+        Get unique individuals (in terms of traits + loss) in current population.
+
+        Returns
+        ----------
+        unique_inds : list of propulate.population.Individuals
+                      list of unique individuals
+        """
+        unique_inds = []
+        for individual in self.population:
+            considered = False
+            for ind in unique_inds:
+                # Check for equivalence of traits only when
+                # determining unique individuals. To do so, use
+                # self.equals(other) member function of Individual()
+                # class instead of `==` operator.
+                if individual.equals(ind):
+                    considered = True
+                    break
+            if not considered:
+                unique_inds.append(individual)
+        return unique_inds
+
     def _check_for_duplicates(self, generation, active, DEBUG):
         """
         Check for duplicates in current population.
@@ -766,22 +790,16 @@ class Propulator:
                 f"\nExpected overall number of evaluations is {self.generations*MPI.COMM_WORLD.size}."
             )
         populations = self.comm.gather(self.population, root=0)
-        occurrences = self._check_for_duplicates(self.generations - 1, True, DEBUG)
-        if DEBUG == 2 and self.comm.rank == 0:
-            if self._check_intra_isle_synchronization(populations):
-                print(f"I{self.isle_idx}: Populations among workers synchronized.")
-            else:
-                print(
-                    f"I{self.isle_idx}: Populations among workers not synchronized:\n"
-                    f"{populations}"
-                )
-        MPI.COMM_WORLD.barrier()
-        if self.comm.rank == 0:
-            print(
-                f"I{self.isle_idx}: "
-                f"{len(active_pop)}/{len(self.population)} individuals active "
-                f"({len(occurrences)} unique)."
-            )
+        # Only double-check number of occurrences of each individual for DEBUG level 2.
+        if DEBUG ==2:
+            occurrences, _ = self._check_for_duplicates(self.generations - 1, True, DEBUG)
+            if self.comm.rank == 0:
+                if self._check_intra_isle_synchronization(populations):
+                    res_str = f"I{self.isle_idx}: Populations among workers synchronized."
+                else:
+                    res_str = f"I{self.isle_idx}: Populations among workers not synchronized:\n{populations}"
+                res_str += f"I{self.isle_idx}: {len(active_pop)}/{len(self.population)} individuals active ({len(occurrences)} unique)."
+                print(res_str)
         MPI.COMM_WORLD.barrier()
         best = None
         if DEBUG == 0:
@@ -792,11 +810,12 @@ class Propulator:
             best = self.comm.bcast(best, root=0)
         else:
             if self.comm.rank == 0:
-                self.population.sort(key=lambda x: (x.loss, -x.migration_steps))
-                best = self.population[:top_n]
+                unique_pop = self._get_unique_individuals()
+                unique_pop.sort(key=lambda x: x.loss)
+                best = unique_pop[:top_n]
                 res_str = f"Top {top_n} result(s) on isle {self.isle_idx}:\n"
                 for i in range(top_n):
-                    res_str += f"({i+1}): {self.population[i]}\n"
+                    res_str += f"({i+1}): {unique_pop[i]}\n"
                 print(res_str)
             best = self.comm.bcast(best, root=0)
 
@@ -1307,6 +1326,30 @@ class PolliPropulator:
         if DEBUG == 2:
             print(log_string)
 
+    def _get_unique_individuals(self):
+        """
+        Get unique individuals (in terms of traits + loss) in current population.
+
+        Returns
+        ----------
+        unique_inds : list of propulate.population.Individuals
+                      list of unique individuals
+        """
+        unique_inds = []
+        for individual in self.population:
+            considered = False
+            for ind in unique_inds:
+                # Check for equivalence of traits only when
+                # determining unique individuals. To do so, use
+                # self.equals(other) member function of Individual()
+                # class instead of `==` operator.
+                if individual.equals(ind):
+                    considered = True
+                    break
+            if not considered:
+                unique_inds.append(individual)
+        return unique_inds
+
     def _check_for_duplicates(self, generation, active, DEBUG):
         """
         Check for duplicates in current population.
@@ -1517,33 +1560,26 @@ class PolliPropulator:
                 f"\nExpected overall number of evaluations is {self.generations*MPI.COMM_WORLD.size}."
             )
         populations = self.comm.gather(self.population, root=0)
-        occurrences, unique_pop = self._check_for_duplicates(self.generations - 1, True, DEBUG)
-        if DEBUG == 2 and self.comm.rank == 0:
-            if self._check_intra_isle_synchronization(populations):
-                print(f"I{self.isle_idx}: Populations among workers synchronized.")
-            else:
-                print(
-                    f"I{self.isle_idx}: Populations among workers not synchronized:\n"
-                    f"{populations}"
-                )
-        MPI.COMM_WORLD.barrier()
-        if self.comm.rank == 0:
-            print(
-                f"I{self.isle_idx}: "
-                f"{len(active_pop)}/{len(self.population)} individuals active "
-                f"({len(occurrences)} unique)."
-            )
+        if DEBUG == 2:
+            occurrences, _ = self._check_for_duplicates(self.generations - 1, True, DEBUG)
+            if self.comm.rank == 0:
+                if self._check_intra_isle_synchronization(populations):
+                    res_str = f"I{self.isle_idx}: Populations among workers synchronized."
+                else:
+                    res_str = f"I{self.isle_idx}: Populations among workers not synchronized:\n{populations}"
+                res_str += f"I{self.isle_idx}: {len(active_pop)}/{len(self.population)} individuals active ({len(occurrences)} unique)."
+                print(res_str)
         MPI.COMM_WORLD.barrier()
         best = None
         if DEBUG == 0:
             if self.comm.rank == 0:
-                best = min(unique_pop, key=attrgetter("loss"))
+                best = min(self.population, key=attrgetter("loss"))
                 res_str = f"Top result on isle {self.isle_idx}: {best}\n"
                 print(res_str)
             best = self.comm.bcast(best, root=0)
         else:
             if self.comm.rank == 0:
-                print(f"Uniques: {unique_pop}")
+                unique_pop = self._get_unique_individuals()
                 unique_pop.sort(key=lambda x: x.loss)
                 best = unique_pop[:top_n]
                 res_str = f"Top {top_n} result(s) on isle {self.isle_idx}:\n"
