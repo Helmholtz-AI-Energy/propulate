@@ -66,4 +66,7 @@ class Individual(dict):
             else:
                 compare_traits = False
                 break
-        return compare_traits
+        return (
+            compare_traits
+            and self.loss == other.loss
+        )
