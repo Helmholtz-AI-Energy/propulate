@@ -564,14 +564,14 @@ class Propulator:
                 flag for additional debug prints
         """
         if active:
-            population = [ind for ind in self.population if ind.active]
+            population, _ = self._get_active_individuals()
         else:
             population = self.population
-        considered_inds = []
+        unique_inds = []
         occurrences = []
         for individual in population:
             considered = False
-            for ind in considered_inds:
+            for ind in unique_inds:
                 if individual == ind:
                     considered = True
                     break
@@ -582,9 +582,9 @@ class Propulator:
                         f"I{self.isle_idx} W{self.comm.rank} G{generation}: "
                         f"{individual} occurs {num_copies} time(s)."
                     )
-                considered_inds.append(individual)
+                unique_inds.append(individual)
                 occurrences.append([individual, num_copies])
-        return occurrences
+        return occurrences, unique_inds
 
     def _check_intra_isle_synchronization(self, populations):
         """
@@ -812,7 +812,6 @@ class Propulator:
             plt.ylabel("Loss")
             legend = ax.legend(*scatter.legend_elements(), title="Rank")
             plt.savefig(f"isle_{self.isle_idx}_{out_file}")
-            #plt.savefig(out_file)
             plt.close()
             Best = self.comm_inter.gather(best, root=0)
         MPI.COMM_WORLD.barrier()
@@ -1321,15 +1320,20 @@ class PolliPropulator:
                      current generation
         """
         if active:
-            population = [ind for ind in self.population if ind.active]
+            population, _ = self._get_active_individuals()
         else:
             population = self.population
-        considered_inds = []
+        unique_inds = []
         occurrences = []
         for individual in population:
             considered = False
-            for ind in considered_inds:
-                if individual == ind:
+            for ind in unique_inds:
+                # As copies of individuals are allowed for pollination,
+                # check for equivalence of traits and loss only when
+                # determining unique individuals. To do so, use
+                # self.equals(other) member function of Individual()
+                # class instead of `==` operator.
+                if individual.equals(ind):
                     considered = True
                     break
             if not considered:
@@ -1339,9 +1343,9 @@ class PolliPropulator:
                         f"I{self.isle_idx} W{self.comm.rank} G{generation}: "
                         f"{individual} occurs {num_copies} time(s)."
                     )
-                considered_inds.append(individual)
+                unique_inds.append(individual)
                 occurrences.append([individual, num_copies])
-        return occurrences
+        return occurrences, unique_inds
 
     def _check_intra_isle_synchronization(self, populations):
         """
@@ -1513,7 +1517,7 @@ class PolliPropulator:
                 f"\nExpected overall number of evaluations is {self.generations*MPI.COMM_WORLD.size}."
             )
         populations = self.comm.gather(self.population, root=0)
-        occurrences = self._check_for_duplicates(self.generations - 1, True, DEBUG)
+        occurrences, unique_pop = self._check_for_duplicates(self.generations - 1, True, DEBUG)
         if DEBUG == 2 and self.comm.rank == 0:
             if self._check_intra_isle_synchronization(populations):
                 print(f"I{self.isle_idx}: Populations among workers synchronized.")
@@ -1533,17 +1537,18 @@ class PolliPropulator:
         best = None
         if DEBUG == 0:
             if self.comm.rank == 0:
-                best = min(self.population, key=attrgetter("loss"))
+                best = min(unique_pop, key=attrgetter("loss"))
                 res_str = f"Top result on isle {self.isle_idx}: {best}\n"
                 print(res_str)
             best = self.comm.bcast(best, root=0)
         else:
             if self.comm.rank == 0:
-                self.population.sort(key=lambda x: (x.loss, -x.migration_steps))
-                best = self.population[:top_n]
+                print(f"Uniques: {unique_pop}")
+                unique_pop.sort(key=lambda x: x.loss)
+                best = unique_pop[:top_n]
                 res_str = f"Top {top_n} result(s) on isle {self.isle_idx}:\n"
                 for i in range(top_n):
-                    res_str += f"({i+1}): {self.population[i]}\n"
+                    res_str += f"({i+1}): {unique_pop[i]}\n"
                 print(res_str)
             best = self.comm.bcast(best, root=0)
 
@@ -1559,7 +1564,6 @@ class PolliPropulator:
             plt.ylabel("Loss")
             legend = ax.legend(*scatter.legend_elements(), title="Rank")
             plt.savefig(f"isle_{self.isle_idx}_{out_file}")
-            #plt.savefig(out_file)
             plt.close()
             Best = self.comm_inter.gather(best, root=0)
         MPI.COMM_WORLD.barrier()
