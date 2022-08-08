@@ -56,3 +56,19 @@ class Individual(dict):
             and self.isle == other.isle
             and self.active == other.active
         )
+
+    def equals(self, other):
+        # Check if object to compare to is of the same class.
+        assert isinstance(other, self.__class__)
+        # Check equivalence of traits, i.e., hyperparameter values.
+        compare_traits = True
+        for key in self.keys():
+            if self[key] == other[key]:
+                continue
+            else:
+                compare_traits = False
+                break
+        return (
+            compare_traits
+            and self.loss == other.loss
+        )
