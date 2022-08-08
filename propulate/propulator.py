@@ -791,7 +791,7 @@ class Propulator:
             )
         populations = self.comm.gather(self.population, root=0)
         # Only double-check number of occurrences of each individual for DEBUG level 2.
-        if DEBUG ==2:
+        if DEBUG == 2:
             occurrences, _ = self._check_for_duplicates(self.generations - 1, True, DEBUG)
             if self.comm.rank == 0:
                 if self._check_intra_isle_synchronization(populations):
