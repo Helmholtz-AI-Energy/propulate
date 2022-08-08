@@ -1,6 +1,4 @@
-# TODO multi objective optimization?
 # TODO invalidate loss, when entry is modified so this does not have to be done by the propagator
-# TODO switch to ordered dict
 # TODO genealogy
 # TODO have ordinal vs categorical inferred from list vs set
 
@@ -68,7 +66,4 @@ class Individual(dict):
             else:
                 compare_traits = False
                 break
-        return (
-            compare_traits
-            and self.loss == other.loss
-        )
+        return compare_traits
