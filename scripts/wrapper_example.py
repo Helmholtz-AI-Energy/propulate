@@ -151,11 +151,14 @@ if __name__ == "__main__":
     while True:
         # migration_topology = num_migrants*np.ones((4, 4), dtype=int)
         # np.fill_diagonal(migration_topology, 0)
+        
+        rng = random.Random(MPI.COMM_WORLD.rank)
 
-        propagator = get_default_propagator(POP_SIZE, limits, 0.7, 0.4, 0.1)
+        propagator = get_default_propagator(POP_SIZE, limits, 0.7, 0.4, 0.1, rng=rng)
         islands = Islands(
             function,
             propagator,
+            rng, 
             generations=NUM_GENERATIONS,
             num_isles=2,
             isle_sizes=[19, 19, 19, 19],  # migration_topology=migration_topology,

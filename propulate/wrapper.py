@@ -18,6 +18,7 @@ class Islands:
         self,
         loss_fn,
         propagator,
+        rng, 
         generations=0,
         num_isles=1,
         isle_sizes=None,
@@ -205,6 +206,7 @@ class Islands:
                 emigration_propagator=emigration_propagator,
                 unique_ind=unique_ind,
                 unique_counts=isle_sizes,
+                rng=rng,
             )
         elif pollination == True:
             if MPI.COMM_WORLD.rank == 0:
@@ -224,6 +226,7 @@ class Islands:
                 immigration_propagator=immigration_propagator,
                 unique_ind=unique_ind,
                 unique_counts=isle_sizes,
+                rng=rng,
             )
 
     def _run(self, top_n, out_file, logging_interval, DEBUG):
@@ -236,8 +239,11 @@ class Islands:
                 number of best results to report
         """
         self.propulator.propulate(logging_interval, DEBUG)
-        best = self.propulator.summarize(top_n, out_file=out_file, DEBUG=DEBUG)
-        return best
+        if DEBUG > -1:
+            best = self.propulator.summarize(top_n, out_file=out_file, DEBUG=DEBUG)
+            return best
+        else:
+            return None
 
     def evolve(self, top_n=3, out_file="summary.png", logging_interval=10, DEBUG=1):
         """

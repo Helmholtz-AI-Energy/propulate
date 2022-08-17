@@ -43,6 +43,7 @@ class Propulator:
         emigration_propagator=None,
         unique_ind=None,
         unique_counts=None,
+        rng=None,
     ):
         """
         Constructor of Propulator class.
@@ -82,6 +83,8 @@ class Propulator:
         unique_counts : numpy array
                         array with number of workers per isle
                         Element i specifies number of workers on isle with index i.
+        rng : random.Random()
+              random number generator
         """
         # Set class attributes.
         self.loss_fn = loss_fn  # callable loss function
@@ -108,6 +111,7 @@ class Propulator:
         self.unique_counts = unique_counts  # number of workers on each isle
         self.emigration_propagator = emigration_propagator  # emigration propagator
         self.emigrated = []  # emigrated individuals to be deactivated on sending isle
+        self.rng = rng
 
         # Load initial population of evaluated individuals from checkpoint if exists.
         if not os.path.isfile(
@@ -294,7 +298,7 @@ class Propulator:
             all_emigrants = emigrator(
                 eligible_emigrants
             )  # Choose `offspring` eligible emigrants.
-            random.shuffle(all_emigrants)
+            self.rng.shuffle(all_emigrants)
             # Loop through relevant part of migration topology.
             offsprings_sent = 0
             for target_isle, offspring in enumerate(to_migrate):
@@ -327,7 +331,7 @@ class Propulator:
                 departing = copy.deepcopy(emigrants)
                 # Determine new responsible worker on target isle.
                 for ind in departing:
-                    ind.current = random.randrange(0, count)
+                    ind.current = self.rng.randrange(0, count)
                 for r in dest_isle:  # Loop through MPI.COMM_WORLD destination ranks.
                     MPI.COMM_WORLD.send(
                         copy.deepcopy(departing), dest=r, tag=MIGRATION_TAG
@@ -668,7 +672,7 @@ class Propulator:
 
                 # Emigration: Isle sends individuals out.
                 # Happens on per-worker basis with certain probability.
-                if random.random() < self.migration_prob:
+                if self.rng.random() < self.migration_prob:
                     self._send_emigrants(generation, DEBUG)
 
                 # Immigration: Check for incoming individuals from other isles.
@@ -865,6 +869,7 @@ class PolliPropulator:
         immigration_propagator=None,
         unique_ind=None,
         unique_counts=None,
+        rng=None,
     ):
         """
         Constructor of Propulator class.
@@ -908,6 +913,8 @@ class PolliPropulator:
         unique_counts : numpy array
                         array with number of workers per isle
                         Element i specifies number of workers on isle with index i.
+        rng : random.Random()
+              random number generator
         """
         # Set class attributes.
         self.loss_fn = loss_fn  # callable loss function
@@ -935,6 +942,7 @@ class PolliPropulator:
         self.emigration_propagator = emigration_propagator  # emigration propagator
         self.immigration_propagator = immigration_propagator  # immigration propagator
         self.replaced = []  # individuals to be replaced by immigrants
+        self.rng = rng
 
         # Load initial population of evaluated individuals from checkpoint if exists.
         if not os.path.isfile(
@@ -1140,7 +1148,7 @@ class PolliPropulator:
                 departing = copy.deepcopy(emigrants)
                 # Determine new responsible worker on target isle.
                 for ind in departing:
-                    ind.current = random.randrange(0, count)
+                    ind.current = self.rng.randrange(0, count)
                     ind.migration_history += str(target_isle)
                     ind.timestamp = time.time()
                     # print(f"{ind} with migration history {ind.migration_history}")
@@ -1224,7 +1232,7 @@ class PolliPropulator:
                     ]
 
                     immigrator = self.immigration_propagator(
-                        replace_num
+                        replace_num, self.rng
                     )  # Set up immigration propagator.
                     to_replace = immigrator(
                         eligible_for_replacement
@@ -1446,7 +1454,7 @@ class PolliPropulator:
             if migration:
                 # Emigration: Isle sends individuals out.
                 # Happens on per-worker basis with certain probability.
-                if random.random() < self.migration_prob:
+                if self.rng.random() < self.migration_prob:
                     self._send_emigrants(generation, DEBUG)
 
                 # Immigration: Isle checks for incoming individuals from other islands.
