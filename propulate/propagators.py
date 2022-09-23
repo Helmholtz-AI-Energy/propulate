@@ -163,9 +163,7 @@ class Cascade(Propagator):
                 ind = indp.parents
 
                 raise ValueError(
-                    "Incompatible combination of {} output individuals of {} and {} input individuals of {}".format(
-                        outd, outp, ind, inp
-                    )
+                    f"Incompatible combination of {outd} output individuals of {outp} and {ind} input individuals of {inp}."
                 )
 
     def __call__(
@@ -214,9 +212,7 @@ class PointMutation(Stochastic):
         self.limits = limits
         if len(limits) < points:
             raise ValueError(
-                "Too many points to mutate for individual with {} traits".format(
-                    len(limits)
-                )
+                f"Too many points to mutate for individual with {len(limits)} traits."
             )
 
     def __call__(self, ind):
@@ -282,21 +278,15 @@ class RandomPointMutation(Stochastic):
         super(RandomPointMutation, self).__init__(1, 1, probability, rng)
         if min_points <= 0:
             raise ValueError(
-                "Minimum number of points to mutate must be > 0 but was {}.".format(
-                    min_points
-                )
+                f"Minimum number of points to mutate must be > 0 but was {min_points}."
             )
         if len(limits) < max_points:
             raise ValueError(
-                "Too many points to mutate for individual with {} traits.".format(
-                    len(limits)
-                )
+                f"Too many points to mutate for individual with {len(limits)} traits."
             )
         if min_points > max_points:
             raise ValueError(
-                "Minimum number of traits to mutate must be <= respective maximum number but min_points = {} > {} = max_points.".format(
-                    min_points, max_points
-                )
+                f"Minimum number of traits to mutate must be <= respective maximum number but min_points = {min_points} > {max_points} = max_points."
             )
         self.min_points = int(min_points)
         self.max_points = int(max_points)
@@ -370,9 +360,7 @@ class IntervalMutationNormal(Stochastic):
         n_interval_traits = len([x for x in limits if type(limits[x][0]) == float])
         if n_interval_traits < points:
             raise ValueError(
-                "Too many points to mutate for individual with {} interval traits".format(
-                    n_interval_traits
-                )
+                f"Too many points to mutate for individual with {n_interval_traits} interval traits"
             )
 
     def __call__(self, ind):
@@ -440,9 +428,7 @@ class MateUniform(Stochastic):  # uniform crossover
         )  # Breed 1 offspring from 2 parents.
         if rel_parent_contrib <= 0 or rel_parent_contrib >= 1:
             raise ValueError(
-                "Relative parent contribution must be within (0, 1) but was {}.".format(
-                    rel_parent_contrib
-                )
+                f"Relative parent contribution must be within (0, 1) but was {rel_parent_contrib}."
             )
         self.rel_parent_contrib = rel_parent_contrib
 
@@ -613,9 +599,7 @@ class SelectBest(Propagator):
         """
         if len(inds) < self.offspring:
             raise ValueError(
-                "Has to have at least {} individuals to select the {} best ones.".format(
-                    self.offspring, self.offspring
-                )
+                f"Has to have at least {self.offspring} individuals to select the {self.offspring} best ones."
             )
         # Sort elements of given iterable in specific order + return as list.
         return sorted(inds, key=lambda ind: ind.loss)[
@@ -655,9 +639,7 @@ class SelectWorst(Propagator):
         """
         if len(inds) < self.offspring:
             raise ValueError(
-                "Has to have at least {} individuals to select the {} worst ones.".format(
-                    self.offspring, self.offspring
-                )
+                f"Has to have at least {self.offspring} individuals to select the {self.offspring} worst ones."
             )
         # Sort elements of given iterable in specific order + return as list.
         return sorted(inds, key=lambda ind: -ind.loss)[
