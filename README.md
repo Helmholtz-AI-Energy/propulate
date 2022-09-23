@@ -22,7 +22,8 @@ For usage example, see scripts.
 
 ## Installation
 
-Pull and run ``pip install -e .`` or ``python setup.py develop``.
+From PyPI: ``pip install propulate``
+Alternatively, pull and run ``pip install -e .`` or ``python setup.py develop``.
 Requires an MPI implementation (currently only tested with OpenMPI) and ``mpi4py``.
 
 ## To Dos
