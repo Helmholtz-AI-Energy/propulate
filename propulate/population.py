@@ -3,7 +3,6 @@
 # TODO have ordinal vs categorical inferred from list vs set
 
 from decimal import Decimal
-import time
 
 
 class Individual(dict):
@@ -34,7 +33,7 @@ class Individual(dict):
         else:
             loss_str = f"{Decimal(float(self.loss)):.2E}"
         return (
-            f"[{rep}, loss " + loss_str +", I{self.isle}, W{self.rank}, "
+            f"[{rep}, loss " + loss_str + ", I{self.isle}, W{self.rank}, "
             f"G{self.generation}, {self.evaltime}, w{self.current}, m{self.migration_steps}, {Active}]"
         )
 
@@ -70,7 +69,4 @@ class Individual(dict):
             else:
                 compare_traits = False
                 break
-        return (
-            compare_traits
-            and self.loss == other.loss
-        )
+        return compare_traits and self.loss == other.loss

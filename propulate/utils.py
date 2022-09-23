@@ -1,14 +1,13 @@
 from .propagators import (
-    Conditional,
     Cascade,
-    PointMutation,
-    MateUniform,
-    SelectBest,
-    SelectUniform,
+    Conditional,
     InitUniform,
     IntervalMutationNormal,
+    MateUniform,
+    PointMutation,
+    SelectBest,
+    SelectUniform,
 )
-from .population import Individual
 
 
 def get_default_propagator(
@@ -40,7 +39,9 @@ def get_default_propagator(
             SelectUniform(2, rng=rng),
             MateUniform(mate_prob, rng=rng),
             PointMutation(limits, probability=mut_prob, rng=rng),
-            IntervalMutationNormal(limits, sigma_factor=sigma_factor, probability=1, rng=rng),
+            IntervalMutationNormal(
+                limits, sigma_factor=sigma_factor, probability=1, rng=rng
+            ),
             InitUniform(
                 limits, parents=1, probability=random_prob, rng=rng
             ),  # TODO this should be put in a "forked" propagator?
@@ -56,7 +57,8 @@ def get_default_propagator(
 
 
 def get_default_propagator_select_random(
-    pop_size, limits, mate_prob, mut_prob, random_prob, sigma_factor=0.1, rng=None):
+    pop_size, limits, mate_prob, mut_prob, random_prob, sigma_factor=0.1, rng=None
+):
     """
     Get propulate's default propagator.
 
@@ -83,7 +85,9 @@ def get_default_propagator_select_random(
             SelectUniform(2, rng=rng),
             MateUniform(mate_prob, rng=rng),
             PointMutation(limits, probability=mut_prob, rng=rng),
-            IntervalMutationNormal(limits, sigma_factor=sigma_factor, probability=1, rng=rng),
+            IntervalMutationNormal(
+                limits, sigma_factor=sigma_factor, probability=1, rng=rng
+            ),
             InitUniform(
                 limits, parents=1, probability=random_prob, rng=rng
             ),  # TODO this should be put in a "forked" propagator?

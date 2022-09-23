@@ -1,5 +1,5 @@
-import random
 import copy
+
 import numpy
 
 from .population import Individual
@@ -160,7 +160,7 @@ class Cascade(Propagator):
                 outp = propagators[i]
                 inp = propagators[i + 1]
                 outd = outp.offspring
-                ind = indp.parents
+                ind = inp.parents
 
                 raise ValueError(
                     f"Incompatible combination of {outd} output individuals of {outp} and {ind} input individuals of {inp}."
@@ -533,6 +533,7 @@ class MateSigmoid(
         super(MateSigmoid, self).__init__(
             2, 1, probability, rng
         )  # Breed 1 offspring from 2 parents.
+        self.temperature = temperature
 
     def __call__(self, inds):
         """
@@ -551,10 +552,10 @@ class MateSigmoid(
         ind = copy.deepcopy(inds[0])  # Consider 1st parent.
         if inds[0].loss <= inds[1].loss:
             delta = inds[0].loss - inds[1].loss
-            fraction = 1 / (1 + numpy.exp(-delta / temperature))
+            fraction = 1 / (1 + numpy.exp(-delta / self.temperature))
         else:
             delta = inds[1].loss - inds[0].loss
-            fraction = 1 - 1 / (1 + numpy.exp(-delta / temperature))
+            fraction = 1 - 1 / (1 + numpy.exp(-delta / self.temperature))
 
         if (
             self.rng.random() < self.probability

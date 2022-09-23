@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
 
-from propulate import Propulator
-from propulate.utils import get_default_propagator
-
 import torch
+from ignite.engine import Events, create_supervised_evaluator, create_supervised_trainer
+from ignite.metrics import Accuracy, Loss
 from torch import nn
 from torch.utils.data import DataLoader
-
 from torchvision.datasets import MNIST
-from torchvision.transforms import Compose, ToTensor, Normalize
+from torchvision.transforms import Compose, Normalize, ToTensor
 
-from ignite.engine import Events, create_supervised_trainer, create_supervised_evaluator
-from ignite.metrics import Accuracy, Loss
+from propulate import Propulator
+from propulate.utils import get_default_propagator
 
 NUM_GENERATIONS = 3
 GPUS_PER_NODE = 4

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
-from propulate import Propulator
 from mpi4py import MPI
+
+from propulate import Propulator
 from propulate.utils import get_default_propagator
 
 NUM_GENERATIONS = 10

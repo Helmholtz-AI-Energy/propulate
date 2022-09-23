@@ -1,23 +1,14 @@
-import os
-import time
-import pickle
-import random
-import numpy as np
 import copy
-import deepdiff
+import os
+import pickle
+import time
 from operator import attrgetter
+
+import deepdiff
+import numpy as np
 from mpi4py import MPI
 
-from ._globals import (
-    INDIVIDUAL_TAG,
-    INIT_TAG,
-    POPULATION_TAG,
-    DUMP_TAG,
-    MIGRATION_TAG,
-    SYNCHRONIZATION_TAG,
-)
-from .population import Individual
-from .propagators import SelectBest, SelectWorst, SelectUniform
+from ._globals import DUMP_TAG, INDIVIDUAL_TAG, MIGRATION_TAG, SYNCHRONIZATION_TAG
 
 
 class Propulator:
@@ -405,7 +396,7 @@ class Propulator:
                 )
                 for immigrant in immigrants:
                     immigrant.migration_steps += 1
-                    assert immigrant.active == True
+                    assert immigrant.active is True
                     catastrophic_failure = (
                         len(
                             [
@@ -471,7 +462,7 @@ class Propulator:
                 f"I{self.isle_idx} W{self.comm.rank} G{generation}:\n"
                 + f"Currently in emigrated: {emigrant}\n"
                 + f"I{self.isle_idx} W{self.comm.rank} G{generation}: Currently in population: {existing_ind}\n"
-                + f"Equivalence check: "
+                + "Equivalence check: "
                 + str(existing_ind[0] == emigrant)
                 + str(compare_traits)
                 + str(existing_ind[0].loss == self.emigrated[idx].loss)
@@ -518,7 +509,7 @@ class Propulator:
             # TODO In while loop or not?
             emigrated_copy = copy.deepcopy(self.emigrated)
             for emigrant in emigrated_copy:
-                assert emigrant.active == True
+                assert emigrant.active is True
                 to_deactivate = [
                     idx
                     for idx, ind in enumerate(self.population)
@@ -682,7 +673,7 @@ class Propulator:
                 self._deactivate_emigrants(generation, DEBUG)
                 if DEBUG == 2:
                     check = self._check_emigrants_to_deactivate(generation)
-                    assert check == False
+                    assert check is False
 
             if dump:  # Dump checkpoint.
                 if DEBUG == 2:
@@ -742,7 +733,7 @@ class Propulator:
 
             if DEBUG == 1:
                 check = self._check_emigrants_to_deactivate(generation)
-                assert check == False
+                assert check is False
                 MPI.COMM_WORLD.barrier()
                 if len(self.emigrated) > 0:
                     print(
@@ -752,7 +743,7 @@ class Propulator:
                     )
                     self._deactivate_emigrants(generation, DEBUG)
                     check = self._check_emigrants_to_deactivate(generation)
-                    assert check == False
+                    assert check is False
 
             MPI.COMM_WORLD.barrier()
 
@@ -796,10 +787,14 @@ class Propulator:
         populations = self.comm.gather(self.population, root=0)
         # Only double-check number of occurrences of each individual for DEBUG level 2.
         if DEBUG == 2:
-            occurrences, _ = self._check_for_duplicates(self.generations - 1, True, DEBUG)
+            occurrences, _ = self._check_for_duplicates(
+                self.generations - 1, True, DEBUG
+            )
             if self.comm.rank == 0:
                 if self._check_intra_isle_synchronization(populations):
-                    res_str = f"I{self.isle_idx}: Populations among workers synchronized."
+                    res_str = (
+                        f"I{self.isle_idx}: Populations among workers synchronized."
+                    )
                 else:
                     res_str = f"I{self.isle_idx}: Populations among workers not synchronized:\n{populations}"
                 res_str += f"I{self.isle_idx}: {len(active_pop)}/{len(self.population)} individuals active ({len(occurrences)} unique)."
@@ -825,6 +820,7 @@ class Propulator:
 
         if self.comm.rank == 0:
             import matplotlib.pyplot as plt
+
             xs = [x.generation for x in self.population]
             ys = [x.loss for x in self.population]
             zs = [x.rank for x in self.population]
@@ -833,7 +829,7 @@ class Propulator:
             scatter = ax.scatter(xs, ys, c=zs)
             plt.xlabel("Generation")
             plt.ylabel("Loss")
-            legend = ax.legend(*scatter.legend_elements(), title="Rank")
+            ax.legend(*scatter.legend_elements(), title="Rank")
             plt.savefig(f"isle_{self.isle_idx}_{out_file}")
             plt.close()
             Best = self.comm_inter.gather(best, root=0)
@@ -841,7 +837,8 @@ class Propulator:
         if MPI.COMM_WORLD.rank != 0:
             Best = None
         Best = MPI.COMM_WORLD.bcast(Best, root=0)
-        return Best 
+        return Best
+
 
 class PolliPropulator:
     """
@@ -1042,8 +1039,8 @@ class PolliPropulator:
         DEBUG : int
                 verbosity level; 0 - silent; 1 - moderate, 2 - noisy (debug mode)
         """
-        ind = self._breed(generation)   # Breed new individual.
-        ind.loss = self.loss_fn(ind)    # Evaluate its loss.
+        ind = self._breed(generation)  # Breed new individual.
+        ind.loss = self.loss_fn(ind)  # Evaluate its loss.
         ind.evaltime = time.time()
         self.population.append(
             ind
@@ -1207,7 +1204,7 @@ class PolliPropulator:
                 # Add immigrants to own population.
                 for immigrant in immigrants:
                     immigrant.migration_steps += 1
-                    assert immigrant.active == True
+                    assert immigrant.active is True
                     self.population.append(
                         copy.deepcopy(immigrant)
                     )  # Append immigrant to population.
@@ -1252,13 +1249,13 @@ class PolliPropulator:
 
                     # Deactivate individuals to be replaced in own population.
                     for individual in to_replace:
-                        to_deactivate = [
-                            idx
-                            for idx, ind in enumerate(self.population)
-                            if ind == individual
-                            and ind.migration_steps == individual.migration_steps
-                        ]
-                        assert individual.active == True
+                        # to_deactivate = [
+                        #    idx
+                        #    for idx, ind in enumerate(self.population)
+                        #    if ind == individual
+                        #    and ind.migration_steps == individual.migration_steps
+                        # ]
+                        assert individual.active is True
                         individual.active = False
 
         _, num_active = self._get_active_individuals()
@@ -1302,7 +1299,7 @@ class PolliPropulator:
                 )
         replaced_copy = copy.deepcopy(self.replaced)
         for individual in replaced_copy:
-            assert individual.active == True
+            assert individual.active is True
             to_deactivate = [
                 idx
                 for idx, ind in enumerate(self.population)
@@ -1569,10 +1566,14 @@ class PolliPropulator:
             )
         populations = self.comm.gather(self.population, root=0)
         if DEBUG == 2:
-            occurrences, _ = self._check_for_duplicates(self.generations - 1, True, DEBUG)
+            occurrences, _ = self._check_for_duplicates(
+                self.generations - 1, True, DEBUG
+            )
             if self.comm.rank == 0:
                 if self._check_intra_isle_synchronization(populations):
-                    res_str = f"I{self.isle_idx}: Populations among workers synchronized."
+                    res_str = (
+                        f"I{self.isle_idx}: Populations among workers synchronized."
+                    )
                 else:
                     res_str = f"I{self.isle_idx}: Populations among workers not synchronized:\n{populations}"
                 res_str += f"I{self.isle_idx}: {len(active_pop)}/{len(self.population)} individuals active ({len(occurrences)} unique)."
@@ -1598,6 +1599,7 @@ class PolliPropulator:
 
         if self.comm.rank == 0:
             import matplotlib.pyplot as plt
+
             xs = [x.generation for x in self.population]
             ys = [x.loss for x in self.population]
             zs = [x.rank for x in self.population]
@@ -1606,7 +1608,7 @@ class PolliPropulator:
             scatter = ax.scatter(xs, ys, c=zs)
             plt.xlabel("Generation")
             plt.ylabel("Loss")
-            legend = ax.legend(*scatter.legend_elements(), title="Rank")
+            ax.legend(*scatter.legend_elements(), title="Rank")
             plt.savefig(f"isle_{self.isle_idx}_{out_file}")
             plt.close()
             Best = self.comm_inter.gather(best, root=0)
@@ -1614,5 +1616,4 @@ class PolliPropulator:
         if MPI.COMM_WORLD.rank != 0:
             Best = None
         Best = MPI.COMM_WORLD.bcast(Best, root=0)
-        return Best 
-        
+        return Best

@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 import random
 import sys
-from propulate import Islands, Propulator
-from mpi4py import MPI
-from propulate.utils import get_default_propagator
-from propulate.propagators import SelectBest, SelectWorst, SelectUniform
+
 import numpy as np
+from mpi4py import MPI
+
+from propulate import Islands
+from propulate.propagators import SelectBest, SelectWorst
+from propulate.utils import get_default_propagator
 
 ############
 # SETTINGS #
@@ -15,6 +17,7 @@ fname = sys.argv[1]  # Get function to optimize from command-line.
 NUM_GENERATIONS = 10  # Set number of generations.
 POP_SIZE = 2 * MPI.COMM_WORLD.size  # Set size of breeding population.
 num_migrants = 1
+
 
 # BUKIN N.6
 # continuous, convex, non-separable, non-differentiable, multimodal
@@ -151,14 +154,14 @@ if __name__ == "__main__":
     while True:
         # migration_topology = num_migrants*np.ones((4, 4), dtype=int)
         # np.fill_diagonal(migration_topology, 0)
-        
+
         rng = random.Random(MPI.COMM_WORLD.rank)
 
         propagator = get_default_propagator(POP_SIZE, limits, 0.7, 0.4, 0.1, rng=rng)
         islands = Islands(
             function,
             propagator,
-            rng, 
+            rng,
             generations=NUM_GENERATIONS,
             num_isles=2,
             isle_sizes=[19, 19, 19, 19],  # migration_topology=migration_topology,
