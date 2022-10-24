@@ -33,7 +33,7 @@ class Individual(dict):
         else:
             loss_str = f"{Decimal(float(self.loss)):.2E}"
         return (
-            f"[{rep}, loss " + loss_str + ", I{self.isle}, W{self.rank}, "
+            f"[{rep}, loss " + loss_str + f", I{self.isle}, W{self.rank}, "
             f"G{self.generation}, {self.evaltime}, w{self.current}, m{self.migration_steps}, {Active}]"
         )
 
