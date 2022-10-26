@@ -1,18 +1,22 @@
 #!/usr/bin/env python3
+import random
 
 import torch
 from ignite.engine import Events, create_supervised_evaluator, create_supervised_trainer
 from ignite.metrics import Accuracy, Loss
+from mpi4py import MPI
 from torch import nn
 from torch.utils.data import DataLoader
 from torchvision.datasets import MNIST
 from torchvision.transforms import Compose, Normalize, ToTensor
 
-from propulate import Propulator
+from propulate import Islands
+from propulate.propagators import SelectBest, SelectWorst
 from propulate.utils import get_default_propagator
 
-NUM_GENERATIONS = 3
+NUM_GENERATIONS = 1000
 GPUS_PER_NODE = 4
+POP_SIZE = 8
 
 limits = {
     "convlayers": (2, 10),
@@ -48,12 +52,22 @@ class Net(nn.Module):
 def get_data_loaders(batch_size):
     data_transform = Compose([ToTensor(), Normalize((0.1307,), (0.3081,))])
     train_loader = DataLoader(
-        MNIST(download=False, root=".", transform=data_transform, train=True),
+        MNIST(
+            download=False,
+            root="/hkfs/work/workspace/scratch/ku4408-propulate/propulate/scripts",
+            transform=data_transform,
+            train=True,
+        ),
         batch_size=batch_size,
         shuffle=True,
     )
     val_loader = DataLoader(
-        MNIST(download=False, root=".", transform=data_transform, train=False),
+        MNIST(
+            download=False,
+            root="/hkfs/work/workspace/scratch/ku4408-propulate/propulate/scripts",
+            transform=data_transform,
+            train=False,
+        ),
         batch_size=1,
         shuffle=False,
     )
@@ -100,7 +114,27 @@ def ind_loss(params):
     return -trainer.best_accuracy
 
 
-propagator = get_default_propagator(8, limits, 0.7, 0.4, 0.1)
-propulator = Propulator(ind_loss, propagator, generations=NUM_GENERATIONS)
-propulator.propulate()
-propulator.summarize()
+if __name__ == "__main__":
+    while True:
+        # migration_topology = num_migrants*np.ones((4, 4), dtype=int)
+        # np.fill_diagonal(migration_topology, 0)
+
+        rng = random.Random(MPI.COMM_WORLD.rank)
+
+        propagator = get_default_propagator(POP_SIZE, limits, 0.7, 0.4, 0.1, rng=rng)
+        islands = Islands(
+            ind_loss,
+            propagator,
+            generations=NUM_GENERATIONS,
+            num_isles=2,
+            isle_sizes=[4, 4, 4, 4],  # migration_topology=migration_topology,
+            load_checkpoint="pop_cpt.p",
+            save_checkpoint="pop_cpt.p",
+            migration_probability=0.9,
+            emigration_propagator=SelectBest,
+            immigration_propagator=SelectWorst,
+            pollination=False,
+            rng=rng,
+        )
+        islands.evolve(top_n=1, logging_interval=1, DEBUG=2)
+        break
