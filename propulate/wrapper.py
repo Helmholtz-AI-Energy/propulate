@@ -1,12 +1,8 @@
-import os
-import pickle
-from operator import attrgetter
-from mpi4py import MPI
 import numpy as np
+from mpi4py import MPI
 
-from .population import Individual
-from .propulator import Propulator, PolliPropulator
-from .propagators import SelectBest, SelectUniform, SelectWorst
+from .propagators import SelectBest, SelectWorst
+from .propulator import PolliPropulator, Propulator
 
 
 class Islands:
@@ -18,6 +14,7 @@ class Islands:
         self,
         loss_fn,
         propagator,
+        rng,
         generations=0,
         num_isles=1,
         isle_sizes=None,
@@ -98,7 +95,7 @@ class Islands:
             isle_sizes = []
             for i in range(num_isles):
                 if i < remainder:
-                    temp = isle_sizes.append(base_size + 1)
+                    isle_sizes.append(base_size + 1)
                 else:
                     isle_sizes.append(base_size)
 
@@ -165,7 +162,7 @@ class Islands:
         if migration_topology.shape != (num_isles, num_isles):
             raise ValueError(
                 f"Migration topology must be a quadratic matrix of size "
-                f"{unique.size} x {unique.size} but has shape {migration_topology.shape}."
+                f"{unique_ind.size} x {unique_ind.size} but has shape {migration_topology.shape}."
             )
 
         if migration_probability > 1.0:
@@ -188,7 +185,7 @@ class Islands:
             print("Starting parallel optimization process...")
         MPI.COMM_WORLD.barrier()
         # Set up Propulator objects, one for each isle.
-        if pollination == False:
+        if pollination is False:
             if MPI.COMM_WORLD.rank == 0:
                 print("No pollination.")
             self.propulator = Propulator(
@@ -205,8 +202,9 @@ class Islands:
                 emigration_propagator=emigration_propagator,
                 unique_ind=unique_ind,
                 unique_counts=isle_sizes,
+                rng=rng,
             )
-        elif pollination == True:
+        elif pollination is True:
             if MPI.COMM_WORLD.rank == 0:
                 print("Pollination.")
             self.propulator = PolliPropulator(
@@ -224,6 +222,7 @@ class Islands:
                 immigration_propagator=immigration_propagator,
                 unique_ind=unique_ind,
                 unique_counts=isle_sizes,
+                rng=rng,
             )
 
     def _run(self, top_n, out_file, logging_interval, DEBUG):
@@ -236,8 +235,11 @@ class Islands:
                 number of best results to report
         """
         self.propulator.propulate(logging_interval, DEBUG)
-        best = self.propulator.summarize(top_n, out_file=out_file, DEBUG=DEBUG)
-        return best
+        if DEBUG > -1:
+            best = self.propulator.summarize(top_n, out_file=out_file, DEBUG=DEBUG)
+            return best
+        else:
+            return None
 
     def evolve(self, top_n=3, out_file="summary.png", logging_interval=10, DEBUG=1):
         """
