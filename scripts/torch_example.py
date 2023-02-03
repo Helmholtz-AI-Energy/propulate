@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import random
+
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
@@ -12,9 +14,9 @@ from torchvision.transforms import Compose, ToTensor, Normalize
 
 from mpi4py import MPI
 
-from propulate import Islands, Propulator
+from propulate.wrapper import Islands
 from propulate.utils import get_default_propagator
-from propulate.propagators import SelectBest, SelectWorst, SelectUniform
+from propulate.propagators import SelectBest, SelectWorst
 
 
 num_generations = 3
@@ -126,10 +128,12 @@ def ind_loss(params):
 
 
 if __name__ == "__main__":
-    propagator = get_default_propagator(pop_size, limits, 0.7, 0.4, 0.1)
+    rng = random.Random(MPI.COMM_WORLD.rank)
+    propagator = get_default_propagator(pop_size, limits, 0.7, 0.4, 0.1, rng=rng)
     islands = Islands(
             ind_loss,
             propagator,
+            rng,
             generations=num_generations,
             num_isles=2,
             load_checkpoint="bla",  # pop_cpt.p",
@@ -140,8 +144,3 @@ if __name__ == "__main__":
             pollination=False,
         )
     islands.evolve(top_n=1, logging_interval=1, DEBUG=2)
-
-    # propulator = Propulator(ind_loss, propagator, 0, generations=num_generations)
-    # propulator.propulate(DEBUG=0)
-    # propulator.summarize()
-
