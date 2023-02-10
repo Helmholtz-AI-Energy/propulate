@@ -16,7 +16,7 @@ from mpi4py import MPI
 
 from propulate.wrapper import Islands
 from propulate.utils import get_default_propagator
-from propulate.propagators import SelectBest, SelectWorst
+# from propulate.propagators import SelectBest, SelectWorst
 
 
 num_generations = 3
@@ -136,11 +136,7 @@ if __name__ == "__main__":
             rng,
             generations=num_generations,
             num_isles=2,
-            load_checkpoint="bla",  # pop_cpt.p",
-            save_checkpoint="pop_cpt.p",
+            load_checkpoint="bla",
             migration_probability=0.9,
-            emigration_propagator=SelectBest,
-            immigration_propagator=SelectWorst,
-            pollination=False,
         )
     islands.evolve(top_n=1, logging_interval=1, DEBUG=2)
