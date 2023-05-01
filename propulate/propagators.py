@@ -753,3 +753,56 @@ class InitUniform(Stochastic):
         else:
             ind = inds[0]
             return ind  # Return 1st input individual w/o changes.
+
+import math
+"""
+Bibliography:
+
+individuals := x_k for k = 1,...,lambda
+translation := y_k for k = 1,..., lambda
+weights := w_i for i = 1,..., lambda (recombination weights)
+step_size := sigma
+learning_rate_mean := c_m
+learning_rate_rone := c_1
+learning_rate_rmu := c_mü
+selected_count := mü
+decay_rate_step := c_sigma
+decay_rate_co := c_c
+variance_effective_selection_mass := mü_eff
+damping_factor := d_sigma
+"""
+class CMAParameter:
+    def __init__(self, problem_dimension: int, offsprings=None):
+        self.offsprings = offsprings if offsprings else 4 + math.floor(
+            3 * math.log(problem_dimension))  # called lambda in CMA paper (population_size)
+        _preliminary_weights = [math.log(
+            self.offsprings / 2 + 0.5) - math.log(i + 1) if i < self.mu else 0
+                                for i in range(self.offsprings)] # wi' in paper
+        #TODO Negative weights
+        #self.recombination_weights =
+
+class CMABasic(Propagator):
+    def __init__(self, problem_dimension: int):
+        # num_of_inds, weights, learning rates, damping factors, decay rates,
+
+
+    def __call__(self, *args, **kwargs):
+        individuals, translations = self.__sample_cma()
+
+
+    def __sample_cma(self, mean, step_size, covariance_matrix):
+        # return individuals, translations
+        pass
+    def __update_mean(self, selected_count, weights, old_mean, learning_rate_mean, step_size, translation_ranked):
+        # return step_of_distribution_mean, mean
+        pass
+    def __update_step_size(self, old_evolution_path, old_step_size, decay_rate_step, variance_effective_selection_mass,
+                           covariance_matrix, step_of_distribution_mean, damping_factor):
+        # return evolution_path, step
+        pass
+    def __update_covariance_matrix(self, old_evolution_path, decay_rate_co, evolution_path_step, decay_rate_step,
+                                   generation, problem_dimension, variance_effective_selection_mass, weights,
+                                   old_covariance_matrix, translations_ranked, learning_rate_rone, learning_rate_rmu):
+        #rank-1-update, rank-mü-update
+        # return Covariance Matrix, evolution_path
+        pass
