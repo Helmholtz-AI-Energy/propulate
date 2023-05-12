@@ -1,23 +1,14 @@
-import os
-import time
-import pickle
-import random
-import numpy as np
 import copy
-import deepdiff
+import os
+import pickle
+import time
 from operator import attrgetter
+
+import deepdiff
+import numpy as np
 from mpi4py import MPI
 
-from ._globals import (
-    INDIVIDUAL_TAG,
-    INIT_TAG,
-    POPULATION_TAG,
-    DUMP_TAG,
-    MIGRATION_TAG,
-    SYNCHRONIZATION_TAG,
-)
-from .population import Individual
-from .propagators import SelectBest, SelectWorst, SelectUniform
+from ._globals import DUMP_TAG, INDIVIDUAL_TAG, MIGRATION_TAG, SYNCHRONIZATION_TAG
 
 
 class Propulator:
@@ -43,6 +34,7 @@ class Propulator:
         emigration_propagator=None,
         unique_ind=None,
         unique_counts=None,
+        rng=None,
     ):
         """
         Constructor of Propulator class.
@@ -82,6 +74,8 @@ class Propulator:
         unique_counts : numpy array
                         array with number of workers per isle
                         Element i specifies number of workers on isle with index i.
+        rng : random.Random()
+              random number generator
         """
         # Set class attributes.
         self.loss_fn = loss_fn  # callable loss function
@@ -102,15 +96,13 @@ class Propulator:
         self.save_checkpoint = str(
             save_checkpoint
         )  # path to checkpoint file to be written
-        if migration_topology is not None:
-            self.migration_prob = float(migration_prob)  # per-rank migration probability
-            self.migration_topology = migration_topology  # migration topology
-            self.unique_ind = unique_ind  # MPI.COMM_WORLD rank of each isle's worker 0
-            self.unique_counts = unique_counts  # number of workers on each isle
-            self.emigration_propagator = emigration_propagator  # emigration propagator
-            self.emigrated = []  # emigrated individuals to be deactivated on sending isle
-        else:
-            self.migration_prob = 0.
+        self.migration_prob = float(migration_prob)  # per-rank migration probability
+        self.migration_topology = migration_topology  # migration topology
+        self.unique_ind = unique_ind  # MPI.COMM_WORLD rank of each isle's worker 0
+        self.unique_counts = unique_counts  # number of workers on each isle
+        self.emigration_propagator = emigration_propagator  # emigration propagator
+        self.emigrated = []  # emigrated individuals to be deactivated on sending isle
+        self.rng = rng
 
         # Load initial population of evaluated individuals from checkpoint if exists.
         if not os.path.isfile(
@@ -209,6 +201,7 @@ class Propulator:
         """
         ind = self._breed(generation)  # Breed new individual.
         ind.loss = self.loss_fn(ind)  # Evaluate its loss.
+        ind.evaltime = time.time()
         self.population.append(
             ind
         )  # Add evaluated individual to own worker-local population.
@@ -296,7 +289,7 @@ class Propulator:
             all_emigrants = emigrator(
                 eligible_emigrants
             )  # Choose `offspring` eligible emigrants.
-            random.shuffle(all_emigrants)
+            self.rng.shuffle(all_emigrants)
             # Loop through relevant part of migration topology.
             offsprings_sent = 0
             for target_isle, offspring in enumerate(to_migrate):
@@ -329,7 +322,7 @@ class Propulator:
                 departing = copy.deepcopy(emigrants)
                 # Determine new responsible worker on target isle.
                 for ind in departing:
-                    ind.current = random.randrange(0, count)
+                    ind.current = self.rng.randrange(0, count)
                 for r in dest_isle:  # Loop through MPI.COMM_WORLD destination ranks.
                     MPI.COMM_WORLD.send(
                         copy.deepcopy(departing), dest=r, tag=MIGRATION_TAG
@@ -403,7 +396,7 @@ class Propulator:
                 )
                 for immigrant in immigrants:
                     immigrant.migration_steps += 1
-                    assert immigrant.active == True
+                    assert immigrant.active is True
                     catastrophic_failure = (
                         len(
                             [
@@ -469,7 +462,7 @@ class Propulator:
                 f"I{self.isle_idx} W{self.comm.rank} G{generation}:\n"
                 + f"Currently in emigrated: {emigrant}\n"
                 + f"I{self.isle_idx} W{self.comm.rank} G{generation}: Currently in population: {existing_ind}\n"
-                + f"Equivalence check: "
+                + "Equivalence check: "
                 + str(existing_ind[0] == emigrant)
                 + str(compare_traits)
                 + str(existing_ind[0].loss == self.emigrated[idx].loss)
@@ -516,7 +509,7 @@ class Propulator:
             # TODO In while loop or not?
             emigrated_copy = copy.deepcopy(self.emigrated)
             for emigrant in emigrated_copy:
-                assert emigrant.active == True
+                assert emigrant.active is True
                 to_deactivate = [
                     idx
                     for idx, ind in enumerate(self.population)
@@ -551,6 +544,30 @@ class Propulator:
         if DEBUG == 2:
             print(log_string)
 
+    def _get_unique_individuals(self):
+        """
+        Get unique individuals (in terms of traits + loss) in current population.
+
+        Returns
+        ----------
+        unique_inds : list of propulate.population.Individuals
+                      list of unique individuals
+        """
+        unique_inds = []
+        for individual in self.population:
+            considered = False
+            for ind in unique_inds:
+                # Check for equivalence of traits only when
+                # determining unique individuals. To do so, use
+                # self.equals(other) member function of Individual()
+                # class instead of `==` operator.
+                if individual.equals(ind):
+                    considered = True
+                    break
+            if not considered:
+                unique_inds.append(individual)
+        return unique_inds
+
     def _check_for_duplicates(self, generation, active, DEBUG):
         """
         Check for duplicates in current population.
@@ -566,14 +583,14 @@ class Propulator:
                 flag for additional debug prints
         """
         if active:
-            population = [ind for ind in self.population if ind.active]
+            population, _ = self._get_active_individuals()
         else:
             population = self.population
-        considered_inds = []
+        unique_inds = []
         occurrences = []
         for individual in population:
             considered = False
-            for ind in considered_inds:
+            for ind in unique_inds:
                 if individual == ind:
                     considered = True
                     break
@@ -584,9 +601,9 @@ class Propulator:
                         f"I{self.isle_idx} W{self.comm.rank} G{generation}: "
                         f"{individual} occurs {num_copies} time(s)."
                     )
-                considered_inds.append(individual)
+                unique_inds.append(individual)
                 occurrences.append([individual, num_copies])
-        return occurrences
+        return occurrences, unique_inds
 
     def _check_intra_isle_synchronization(self, populations):
         """
@@ -646,7 +663,7 @@ class Propulator:
 
                 # Emigration: Isle sends individuals out.
                 # Happens on per-worker basis with certain probability.
-                if random.random() < self.migration_prob:
+                if self.rng.random() < self.migration_prob:
                     self._send_emigrants(generation, DEBUG)
 
                 # Immigration: Check for incoming individuals from other isles.
@@ -656,7 +673,7 @@ class Propulator:
                 self._deactivate_emigrants(generation, DEBUG)
                 if DEBUG == 2:
                     check = self._check_emigrants_to_deactivate(generation)
-                    assert check == False
+                    assert check is False
 
             if dump:  # Dump checkpoint.
                 if DEBUG == 2:
@@ -716,7 +733,7 @@ class Propulator:
 
             if DEBUG == 1:
                 check = self._check_emigrants_to_deactivate(generation)
-                assert check == False
+                assert check is False
                 MPI.COMM_WORLD.barrier()
                 if len(self.emigrated) > 0:
                     print(
@@ -726,7 +743,7 @@ class Propulator:
                     )
                     self._deactivate_emigrants(generation, DEBUG)
                     check = self._check_emigrants_to_deactivate(generation)
-                    assert check == False
+                    assert check is False
 
             MPI.COMM_WORLD.barrier()
 
@@ -768,34 +785,40 @@ class Propulator:
                 f"\nExpected overall number of evaluations is {self.generations*MPI.COMM_WORLD.size}."
             )
         populations = self.comm.gather(self.population, root=0)
-        occurrences = self._check_for_duplicates(self.generations - 1, True, DEBUG)
-        if DEBUG == 2 and self.comm.rank == 0:
-            if self._check_intra_isle_synchronization(populations):
-                print(f"I{self.isle_idx}: Populations among workers synchronized.")
-            else:
-                print(
-                    f"I{self.isle_idx}: Populations among workers not synchronized:\n"
-                    f"{populations}"
-                )
-        MPI.COMM_WORLD.barrier()
-        if self.comm.rank == 0:
-            print(
-                f"I{self.isle_idx}: "
-                f"{len(active_pop)}/{len(self.population)} individuals active "
-                f"({len(occurrences)} unique)."
+        # Only double-check number of occurrences of each individual for DEBUG level 2.
+        if DEBUG == 2:
+            occurrences, _ = self._check_for_duplicates(
+                self.generations - 1, True, DEBUG
             )
+            if self.comm.rank == 0:
+                if self._check_intra_isle_synchronization(populations):
+                    res_str = (
+                        f"I{self.isle_idx}: Populations among workers synchronized."
+                    )
+                else:
+                    res_str = f"I{self.isle_idx}: Populations among workers not synchronized:\n{populations}"
+                res_str += f"I{self.isle_idx}: {len(active_pop)}/{len(self.population)} individuals active ({len(occurrences)} unique)."
+                print(res_str)
         MPI.COMM_WORLD.barrier()
-        if self.comm.rank == 0:
-            if DEBUG == 0:
+        best = None
+        if DEBUG == 0:
+            if self.comm.rank == 0:
                 best = min(self.population, key=attrgetter("loss"))
                 res_str = f"Top result on isle {self.isle_idx}: {best}\n"
-            else:
-                self.population.sort(key=lambda x: (x.loss, -x.migration_steps))
+                print(res_str)
+            best = self.comm.bcast(best, root=0)
+        else:
+            if self.comm.rank == 0:
+                unique_pop = self._get_unique_individuals()
+                unique_pop.sort(key=lambda x: x.loss)
+                best = unique_pop[:top_n]
                 res_str = f"Top {top_n} result(s) on isle {self.isle_idx}:\n"
-                best = self.population[:top_n]
                 for i in range(top_n):
-                    res_str += f"({i+1}): {self.population[i]}\n"
-            print(res_str)
+                    res_str += f"({i+1}): {unique_pop[i]}\n"
+                print(res_str)
+            best = self.comm.bcast(best, root=0)
+
+        if self.comm.rank == 0:
             import matplotlib.pyplot as plt
 
             xs = [x.generation for x in self.population]
@@ -806,9 +829,8 @@ class Propulator:
             scatter = ax.scatter(xs, ys, c=zs)
             plt.xlabel("Generation")
             plt.ylabel("Loss")
-            legend = ax.legend(*scatter.legend_elements(), title="Rank")
-            plt.savefig(f"isle_{self.isle_idx}_"+out_file)
-            #plt.savefig(out_file)
+            ax.legend(*scatter.legend_elements(), title="Rank")
+            plt.savefig(f"isle_{self.isle_idx}_{out_file}")
             plt.close()
             Best = self.comm_inter.gather(best, root=0)
         MPI.COMM_WORLD.barrier()
@@ -816,6 +838,7 @@ class Propulator:
             Best = None
         Best = MPI.COMM_WORLD.bcast(Best, root=0)
         return Best
+
 
 class PolliPropulator:
     """
@@ -843,6 +866,7 @@ class PolliPropulator:
         immigration_propagator=None,
         unique_ind=None,
         unique_counts=None,
+        rng=None,
     ):
         """
         Constructor of Propulator class.
@@ -886,6 +910,8 @@ class PolliPropulator:
         unique_counts : numpy array
                         array with number of workers per isle
                         Element i specifies number of workers on isle with index i.
+        rng : random.Random()
+              random number generator
         """
         # Set class attributes.
         self.loss_fn = loss_fn  # callable loss function
@@ -913,6 +939,7 @@ class PolliPropulator:
         self.emigration_propagator = emigration_propagator  # emigration propagator
         self.immigration_propagator = immigration_propagator  # immigration propagator
         self.replaced = []  # individuals to be replaced by immigrants
+        self.rng = rng
 
         # Load initial population of evaluated individuals from checkpoint if exists.
         if not os.path.isfile(
@@ -999,7 +1026,6 @@ class PolliPropulator:
         ind.current = self.comm.rank  # Set worker responsible for migration.
         ind.migration_steps = 0  # Set number of migration steps performed.
         ind.migration_history = str(self.isle_idx)
-        ind.timestamp = time.time()
         return ind  # Return new individual.
 
     def _evaluate_individual(self, generation, DEBUG):
@@ -1015,6 +1041,7 @@ class PolliPropulator:
         """
         ind = self._breed(generation)  # Breed new individual.
         ind.loss = self.loss_fn(ind)  # Evaluate its loss.
+        ind.evaltime = time.time()
         self.population.append(
             ind
         )  # Add evaluated individual to own worker-local population.
@@ -1118,7 +1145,7 @@ class PolliPropulator:
                 departing = copy.deepcopy(emigrants)
                 # Determine new responsible worker on target isle.
                 for ind in departing:
-                    ind.current = random.randrange(0, count)
+                    ind.current = self.rng.randrange(0, count)
                     ind.migration_history += str(target_isle)
                     ind.timestamp = time.time()
                     # print(f"{ind} with migration history {ind.migration_history}")
@@ -1177,7 +1204,7 @@ class PolliPropulator:
                 # Add immigrants to own population.
                 for immigrant in immigrants:
                     immigrant.migration_steps += 1
-                    assert immigrant.active == True
+                    assert immigrant.active is True
                     self.population.append(
                         copy.deepcopy(immigrant)
                     )  # Append immigrant to population.
@@ -1202,7 +1229,7 @@ class PolliPropulator:
                     ]
 
                     immigrator = self.immigration_propagator(
-                        replace_num
+                        replace_num, self.rng
                     )  # Set up immigration propagator.
                     to_replace = immigrator(
                         eligible_for_replacement
@@ -1222,13 +1249,13 @@ class PolliPropulator:
 
                     # Deactivate individuals to be replaced in own population.
                     for individual in to_replace:
-                        to_deactivate = [
-                            idx
-                            for idx, ind in enumerate(self.population)
-                            if ind == individual
-                            and ind.migration_steps == individual.migration_steps
-                        ]
-                        assert individual.active == True
+                        # to_deactivate = [
+                        #    idx
+                        #    for idx, ind in enumerate(self.population)
+                        #    if ind == individual
+                        #    and ind.migration_steps == individual.migration_steps
+                        # ]
+                        assert individual.active is True
                         individual.active = False
 
         _, num_active = self._get_active_individuals()
@@ -1272,7 +1299,7 @@ class PolliPropulator:
                 )
         replaced_copy = copy.deepcopy(self.replaced)
         for individual in replaced_copy:
-            assert individual.active == True
+            assert individual.active is True
             to_deactivate = [
                 idx
                 for idx, ind in enumerate(self.population)
@@ -1304,6 +1331,30 @@ class PolliPropulator:
         if DEBUG == 2:
             print(log_string)
 
+    def _get_unique_individuals(self):
+        """
+        Get unique individuals (in terms of traits + loss) in current population.
+
+        Returns
+        ----------
+        unique_inds : list of propulate.population.Individuals
+                      list of unique individuals
+        """
+        unique_inds = []
+        for individual in self.population:
+            considered = False
+            for ind in unique_inds:
+                # Check for equivalence of traits only when
+                # determining unique individuals. To do so, use
+                # self.equals(other) member function of Individual()
+                # class instead of `==` operator.
+                if individual.equals(ind):
+                    considered = True
+                    break
+            if not considered:
+                unique_inds.append(individual)
+        return unique_inds
+
     def _check_for_duplicates(self, generation, active, DEBUG):
         """
         Check for duplicates in current population.
@@ -1317,15 +1368,20 @@ class PolliPropulator:
                      current generation
         """
         if active:
-            population = [ind for ind in self.population if ind.active]
+            population, _ = self._get_active_individuals()
         else:
             population = self.population
-        considered_inds = []
+        unique_inds = []
         occurrences = []
         for individual in population:
             considered = False
-            for ind in considered_inds:
-                if individual == ind:
+            for ind in unique_inds:
+                # As copies of individuals are allowed for pollination,
+                # check for equivalence of traits and loss only when
+                # determining unique individuals. To do so, use
+                # self.equals(other) member function of Individual()
+                # class instead of `==` operator.
+                if individual.equals(ind):
                     considered = True
                     break
             if not considered:
@@ -1335,9 +1391,9 @@ class PolliPropulator:
                         f"I{self.isle_idx} W{self.comm.rank} G{generation}: "
                         f"{individual} occurs {num_copies} time(s)."
                     )
-                considered_inds.append(individual)
+                unique_inds.append(individual)
                 occurrences.append([individual, num_copies])
-        return occurrences
+        return occurrences, unique_inds
 
     def _check_intra_isle_synchronization(self, populations):
         """
@@ -1395,7 +1451,7 @@ class PolliPropulator:
             if migration:
                 # Emigration: Isle sends individuals out.
                 # Happens on per-worker basis with certain probability.
-                if random.random() < self.migration_prob:
+                if self.rng.random() < self.migration_prob:
                     self._send_emigrants(generation, DEBUG)
 
                 # Immigration: Isle checks for incoming individuals from other islands.
@@ -1509,35 +1565,39 @@ class PolliPropulator:
                 f"\nExpected overall number of evaluations is {self.generations*MPI.COMM_WORLD.size}."
             )
         populations = self.comm.gather(self.population, root=0)
-        occurrences = self._check_for_duplicates(self.generations - 1, True, DEBUG)
-        if DEBUG == 2 and self.comm.rank == 0:
-            if self._check_intra_isle_synchronization(populations):
-                print(f"I{self.isle_idx}: Populations among workers synchronized.")
-            else:
-                print(
-                    f"I{self.isle_idx}: Populations among workers not synchronized:\n"
-                    f"{populations}"
-                )
-        MPI.COMM_WORLD.barrier()
-        if self.comm.rank == 0:
-            print(
-                f"I{self.isle_idx}: "
-                f"{len(active_pop)}/{len(self.population)} individuals active "
-                f"({len(occurrences)} unique)."
+        if DEBUG == 2:
+            occurrences, _ = self._check_for_duplicates(
+                self.generations - 1, True, DEBUG
             )
+            if self.comm.rank == 0:
+                if self._check_intra_isle_synchronization(populations):
+                    res_str = (
+                        f"I{self.isle_idx}: Populations among workers synchronized."
+                    )
+                else:
+                    res_str = f"I{self.isle_idx}: Populations among workers not synchronized:\n{populations}"
+                res_str += f"I{self.isle_idx}: {len(active_pop)}/{len(self.population)} individuals active ({len(occurrences)} unique)."
+                print(res_str)
         MPI.COMM_WORLD.barrier()
-        if self.comm.rank == 0:
-            if DEBUG == 0:
+        best = None
+        if DEBUG == 0:
+            if self.comm.rank == 0:
                 best = min(self.population, key=attrgetter("loss"))
                 res_str = f"Top result on isle {self.isle_idx}: {best}\n"
-            else:
-                self.population.sort(key=lambda x: (x.loss, -x.migration_steps))
-                best = self.population[:top_n]
+                print(res_str)
+            best = self.comm.bcast(best, root=0)
+        else:
+            if self.comm.rank == 0:
+                unique_pop = self._get_unique_individuals()
+                unique_pop.sort(key=lambda x: x.loss)
+                best = unique_pop[:top_n]
                 res_str = f"Top {top_n} result(s) on isle {self.isle_idx}:\n"
                 for i in range(top_n):
-                    res_str += f"({i+1}): {self.population[i]}\n"
+                    res_str += f"({i+1}): {unique_pop[i]}\n"
+                print(res_str)
+            best = self.comm.bcast(best, root=0)
 
-            print(res_str)
+        if self.comm.rank == 0:
             import matplotlib.pyplot as plt
 
             xs = [x.generation for x in self.population]
@@ -1548,8 +1608,8 @@ class PolliPropulator:
             scatter = ax.scatter(xs, ys, c=zs)
             plt.xlabel("Generation")
             plt.ylabel("Loss")
-            legend = ax.legend(*scatter.legend_elements(), title="Rank")
-            plt.savefig(f"isle_{self.isle_idx}_"+out_file)
+            ax.legend(*scatter.legend_elements(), title="Rank")
+            plt.savefig(f"isle_{self.isle_idx}_{out_file}")
             plt.close()
             print("gather all the things")
             if self.migration_prob > 0.:

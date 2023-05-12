@@ -1,11 +1,8 @@
-# TODO multi objective optimization?
 # TODO invalidate loss, when entry is modified so this does not have to be done by the propagator
-# TODO switch to ordered dict
 # TODO genealogy
 # TODO have ordinal vs categorical inferred from list vs set
 
 from decimal import Decimal
-import time
 
 
 class Individual(dict):
@@ -21,7 +18,7 @@ class Individual(dict):
         self.current = None  # current responsible worker
         self.migration_steps = None  # number of migration steps performed
         self.migration_history = None  # migration history
-        self.timestamp = None
+        self.evaltime = None
 
     def __repr__(self):
         rep = {
@@ -31,9 +28,13 @@ class Individual(dict):
             for key in self
         }
         Active = "active" if self.active else "deactivated"
+        if self.loss is None:
+            loss_str = f"{self.loss}"
+        else:
+            loss_str = f"{Decimal(float(self.loss)):.2E}"
         return (
-            f"[{rep}, loss {Decimal(float(self.loss)):.2E}, I{self.isle}, W{self.rank}, "
-            f"G{self.generation}, w{self.current}, m{self.migration_steps}, {Active}]"
+            f"[{rep}, loss " + loss_str + f", I{self.isle}, W{self.rank}, "
+            f"G{self.generation}, {self.evaltime}, w{self.current}, m{self.migration_steps}, {Active}]"
         )
 
     def __eq__(self, other):
@@ -56,3 +57,16 @@ class Individual(dict):
             and self.isle == other.isle
             and self.active == other.active
         )
+
+    def equals(self, other):
+        # Check if object to compare to is of the same class.
+        assert isinstance(other, self.__class__)
+        # Check equivalence of traits, i.e., hyperparameter values.
+        compare_traits = True
+        for key in self.keys():
+            if self[key] == other[key]:
+                continue
+            else:
+                compare_traits = False
+                break
+        return compare_traits and self.loss == other.loss

@@ -1,21 +1,20 @@
 #!/usr/bin/env python3
-import random
 import sys
-from propulate import Propulator
+
+import numpy as np
 from mpi4py import MPI
-from propulate.utils import set_seed, get_default_propagator
+
+from propulate import Propulator
+from propulate.utils import get_default_propagator
 
 ############
 # SETTINGS #
 ############
 
-# Set program-wide rank-specific random seed for reproducible initialization.
-# The main python module that is run should import random and call random.seed(n).
-# This is shared between all other imports of random as long as the seed is not reset elsewhere.
-
 fname = sys.argv[1]  # Get function to optimize from command-line.
 NUM_GENERATIONS = 100  # Set number of generations.
 POP_SIZE = 2 * MPI.COMM_WORLD.size  # Set size of breeding population.
+
 
 # BUKIN N.6
 # continuous, convex, non-separable, non-differentiable, multimodal

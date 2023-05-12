@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+url: "https://github.com/Helmholtz-AI-Energy/propulate"
+preferred-citation:
+  journal: "Lecture Notes in Computer Science"
+  title: "Massively Parallel Genetic Optimization Through Asynchronous Propagation of Populations"
+  authors:
+  - family-names: "Taubert"
+    given-names: "Oskar"
+  - family-names: "Weiel"
+    given-names: "Marie"
+  - family-names: "Coquelin"
+    given-names: "Daniel"
+  - family-names: "Farshian"
+    given-names: "Anis"
+  - family-names: "Debus"
+    given-names: "Charlotte"
+  - family-names: "Schug"
+    given-names: "Alexander"
+  - family-names: "Streit"
+    given-names: "Achim"
+  - family-names: "Götz"
+    given-names: "Markus"
+  volume: 13948
+  start: 106
+  end: 124
+  year: 2023
+  doi: 10.1007/978-3-031-32041-5_6

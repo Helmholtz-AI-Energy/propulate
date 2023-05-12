@@ -56,7 +56,7 @@ class Net(LightningModule):
         self.fc = nn.Linear(7840, 10)
         self.conv_layers = nn.Sequential(*layers)
 
-        self.val_acc = Accuracy()
+        self.val_acc = Accuracy('multiclass', num_classes=10)
 
     def forward(self, x):
         b, c, w, h = x.size()
