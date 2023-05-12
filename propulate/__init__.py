@@ -9,3 +9,8 @@ except DistributionNotFound:
     __version__ = "unknown"
 finally:
     del get_distribution, DistributionNotFound
+
+from .wrapper import Islands
+from .propulator import Propulator, PolliPropulator
+
+__all__ = ['Islands', 'Propulator', 'PolliPropulator']

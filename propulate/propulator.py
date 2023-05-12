@@ -3,6 +3,7 @@ import os
 import pickle
 import time
 from operator import attrgetter
+from pathlib import Path
 
 import deepdiff
 import numpy as np
@@ -26,8 +27,7 @@ class Propulator:
         isle_idx,
         comm=MPI.COMM_WORLD,
         generations=0,
-        load_checkpoint="pop_cpt.p",
-        save_checkpoint="pop_cpt.p",
+        checkpoint_path=Path('./'),
         migration_topology=None,
         comm_inter=MPI.COMM_WORLD,
         migration_prob=0.,
@@ -53,10 +53,8 @@ class Propulator:
                       number of generations to run
         isle_idx : int
                    isle index
-        load_checkpoint : str
-                          checkpoint file to resume optimization from
-        save_checkpoint : str
-                          checkpoint file to write checkpoints to
+        checkpoint_path : Union[Path, str]
+                          Path where checkpoints are loaded from and stored.
         migration_topology : numpy array
                              2D matrix where entry (i,j) specifies how many
                              individuals are sent by isle i to isle j
@@ -90,12 +88,7 @@ class Propulator:
         self.isle_idx = int(isle_idx)  # isle index
         self.comm = comm  # intra-isle communicator
         self.comm_inter = comm_inter  # inter-isle communicator
-        self.load_checkpoint = str(
-            load_checkpoint
-        )  # path to checkpoint file to be read
-        self.save_checkpoint = str(
-            save_checkpoint
-        )  # path to checkpoint file to be written
+        self.checkpoint_path = Path(checkpoint_path)
         self.migration_prob = float(migration_prob)  # per-rank migration probability
         self.migration_topology = migration_topology  # migration topology
         self.unique_ind = unique_ind  # MPI.COMM_WORLD rank of each isle's worker 0
@@ -105,13 +98,12 @@ class Propulator:
         self.rng = rng
 
         # Load initial population of evaluated individuals from checkpoint if exists.
-        if not os.path.isfile(
-            self.load_checkpoint
-        ):  # If not exists, check for backup file.
-            self.load_checkpoint = self.load_checkpoint + ".bkp"
+        load_ckpt_file = self.checkpoint_path / f'island_{self.isle_idx}_ckpt.pkl'
+        if not os.path.isfile(load_ckpt_file):  # If not exists, check for backup file.
+            load_ckpt_file = load_ckpt_file.with_suffix('.bkp')
 
-        if os.path.isfile(self.load_checkpoint):
-            with open(self.load_checkpoint, "rb") as f:
+        if os.path.isfile(load_ckpt_file):
+            with open(load_ckpt_file, "rb") as f:
                 try:
                     self.population = pickle.load(f)
                     if self.comm.rank == 0:
@@ -302,7 +294,7 @@ class Propulator:
 
                 # Worker sends *different* individuals to each target isle.
                 emigrants = all_emigrants[
-                    offsprings_sent : offsprings_sent + offspring
+                    offsprings_sent: offsprings_sent + offspring
                 ]  # Choose `offspring` eligible emigrants.
                 offsprings_sent += offspring
                 log_string += f"Chose {len(emigrants)} emigrant(s): {emigrants}\n"
@@ -680,12 +672,13 @@ class Propulator:
                     print(
                         f"I{self.isle_idx} W{self.comm.rank} G{generation}: Dumping checkpoint..."
                     )
-                if os.path.isfile(self.save_checkpoint):
+                save_ckpt_file = self.checkpoint_path / f'island_{self.isle_idx}_ckpt.pkl'
+                if os.path.isfile(save_ckpt_file):
                     try:
-                        os.replace(self.save_checkpoint, self.save_checkpoint + ".bkp")
+                        os.replace(save_ckpt_file, save_ckpt_file.with_suffix(".bkp"))
                     except Exception as e:
                         print(e)
-                with open(self.save_checkpoint, "wb") as f:
+                with open(save_ckpt_file, "wb") as f:
                     pickle.dump((self.population), f)
 
                 dest = self.comm.rank + 1 if self.comm.rank + 1 < self.comm.size else 0
@@ -748,10 +741,14 @@ class Propulator:
             MPI.COMM_WORLD.barrier()
 
         # Final checkpointing on rank 0.
+        save_ckpt_file = self.checkpoint_path / f'island_{self.isle_idx}_ckpt.pkl'
         if self.comm.rank == 0:  # Dump checkpoint.
-            if os.path.isfile(self.save_checkpoint):
-                os.replace(self.save_checkpoint, self.save_checkpoint + ".bkp")
-                with open(self.save_checkpoint, "wb") as f:
+            if os.path.isfile(save_ckpt_file):
+                try:
+                    os.replace(save_ckpt_file, save_ckpt_file.with_suffix(".bkp"))
+                except Exception as e:
+                    print(e)
+                with open(save_ckpt_file, "wb") as f:
                     pickle.dump((self.population), f)
 
         MPI.COMM_WORLD.barrier()
@@ -857,8 +854,7 @@ class PolliPropulator:
         isle_idx,
         comm=MPI.COMM_WORLD,
         generations=0,
-        load_checkpoint="pop_cpt.p",
-        save_checkpoint="pop_cpt.p",
+        checkpoint_path=Path('./'),
         migration_topology=None,
         comm_inter=MPI.COMM_WORLD,
         migration_prob=None,
@@ -885,10 +881,8 @@ class PolliPropulator:
                       number of generations to run
         isle_idx : int
                    isle index
-        load_checkpoint : str
-                          checkpoint file to resume optimization from
-        save_checkpoint : str
-                          checkpoint file to write checkpoints to
+        checkpoint_path : Union[Path, str]
+                          Path where checkpoints are loaded from and stored.
         migration_topology : numpy array
                              2D matrix where entry (i,j) specifies how many
                              individuals are sent by isle i to isle j
@@ -926,12 +920,7 @@ class PolliPropulator:
         self.isle_idx = int(isle_idx)  # isle index
         self.comm = comm  # intra-isle communicator
         self.comm_inter = comm_inter  # inter-isle communicator
-        self.load_checkpoint = str(
-            load_checkpoint
-        )  # path to checkpoint file to be read
-        self.save_checkpoint = str(
-            save_checkpoint
-        )  # path to checkpoint file to be written
+        self.checkpoint_path = Path(checkpoint_path)
         self.migration_prob = float(migration_prob)  # per-rank migration probability
         self.migration_topology = migration_topology  # migration topology
         self.unique_ind = unique_ind  # MPI.COMM_WORLD rank of each isle's worker 0
@@ -942,13 +931,12 @@ class PolliPropulator:
         self.rng = rng
 
         # Load initial population of evaluated individuals from checkpoint if exists.
-        if not os.path.isfile(
-            self.load_checkpoint
-        ):  # If not exists, check for backup file.
-            self.load_checkpoint = self.load_checkpoint + ".bkp"
+        load_ckpt_file = self.checkpoint_path / f'island_{self.isle_idx}_ckpt.pkl'
+        if not os.path.isfile(load_ckpt_file):  # If not exists, check for backup file.
+            load_ckpt_file = load_ckpt_file.with_suffix('.bkp')
 
-        if os.path.isfile(self.load_checkpoint):
-            with open(self.load_checkpoint, "rb") as f:
+        if os.path.isfile(load_ckpt_file):
+            with open(load_ckpt_file, "rb") as f:
                 try:
                     self.population = pickle.load(f)
                     if self.comm.rank == 0:
@@ -1465,12 +1453,13 @@ class PolliPropulator:
                     print(
                         f"I{self.isle_idx} W{self.comm.rank} G{generation}: Dumping checkpoint..."
                     )
-                if os.path.isfile(self.save_checkpoint):
+                save_ckpt_file = self.checkpoint_path / f'island_{self.isle_idx}_ckpt.pkl'
+                if os.path.isfile(save_ckpt_file):
                     try:
-                        os.replace(self.save_checkpoint, self.save_checkpoint + ".bkp")
+                        os.replace(save_ckpt_file, save_ckpt_file.with_suffix(".bkp"))
                     except Exception as e:
                         print(e)
-                with open(self.save_checkpoint, "wb") as f:
+                with open(save_ckpt_file, "wb") as f:
                     pickle.dump((self.population), f)
 
                 dest = self.comm.rank + 1 if self.comm.rank + 1 < self.comm.size else 0
@@ -1528,10 +1517,14 @@ class PolliPropulator:
                 MPI.COMM_WORLD.barrier()
 
         # Final checkpointing on rank 0.
+        save_ckpt_file = self.checkpoint_path / f'island_{self.isle_idx}_ckpt.pkl'
         if self.comm.rank == 0:  # Dump checkpoint.
-            if os.path.isfile(self.save_checkpoint):
-                os.replace(self.save_checkpoint, self.save_checkpoint + ".bkp")
-                with open(self.save_checkpoint, "wb") as f:
+            if os.path.isfile(save_ckpt_file):
+                try:
+                    os.replace(save_ckpt_file, save_ckpt_file.with_suffix(".bkp"))
+                except Exception as e:
+                    print(e)
+                with open(save_ckpt_file, "wb") as f:
                     pickle.dump((self.population), f)
 
         MPI.COMM_WORLD.barrier()

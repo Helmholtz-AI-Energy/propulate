@@ -1,4 +1,6 @@
+from pathlib import Path
 import numpy as np
+
 from mpi4py import MPI
 
 from .propagators import SelectBest, SelectWorst
@@ -23,8 +25,7 @@ class Islands:
         emigration_propagator=SelectBest,
         immigration_propagator=SelectWorst,
         pollination=False,
-        load_checkpoint="pop_cpt.p",
-        save_checkpoint="pop_cpt.p",
+        checkpoint_path=Path('./'),
     ):
         """
         Constructor of Islands() class.
@@ -59,10 +60,8 @@ class Islands:
         pollination : bool
                       If True, copies of emigrants are sent, otherwise, emigrants are removed from
                       original isle.
-        load_checkpoint : str
-                          checkpoint file to resume optimization from
-        save_checkpoint : str
-                          checkpoint file to write checkpoints to
+        checkpoint_path : Union[Path, str]
+                          Path where checkpoints are loaded from and stored.
         """
         # Set attributes.
         self.loss_fn = loss_fn  # callable loss function
@@ -176,8 +175,6 @@ class Islands:
                 f"NOTE: Isle migration probability of {migration_probability} "
                 f"results in per-rank migration probability of {migration_prob}."
             )
-        load_rank_cpt = "isle_" + str(isle_idx) + "_" + load_checkpoint
-        save_rank_cpt = "isle_" + str(isle_idx) + "_" + save_checkpoint
 
         self.emigration_propagator = emigration_propagator
 
@@ -194,8 +191,7 @@ class Islands:
                 comm=comm_intra,
                 generations=generations,
                 isle_idx=isle_idx,
-                load_checkpoint=load_rank_cpt,
-                save_checkpoint=save_rank_cpt,
+                checkpoint_path=checkpoint_path,
                 comm_inter=comm_inter,
                 migration_topology=migration_topology,
                 migration_prob=migration_prob,
@@ -213,8 +209,7 @@ class Islands:
                 comm=comm_intra,
                 generations=generations,
                 isle_idx=isle_idx,
-                load_checkpoint=load_rank_cpt,
-                save_checkpoint=save_rank_cpt,
+                checkpoint_path=checkpoint_path,
                 comm_inter=comm_inter,
                 migration_topology=migration_topology,
                 migration_prob=migration_prob,
