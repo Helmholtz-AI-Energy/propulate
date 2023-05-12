@@ -164,7 +164,7 @@ if __name__ == "__main__":
             rng,
             generations=NUM_GENERATIONS,
             num_isles=2,
-            checkpoint_path='/home/oskar/Projects/propulate/scripts/',
+            checkpoint_path='./',
             migration_probability=0.9,
             emigration_propagator=SelectBest,
             immigration_propagator=SelectWorst,
