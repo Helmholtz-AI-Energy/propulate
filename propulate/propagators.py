@@ -237,7 +237,7 @@ class PointMutation(Stochastic):
             # Determine traits to mutate via random sampling.
             # Return `self.points` length list of unique elements chosen from `ind.keys()`.
             # Used for random sampling without replacement.
-            to_mutate = self.rng.sample(ind.keys(), self.points)
+            to_mutate = self.rng.sample(sorted(ind.keys()), self.points)
             # Point-mutate `self.points` randomly chosen traits of individual `ind`.
             for i in to_mutate:
                 if type(ind[i]) == int:
@@ -315,7 +315,7 @@ class RandomPointMutation(Stochastic):
             # Return `self.points` length list of unique elements chosen from `ind.keys()`.
             # Used for random sampling without replacement.
             points = self.rng.randint(self.min_points, self.max_points)
-            to_mutate = self.rng.sample(ind.keys(), points)
+            to_mutate = self.rng.sample(sorted(ind.keys()), points)
             # Point-mutate `points` randomly chosen traits of individual `ind`.
             for i in to_mutate:
                 if type(ind[i]) == int:
