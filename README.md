@@ -17,20 +17,18 @@ To be more efficient, the generations are less well separated than they usually 
 New individuals are generated from a pool of currently active, already evaluated individuals that may be from any generation.
 Individuals may be removed from the breeding population based on different criteria.
 
+You can find the corresponding publication here:  
+Taubert, O. *et al.* (2023). Massively Parallel Genetic Optimization Through Asynchronous Propagation of Populations. In: Bhatele, A., Hammond, J., Baboulin, M., Kruse, C. (eds) High Performance Computing. ISC High Performance 2023. Lecture Notes in Computer Science, vol 13948. Springer, Cham. [https://doi.org/10.1007/978-3-031-32041-5_6](https://doi.org/10.1007/978-3-031-32041-5_6)
+
 ## Documentation
 
 For usage example, see scripts.
 
 ## Installation
 
-From PyPI: ``pip install propulate``
-Alternatively, pull and run ``pip install -e .`` or ``python setup.py develop``.
+From PyPI: ``pip install propulate``  
+Alternatively, pull and run ``pip install -e .`` or ``python setup.py develop``.  
 Requires an MPI implementation (currently only tested with OpenMPI) and ``mpi4py``.
-
-## To Dos
-
-- weight/parameter succession from parents or hall of fame
-- more algorithms and operators, covariance matrix adaptation evolution strategy
 
 ## Acknowledgments
 *This work is supported by the Helmholtz AI platform grant.*
