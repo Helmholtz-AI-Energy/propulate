@@ -30,7 +30,7 @@ class Propulator:
         save_checkpoint="pop_cpt.p",
         migration_topology=None,
         comm_inter=MPI.COMM_WORLD,
-        migration_prob=None,
+        migration_prob=0.,
         emigration_propagator=None,
         unique_ind=None,
         unique_counts=None,
@@ -1611,7 +1611,11 @@ class PolliPropulator:
             ax.legend(*scatter.legend_elements(), title="Rank")
             plt.savefig(f"isle_{self.isle_idx}_{out_file}")
             plt.close()
-            Best = self.comm_inter.gather(best, root=0)
+            print("gather all the things")
+            if self.migration_prob > 0.:
+                Best = self.comm_inter.gather(best, root=0)
+            print("gathered all the things")
+
         MPI.COMM_WORLD.barrier()
         if MPI.COMM_WORLD.rank != 0:
             Best = None
