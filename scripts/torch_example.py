@@ -14,7 +14,7 @@ from torchvision.transforms import Compose, ToTensor, Normalize
 
 from mpi4py import MPI
 
-from propulate.wrapper import Islands
+from propulate import Islands
 from propulate.utils import get_default_propagator
 # from propulate.propagators import SelectBest, SelectWorst
 
