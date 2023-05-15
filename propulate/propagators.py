@@ -568,21 +568,22 @@ class MateSigmoid(
         return ind  # Return offspring.
 
 
-class SelectBest(Propagator):
+class SelectMin(Propagator):
     """
     Select specified number of best performing individuals as evaluated by their losses.
+    i.e., those individuals with minimum losses.
     """
 
     def __init__(self, offspring, rng=None):
         """
-        Constructor of SelectBest class.
+        Constructor of SelectMin class.
 
         Parameters
         ----------
         offspring : int
                     number of offsprings (individuals to be selected)
         """
-        super(SelectBest, self).__init__(-1, offspring)
+        super(SelectMin, self).__init__(-1, offspring)
 
     def __call__(self, inds):
         """
@@ -608,21 +609,22 @@ class SelectBest(Propagator):
         ]  # Return `self.offspring` best individuals in terms of loss.
 
 
-class SelectWorst(Propagator):
+class SelectMax(Propagator):
     """
-    Select specified number of worst performing individuals as evaluated by their losses.
+    Select specified number of worst performing individuals as evaluated by their losses, 
+    i.e., those individuals with maximum losses.
     """
 
     def __init__(self, offspring, rng=None):
         """
-        Constructor of SelectBest class.
+        Constructor of SelectMax class.
 
         Parameters
         ----------
         offspring : int
                     number of offsprings (individuals to be selected)
         """
-        super(SelectWorst, self).__init__(-1, offspring)
+        super(SelectMax, self).__init__(-1, offspring)
 
     def __call__(self, inds):
         """
@@ -655,7 +657,7 @@ class SelectUniform(Propagator):
 
     def __init__(self, offspring, rng=None):
         """
-        Constructor of SelectRandom class.
+        Constructor of SelectUniform class.
 
         Parameters
         ----------

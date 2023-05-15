@@ -3,7 +3,7 @@ import numpy as np
 
 from mpi4py import MPI
 
-from .propagators import SelectBest, SelectWorst
+from .propagators import SelectMin, SelectMax
 from .propulator import PolliPropulator, Propulator
 
 
@@ -22,8 +22,8 @@ class Islands:
         isle_sizes=None,
         migration_topology=None,
         migration_probability=0.0,
-        emigration_propagator=SelectBest,
-        immigration_propagator=SelectWorst,
+        emigration_propagator=SelectMin,
+        immigration_propagator=SelectMax,
         pollination=False,
         checkpoint_path=Path('./'),
     ):
