@@ -10,7 +10,7 @@ except DistributionNotFound:
 finally:
     del get_distribution, DistributionNotFound
 
-from .wrapper import Islands
+from .islands import Islands
 from .propulator import Propulator, PolliPropulator
 
 __all__ = ['Islands', 'Propulator', 'PolliPropulator']

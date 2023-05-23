@@ -14,7 +14,7 @@ from torchvision.transforms import Compose, ToTensor, Normalize
 
 from mpi4py import MPI
 
-from propulate.wrapper import Islands
+from propulate import Islands
 from propulate.utils import get_default_propagator
 # from propulate.propagators import SelectMin, SelectMax
 
@@ -136,7 +136,6 @@ if __name__ == "__main__":
             rng,
             generations=num_generations,
             num_isles=2,
-            load_checkpoint="bla",
             migration_probability=0.9,
         )
     islands.evolve(top_n=1, logging_interval=1, DEBUG=2)
