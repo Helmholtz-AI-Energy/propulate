@@ -6,7 +6,7 @@ import numpy as np
 from mpi4py import MPI
 
 from propulate import Islands
-from propulate.propagators import SelectBest, SelectWorst
+from propulate.propagators import SelectMin, SelectMax
 from propulate.utils import get_default_propagator
 
 ############
@@ -151,24 +151,22 @@ else:
     sys.exit("ERROR: Function undefined...exiting")
 
 if __name__ == "__main__":
-    while True:
-        # migration_topology = num_migrants*np.ones((4, 4), dtype=int)
-        # np.fill_diagonal(migration_topology, 0)
+    # migration_topology = num_migrants*np.ones((4, 4), dtype=int)
+    # np.fill_diagonal(migration_topology, 0)
 
-        rng = random.Random(MPI.COMM_WORLD.rank)
+    rng = random.Random(MPI.COMM_WORLD.rank)
 
-        propagator = get_default_propagator(POP_SIZE, limits, 0.7, 0.4, 0.1, rng=rng)
-        islands = Islands(
-            function,
-            propagator,
-            rng,
-            generations=NUM_GENERATIONS,
-            num_isles=2,
-            checkpoint_path='./',
-            migration_probability=0.9,
-            emigration_propagator=SelectBest,
-            immigration_propagator=SelectWorst,
-            pollination=False,
-        )
-        islands.evolve(top_n=1, logging_interval=1, DEBUG=2)
-        break
+    propagator = get_default_propagator(POP_SIZE, limits, 0.7, 0.4, 0.1, rng=rng)
+    islands = Islands(
+        function,
+        propagator,
+        rng,
+        generations=NUM_GENERATIONS,
+        num_isles=2,
+        checkpoint_path='./',
+        migration_probability=0.9,
+        emigration_propagator=SelectMin,
+        immigration_propagator=SelectMax,
+        pollination=False,
+    )
+    islands.evolve(top_n=1, logging_interval=1, DEBUG=2)

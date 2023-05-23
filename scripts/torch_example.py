@@ -16,7 +16,7 @@ from mpi4py import MPI
 
 from propulate import Islands
 from propulate.utils import get_default_propagator
-# from propulate.propagators import SelectBest, SelectWorst
+# from propulate.propagators import SelectMin, SelectMax
 
 
 num_generations = 3

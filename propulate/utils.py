@@ -5,7 +5,7 @@ from .propagators import (
     IntervalMutationNormal,
     MateUniform,
     PointMutation,
-    SelectBest,
+    SelectMin,
     SelectUniform,
 )
 
@@ -35,7 +35,7 @@ def get_default_propagator(
     """
     propagator = Cascade(  # Compose propagator out of basic evolutionary operators with Cascade(...).
         [
-            SelectBest(pop_size),
+            SelectMin(pop_size),
             SelectUniform(2, rng=rng),
             MateUniform(mate_prob, rng=rng),
             PointMutation(limits, probability=mut_prob, rng=rng),
