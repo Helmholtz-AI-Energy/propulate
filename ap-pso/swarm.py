@@ -1,0 +1,2 @@
+class Swarm:
+    pass
