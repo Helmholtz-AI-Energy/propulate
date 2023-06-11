@@ -11,6 +11,7 @@ finally:
     del get_distribution, DistributionNotFound
 
 from .islands import Islands
-from .propulator import Propulator, PolliPropulator
+from .propulator import Propulator
+from .pollinator import PolliPropulator
 
 __all__ = ['Islands', 'Propulator', 'PolliPropulator']

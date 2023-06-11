@@ -4,7 +4,8 @@ import numpy as np
 from mpi4py import MPI
 
 from .propagators import SelectMin, SelectMax
-from .propulator import PolliPropulator, Propulator
+from .propulator import Propulator
+from .pollinator import PolliPropulator
 
 
 class Islands:
