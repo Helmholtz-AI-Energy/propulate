@@ -7,7 +7,7 @@ from .population import Individual
 
 def _check_compatible(out1, in2):
     """
-    Check compability of two propagators for stacking them together sequentially with Cascade().
+    Check compability of two propagators for stacking them together sequentially with Compose().
     """
     return out1 == in2 or in2 == -1
 
@@ -77,17 +77,6 @@ class Stochastic(Propagator):
         if offspring == 0:
             raise ValueError("Propagator has to sire more than 0 offspring.")
 
-    def __call__(self, inds):
-        """
-        Apply stochastic propagator (not implemented!).
-
-        Parameters
-        ----------
-        inds: propulate.population.Individual
-              individuals the propagator is applied to
-        """
-        raise NotImplementedError()
-
 
 class Conditional(Propagator):
     """
@@ -136,21 +125,21 @@ class Conditional(Propagator):
             return self.false_prop(inds)
 
 
-class Cascade(Propagator):
+class Compose(Propagator):
     """
     Stack propagators together sequentially for successive application.
     """
 
     def __init__(self, propagators):
         """
-        Constructor of Cascade class.
+        Constructor of Compose class.
 
         Parameters
         ----------
         propagators : list of propulate.propagators.Propagator objects
                       propagators to be stacked together sequentially
         """
-        super(Cascade, self).__init__(propagators[0].parents, propagators[-1].offspring)
+        super(Compose, self).__init__(propagators[0].parents, propagators[-1].offspring)
         self.propagators = propagators
         for i in range(len(propagators) - 1):
             # Check compability of consecutive propagators in terms of number of parents + offsprings.
@@ -168,9 +157,9 @@ class Cascade(Propagator):
 
     def __call__(
         self, inds
-    ):  # Apply propagators sequentially as requested in Cascade(...)
+    ):  # Apply propagators sequentially as requested in Compose(...)
         """
-        Apply Cascade propagator.
+        Apply Compose propagator.
 
         Parameters
         ----------
@@ -611,7 +600,7 @@ class SelectMin(Propagator):
 
 class SelectMax(Propagator):
     """
-    Select specified number of worst performing individuals as evaluated by their losses, 
+    Select specified number of worst performing individuals as evaluated by their losses,
     i.e., those individuals with maximum losses.
     """
 
