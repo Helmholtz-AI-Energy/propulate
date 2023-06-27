@@ -3,7 +3,7 @@
 *.py[cod]
 *.so
 *.cfg
-!.isort.cfg
+!propulate/.isort.cfg
 !setup.cfg
 *.orig
 *.log
@@ -57,3 +57,5 @@ MNIST
 scripts/*.png
 
 voucher_propulate.txt
+
+.gitignore
