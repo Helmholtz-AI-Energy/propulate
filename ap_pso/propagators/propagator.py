@@ -2,8 +2,11 @@
 This file contains the 'abstract base class' for all propagators of this project.
 """
 from random import Random
+from typing import Callable
 
-from particle import Particle
+import numpy as np
+
+from ap_pso.particle import Particle
 
 
 class Propagator:
@@ -13,24 +16,16 @@ class Propagator:
     Take a collection of individuals and use them to breed a new collection of individuals.
     """
 
-    def __init__(self, parents: int = 0, offspring: int = 0, rng: Random = None):
+    def __init__(self, loss_fn: Callable[[np.ndarray], float]):
         """
         Constructor of Propagator class.
 
         Parameters
         ----------
-        parents : int
-                  number of input individuals (-1 for any)
-        offspring : int
-                    number of output individuals
-        rng : random.Random()
-              random number generator
+        loss_fn: Callable
+            The function to be optimized by the particles. Should take a numpy array and return a float.
         """
-        self.parents = parents
-        self.rng = rng
-        self.offspring = offspring
-        if offspring == 0:
-            raise ValueError("Propagator has to sire more than 0 offspring.")
+        self.loss_fn = loss_fn
 
     def __call__(self, particle: Particle):
         """
@@ -38,7 +33,8 @@ class Propagator:
 
         Parameters
         ----------
-        particles: propulate.population.Individual
-              individuals the propagator is applied to
+        particle: Particle
+              The particle on which the propagator shall perform a positional update.
         """
         raise NotImplementedError()
+
