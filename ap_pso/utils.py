@@ -3,6 +3,8 @@ This file contains some random util functions, as, for example, get_default_prop
 """
 from random import Random
 
+import numpy as np
+
 
 def get_default_propagator(pop_size: int, limits: dict, mate_prob: float, mut_prob: float, random_prob: float,
                            sigma_factor: float = 0.05, rng: Random = None):
@@ -35,6 +37,11 @@ class ExtendedPosition:
     def __init__(self, position: np.ndarray, loss: float):
         self.position = position
         self.loss = loss
+
+    def __lt__(self, other):
+        if not isinstance(other, self.__class__):
+            return NotImplemented
+        return self.loss < other.loss
 
 
 TELL_TAG = 0
