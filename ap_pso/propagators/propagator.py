@@ -32,7 +32,7 @@ class Propagator:
         if offspring == 0:
             raise ValueError("Propagator has to sire more than 0 offspring.")
 
-    def __call__(self, particles: list[Particle]):
+    def __call__(self, particle: Particle):
         """
         Apply propagator (not implemented!).
 
