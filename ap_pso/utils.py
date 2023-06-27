@@ -28,3 +28,13 @@ def get_default_propagator(pop_size: int, limits: dict, mate_prob: float, mut_pr
     """
     _ = (pop_size, limits, mate_prob, mut_prob, random_prob, sigma_factor, rng)
     pass
+
+
+class ExtendedPosition:
+
+    def __init__(self, position: np.ndarray, loss: float):
+        self.position = position
+        self.loss = loss
+
+
+TELL_TAG = 0
