@@ -198,8 +198,10 @@ class PolliPropulator:
                 verbosity level; 0 - silent; 1 - moderate, 2 - noisy (debug mode)
         """
         ind = self._breed()  # Breed new individual.
+        start_time = time.time()
         ind.loss = self.loss_fn(ind)  # Evaluate its loss.
         ind.evaltime = time.time()
+        ind.evalperiod = ind.evaltime - start_time
         self.population.append(
             ind
         )  # Add evaluated individual to own worker-local population.
