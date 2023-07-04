@@ -59,3 +59,4 @@ scripts/*.png
 voucher_propulate.txt
 
 .gitignore
+checkpoints/
