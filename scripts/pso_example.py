@@ -6,7 +6,7 @@ import numpy as np
 from mpi4py import MPI
 
 from propulate import Islands
-from propulate.propagators import Compose, InitUniform, SelectMin, SelectMax, Conditional, PSOPropagator
+from propulate.propagators import Compose, InitUniform, Conditional, PSOPropagator
 
 
 ############
