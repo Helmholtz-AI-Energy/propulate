@@ -618,6 +618,8 @@ class PolliPropulator:
                         os.replace(save_ckpt_file, save_ckpt_file.with_suffix(".bkp"))
                     except Exception as e:
                         print(e)
+                if not os.path.exists(self.checkpoint_path):
+                    os.makedirs(self.checkpoint_path)
                 with open(save_ckpt_file, "wb") as f:
                     pickle.dump((self.population), f)
 
