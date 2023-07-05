@@ -819,7 +819,7 @@ class SelectUniform(Propagator):
             raise ValueError(
                 f"Has to have at least {self.offspring} individuals to select {self.offspring} from them."
             )
-        # Return a `self.offspring` length list of unique elements chosen from `inds`.
+        # Return a `self.offspring` length list of unique elements chosen from `particles`.
         # Used for random sampling without replacement.
         return self.rng.sample(inds, self.offspring)
 
@@ -1628,3 +1628,4 @@ class CMAPropagator(Propagator):
         p_c : evolution path for covariance matrix adaption
         """
         return self.par.p_c
+
