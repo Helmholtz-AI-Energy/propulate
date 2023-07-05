@@ -1,3 +1,6 @@
+"""
+This file contains the Particle class, an extension of Propulate's Individual class.
+"""
 import numpy as np
 
 from propulate.population import Individual
@@ -12,9 +15,15 @@ class Particle(Individual):
     Please keep in mind, that users of this class are responsible to ensure, that a Particle's position always
     matches their dict contents and vice versa.
     """
-    def __init__(self, position: np.ndarray, velocity: np.ndarray, iteration: int = None, rank: int = None):
+
+    def __init__(self,
+                 position: np.ndarray = None,
+                 velocity: np.ndarray = None,
+                 iteration: int = None,
+                 rank: int = None
+                 ):
         super().__init__(generation=iteration, rank=rank)
-        assert position.shape == velocity.shape
+        if position is not None and velocity is not None:
+            assert position.shape == velocity.shape
         self.velocity = velocity
         self.position = position
-
