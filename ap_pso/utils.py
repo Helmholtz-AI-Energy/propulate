@@ -6,15 +6,21 @@ from typing import Iterable
 import numpy as np
 
 from ap_pso import Particle
+from propulate.population import Individual
 
 
-def get_dummy(shape: int | Iterable | tuple[int]) -> Particle:
+def make_particle(individual: Individual) -> Particle:
     """
-    Returns a dummy particle that is just for age comparisons
+    Makes particles out of individuals.
 
     Parameters
     ----------
-    shape : The dimension(s) of the search space, as used to define numpy arrays.
+    individual : An Individual that needs to be a particle
     """
-    values = np.zeros(shape=shape)
-    return Particle(values, values, iteration=-1)
+    p = Particle(iteration=individual.generation)
+    p.position = np.zeros(len(individual))
+    p.velocity = np.zeros(len(individual))
+    for i, k in enumerate(individual):
+        p.position[i] = individual[k]
+        p[k] = individual[k]
+    return p

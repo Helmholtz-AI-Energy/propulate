@@ -5,8 +5,7 @@ from random import Random
 
 import numpy as np
 
-from ap_pso import Particle, get_dummy
-from propulate.population import Individual
+from ap_pso import Particle, make_particle
 from propulate.propagators import Propagator
 
 
@@ -40,6 +39,9 @@ class BasicPSOPropagator(Propagator):
         for y in own_p:
             if y.generation > old_p.generation:
                 old_p = y
+        if not isinstance(old_p, Particle):
+            old_p = make_particle(old_p)
+            print(f"R{self.rank}, Iteration#{old_p.generation}: Type Error.")
         g_best = sorted(particles, key=lambda p: p.loss)[0]
         p_best = sorted(own_p, key=lambda p: p.loss)[0]
         new_velocity = self.w_k * old_p.velocity \
@@ -49,5 +51,5 @@ class BasicPSOPropagator(Propagator):
 
         new_p = Particle(new_position, new_velocity, old_p.generation + 1, self.rank)
         for i, k in enumerate(self.limits):
-            new_p[k] += new_p.velocity[i]
+            new_p[k] = new_p.velocity[i]
         return new_p

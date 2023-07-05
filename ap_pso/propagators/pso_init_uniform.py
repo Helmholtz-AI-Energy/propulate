@@ -15,7 +15,7 @@ class PSOInitUniform(Stochastic):
     Initialize individuals by uniformly sampling specified limits for each trait.
     """
 
-    def __init__(self, limits: dict[str, tuple[float]], parents=0, probability=1.0, rng: Random = None):
+    def __init__(self, limits: dict[str, tuple[float, float]], parents=0, probability=1.0, rng: Random = None):
         """
         Constructor of PSOInitUniform class.
 

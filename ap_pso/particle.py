@@ -19,7 +19,7 @@ class Particle(Individual):
     def __init__(self,
                  position: np.ndarray = None,
                  velocity: np.ndarray = None,
-                 iteration: int = None,
+                 iteration: int = 0,
                  rank: int = None
                  ):
         super().__init__(generation=iteration, rank=rank)
