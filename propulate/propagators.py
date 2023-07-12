@@ -755,54 +755,161 @@ class InitUniform(Stochastic):
             return ind  # Return 1st input individual w/o changes.
 
 import math
+import numpy as np
 """
 Bibliography:
 
 individuals := x_k for k = 1,...,lambda
+number of offsprings := lambda
 translation := y_k for k = 1,..., lambda
 weights := w_i for i = 1,..., lambda (recombination weights)
 step_size := sigma
-learning_rate_mean := c_m
-learning_rate_rone := c_1
-learning_rate_rmu := c_mü
-selected_count := mü
-decay_rate_step := c_sigma
-decay_rate_co := c_c
-variance_effective_selection_mass := mü_eff
-damping_factor := d_sigma
+learning rate_mean := c_m
+learning rate rone := c_1
+learning rate rmu := c_mü
+number of selected offsprings := mü
+decay rate step := c_sigma
+decay rate co := c_c
+variance effective selection mass := mü_eff
+damping factor := d_sigma
 """
 class CMAParameter:
-    def __init__(self, problem_dimension: int, offsprings=None):
-        self.offsprings = offsprings if offsprings else 4 + math.floor(
-            3 * math.log(problem_dimension))  # called lambda in CMA paper (population_size)
-        _preliminary_weights = [math.log(
-            self.offsprings / 2 + 0.5) - math.log(i + 1) if i < self.mu else 0
-                                for i in range(self.offsprings)] # wi' in paper
-        #TODO Negative weights
-        #self.recombination_weights =
-
-class CMABasic(Propagator):
-    def __init__(self, problem_dimension: int):
-        # num_of_inds, weights, learning rates, damping factors, decay rates,
-
-
-    def __call__(self, *args, **kwargs):
-        individuals, translations = self.__sample_cma()
-
-
-    def __sample_cma(self, mean, step_size, covariance_matrix):
-        # return individuals, translations
+    # if not all parameters will be used consider @property decorator style to reduce unnecessary computation
+    def __init__(self, problem_dimension: int, num_offsprings=None):
         pass
-    def __update_mean(self, selected_count, weights, old_mean, learning_rate_mean, step_size, translation_ranked):
+
+
+#TOD0: Wieso von Propagator erben?
+class CMASampler(Propagator):
+    def __init__(self, mean, step_size, co_matrix, b_matrix, d_matrix, problem_dimension):
+        self.mean = mean
+        self.step_size = step_size
+        self.co_matrix = co_matrix
+        self.problem_dimension = problem_dimension
+        self.b_matrix = b_matrix
+        self.d_matrix = d_matrix
+
+    def __call__(self, inds):
+        pass
+
+    # def __sample_cma(self, mean, step_size, co_matrix):
+    # return individuals, translations
+    #   pass
+
+
+from abc import ABC, abstractmethod
+
+
+# Abstract base class
+class CMAAdapter(ABC):
+    @abstractmethod
+    def update_mean(self, selected_count, weights, old_mean, c_m, step_size, translation_ranked):
+        #   candidate_solutions = []
+        #  for _k in range(self.params.lam):  # repeat lam times
+        #     z = [self.sigma * eigenval ** 0.5 * self.randn(0, 1)
+        #         for eigenval in self.C.eigenvalues]
+        #   y = dot(self.C.eigenbasis, z)
+        #  candidate_solutions.append(plus(self.xmean, y))
+        # return candidate_solutions
         # return step_of_distribution_mean, mean
         pass
-    def __update_step_size(self, old_evolution_path, old_step_size, decay_rate_step, variance_effective_selection_mass,
-                           covariance_matrix, step_of_distribution_mean, damping_factor):
+
+    @abstractmethod
+    def update_step_size(self, old_evolution_path, old_step_size, c_sigma, variance_effective_selection_mass,
+                         covariance_matrix, step_of_distribution_mean, d_sigma):
         # return evolution_path, step
         pass
-    def __update_covariance_matrix(self, old_evolution_path, decay_rate_co, evolution_path_step, decay_rate_step,
-                                   generation, problem_dimension, variance_effective_selection_mass, weights,
-                                   old_covariance_matrix, translations_ranked, learning_rate_rone, learning_rate_rmu):
-        #rank-1-update, rank-mü-update
+
+    @abstractmethod
+    def update_covariance_matrix(self, old_evolution_path, c_c, evolution_path_step, c_sigma,
+                                 generation, problem_dimension, variance_effective_selection_mass, weights,
+                                 old_covariance_matrix, translations_ranked, c_1, c_mü):
+        # rank-1-update, rank-mü-update
         # return Covariance Matrix, evolution_path
         pass
+
+
+class BasicCMA(CMAAdapter):
+    def update_mean(self, selected_count, weights, old_mean, c_m, step_size, translation_ranked):
+        pass
+
+    def update_step_size(self, old_evolution_path, old_step_size, c_sigma, variance_effective_selection_mass,
+                         covariance_matrix, step_of_distribution_mean, d_sigma):
+        pass
+
+    def update_covariance_matrix(self, old_evolution_path, c_c, evolution_path_step, c_sigma,
+                                 generation, problem_dimension, variance_effective_selection_mass, weights,
+                                 old_covariance_matrix, translations_ranked, c_1, c_mü):
+        pass
+
+
+class ActiveCMA(CMAAdapter):
+    def update_mean(self, selected_count, weights, old_mean, c_m, step_size, translation_ranked):
+        pass
+
+    def update_step_size(self, old_evolution_path, old_step_size, c_sigma, variance_effective_selection_mass,
+                         covariance_matrix, step_of_distribution_mean, d_sigma):
+        pass
+
+    def update_covariance_matrix(self, old_evolution_path, c_c, evolution_path_step, c_sigma,
+                                 generation, problem_dimension, variance_effective_selection_mass, weights,
+                                 old_covariance_matrix, translations_ranked, c_1, c_mü):
+        pass
+
+
+# TODO initiale Population mitgeben
+class CMAPropagator():
+    def __init__(self, sampler: CMASampler, adapter: CMAAdapter, problem_dimension: int, limits, rng, offsprings=None):
+        # TODO check input
+        self.limits = limits
+        self.rng = rng
+
+        self.lamb = offsprings if offsprings else 4 + int(
+            3 * math.log(problem_dimension))
+
+        # Selection and Recombination params
+        self.mu = int(self.lamb / 2)
+        _log_tmp = math.log(self.mu + 1) #TODO do as in tutorial
+        self.weights = [_log_tmp - math.log(i + 1) if i < self.mu else 0 for i in range(self.lamb)] # Benchmarking BI-Population Paper
+        _sum_weights = sum(self.weights)
+        _positive_weights = self.weights[:self.mu]
+        self.weights[:self.mu] = [w / _sum_weights for w in _positive_weights]
+        # TODO assert sum of weights equals 1
+
+        # Step-size control params
+        self.mu_eff = _sum_weights ** 2 / sum(w ** 2 for w in _positive_weights)
+        self.c_sigma = (self.mu_eff + 2) / (problem_dimension
+                                                    + self.mu_eff + 5)
+        self.d_sigma = 1 + 2 * max(0, ((self.mu_eff - 1) /
+                                              (problem_dimension + 1)) ** 0.5 - 1) + self.c_sigma
+
+        # Covariance Matrix Adaption
+        self.c_c = (4 + self.mu_eff / problem_dimension) / (problem_dimension + 4 + 2 * self.mu_eff / problem_dimension)
+        self.c_1 = 2 / (problem_dimension + 1.3) ** 2 + self.mu_eff
+        self.c_mü = min(1 - self.c_1, 2 * (0.25 + self.mu_eff + 1 / self.mu_eff - 2) / (problem_dimension + 2) ** 2 + self.mu_eff)
+
+        # Initialize dynamic state variables
+        self.evolution_path_step = problem_dimension * [0]
+        self.evolution_path_co = problem_dimension * [0]
+        self.b_matrix = np.eye(problem_dimension)
+        self.d_matrix = np.eye(problem_dimension)
+        self.co_matrix = np.dot(np.dot(self.b_matrix, self.d_matrix), np.transpose(np.dot(self.b_matrix, self.d_matrix))) #TODO do it faster than numpy and consider: Different search intervals ∆si for different variables can be reflected by a different initialization of C, in that the diagonal elements of C obey cii = (∆si)2. However, the ∆si should not disagree by several orders of magnitude. Otherwise a scaling of the variables should be applied.
+
+        # TODO choose mean better than random maybe
+        self.mean = [self.rng.uniform(*self.limits[i]) for i in range(problem_dimension)]
+
+        #TODO different init step size?
+        self.step_size = 0.3 * ((max(max(self.limits[i]) for i in self.limits))
+                                - min(min(self.limits[i]) for i in self.limits))
+
+    def __call__(self, inds):
+        # check if len(inds) >= oder < lambda and make sample or sample + update
+        if len(inds) < self.lamb:
+            #sample
+            pass
+        else:
+            #if adaptionCondition:
+                #sample + adapt
+            # else:
+                #sample
+            pass
