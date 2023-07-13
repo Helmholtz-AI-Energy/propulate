@@ -809,7 +809,7 @@ class CMAParam:
 
 
 #TOD0: Wieso von Propagator erben?
-class CMASampler(Propagator):
+class CMASampler():
     def __init__(self, mean, sigma, co_matrix, b_matrix, d_matrix, problem_dimension):
         self.mean = mean
         self.sigma = sigma
@@ -857,6 +857,16 @@ class CMAAdapter(ABC):
         # return Covariance Matrix, new_p_c
         pass
 
+    @abstractmethod
+    def compute_weights(self, mu, lamb, problem_dimension):
+        pass
+
+    def compute_learning_rates(self, mu_eff, problem_dimension):
+        c_c = (4 + mu_eff / problem_dimension) / (problem_dimension + 4 + 2 * mu_eff / problem_dimension)  # TODO wie Bi-Population, also für basic und active gleich?
+        c_1 = 2 / (problem_dimension + 1.3) ** 2 + mu_eff
+        c_mu = min(1 - c_1, 2 * (0.25 + mu_eff + 1 / mu_eff - 2) / (problem_dimension + 2) ** 2 + mu_eff)
+        return c_c, c_1, c_mu
+
 
 class BasicCMA(CMAAdapter):
     def update_mean(self, mu, weights, old_mean, c_m, sigma, translation_ranked):
@@ -870,6 +880,16 @@ class BasicCMA(CMAAdapter):
                                  generation, problem_dimension, mu_eff, weights,
                                  old_co_matrix, translations_ranked, c_1, c_mu):
         pass
+
+    def compute_weights(self, mu, lamb, problem_dimension):
+        _log_tmp = math.log(mu + 1)
+        weights = [_log_tmp - math.log(i + 1) if i < mu else 0 for i in range(lamb)]  # Benchmarking BI-Population Paper
+        _sum_weights = sum(weights)
+        _positive_weights = weights[:mu]
+        weights[:mu] = [w / _sum_weights for w in _positive_weights]
+        mu_eff = _sum_weights ** 2 / sum(w ** 2 for w in _positive_weights)
+        c_c, c_1, c_mu = self.compute_learning_rates(mu_eff, problem_dimension)
+        return weights, mu_eff, c_c, c_1, c_mu
 
 
 class ActiveCMA(CMAAdapter):
@@ -885,38 +905,53 @@ class ActiveCMA(CMAAdapter):
                                  old_co_matrix, translations_ranked, c_1, c_mu):
         pass
 
+    def compute_weights(self, mu, lamb, problem_dimension):
+        _log_tmp = math.log((lamb + 1) / 2)
+        weights_preliminary = [_log_tmp - math.log(i + 1) for i in range(lamb)]
+        _positive_weights = weights_preliminary[:mu]
+        _sum_positive_weights = sum(_positive_weights) # TODO rechnet er in der list comprehension nur einmal den wert aus wenn ja dann kann man sich das sparen, auch an anderen Stellen im Code
+        mu_eff = _sum_positive_weights ** 2 / sum(w ** 2 for w in _positive_weights)
+        c_c, c_1, c_mu = self.compute_learning_rates(mu_eff, problem_dimension)
+        # now compute final weights
+        _negative_weights = weights_preliminary[mu:]
+        _sum_negative_weights = sum(_negative_weights)
+        mu_eff_minus = _sum_negative_weights ** 2 / sum(w ** 2 for w in _negative_weights)
+        alpha_mu_minus = 1 + c_1 / c_mu
+        alpha_mu_eff_minus = 1 + 2 * mu_eff_minus / (mu_eff + 2)
+        alpha_pos_def_minus = (1 - c_1 - c_mu) / problem_dimension * c_mu
+        weights = [0] * lamb
+        weights[:mu] = [(1 / _sum_positive_weights) * w for w in _positive_weights]
+        weights[mu:] = [min(alpha_mu_minus, alpha_mu_eff_minus, alpha_pos_def_minus) / _sum_negative_weights * w
+                        for w in _negative_weights]
+        return weights, mu_eff, c_c, c_1, c_mu
+
 
 # TODO initiale Population mitgeben
-class CMAPropagator():
-    def __init__(self, sampler: CMASampler, adapter: CMAAdapter, problem_dimension: int, limits, rng, offsprings=None):
+# TODO bestimmte parameter einstellbar machen
+# TODO: Wird hier über Basic/active entschieden? in dem adapter mitgegeben wird
+class CMAPropagator(Propagator):
+    def __init__(self, sampler: CMASampler, adapter: CMAAdapter, problem_dimension: int, limits, rng, pop_size=None,
+                 offsprings=None):
         # TODO check input
         self.limits = limits
         self.rng = rng
         generation = 0
-        lamb = offsprings if offsprings else 4 + int(
+        lamb = pop_size if pop_size else 4 + int(
             3 * math.log(problem_dimension))
+        super(CMAPropagator, self).__init__(lamb, offsprings)
 
         # Selection and Recombination params
         mu = int(lamb / 2)
-        _log_tmp = math.log(mu + 1) #TODO do as in tutorial
-        weights = [_log_tmp - math.log(i + 1) if i < mu else 0 for i in range(lamb)] # Benchmarking BI-Population Paper
-        _sum_weights = sum(weights)
-        _positive_weights = weights[:mu]
-        weights[:mu] = [w / _sum_weights for w in _positive_weights]
+        weights, mu_eff = adapter.compute_weights(mu, lamb)
         c_m = 1
         # TODO assert sum of weights equals 1
 
         # Step-size control params
-        mu_eff = _sum_weights ** 2 / sum(w ** 2 for w in _positive_weights)
-        c_sigma = (mu_eff + 2) / (problem_dimension
-                                                    + mu_eff + 5)
-        d_sigma = 1 + 2 * max(0, ((mu_eff - 1) /
-                                              (problem_dimension + 1)) ** 0.5 - 1) + c_sigma
+        c_sigma = (mu_eff + 2) / (problem_dimension + mu_eff + 5)
+        d_sigma = 1 + 2 * max(0, ((mu_eff - 1) / (problem_dimension + 1)) ** 0.5 - 1) + c_sigma
 
         # Covariance Matrix Adaption
-        c_c = (4 + mu_eff / problem_dimension) / (problem_dimension + 4 + 2 * mu_eff / problem_dimension)
-        c_1 = 2 / (problem_dimension + 1.3) ** 2 + mu_eff
-        c_mu = min(1 - c_1, 2 * (0.25 + mu_eff + 1 / mu_eff - 2) / (problem_dimension + 2) ** 2 + mu_eff)
+
 
         # Initialize dynamic state variables
         p_sigma = problem_dimension * [0]
