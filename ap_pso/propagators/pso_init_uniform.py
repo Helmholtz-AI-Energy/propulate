@@ -5,7 +5,7 @@ from random import Random
 
 import numpy as np
 
-from ap_pso import Particle
+from ap_pso import Particle, make_particle
 from propulate.population import Individual
 from propulate.propagators import Stochastic
 
@@ -15,7 +15,8 @@ class PSOInitUniform(Stochastic):
     Initialize individuals by uniformly sampling specified limits for each trait.
     """
 
-    def __init__(self, limits: dict[str, tuple[float, float]], parents=0, probability=1.0, rng: Random = None):
+    def __init__(self, limits: dict[str, tuple[float, float]], parents=0, probability=1.0, rng: Random = None, *,
+                 v_init_limit: float | np.ndarray = 0.1):
         """
         Constructor of PSOInitUniform class.
 
@@ -33,11 +34,17 @@ class PSOInitUniform(Stochastic):
                     the probability with which a completely new individual is created
         rng : random.Random()
               random number generator
+        v_init_limit: float | np.ndarray
+                      some multiplicative constant to reduce initial random velocity values.
         """
         super().__init__(parents, 1, probability, rng)
         self.limits = limits
+        self.laa = np.array(list(limits.values())).T
+        if isinstance(v_init_limit, np.ndarray):
+            assert v_init_limit.shape[-1] == self.laa.shape[-1]
+        self.v_limits = v_init_limit
 
-    def __call__(self, *particles: Individual) -> Individual:
+    def __call__(self, *particles: Individual) -> Particle:
         """
         Apply uniform-initialization propagator.
 
@@ -52,25 +59,24 @@ class PSOInitUniform(Stochastic):
               list of selected individuals after application of propagator
         """
         if self.rng.random() < self.probability:  # Apply only with specified `probability`.
-            dim = len(self.limits)
-            position = np.zeros(shape=dim)
-            velocity = np.zeros(shape=dim)
+
+            position = self.rng.uniform(*self.laa)
+            velocity = self.rng.uniform(*(self.v_limits * self.laa))
 
             particle = Particle(position, velocity)  # Instantiate new particle.
 
-            for index, limit in zip(range(dim), self.limits):
+            for index, limit in enumerate(self.limits):
                 # Since Py 3.7, iterating over dicts is stable, so we can do the following.
 
                 if type(self.limits[limit][0]) != float:  # Check search space for validity
                     raise TypeError("PSO only works on continuous search spaces!")
 
                 # Randomly sample from specified limits for each trait.
-                pos_on_limit = self.rng.uniform(*self.limits[limit])
-                particle[limit] = pos_on_limit
-                particle.position[index] = pos_on_limit
-                particle.velocity[index] = self.rng.uniform(*self.limits[limit])
-
+                particle[limit] = particle.position[index]
             return particle
         else:
             particle = particles[0]
-            return particle  # Return 1st input individual w/o changes.
+            if isinstance(particle, Particle):
+                return particle  # Return 1st input individual w/o changes.
+            else:
+                return make_particle(particle)

@@ -14,7 +14,7 @@ class BasicPSOPropagator(Propagator):
     def __init__(self, w_k: float, c_cognitive: float, c_social: float, rank: int,
                  limits: dict[str, tuple[float, float]], rng: Random):
         """
-
+        Class constructor.
         :param w_k: The learning rate ... somehow
         :param c_cognitive: constant cognitive factor to scale p_best with
         :param c_social: constant social factor to scale g_best with
@@ -42,8 +42,8 @@ class BasicPSOPropagator(Propagator):
         if not isinstance(old_p, Particle):
             old_p = make_particle(old_p)
             print(f"R{self.rank}, Iteration#{old_p.generation}: Type Error.")
-        g_best = sorted(particles, key=lambda p: p.loss)[0]
-        p_best = sorted(own_p, key=lambda p: p.loss)[0]
+        g_best = min(particles, key=lambda p: p.loss)
+        p_best = min(own_p, key=lambda p: p.loss)
         new_velocity = self.w_k * old_p.velocity \
                        + self.c_cognitive * self.rng.uniform(*self.laa) * (p_best.position - old_p.position) \
                        + self.c_social * self.rng.uniform(*self.laa) * (g_best.position - old_p.position)
