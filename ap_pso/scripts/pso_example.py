@@ -2,12 +2,11 @@
 import random
 import sys
 
-import numpy as np
 from mpi4py import MPI
 
-from ap_pso.propagators import BasicPSOPropagator, PSOInitUniform
+from ap_pso.propagators import PSOInitUniform, VelocityClampingPropagator
 from propulate import Islands
-from propulate.propagators import Compose, InitUniform, Conditional
+from propulate.propagators import Compose, Conditional
 
 ############
 # SETTINGS #
@@ -46,7 +45,7 @@ if __name__ == "__main__":
 
     propagator = Compose(
         [
-            BasicPSOPropagator(0, 0.9, 0.4, MPI.COMM_WORLD.rank, limits, rng),
+            VelocityClampingPropagator(0.7298, 1.49618, 1.49618, MPI.COMM_WORLD.rank, limits, rng, 0.1),
             PSOInitUniform(limits, parents=1, probability=0.1, rng=rng)
         ]
     )
