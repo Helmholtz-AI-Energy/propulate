@@ -13,7 +13,7 @@ from propulate.propagators import Compose, Conditional
 ############
 
 fname = sys.argv[1]  # Get function to optimize from command-line.
-NUM_GENERATIONS = 22 # Set number of generations.
+NUM_GENERATIONS = 100 # Set number of generations.
 POP_SIZE = 2 * MPI.COMM_WORLD.size  # Set size of breeding population.
 num_migrants = 1
 

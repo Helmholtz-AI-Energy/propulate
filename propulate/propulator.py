@@ -556,3 +556,4 @@ class Propulator:
                     res_str += f"({i+1}): {unique_pop[i]}\n"
                 log.info(res_str)
         return MPI.COMM_WORLD.allgather(best)
+
