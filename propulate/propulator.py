@@ -51,8 +51,6 @@ class Propulator:
                intra-isle communicator
         generations : int
                       number of generations to run
-        isle_idx : int
-                   isle index
         checkpoint_path : Union[Path, str]
                           Path where checkpoints are loaded from and stored.
         migration_topology : numpy array
@@ -89,7 +87,6 @@ class Propulator:
         self.isle_idx = int(isle_idx)  # isle index
         self.comm = comm  # intra-isle communicator
         self.comm_inter = comm_inter  # inter-isle communicator
-
         self.checkpoint_path = Path(checkpoint_path)
         self.checkpoint_path.mkdir(parents=True, exist_ok=True)
         self.migration_prob = float(migration_prob)  # per-rank migration probability
