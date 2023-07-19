@@ -12,7 +12,7 @@ from mpi4py import MPI
 from ._globals import DUMP_TAG, INDIVIDUAL_TAG, MIGRATION_TAG, SYNCHRONIZATION_TAG
 
 
-class PolliPropulator:
+class Pollinator:
     """
     Parallel propagator of populations with pollination.
 
@@ -32,7 +32,7 @@ class PolliPropulator:
         checkpoint_path=Path('./'),
         migration_topology=None,
         comm_inter=MPI.COMM_WORLD,
-        migration_prob=None,
+        migration_prob=0.,
         emigration_propagator=None,
         immigration_propagator=None,
         unique_ind=None,
@@ -54,8 +54,6 @@ class PolliPropulator:
                intra-isle communicator
         generations : int
                       number of generations to run
-        isle_idx : int
-                   isle index
         checkpoint_path : Union[Path, str]
                           Path where checkpoints are loaded from and stored.
         migration_topology : numpy array
@@ -97,6 +95,7 @@ class PolliPropulator:
         self.comm = comm  # intra-isle communicator
         self.comm_inter = comm_inter  # inter-isle communicator
         self.checkpoint_path = Path(checkpoint_path)
+        self.checkpoint_path.mkdir(parents=True, exist_ok=True)
         self.migration_prob = float(migration_prob)  # per-rank migration probability
         self.migration_topology = migration_topology  # migration topology
         self.unique_ind = unique_ind  # MPI.COMM_WORLD rank of each isle's worker 0
@@ -119,7 +118,7 @@ class PolliPropulator:
                     if self.comm.rank == 0:
                         print(
                             "NOTE: Valid checkpoint file found. "
-                            "Resuming from loaded population..."
+                            f"Resuming from generation {self.generation} of loaded population..."
                         )
                 except Exception:
                     self.population = []
