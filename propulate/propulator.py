@@ -24,7 +24,7 @@ class Propulator:
         self,
         loss_fn,
         propagator,
-        isle_idx,
+        isle_idx=0,
         comm=MPI.COMM_WORLD,
         generations=0,
         checkpoint_path=Path('./'),
