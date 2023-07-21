@@ -231,7 +231,7 @@ class PointMutation(Stochastic):
             for i in to_mutate:
                 if type(ind[i]) == int:
                     # Return randomly selected element from int range(start, stop, step).
-                    ind[i] = self.rng.randrange(*self.limits[i])
+                    ind[i] = self.rng.randint(*self.limits[i])
                 elif type(ind[i]) == float:
                     # Return random floating point number N within limits.
                     ind[i] = self.rng.uniform(*self.limits[i])
@@ -309,7 +309,7 @@ class RandomPointMutation(Stochastic):
             for i in to_mutate:
                 if type(ind[i]) == int:
                     # Return randomly selected element from int range(start, stop, step).
-                    ind[i] = self.rng.randrange(*self.limits[i])
+                    ind[i] = self.rng.randint(*self.limits[i])
                 elif type(ind[i]) == float:
                     # Return random floating point number N within limits.
                     ind[i] = self.rng.uniform(*self.limits[i])
@@ -727,7 +727,7 @@ class InitUniform(Stochastic):
                 if (
                     type(self.limits[limit][0]) == int
                 ):  # If ordinal trait of type integer.
-                    ind[limit] = self.rng.randrange(*self.limits[limit])
+                    ind[limit] = self.rng.randint(*self.limits[limit])
                 elif (
                     type(self.limits[limit][0]) == float
                 ):  # If interval trait of type float.
