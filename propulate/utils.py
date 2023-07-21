@@ -50,16 +50,16 @@ def get_default_propagator(
     if any(isinstance(limits[x][0], float) for x in limits):  # Check for existence of at least one continuous trait.
         propagator = Compose([  # Compose propagator out of basic evolutionary operators with Compose(...).
             SelectMin(pop_size),
-            SelectUniform(2, rng=rng),
+            SelectUniform(offspring=2, rng=rng),
             MateUniform(mate_prob, rng=rng),
             PointMutation(limits, probability=mut_prob, rng=rng),
-            IntervalMutationNormal(limits, sigma_factor=sigma_factor, probability=1, rng=rng),
+            IntervalMutationNormal(limits, sigma_factor=sigma_factor, probability=1.0, rng=rng),
             InitUniform(limits, parents=1, probability=random_prob, rng=rng)
         ])
     else:
         propagator = Compose([  # Compose propagator out of basic evolutionary operators with Compose(...).
             SelectMin(pop_size),
-            SelectUniform(2, rng=rng),
+            SelectUniform(offspring=2, rng=rng),
             MateUniform(mate_prob, rng=rng),
             PointMutation(limits, probability=mut_prob, rng=rng),
             InitUniform(limits, parents=1, probability=random_prob, rng=rng),
