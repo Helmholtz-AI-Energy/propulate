@@ -5,8 +5,12 @@
 
 .. image:: images/LOGO.svg
 
+|
+
+`Click`_ to watch our 3 min introduction video!
+
 What Propulate can do for you
-=============================
+===============================
 ``Propulate`` is an HPC-tailored software for solving optimization problems in parallel. It is particularly suitable for large-scale hyperparameter optimization and neural architecture search. 
 
 .. note::
@@ -28,8 +32,9 @@ To be more efficient, the generations are less well separated than they usually 
 
 You can find the corresponding publication `here`_:
 
-   Taubert, O. et al. (2023). Massively Parallel Genetic Optimization Through Asynchronous Propagation of Populations. In: Bhatele, A., Hammond, J., Baboulin, M., Kruse, C. (eds) High Performance Computing. ISC High Performance 2023. Lecture Notes in Computer Science, vol 13948. Springer, Cham. doi.org/10.1007/978-3-031-32041-5_6
+   *Taubert, O. et al. (2023). Massively Parallel Genetic Optimization Through Asynchronous Propagation of Populations. In: Bhatele, A., Hammond, J., Baboulin, M., Kruse, C. (eds) High Performance Computing. ISC High Performance 2023. Lecture Notes in Computer Science, vol 13948. Springer, Cham. doi.org/10.1007/978-3-031-32041-5_6*
 
+``Propulate`` is also listed in the `Helmholtz Research Software Directory`_.
 
 .. toctree::
    :maxdepth: 1
@@ -41,8 +46,10 @@ You can find the corresponding publication `here`_:
 
 
 .. Links
+.. _Click: https://www.scc.kit.edu/en/aboutus/16956.php
 .. _here: https://doi.org/10.1007/978-3-031-32041-5_6
 .. _Github page: https://github.com/Helmholtz-AI-Energy/propulate
+.. _Helmholtz Research Software Directory: https://helmholtz.software/software/propulate
 
 Indices and tables
 ==================
