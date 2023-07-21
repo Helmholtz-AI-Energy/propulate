@@ -5,7 +5,7 @@ from mpi4py import MPI
 
 from .propagators import SelectMin, SelectMax
 from .propulator import Propulator
-from .pollinator import PolliPropulator
+from .pollinator import Pollinator
 
 
 class Islands:
@@ -37,6 +37,8 @@ class Islands:
                   loss function to be minimized
         propagator : propulate.propagators.Propagator
                      propagator to apply for breeding
+        rng : random.Random()
+              random number generator
         generations : int
                       number of generations
         num_isles : int
@@ -71,7 +73,7 @@ class Islands:
             generations
         )  # number of generations, i.e., evaluations per individual
 
-        # Set up communicators.
+        # Set up communicator.
         size = MPI.COMM_WORLD.size
         rank = MPI.COMM_WORLD.rank
 
@@ -84,13 +86,13 @@ class Islands:
         if isle_sizes is None:
             if num_isles < 1:
                 raise ValueError(
-                    f"Invalid number of evolutionary isles, needs to be >= 1, but was {num_isles}."
+                    f"Invalid number of evolutionary islands, needs to be >= 1, but was {num_isles}."
                 )
             num_isles = int(num_isles)  # number of separate isles
             base_size = int(size // num_isles)  # base size of each isle
             remainder = int(
                 size % num_isles
-            )  # remaining workers to be distributed equally for load balancing
+            )  # Distribute remaining workers equally over first islands for balanced load.
 
             isle_sizes = []
             for i in range(num_isles):
@@ -107,45 +109,34 @@ class Islands:
                 f"There should be MPI.COMM_WORLD.size (i.e., {size}) workers but only {np.sum(isle_sizes)} were specified."
             )
 
-        # intra-isle communicator (for communication within each separate isle)
+        #  Set up intra-island communicator (for communication within each separate island)
         Intra_color = []
         for idx, el in enumerate(isle_sizes):
             Intra_color.append(idx * np.ones(el, dtype=int))
         Intra_color = np.concatenate(Intra_color).ravel()
-        intra_color = Intra_color[rank]
+        isle_idx = Intra_color[rank] # Determine isle index (which is also each rank's intra color).
         intra_key = rank
 
-        # inter-isle communicator (for communication between different isles)
-        # Determine unique elements, where # unique elements equals number of isles.
+        # Determine displacements as positions of unique elements, where # unique elements equals number of islands.
         _, unique_ind = np.unique(Intra_color, return_index=True)
-        num_isles = (
+        num_isles == (
             unique_ind.size
-        )  # Determine number of isles as number of unique elements.
-        Inter_color = np.zeros(size)  # Initialize inter color with only zeros.
+        )  # Determine number of islands as number of unique elements.
+
         if rank == 0:
             print(
                 f"Island sizes {Intra_color} with counts {isle_sizes} and start displacements {unique_ind}."
             )
-        Inter_color[unique_ind] = 1
-        inter_color = Inter_color[rank]
-        inter_key = rank
 
-        # Create new communicators by "splitting" MPI.COMM_WORLD into group of sub-communicators based on
+        # Create new communicators by splitting MPI.COMM_WORLD into group of sub-communicators based on
         # input values `color` and `key`. The original communicator does not go away but a new communicator
         # is created on each process. `color` determines to which new communicator each processes will belong.
-        # All processes which pass in the same value for `color` are assigned to the same communicator. `key`
-        # determines the ordering (rank) within each new communicator. The process which passes in the smallest
+        # All processes passing the same value for `color` are assigned to the same communicator. `key`
+        # determines the ordering (rank) within each new communicator. The process passing the smallest
         # value for `key` will be rank 0 and so on.
-        comm_intra = MPI.COMM_WORLD.Split(color=intra_color, key=intra_key)
-        comm_inter = MPI.COMM_WORLD.Split(color=inter_color, key=inter_key)
+        comm_intra = MPI.COMM_WORLD.Split(color=isle_idx, key=intra_key)
 
-        # Determine isle index and broadcast to all ranks in intra-isle communicator.
-        if comm_intra.rank == 0:
-            isle_idx = comm_inter.rank
-        else:
-            isle_idx = None
-        isle_idx = comm_intra.bcast(isle_idx, root=0)
-
+        # Set up migration topology.
         if migration_topology is None:
             migration_topology = np.ones((num_isles, num_isles), dtype=int)
             np.fill_diagonal(migration_topology, 0)
@@ -193,7 +184,6 @@ class Islands:
                 generations=generations,
                 isle_idx=isle_idx,
                 checkpoint_path=checkpoint_path,
-                comm_inter=comm_inter,
                 migration_topology=migration_topology,
                 migration_prob=migration_prob,
                 emigration_propagator=emigration_propagator,
@@ -204,14 +194,13 @@ class Islands:
         elif pollination is True:
             if MPI.COMM_WORLD.rank == 0:
                 print("Pollination.")
-            self.propulator = PolliPropulator(
+            self.propulator = Pollinator(
                 loss_fn,
                 propagator,
                 comm=comm_intra,
                 generations=generations,
                 isle_idx=isle_idx,
                 checkpoint_path=checkpoint_path,
-                comm_inter=comm_inter,
                 migration_topology=migration_topology,
                 migration_prob=migration_prob,
                 emigration_propagator=emigration_propagator,

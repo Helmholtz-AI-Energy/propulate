@@ -12,7 +12,7 @@ from mpi4py import MPI
 from ._globals import DUMP_TAG, INDIVIDUAL_TAG, MIGRATION_TAG, SYNCHRONIZATION_TAG
 
 
-class PolliPropulator:
+class Pollinator:
     """
     Parallel propagator of populations with pollination.
 
@@ -31,7 +31,6 @@ class PolliPropulator:
         generations=0,
         checkpoint_path=Path('./'),
         migration_topology=None,
-        comm_inter=MPI.COMM_WORLD,
         migration_prob=None,
         emigration_propagator=None,
         immigration_propagator=None,
@@ -54,15 +53,11 @@ class PolliPropulator:
                intra-isle communicator
         generations : int
                       number of generations to run
-        isle_idx : int
-                   isle index
         checkpoint_path : Union[Path, str]
                           Path where checkpoints are loaded from and stored.
         migration_topology : numpy array
                              2D matrix where entry (i,j) specifies how many
                              individuals are sent by isle i to isle j
-        comm_inter : MPI communicator
-                     inter-isle communicator for migration
         migration_prob : float
                          per-worker migration probability
         emigration_propagator : propulate.propagators.Propagator
@@ -95,8 +90,8 @@ class PolliPropulator:
         self.generation = 0
         self.isle_idx = int(isle_idx)  # isle index
         self.comm = comm  # intra-isle communicator
-        self.comm_inter = comm_inter  # inter-isle communicator
         self.checkpoint_path = Path(checkpoint_path)
+        self.checkpoint_path.mkdir(parents=True, exist_ok=True)
         self.migration_prob = float(migration_prob)  # per-rank migration probability
         self.migration_topology = migration_topology  # migration topology
         self.unique_ind = unique_ind  # MPI.COMM_WORLD rank of each isle's worker 0
@@ -119,7 +114,7 @@ class PolliPropulator:
                     if self.comm.rank == 0:
                         print(
                             "NOTE: Valid checkpoint file found. "
-                            "Resuming from loaded population..."
+                            f"Resuming from generation {self.generation} of loaded population..."
                         )
                 except Exception:
                     self.population = []
@@ -161,9 +156,8 @@ class PolliPropulator:
                       number of currently active individuals
         """
         active_pop = [ind for ind in self.population if ind.active]
-        num_actives = len(active_pop)
 
-        return active_pop, num_actives
+        return active_pop, len(active_pop)
 
     def _breed(self):
         """
@@ -705,8 +699,10 @@ class PolliPropulator:
                    path to results plot (rank-specific loss vs. generation)
         """
         top_n = int(top_n)
-        active_pop, _ = self._get_active_individuals()
-        total = self.comm_inter.reduce(len(active_pop), root=0)
+        active_pop, num_active = self._get_active_individuals()
+        assert (np.all( np.array(self.comm.allgather(num_active), dtype=int) == num_active ))
+        total = int(MPI.COMM_WORLD.allreduce(num_active/self.unique_counts[self.isle_idx]))
+
         MPI.COMM_WORLD.barrier()
         if MPI.COMM_WORLD.rank == 0:
             print("\n###########")
@@ -716,8 +712,9 @@ class PolliPropulator:
                 f"Number of currently active individuals is {total}. "
                 f"\nExpected overall number of evaluations is {self.generations*MPI.COMM_WORLD.size}."
             )
-        populations = self.comm.gather(self.population, root=0)
+        # Only double-check number of occurrences of each individual for DEBUG level 2.
         if DEBUG == 2:
+            populations = self.comm.gather(self.population, root=0)
             occurrences, _ = self._check_for_duplicates(True, DEBUG)
             if self.comm.rank == 0:
                 if self._check_intra_isle_synchronization(populations):
@@ -729,43 +726,18 @@ class PolliPropulator:
                 res_str += f"I{self.isle_idx}: {len(active_pop)}/{len(self.population)} individuals active ({len(occurrences)} unique)."
                 print(res_str)
         MPI.COMM_WORLD.barrier()
-        best = None
         if DEBUG == 0:
+            best = min(self.population, key=attrgetter("loss"))
             if self.comm.rank == 0:
-                best = min(self.population, key=attrgetter("loss"))
-                res_str = f"Top result on isle {self.isle_idx}: {best}\n"
-                print(res_str)
-            best = self.comm.bcast(best, root=0)
+               res_str = f"Top result on isle {self.isle_idx}: {best}\n"
+               print(res_str)
         else:
+            unique_pop = self._get_unique_individuals()
+            unique_pop.sort(key=lambda x: x.loss)
+            best = unique_pop[:top_n]
             if self.comm.rank == 0:
-                unique_pop = self._get_unique_individuals()
-                unique_pop.sort(key=lambda x: x.loss)
-                best = unique_pop[:top_n]
                 res_str = f"Top {top_n} result(s) on isle {self.isle_idx}:\n"
                 for i in range(top_n):
                     res_str += f"({i+1}): {unique_pop[i]}\n"
                 print(res_str)
-            best = self.comm.bcast(best, root=0)
-
-        if self.comm.rank == 0:
-            import matplotlib.pyplot as plt
-
-            xs = [x.generation for x in self.population]
-            ys = [x.loss for x in self.population]
-            zs = [x.rank for x in self.population]
-
-            fig, ax = plt.subplots()
-            scatter = ax.scatter(xs, ys, c=zs)
-            plt.xlabel("Generation")
-            plt.ylabel("Loss")
-            ax.legend(*scatter.legend_elements(), title="Rank")
-            plt.savefig(f"isle_{self.isle_idx}_{out_file}")
-            plt.close()
-            if self.migration_prob > 0.:
-                Best = self.comm_inter.gather(best, root=0)
-
-        MPI.COMM_WORLD.barrier()
-        if MPI.COMM_WORLD.rank != 0:
-            Best = None
-        Best = MPI.COMM_WORLD.bcast(Best, root=0)
-        return Best
+        return MPI.COMM_WORLD.allgather(best)
