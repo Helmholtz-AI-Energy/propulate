@@ -5,7 +5,7 @@ from mpi4py import MPI
 
 from .propagators import SelectMin, SelectMax
 from .propulator import Propulator
-from .pollinator import PolliPropulator
+from .pollinator import Pollinator
 
 
 class Islands:
@@ -194,7 +194,7 @@ class Islands:
         elif pollination is True:
             if MPI.COMM_WORLD.rank == 0:
                 print("Pollination.")
-            self.propulator = PolliPropulator(
+            self.propulator = Pollinator(
                 loss_fn,
                 propagator,
                 comm=comm_intra,

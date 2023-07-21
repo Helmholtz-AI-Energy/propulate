@@ -12,6 +12,6 @@ finally:
 
 from .islands import Islands
 from .propulator import Propulator
-from .pollinator import PolliPropulator
+from .pollinator import Pollinator
 
-__all__ = ['Islands', 'Propulator', 'PolliPropulator']
+__all__ = ['Islands', 'Propulator', 'Pollinator']
