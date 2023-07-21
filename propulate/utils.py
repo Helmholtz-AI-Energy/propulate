@@ -39,7 +39,7 @@ def get_default_propagator(
         random-initialization probability
     sigma_factor : float
         scaling factor for obtaining std from search-space boundaries for interval mutation
-    rng : random.Random()
+    rng : random.Random
         random number generator
 
     Returns
