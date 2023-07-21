@@ -23,7 +23,8 @@ If you need the latest updates, you can also install ``Propulate`` directly from
 
     $ pip install https://github.com/Helmholtz-AI-Energy/propulate
 
-If you want to get the source code and modify it, you can clone the source code using ``git`` and install ``Propulate`` with ``pip`` or via ``setup.py``:
+If you want to get the source code and modify it, you can clone the source code using ``git`` and install ``Propulate``
+with ``pip`` or via ``setup.py``:
 
 .. code-block:: console
 
