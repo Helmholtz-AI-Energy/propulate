@@ -8,6 +8,7 @@ from .propagators import (
     IntervalMutationNormal,
     MateUniform,
     PointMutation,
+    Propagator,
     SelectMin,
     SelectUniform,
 )
@@ -21,10 +22,9 @@ def get_default_propagator(
     random_prob: float,
     sigma_factor: float = 0.05,
     rng: random.Random = None
-):
+) -> Propagator:
     """
     Get propulate's default evolutionary optimization propagator.
-
 
     Parameters
     ----------
@@ -44,7 +44,7 @@ def get_default_propagator(
 
     Returns
     -------
-    propagators.Compose
+    propagators.Propagator
         A basic evolutionary optimization propagator.
     """
     if any(isinstance(limits[x][0], float) for x in limits):  # Check for existence of at least one continuous trait.
