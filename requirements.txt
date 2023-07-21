@@ -3,7 +3,7 @@ deepdiff==5.8.0
 kiwisolver==1.4.2
 matplotlib==3.2.1
 mpi4py==3.0.3
-numpy==1.22.3
+numpy
 ordered-set==4.1.0
 pyparsing==3.0.7
 python-dateutil==2.8.2
