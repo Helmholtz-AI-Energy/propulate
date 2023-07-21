@@ -5,7 +5,7 @@ import sys
 import numpy as np
 from mpi4py import MPI
 
-from propulate import Propulator
+from propulate import Propulator, Pollinator
 from propulate.utils import get_default_propagator
 
 
@@ -222,24 +222,35 @@ def get_function_search_space(fname):
 
 
 if __name__ == "__main__":
-    fname = sys.argv[1]  # Get function to optimize from command-line.
-    generations = 10  # Set number of generations.
-    pop_size = 2 * MPI.COMM_WORLD.size  # Set size of breeding population.
-    checkpoint_path = "./"
-    DEBUG = 2
-    rng = random.Random(MPI.COMM_WORLD.rank)
+    fname = sys.argv[1]                                 # Get function name to optimize from command-line.
+    generations = 10                                    # Set number of generations.
+    pop_size = 2 * MPI.COMM_WORLD.size                  # Set size of breeding population.
+    checkpoint_path = "./"                              # Path for possibly loading checkpoints from and writing new checkpoints to.
+    DEBUG = 2                                           # Set verbosity / debug level.
+    rng = random.Random(MPI.COMM_WORLD.rank)            # Set up separate random number generator for evolutionary optimization process.
 
-    function, limits = get_function_search_space(fname)
+    function, limits = get_function_search_space(fname) # Get callable function and search-space limits from function name.
 
-    propagator = get_default_propagator(pop_size, limits, 0.7, 0.4, 0.1, rng=rng)
+    # Set up evolutionary operator.
+    propagator = get_default_propagator(                # Get default evolutionary operator.
+            pop_size=pop_size,                          # Breeding population size
+            limits=limits,                              # Search-space limits
+            mate_prob=0.7,                              # Crossover probability
+            mut_prob=0.4,                               # Mutation probability
+            random_prob=0.1,                            # Random-initialization probability
+            rng=rng                                     # Random number generator    
+        )
+
+    # Set up propulator performing actual optimization.
     propulator = Propulator(
-        function,
-        propagator,
-        comm=MPI.COMM_WORLD,
-        generations=generations,
-        checkpoint_path=checkpoint_path,
-        rng=rng,
+        function,                                       # Function to optimize
+        propagator,                                     # Evolutionary operator
+        comm=MPI.COMM_WORLD,                            # Communicator
+        generations=generations,                        # Number of generations
+        checkpoint_path=checkpoint_path,                # Path for checkpointing
+        rng=rng,                                        # Random number generator
     )
     
+    # Run actual optimization and print summary of results.
     propulator.propulate(logging_interval=1, DEBUG=DEBUG)
     propulator.summarize(top_n=2, DEBUG=DEBUG)

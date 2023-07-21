@@ -742,7 +742,8 @@ class Propulator:
         top_n = int(top_n)
         active_pop, num_active = self._get_active_individuals()
         assert (np.all( np.array(self.comm.allgather(num_active), dtype=int) == num_active ))
-        total = int(MPI.COMM_WORLD.allreduce(num_active/self.unique_counts[self.isle_idx]))
+        if self.unique_counts is not None:
+            num_active = int(MPI.COMM_WORLD.allreduce(num_active/self.unique_counts[self.isle_idx]))
 
         MPI.COMM_WORLD.barrier()
         if MPI.COMM_WORLD.rank == 0:
@@ -750,7 +751,7 @@ class Propulator:
             print("# SUMMARY #")
             print("###########\n")
             print(
-                f"Number of currently active individuals is {total}. "
+                f"Number of currently active individuals is {num_active}. "
                 f"\nExpected overall number of evaluations is {self.generations*MPI.COMM_WORLD.size}."
             )
         # Only double-check number of occurrences of each individual for DEBUG level 2.
