@@ -8,6 +8,10 @@
 
 `Click`_ to watch our 3 min introduction video!
 
+|
+
+`Click`_ to watch our 3 min introduction video!
+
 What Propulate can do for you
 ===============================
 ``Propulate`` is an HPC-tailored software for solving optimization problems in parallel.
@@ -94,11 +98,3 @@ You can find the corresponding publication `here`_:
 .. _here: https://doi.org/10.1007/978-3-031-32041-5_6
 .. _Github page: https://github.com/Helmholtz-AI-Energy/propulate
 .. _Helmholtz Research Software Directory: https://helmholtz.software/software/propulate
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
