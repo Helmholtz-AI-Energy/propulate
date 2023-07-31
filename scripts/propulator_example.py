@@ -5,13 +5,8 @@ import sys
 import numpy as np
 from mpi4py import MPI
 
-from propulate import Islands
-from propulate.propagators import SelectMin, SelectMax
+from propulate import Propulator, Pollinator
 from propulate.utils import get_default_propagator
-
-############
-# SETTINGS #
-############
 
 
 def bukin_n6(params):
@@ -227,26 +222,15 @@ def get_function_search_space(fname):
 
 
 if __name__ == "__main__":
-    
-    # General settings
     fname = sys.argv[1]                                 # Get function name to optimize from command-line.
     generations = 10                                    # Set number of generations.
-    pop_size = 2 * MPI.COMM_WORLD.size                  # Set size of breeding population. 
-    num_isles = 2                                       # Set number of separate evolutionary islands.
-    migration_probability = 0.9                         # Set migration probability.
-    pollination = False                                 # Pollination or real migration?
-    
-    # Set up migration topology.
-    num_migrants = 1                                    # Set number of individuals migrating at once.
-    migration_topology = num_migrants * np.ones(        # Set up fully connected migration topology.
-            (num_isles, num_isles), 
-            dtype=int
-        )
-    np.fill_diagonal(migration_topology, 0)             # An island does not send migrants to itself.
+    pop_size = 2 * MPI.COMM_WORLD.size                  # Set size of breeding population.
+    checkpoint_path = "./"                              # Path for possibly loading checkpoints from and writing new checkpoints to.
+    DEBUG = 2                                           # Set verbosity / debug level.
+    rng = random.Random(MPI.COMM_WORLD.rank)            # Set up separate random number generator for evolutionary optimization process.
 
     function, limits = get_function_search_space(fname) # Get callable function and search-space limits from function name.
-    rng = random.Random(MPI.COMM_WORLD.rank)            # Set up separate random number generator for evolutionary optimization process.
-    
+
     # Set up evolutionary operator.
     propagator = get_default_propagator(                # Get default evolutionary operator.
             pop_size=pop_size,                          # Breeding population size
@@ -257,24 +241,16 @@ if __name__ == "__main__":
             rng=rng                                     # Random number generator    
         )
 
-    # Set up island model.
-    islands = Islands(
+    # Set up propulator performing actual optimization.
+    propulator = Propulator(
         function,                                       # Function to optimize
         propagator,                                     # Evolutionary operator
-        rng,                                            # Random number generator
+        comm=MPI.COMM_WORLD,                            # Communicator
         generations=generations,                        # Number of generations
-        num_isles=num_isles,                            # Number of separate evolutionary islands
-        migration_topology=migration_topology,          # Migration topology
-        checkpoint_path='./',                           # Path to potentially read checkpoints from and write new checkpoints to
-        migration_probability=migration_probability,    # Migration probability
-        emigration_propagator=SelectMin,                # Emigration propagator (how to select migrants)
-        immigration_propagator=SelectMax,               # Immigration propagator (only relevant for pollination, how to choose individuals to be replaced by immigrants)
-        pollination=pollination,                        # Pollination or real migration?
+        checkpoint_path=checkpoint_path,                # Path for checkpointing
+        rng=rng,                                        # Random number generator
     )
-
-    # Run actual optimization.
-    islands.evolve(
-            top_n=1,                                    # Top-n best individuals are returned and printed (whole population can be accessed from checkpoint file).
-            logging_interval=1,                         # Logging interval used for print-outs.
-            DEBUG=2                                     # Debug / verbosity level
-        )
+    
+    # Run actual optimization and print summary of results.
+    propulator.propulate(logging_interval=1, DEBUG=DEBUG)
+    propulator.summarize(top_n=2, DEBUG=DEBUG)
