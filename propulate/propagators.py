@@ -781,8 +781,9 @@ evolution path of covariance matrix adaption := p_c
 class CMAParam:
     # if not all parameters will be used consider @property decorator style to reduce unnecessary computation
     def __init__(self, mean, sigma, lamb, mu, co_matrix, b_matrix, d_matrix, problem_dimension: int, weights, c_m,
-                 p_sigma, c_sigma, mu_eff, d_sigma, p_c, c_c, generation, c_1, c_mu):
+                 p_sigma, c_sigma, mu_eff, d_sigma, p_c, c_c, generation, c_1, c_mu, limits):
         # TODO make inits without parameters here instead of propagator
+        self.limits = limits
         self.mean = mean
         self.sigma = sigma
         self.lamb = lamb
@@ -791,7 +792,7 @@ class CMAParam:
         self.problem_dimension = problem_dimension
         self.b_matrix = b_matrix
         self.d_matrix = d_matrix
-        self.co_inv_sqrt = np.dot(b_matrix, np.dot(np.invert(d_matrix)), b_matrix.T)
+        self.co_inv_sqrt = np.dot(b_matrix, np.dot(np.linalg.inv(d_matrix), b_matrix.T))
         self.weights = weights
         self.c_m = c_m
         self.translation_ranked = None
@@ -807,10 +808,11 @@ class CMAParam:
         self.c_1 = c_1
         self.c_mu = c_mu
         self.chiN = problem_dimension**0.5 * (1 - 1. / (4 * problem_dimension) + 1. / (21 * problem_dimension**2))
+        # self.generationCount = 0
 
     #TODO: Getter and Setter
 
-    def set_mean(self, new_mean, inds):
+    def set_mean(self, new_mean):
         self.mean = new_mean
 
     def set_y_w(self, new_y_w):
@@ -820,6 +822,7 @@ class CMAParam:
         self.p_sigma = new_p_sigma
 
     def set_p_c(self, new_p_c):
+        print("p_c: ", new_p_c)
         self.p_c = new_p_c
 
     def set_sigma(self, new_sigma):
@@ -831,9 +834,19 @@ class CMAParam:
         # Update b and d matrix and co_inv_sqrt
         # TODO performance O(n^2)
         c = np.triu(new_co_matrix) + np.triu(new_co_matrix, 1).T  # Enforce symmetry
-        self.b_matrix, d = np.linalg.eig(c)  # Eigen decomposition
-        self.d_matrix = np.diag(np.sqrt(np.diag(d)))  # Replace eigenvalues with standard deviations
-        self.co_inv_sqrt = np.dot(self.b_matrix, np.dot(np.invert(self.d_matrix)), self.b_matrix.T)
+        d, self.b_matrix = np.linalg.eig(c)  # Eigen decomposition
+        self.d_matrix = np.diag(np.sqrt(np.abs(d)))  # Replace eigenvalues with standard deviations
+        self.co_inv_sqrt = np.dot(self.b_matrix, np.dot(np.linalg.inv(self.d_matrix), self.b_matrix.T))
+
+    def get_generation(self):
+        #self.generationCount += 1
+        #if self.generationCount > self.mu:
+         #   self.generation += 1
+          #  self.generationCount = 0
+        #return self.generation
+        self.generation += 1
+        return self.generation
+
 
     def mahalanobis_norm(self, dx):
         """return ``(dx^T * C^-1 * dx)**0.5``
@@ -845,9 +858,9 @@ class CMAParam:
         # create translations of the individuals
         y = np.zeros((self.problem_dimension, len(inds)))
         for k in range(len(inds)):
-            for dim in range(self.problem_dimension):
+            for i, (dim, _) in enumerate(self.limits.items()):
                 # translate array of individuals (dicts) to y
-                y[dim][k] = inds[k][dim] - inds[k][self.problem_dimension][dim]  # TODO verify working should substract mean
+                y[i][k] = inds[k][dim] - inds[k]["mean"][i]  # TODO verify working should substract mean
         y /= self.sigma
         return y
 
@@ -857,31 +870,29 @@ from abc import ABC, abstractmethod
 # Abstract base class
 class CMAAdapter(ABC):
     # TODO STATIC CALLING of function correct?
-    @staticmethod
-    def update_mean(params: CMAParam, inds):
-        y_w = copy.deepcopy(params.compute_translation_of(inds))
+    def update_mean(self, params: CMAParam, inds):
+        y_w = params.compute_translation_of(inds)
+        print("y vor mean update: ", y_w)
         y_w *= params.weights[:params.mu, np.newaxis].T
-        y_w = np.sum(y_w, axis=1, keepdims=True)
+        y_w = np.sum(y_w, axis=1, keepdims=True).flatten()
         params.set_mean(params.mean + params.c_m * params.sigma * y_w)
         params.set_y_w(y_w)
 
-    @staticmethod
-    def update_step_size(params: CMAParam):
+    def update_step_size(self, params: CMAParam):
         new_p_sigma = (1 - params.c_sigma) * params.p_sigma + math.sqrt(
-            params.c_sigma * (2 - params.c_sigma) * params.mu_eff) * (params.co_inv_sqrt * params.y_w)
+            params.c_sigma * (2 - params.c_sigma) * params.mu_eff) * np.dot(params.co_inv_sqrt, params.y_w)
         params.set_p_sigma(new_p_sigma)
         # TODO correct norm used? Euclidean?
         params.set_sigma(params.sigma * math.exp((params.c_sigma / params.d_sigma) * (
                 np.linalg.norm(params.p_sigma, ord=2) / params.chiN - 1)))
 
-    @staticmethod
-    def update_covariance_matrix(params: CMAParam, inds):
+    def update_covariance_matrix(self, params: CMAParam, inds):
         # TODO if we dont recalculate in each generation, we have to change this expression as well
         # h_sig = np.linalg.norm(params.p_sigma) / math.sqrt(1 - (1 - params.c_sigma) ** (2 * (params.generation + 1)))\
         # < (1.4 + 2. / (params.problem_dimension + 1)) * params.chiN
         # turn off rank-one accumulation when sigma increases quickly
         h_sig = (np.sum(x ** 2 for x in params.p_sigma) / len(params.p_sigma)) / (
-                1 - (1 - params.c_sigma) ** (2 * (params.generation + 1))) < 2 + 4. / (len(params.p_sigma) + 1)
+                1 - (1 - params.c_sigma) ** (2 * (params.get_generation() + 1))) < 2 + 4. / (len(params.p_sigma) + 1)
         # TODO h_sig bool or int
         params.set_p_c((1 - params.c_c) * params.p_c + h_sig * math.sqrt(params.c_c * (2 - params.c_c)
                                                                          * params.mu_eff) * params.y_w)
@@ -893,13 +904,19 @@ class CMAAdapter(ABC):
         y = params.compute_translation_of(inds)
         # Summe for rank_mu update
         sum_rank_mu = 0
+        # TODO: Nur ausrechen im Active Fall/ Performance im Basic verbessern
+        weights_circle_term = np.zeros((params.problem_dimension, params.problem_dimension))
         for i, w_i in enumerate(params.weights):  # so-called rank-mu update
             if w_i < 0:
-                w_i *= params.problem_dimension / (params.mahalanobis_norm(y[:][i]) ** 2) * (y[:][i] * (y[:][i]).T)
-                sum_rank_mu += w_i
-        updated_co_matrix = (1 + c1_a - params.c_1 - params.c_mu * sum(params.weights)) * params.co_matrix + \
-                            params.c_1 * (params.p_c * params.p_c.T) + params.c_mu * sum_rank_mu
+                # TODO letzer multiplikant anpassen
+                w_i *= params.problem_dimension / (params.mahalanobis_norm(y[:, i]) ** 2) * np.outer(y[:, i], y[:, i].T)
+            # Sum i=1 to lambda of wi_circle * yi:lambda * yi:lambda.T
+            weights_circle_term += w_i * np.outer(y[:, i], y[:, i].T)
+        updated_co_matrix = (1 - c1_a - params.c_mu * sum(params.weights)) * params.co_matrix + \
+                            params.c_1 * np.dot(params.p_c, params.p_c.T) + params.c_mu * weights_circle_term
+        #updated_co_matrix = (1 + c1_a - params.c_1 - params.c_mu * sum(params.weights)) * params.co_matrix + params.c_1 * np.dot(params.p_c, params.p_c.T) + params.c_mu * weights_circle_term
         params.set_co_matrix(updated_co_matrix)
+
 
     @abstractmethod
     def compute_weights(self, mu, lamb, problem_dimension):
@@ -909,54 +926,53 @@ class CMAAdapter(ABC):
     @staticmethod
     def compute_learning_rates(mu_eff, problem_dimension):
         c_c = (4 + mu_eff / problem_dimension) / (problem_dimension + 4 + 2 * mu_eff / problem_dimension)  # TODO wie Bi-Population, also für basic und active gleich?
-        c_1 = 2 / (problem_dimension + 1.3) ** 2 + mu_eff
-        c_mu = min(1 - c_1, 2 * (0.25 + mu_eff + 1 / mu_eff - 2) / (problem_dimension + 2) ** 2 + mu_eff)
+        c_1 = 2 / ((problem_dimension + 1.3) ** 2 + mu_eff)
+        c_mu = min(1 - c_1, 2 * (0.25 + mu_eff - 2 + (1 / mu_eff)) / ((problem_dimension + 2) ** 2 + mu_eff))
         return c_c, c_1, c_mu
 
 
 class BasicCMA(CMAAdapter):
     def compute_weights(self, mu, lamb, problem_dimension):
         _log_tmp = math.log(mu + 1)
-        weights = [_log_tmp - math.log(i + 1) if i < mu else 0 for i in range(lamb)]  # Benchmarking BI-Population Paper
+        weights = [_log_tmp - math.log(i + 1) if i < mu else 0 for i in range(lamb)] # Benchmarking BI-Population Paper
         _sum_weights = sum(weights)
         _positive_weights = weights[:mu]
-        weights[:mu] = np.array([w / _sum_weights for w in _positive_weights])
+        weights[:mu] = [w / _sum_weights for w in _positive_weights]
         mu_eff = _sum_weights ** 2 / sum(w ** 2 for w in _positive_weights)
-        c_c, c_1, c_mu = self.compute_learning_rates(mu_eff, problem_dimension)
-        return weights, mu_eff, c_c, c_1, c_mu
+        c_c, c_1, c_mu = BasicCMA.compute_learning_rates(mu_eff, problem_dimension)
+        return np.array(weights), mu_eff, c_c, c_1, c_mu
 
 
 class ActiveCMA(CMAAdapter):
+    # TODO FIX
     def compute_weights(self, mu, lamb, problem_dimension):
         _log_tmp = math.log((lamb + 1) / 2)
         weights_preliminary = [_log_tmp - math.log(i + 1) for i in range(lamb)]
         _positive_weights = weights_preliminary[:mu]
         _sum_positive_weights = sum(_positive_weights) # TODO rechnet er in der list comprehension nur einmal den wert aus wenn ja dann kann man sich das sparen, auch an anderen Stellen im Code
         mu_eff = _sum_positive_weights ** 2 / sum(w ** 2 for w in _positive_weights)
-        c_c, c_1, c_mu = self.compute_learning_rates(mu_eff, problem_dimension)
+        c_c, c_1, c_mu = ActiveCMA.compute_learning_rates(mu_eff, problem_dimension)
         # now compute final weights
         _negative_weights = weights_preliminary[mu:]
-        _sum_negative_weights = sum(_negative_weights)
+        _sum_negative_weights = -sum(_negative_weights)
         mu_eff_minus = _sum_negative_weights ** 2 / sum(w ** 2 for w in _negative_weights)
         alpha_mu_minus = 1 + c_1 / c_mu
         alpha_mu_eff_minus = 1 + 2 * mu_eff_minus / (mu_eff + 2)
         alpha_pos_def_minus = (1 - c_1 - c_mu) / problem_dimension * c_mu
-        weights = [0] * lamb
+        weights = np.array([0] * lamb)
         weights[:mu] = [(1 / _sum_positive_weights) * w for w in _positive_weights]
         weights[mu:] = [min(alpha_mu_minus, alpha_mu_eff_minus, alpha_pos_def_minus) / _sum_negative_weights * w
                         for w in _negative_weights]
-        return weights, mu_eff, c_c, c_1, c_mu
+        return np.array(weights), mu_eff, c_c, c_1, c_mu
 
 
 # TODO initiale Population mitgeben
 # TODO bestimmte parameter einstellbar machen
 # TODO: Wird hier über Basic/active entschieden? in dem adapter mitgegeben wird
+# TODO: add rng
 class CMAPropagator(Propagator):
-    def __init__(self, adapter: CMAAdapter, problem_dimension: int, limits, rng, pop_size=None,
-                 offsprings=None):
+    def __init__(self, adapter: CMAAdapter, problem_dimension: int, limits, pop_size=None, offsprings=1):
         # TODO check input
-        self.limits = limits
-        self.rng = rng
         self.adapter = adapter
         generation = 0
         lamb = pop_size if pop_size else 4 + int(
@@ -967,7 +983,7 @@ class CMAPropagator(Propagator):
         mu = int(lamb / 2)
         self.selectBestMu = SelectBest(mu)
         self.selectBestLambda = SelectBest(lamb)
-        weights, mu_eff, c_c, c_1, c_mu = self.adapter.compute_weights(mu, lamb)
+        weights, mu_eff, c_c, c_1, c_mu = adapter.compute_weights(mu, lamb, problem_dimension)
         c_m = 1
 
         # Step-size control params
@@ -975,25 +991,25 @@ class CMAPropagator(Propagator):
         d_sigma = 1 + 2 * max(0, ((mu_eff - 1) / (problem_dimension + 1)) ** 0.5 - 1) + c_sigma
 
         # Initialize dynamic state variables
-        p_sigma = problem_dimension * [0]
-        p_c = problem_dimension * [0]
+        p_sigma = np.array(problem_dimension * [0])
+        p_c = np.array(problem_dimension * [0])
         b_matrix = np.eye(problem_dimension)
         d_matrix = np.eye(problem_dimension)
-        co_matrix = np.dot(np.dot(b_matrix, d_matrix), np.transpose(np.dot(b_matrix, d_matrix))) #TODO do it faster than numpy and consider: Different search intervals ∆si for different variables can be reflected by a different initialization of C, in that the diagonal elements of C obey cii = (∆si)2. However, the ∆si should not disagree by several orders of magnitude. Otherwise a scaling of the variables should be applied.
+        co_matrix = np.dot(np.dot(b_matrix, d_matrix), np.transpose(np.dot(b_matrix, d_matrix))) # TODO just identiy #TODO do it faster than numpy and consider: Different search intervals ∆si for different variables can be reflected by a different initialization of C, in that the diagonal elements of C obey cii = (∆si)2. However, the ∆si should not disagree by several orders of magnitude. Otherwise a scaling of the variables should be applied.
 
         # TODO choose mean better than random maybe
-        mean = np.array([self.rng.uniform(*self.limits[i]) for i in range(problem_dimension)])
+        mean = np.array([np.random.uniform(*limits[limit]) for limit in limits])
 
         # TODO different init step size?
-        sigma = 0.3 * ((max(max(self.limits[i]) for i in self.limits)) - min(min(self.limits[i]) for i in self.limits))
+        sigma = 0.3 * ((max(max(limits[i]) for i in limits)) - min(min(limits[i]) for i in limits))
 
         self.params = CMAParam(mean, sigma, lamb, mu, co_matrix, b_matrix, d_matrix, problem_dimension, weights, c_m,
-                               p_sigma, c_sigma, mu_eff, d_sigma, p_c, c_c, generation, c_1, c_mu)
+                               p_sigma, c_sigma, mu_eff, d_sigma, p_c, c_c, generation, c_1, c_mu, limits)
 
     def __call__(self, inds):
         # check if len(inds) >= oder < lambda and make sample or sample + update
         new_ind = self.__sample_cma()
-        if len(inds) >= self.lamb:
+        if len(inds) >= self.params.lamb:
             # TODO Wir können hier new_ind nicht direkt evaluieren, daher können wir nur adaptieren ohne das new_ind und es erst im nächsten update berücksichtigen
             # Update mean
             self.adapter.update_mean(self.params, self.selectBestMu(inds))
@@ -1012,11 +1028,18 @@ class CMAPropagator(Propagator):
         # TODO muss ich limits einhalten? Prüfen ob eingabe Float wie oben?
         new_ind = Individual()
         tmp_ind = np.random.randn(self.params.problem_dimension, 1)
+        #print("b", self.params.b_matrix)
+        #print("d", self.params.d_matrix)
+        print("mean: ", self.params.mean)
+        print("sigma: ", self.params.sigma)
+        print("C: ", self.params.co_matrix)
+        print("Generation: ", self.params.generation)
         # TODO FRAGE: wir nutzen hier immer den aktuellen mean zum updaten. Allerdings um y zurückzurechnen, brauchen wir den mean mit dem das Individuum gesamplet wurde.
-        tmp_ind = self.params.mean + self.params.sigma * np.dot(
-            np.dot(self.params.b_matrix, self.params.d_matrix), tmp_ind)
-        for dim in self.params.problem_dimension:
-            new_ind[dim] = tmp_ind[dim]
+        tmp_ind = self.params.mean + np.reshape(self.params.sigma * np.dot(
+            self.params.b_matrix, np.dot(self.params.d_matrix, tmp_ind)), (self.params.problem_dimension, ))
+        for i, (dim, _) in enumerate(self.params.limits.items()):
+            new_ind[dim] = tmp_ind[i]
         # the index "problem_dimension" of an individuum is reserved for the mean during its creation
-        new_ind[self.params.problem_dimension] = self.params.mean
+        new_ind["mean"] = self.params.mean
+        #print("Neues Individuum: ", new_ind)
         return new_ind
