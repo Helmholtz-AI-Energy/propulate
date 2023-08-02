@@ -792,10 +792,9 @@ class CMAParam:
         self.problem_dimension = problem_dimension
         self.b_matrix = b_matrix
         self.d_matrix = d_matrix
-        self.co_inv_sqrt = np.dot(b_matrix, np.dot(np.linalg.inv(d_matrix), b_matrix.T))
+        self.co_inv_sqrt = b_matrix @ np.diag(d_matrix[:, 0]**-1) @ b_matrix.T
         self.weights = weights
         self.c_m = c_m
-        self.translation_ranked = None
         self.p_sigma = p_sigma
         self.c_sigma = c_sigma
         self.mu_eff = mu_eff
@@ -804,6 +803,8 @@ class CMAParam:
         self.p_c = p_c
         self.c_c = c_c
         self.generation = generation
+        self.eigenval = 0
+        self.counteval = 0
         self.problem_dimension = problem_dimension
         self.c_1 = c_1
         self.c_mu = c_mu
@@ -883,7 +884,7 @@ class CMAAdapter(ABC):
             params.c_sigma * (2 - params.c_sigma) * params.mu_eff) * np.dot(params.co_inv_sqrt, params.y_w)
         params.set_p_sigma(new_p_sigma)
         # TODO correct norm used? Euclidean?
-        params.set_sigma(params.sigma * math.exp((params.c_sigma / params.d_sigma) * (
+        params.set_sigma(params.sigma * np.exp((params.c_sigma / params.d_sigma) * (
                 np.linalg.norm(params.p_sigma, ord=2) / params.chiN - 1)))
 
     def update_covariance_matrix(self, params: CMAParam, inds):
@@ -925,45 +926,36 @@ class CMAAdapter(ABC):
 
     @staticmethod
     def compute_learning_rates(mu_eff, problem_dimension):
-        c_c = (4 + mu_eff / problem_dimension) / (problem_dimension + 4 + 2 * mu_eff / problem_dimension)  # TODO wie Bi-Population, also für basic und active gleich?
-        c_1 = 2 / ((problem_dimension + 1.3) ** 2 + mu_eff)
-        c_mu = min(1 - c_1, 2 * (0.25 + mu_eff - 2 + (1 / mu_eff)) / ((problem_dimension + 2) ** 2 + mu_eff))
+        c_c = (4 + mu_eff / problem_dimension) / (problem_dimension + 4 + 2 * mu_eff / problem_dimension)
+        c_1 = 2 / ((problem_dimension + 1.3)**2 + mu_eff)
+        # TODO für active + 0.25 hinzfügen also: c_mu = min(1 - c_1, 2 * (0.25 + mu_eff - 2 + (1 / mu_eff)) / ((problem_dimension + 2)**2 + mu_eff))
+        c_mu = min(1 - c_1, 2 * (mu_eff - 2 + (1 / mu_eff)) / ((problem_dimension + 2)**2 + mu_eff)) # TODO ohne 0.25 testen, so ist es in Bi-Population Paper
         return c_c, c_1, c_mu
 
 
 class BasicCMA(CMAAdapter):
     def compute_weights(self, mu, lamb, problem_dimension):
-        _log_tmp = math.log(mu + 1)
-        weights = [_log_tmp - math.log(i + 1) if i < mu else 0 for i in range(lamb)] # Benchmarking BI-Population Paper
-        _sum_weights = sum(weights)
-        _positive_weights = weights[:mu]
-        weights[:mu] = [w / _sum_weights for w in _positive_weights]
-        mu_eff = _sum_weights ** 2 / sum(w ** 2 for w in _positive_weights)
+        weights = np.log(mu + 0.5) - np.log(np.arange(1, mu + 1)) # TODO in Benchmarking BI-Population Paper macht man nur np.log(mu + 1)
+        weights /= np.sum(weights)
+        mu_eff = np.sum(weights)**2 / np.sum(weights**2)
         c_c, c_1, c_mu = BasicCMA.compute_learning_rates(mu_eff, problem_dimension)
-        return np.array(weights), mu_eff, c_c, c_1, c_mu
+        return weights, mu_eff, c_c, c_1, c_mu
 
 
 class ActiveCMA(CMAAdapter):
-    # TODO FIX
     def compute_weights(self, mu, lamb, problem_dimension):
-        _log_tmp = math.log((lamb + 1) / 2)
-        weights_preliminary = [_log_tmp - math.log(i + 1) for i in range(lamb)]
-        _positive_weights = weights_preliminary[:mu]
-        _sum_positive_weights = sum(_positive_weights) # TODO rechnet er in der list comprehension nur einmal den wert aus wenn ja dann kann man sich das sparen, auch an anderen Stellen im Code
-        mu_eff = _sum_positive_weights ** 2 / sum(w ** 2 for w in _positive_weights)
+        weights_preliminary = np.log(lamb/2 + 0.5) - np.log(np.arange(1, lamb + 1))
+        mu_eff = np.sum(weights_preliminary[:mu])**2 / np.sum(weights_preliminary[:mu]**2)
         c_c, c_1, c_mu = ActiveCMA.compute_learning_rates(mu_eff, problem_dimension)
         # now compute final weights
-        _negative_weights = weights_preliminary[mu:]
-        _sum_negative_weights = -sum(_negative_weights)
-        mu_eff_minus = _sum_negative_weights ** 2 / sum(w ** 2 for w in _negative_weights)
+        mu_eff_minus = np.sum(weights_preliminary[mu:])**2 / np.sum(weights_preliminary[mu:]**2)
         alpha_mu_minus = 1 + c_1 / c_mu
         alpha_mu_eff_minus = 1 + 2 * mu_eff_minus / (mu_eff + 2)
         alpha_pos_def_minus = (1 - c_1 - c_mu) / problem_dimension * c_mu
-        weights = np.array([0] * lamb)
-        weights[:mu] = [(1 / _sum_positive_weights) * w for w in _positive_weights]
-        weights[mu:] = [min(alpha_mu_minus, alpha_mu_eff_minus, alpha_pos_def_minus) / _sum_negative_weights * w
-                        for w in _negative_weights]
-        return np.array(weights), mu_eff, c_c, c_1, c_mu
+        weights = weights_preliminary
+        weights[:mu] /= np.sum(weights_preliminary[:mu])
+        weights[mu:] *= min(alpha_mu_minus, alpha_mu_eff_minus, alpha_pos_def_minus) / np.sum(weights_preliminary[mu:]) * -1
+        return weights, mu_eff, c_c, c_1, c_mu
 
 
 # TODO initiale Population mitgeben
@@ -972,15 +964,15 @@ class ActiveCMA(CMAAdapter):
 # TODO: add rng
 class CMAPropagator(Propagator):
     def __init__(self, adapter: CMAAdapter, problem_dimension: int, limits, pop_size=None, offsprings=1):
+        self.last_num_inds = 0
         # TODO check input
         self.adapter = adapter
         generation = 0
-        lamb = pop_size if pop_size else 4 + int(
-            3 * math.log(problem_dimension))
+        lamb = pop_size if pop_size else 4 + int(np.floor(3 * np.log(problem_dimension)))
         super(CMAPropagator, self).__init__(lamb, offsprings)
 
         # Selection and Recombination params and Covariance Matrix Adaption
-        mu = int(lamb / 2)
+        mu = lamb // 2
         self.selectBestMu = SelectBest(mu)
         self.selectBestLambda = SelectBest(lamb)
         weights, mu_eff, c_c, c_1, c_mu = adapter.compute_weights(mu, lamb, problem_dimension)
@@ -988,20 +980,20 @@ class CMAPropagator(Propagator):
 
         # Step-size control params
         c_sigma = (mu_eff + 2) / (problem_dimension + mu_eff + 5)
-        d_sigma = 1 + 2 * max(0, ((mu_eff - 1) / (problem_dimension + 1)) ** 0.5 - 1) + c_sigma
+        d_sigma = 1 + 2 * max(0, np.sqrt((mu_eff - 1) / (problem_dimension + 1)) - 1) + c_sigma
 
-        # Initialize dynamic state variables
-        p_sigma = np.array(problem_dimension * [0])
-        p_c = np.array(problem_dimension * [0])
+        # Initialize dynamic strategy variables
+        p_sigma = np.zeros((problem_dimension, 1))
+        p_c = np.zeros((problem_dimension, 1))
         b_matrix = np.eye(problem_dimension)
-        d_matrix = np.eye(problem_dimension)
-        co_matrix = np.dot(np.dot(b_matrix, d_matrix), np.transpose(np.dot(b_matrix, d_matrix))) # TODO just identiy #TODO do it faster than numpy and consider: Different search intervals ∆si for different variables can be reflected by a different initialization of C, in that the diagonal elements of C obey cii = (∆si)2. However, the ∆si should not disagree by several orders of magnitude. Otherwise a scaling of the variables should be applied.
+        d_matrix = np.ones((problem_dimension, 1)) # Diagonal entries responsible for scaling co_matrix
+        co_matrix = b_matrix @ np.diag(d_matrix[:, 0] ** 2) @ b_matrix.T # TODO just identiy #TODO do it faster than numpy and consider: Different search intervals ∆si for different variables can be reflected by a different initialization of C, in that the diagonal elements of C obey cii = (∆si)2. However, the ∆si should not disagree by several orders of magnitude. Otherwise a scaling of the variables should be applied.
 
-        # TODO choose mean better than random maybe
-        mean = np.array([np.random.uniform(*limits[limit]) for limit in limits])
-
+        # TODO choose mean better than random maybe and consider limits
+        #mean = np.array([[np.random.uniform(*limits[limit]) for limit in limits]])
+        mean = np.random.rand(problem_dimension, 1)
         # TODO different init step size?
-        sigma = 0.3 * ((max(max(limits[i]) for i in limits)) - min(min(limits[i]) for i in limits))
+        sigma = 0.2 * ((max(max(limits[i]) for i in limits)) - min(min(limits[i]) for i in limits))
 
         self.params = CMAParam(mean, sigma, lamb, mu, co_matrix, b_matrix, d_matrix, problem_dimension, weights, c_m,
                                p_sigma, c_sigma, mu_eff, d_sigma, p_c, c_c, generation, c_1, c_mu, limits)
@@ -1009,7 +1001,8 @@ class CMAPropagator(Propagator):
     def __call__(self, inds):
         # check if len(inds) >= oder < lambda and make sample or sample + update
         new_ind = self.__sample_cma()
-        if len(inds) >= self.params.lamb:
+        if len(inds) >= self.params.lamb + self.last_num_inds:
+            self.last_num_inds = len(inds)
             # TODO Wir können hier new_ind nicht direkt evaluieren, daher können wir nur adaptieren ohne das new_ind und es erst im nächsten update berücksichtigen
             # Update mean
             self.adapter.update_mean(self.params, self.selectBestMu(inds))
@@ -1025,6 +1018,12 @@ class CMAPropagator(Propagator):
 
     # TODO Anzahl offsprings spezifizieren
     def __sample_cma(self):
+
+
+
+
+
+
         # TODO muss ich limits einhalten? Prüfen ob eingabe Float wie oben?
         new_ind = Individual()
         tmp_ind = np.random.randn(self.params.problem_dimension, 1)
