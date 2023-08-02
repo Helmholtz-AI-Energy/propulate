@@ -1,6 +1,7 @@
 import copy
 
-import numpy
+import numpy as np
+from abc import ABC, abstractmethod
 
 from .population import Individual
 
@@ -552,10 +553,10 @@ class MateSigmoid(
         ind = copy.deepcopy(inds[0])  # Consider 1st parent.
         if inds[0].loss <= inds[1].loss:
             delta = inds[0].loss - inds[1].loss
-            fraction = 1 / (1 + numpy.exp(-delta / self.temperature))
+            fraction = 1 / (1 + np.exp(-delta / self.temperature))
         else:
             delta = inds[1].loss - inds[0].loss
-            fraction = 1 - 1 / (1 + numpy.exp(-delta / self.temperature))
+            fraction = 1 - 1 / (1 + np.exp(-delta / self.temperature))
 
         if (
             self.rng.random() < self.probability
@@ -754,34 +755,10 @@ class InitUniform(Stochastic):
             ind = inds[0]
             return ind  # Return 1st input individual w/o changes.
 
-import numpy as np
-"""
-Bibliography:
-
-individuals := x_k for k = 1,...,lambda
-number of offsprings := lambda
-translation := y_k for k = 1,..., lambda
-weights := w_i for i = 1,..., lambda (recombination weights)
-step_size := sigma
-learning rate_mean := c_m
-learning rate rone := c_1
-learning rate rmu := c_mü
-number of selected offsprings := mü
-decay rate step := c_sigma
-decay rate co := c_c
-variance effective selection mass := mü_eff
-damping factor := d_sigma
-step of distribution mean := y_w
-evolution path of step := p_sigma
-evolution path of covariance matrix adaption := p_c
-"""
-
 
 class CMAParam:
-    # if not all parameters will be used consider @property decorator style to reduce unnecessary computation
     def __init__(self, mean, sigma, lamb, mu, co_matrix, b_matrix, d_matrix, problem_dimension: int, weights,
-                 p_sigma, c_sigma, mu_eff, d_sigma, p_c, c_c, generation, c_1, c_mu, limits):
-        # TODO make inits without parameters here instead of propagator
+                 p_sigma, c_sigma, mu_eff, d_sigma, p_c, c_c, c_1, c_mu, limits):
         self.limits = limits
         self.mean = mean
         self.old_mean = None
@@ -801,8 +778,6 @@ class CMAParam:
         self.d_sigma = d_sigma
         self.p_c = p_c
         self.c_c = c_c
-        # TODO unnötig
-        self.generation = generation
         self.eigen_eval = 0
         self.count_eval = 0
         self.problem_dimension = problem_dimension
@@ -828,6 +803,7 @@ class CMAParam:
     def set_co_matrix(self, new_co_matrix):
         self.co_matrix = new_co_matrix
         # Update b and d matrix and co_inv_sqrt only after certain number of evaluations to ensure 0(n^2)
+        # Also trade-Off exploitation vs exploration
         if self.count_eval - self.eigen_eval > self.lamb / (self.c_1 + self.c_mu) / self.problem_dimension / 10:
             self.eigen_eval = self.count_eval
             c = np.triu(new_co_matrix) + np.triu(new_co_matrix, 1).T  # Enforce symmetry
@@ -835,22 +811,13 @@ class CMAParam:
             self.d_matrix = np.sqrt(d)  # Replace eigenvalues with standard deviations
             self.co_inv_sqrt = self.b_matrix @ np.diag(self.d_matrix**(-1)) @ self.b_matrix.T
 
-    """
-    # TODO: store y?
-    def compute_translation_of(self, inds):
-        # create translations of the individuals
-        y = np.zeros((self.problem_dimension, len(inds)))
-        for k in range(len(inds)):
-            for i, (dim, _) in enumerate(self.limits.items()):
-                # translate array of individuals (dicts) to y
-                y[i][k] = inds[k][dim] - inds[k]["mean"][i]  # TODO verify working should substract mean
-        y /= self.sigma
-        return y
-    """
-from abc import ABC, abstractmethod
+    def mahalanobis_norm(self, dx):
+        """return ``(dx^T * C^-1 * dx)**0.5``
+            return mahalanobis distance by using C^(-1/2) and the difference vector of a point to the mean of a distribution
+        """
+        return np.linalg.norm(np.dot(self.co_inv_sqrt, dx))
 
 
-# Abstract base class
 class CMAAdapter(ABC):
     @abstractmethod
     def update_mean(self, params: CMAParam, arx):
@@ -869,21 +836,20 @@ class CMAAdapter(ABC):
 
     @abstractmethod
     def compute_weights(self, mu, lamb, problem_dimension):
-        # TODO assert sum of weights equals 1
         pass
 
     @staticmethod
     def compute_learning_rates(mu_eff, problem_dimension):
         c_c = (4 + mu_eff / problem_dimension) / (problem_dimension + 4 + 2 * mu_eff / problem_dimension)
         c_1 = 2 / ((problem_dimension + 1.3)**2 + mu_eff)
-        # TODO für active + 0.25 hinzfügen also: c_mu = min(1 - c_1, 2 * (0.25 + mu_eff - 2 + (1 / mu_eff)) / ((problem_dimension + 2)**2 + mu_eff))
+        # für active + 0.25 hinzfügen also: c_mu = min(1 - c_1, 2 * (0.25 + mu_eff - 2 + (1 / mu_eff)) / ((problem_dimension + 2)**2 + mu_eff))
         c_mu = min(1 - c_1, 2 * (mu_eff - 2 + (1 / mu_eff)) / ((problem_dimension + 2)**2 + mu_eff)) # wie in Bi-Population Paper
         return c_c, c_1, c_mu
 
 
 class BasicCMA(CMAAdapter):
     def compute_weights(self, mu, lamb, problem_dimension):
-        weights = np.log(mu + 0.5) - np.log(np.arange(1, mu + 1)) # TODO in Benchmarking BI-Population Paper macht man nur np.log(mu + 1)
+        weights = np.log(mu + 0.5) - np.log(np.arange(1, mu + 1)) # in Benchmarking BI-Population Paper macht man nur np.log(mu + 1)
         weights /= np.sum(weights)
         mu_eff = np.sum(weights)**2 / np.sum(weights**2)
         c_c, c_1, c_mu = BasicCMA.compute_learning_rates(mu_eff, problem_dimension)
@@ -895,17 +861,16 @@ class BasicCMA(CMAAdapter):
 
     def update_covariance_matrix(self, par: CMAParam, arx):
         # turn off rank-one accumulation when sigma increases quickly
-        # TODO: statt counteval / lamb generation + 1 nutzen?
+        # statt counteval / lamb generation + 1 nutzen?
         h_sig = np.sum(par.p_sigma**2) / (1 - (1 - par.c_sigma)**(2 * (par.count_eval / par.lamb))) / par.problem_dimension < 2 + 4. / (par.problem_dimension + 1)
         # update evolution path
         new_p_c = (1 - par.c_c) * par.p_c + h_sig * np.sqrt(par.c_c * (2 - par.c_c) * par.mu_eff) * (par.mean - par.old_mean) / par.sigma
         par.set_p_c(new_p_c)
-        # TODO: use h_sig to the power of two (unlike in paper) for the variance loss from h_sig
-        # TODO: MÖGLICHER FEHLER, im paper wird hier immer xi - m(t) gemacht, aber ist das denn sinvoll mit xi die nicht vom letzen mi abstammen?
+        # use h_sig to the power of two (unlike in paper) for the variance loss from h_sig
         ar_tmp = (1 / par.sigma) * (arx[:, :par.mu] - np.tile(par.old_mean, (1, par.mu)))
         new_co_matrix = (1 - par.c_1 - par.c_mu) * par.co_matrix + par.c_1 * (par.p_c @ par.p_c.T + (1 - h_sig) * par.c_c * (2 - par.c_c) * par.co_matrix) + par.c_mu * ar_tmp @ (par.weights * ar_tmp).T
-        # TODO test this with additional c1 (like in paper)
-        # new_co_matrix = (1 - par.c1 - par.c_mu) * par.co_matrix + par.c_1 * (par.p_c @ par.p_c.T + (1 - h_sig) * par.c_c * par.c_1 * (2 - par.c_c) * par.co_matrix) + par.c_mu * ar_tmp @ (par.weights * ar_tmp).T
+        # test this with additional c1 (like in paper)
+        #new_co_matrix = (1 - par.c_1 - par.c_mu) * par.co_matrix + par.c_1 * (par.p_c @ par.p_c.T + (1 - h_sig) * par.c_c * par.c_1 * (2 - par.c_c) * par.co_matrix) + par.c_mu * ar_tmp @ (par.weights * ar_tmp).T
         par.set_co_matrix(new_co_matrix)
 
 
@@ -929,43 +894,46 @@ class ActiveCMA(CMAAdapter):
         # Only consider positive weights
         params.set_mean(arx @ params.weights[:params.mu].reshape(-1, 1))
 
-    # TODO ACTIVE VS BASIC WEIL ARX SIEHT DANN ANDERS AUS
     def update_covariance_matrix(self, par: CMAParam, arx):
-        pass
         # turn off rank-one accumulation when sigma increases quickly
-       # h_sig = (np.sum(par.p_sigma ** 2) / (
-       #            1 - (1 - par.c_sigma) ** (2 * (par.count_eval / par.lamb))) / par.problem_dimension < 2 + 4. / (
-       #                      par.problem_dimension + 1)
-       #          # update evolution path
-        #         new_p_c = (1 - par.c_c) * par.p_c + h_sig * np.sqrt(par.c_c * (2 - par.c_c) * par.mu_eff) * (
-         #                   par.mean - par.old_mean) / par.sigma
-        #par.set_p_c(new_p_c)
-        # TODO: use h_sig to the power of two (unlike in paper) for the variance loss from h_sig
-       # artmp = (1 / par.sigma) * (arx[:, :par.mu] - np.tile(par.old_mean, (1, par.mu)))
-        ## weights_circle = [w >= 0 ? 1 : params.problem_dimension / for w in params.weights]
+        # statt counteval / lamb generation + 1 nutzen?
+        h_sig = np.sum(par.p_sigma ** 2) / (
+                    1 - (1 - par.c_sigma) ** (2 * (par.count_eval / par.lamb))) / par.problem_dimension < 2 + 4. / (
+                            par.problem_dimension + 1)
+        # update evolution path
+        new_p_c = (1 - par.c_c) * par.p_c + h_sig * np.sqrt(par.c_c * (2 - par.c_c) * par.mu_eff) * (
+                    par.mean - par.old_mean) / par.sigma
+        par.set_p_c(new_p_c)
 
-        #updated_co_matrix = (1 - c1_a - params.c_mu * sum(params.weights)) * params.co_matrix + \
-         #                   params.c_1 * np.dot(params.p_c, params.p_c.T) + params.c_mu * weights_circle_term
-        ## updated_co_matrix = (1 + c1_a - params.c_1 - params.c_mu * sum(params.weights)) * params.co_matrix + params.c_1 * np.dot(params.p_c, params.p_c.T) + params.c_mu * weights_circle_term
-        #params.set_co_matrix(updated_co_matrix)
+        # Wozu positive definitheit nötig? habe gefühl performt ohne weights_circle und mit par.weights besser
+        weights_circle = np.zeros((par.lamb, ))
+        for i, w_i in enumerate(par.weights):  # so-called rank-mu update
+            # guaranty positive definiteness
+            weights_circle[i] = w_i
+            if w_i < 0:
+                weights_circle[i] *= par.problem_dimension * (par.sigma / par.mahalanobis_norm(arx[:, i] - par.old_mean.ravel()))**2
+        # use h_sig to the power of two (unlike in paper) for the variance loss from h_sig
+        ar_tmp = (1 / par.sigma) * (arx - np.tile(par.old_mean, (1, par.lamb)))
+        new_co_matrix = (1 - par.c_1 - par.c_mu) * par.co_matrix + par.c_1 * (
+                    par.p_c @ par.p_c.T + (1 - h_sig) * par.c_c * (2 - par.c_c) * par.co_matrix) + par.c_mu * ar_tmp @ (
+                                    weights_circle * ar_tmp).T
+        # test this with additional c1 (like in paper)
+        # new_co_matrix = (1 - par.c_1 - par.c_mu) * par.co_matrix + par.c_1 * (par.p_c @ par.p_c.T + (1 - h_sig) * par.c_c * par.c_1 * (2 - par.c_c) * par.co_matrix) + par.c_mu * ar_tmp @ (par.weights * ar_tmp).T
+        par.set_co_matrix(new_co_matrix)
 
 
-# TODO initiale Population mitgeben
-# TODO bestimmte parameter einstellbar machen
-# TODO Updatebarkeit von B und D parametriesierbar wurzel der pop size oder so
 class CMAPropagator(Propagator):
-    def __init__(self, adapter: CMAAdapter, problem_dimension: int, limits, pop_size=None, offsprings=1):
-        #self.last_num_inds = 0
+    def __init__(self, adapter: CMAAdapter, problem_dimension: int, limits, pop_size=None):
         # TODO check input
         self.adapter = adapter
-        generation = 0
         lamb = pop_size if pop_size else 4 + int(np.floor(3 * np.log(problem_dimension)))
-        super(CMAPropagator, self).__init__(lamb, offsprings)
+        super(CMAPropagator, self).__init__(lamb, 1)
 
         # Selection and Recombination params and Covariance Matrix Adaption
         mu = lamb // 2
         self.selectBestMu = SelectBest(mu)
         self.selectBestLambda = SelectBest(lamb)
+        self.selectWorst = SelectWorst(lamb - mu)
         weights, mu_eff, c_c, c_1, c_mu = adapter.compute_weights(mu, lamb, problem_dimension)
         #c_m = 1
 
@@ -978,33 +946,29 @@ class CMAPropagator(Propagator):
         p_c = np.zeros((problem_dimension, 1))
         b_matrix = np.eye(problem_dimension)
         d_matrix = np.ones((problem_dimension, 1)) # Diagonal entries responsible for scaling co_matrix
-        co_matrix = b_matrix @ np.diag(d_matrix[:, 0] ** 2) @ b_matrix.T # TODO just identiy #TODO do it faster than numpy and consider: Different search intervals ∆si for different variables can be reflected by a different initialization of C, in that the diagonal elements of C obey cii = (∆si)2. However, the ∆si should not disagree by several orders of magnitude. Otherwise a scaling of the variables should be applied.
+        co_matrix = b_matrix @ np.diag(d_matrix[:, 0] ** 2) @ b_matrix.T
 
-        # TODO choose mean better than random maybe and consider limits
         #mean = np.array([[np.random.uniform(*limits[limit]) for limit in limits]])
         mean = np.random.rand(problem_dimension, 1)
-        # TODO different init step size?
         sigma = 0.2 * ((max(max(limits[i]) for i in limits)) - min(min(limits[i]) for i in limits))
 
         self.params = CMAParam(mean, sigma, lamb, mu, co_matrix, b_matrix, d_matrix, problem_dimension, weights,
-                               p_sigma, c_sigma, mu_eff, d_sigma, p_c, c_c, generation, c_1, c_mu, limits)
+                               p_sigma, c_sigma, mu_eff, d_sigma, p_c, c_c, c_1, c_mu, limits)
 
     def __call__(self, inds):
         num_inds = len(inds)
-        # TODO: möglicherweise falsch count eval so zu erhöhen?
         # add individuals from different workers to eval_count
         self.params.count_eval += num_inds - self.params.count_eval
         # sample new individual
         new_ind = self.__sample_cma()
         # check if len(inds) >= oder < lambda and make sample or sample + update
         if num_inds >= self.params.lamb:
-            #self.last_num_inds = len(inds)
-            # TODO Wir können hier new_ind nicht direkt evaluieren, daher können wir nur adaptieren ohne das new_ind und es erst im nächsten update berücksichtigen
+            # Wir können hier new_ind nicht direkt evaluieren, daher können wir nur adaptieren ohne das new_ind und es erst im nächsten update berücksichtigen
             # Update mean
             self.adapter.update_mean(self.params, self.__transform_individuals_to_matrix(self.selectBestMu(inds)))
             # Update Covariance Matrix
-            self.adapter.update_covariance_matrix(self.params,
-                                                  self.__transform_individuals_to_matrix(self.selectBestLambda(inds)))
+            self.adapter.update_covariance_matrix(self.params, self.__transform_individuals_to_matrix(self.selectBestLambda(inds)))
+            #self.adapter.update_covariance_matrix(self.params, self.__transform_individuals_to_matrix(self.selectBestMu(inds) + self.selectWorst(inds)))
             # Update step_size
             self.adapter.update_step_size(self.params)
         return new_ind
@@ -1018,13 +982,11 @@ class CMAPropagator(Propagator):
         return arx
 
     def __sample_cma(self):
-        # TODO par = self.params am Anfang
         # Generate new offspring
         random_vector = np.random.randn(self.params.problem_dimension, 1)
         new_x = self.params.mean + self.params.sigma * self.params.b_matrix @ (self.params.d_matrix * random_vector)
         self.params.count_eval += 1
 
-        # TODO limits? Prüfen ob eingabe Float wie oben?
         new_ind = Individual()
 
         for i, (dim, _) in enumerate(self.params.limits.items()):
