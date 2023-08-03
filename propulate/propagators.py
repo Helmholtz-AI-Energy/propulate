@@ -761,8 +761,29 @@ class CMAParameter:
     """
     Handles and stores all Basic/Active CMA related constants/variables and strategy parameters.
     """
-    def __init__(self, mean: np.ndarray, sigma: float, lamb: int, mu: int, co_matrix: np.ndarray, b_matrix: np.ndarray, d_matrix: np.ndarray, problem_dimension: int, weights: np.ndarray,
-                 p_sigma: np.ndarray, c_sigma: float, mu_eff: float, d_sigma: float, p_c: np.ndarray, c_c: float, c_1: float, c_mu: float, limits: Dict) -> None:
+
+    def __init__(
+        self,
+        mean: np.ndarray,
+        sigma: float,
+        lamb: int,
+        mu: int,
+        co_matrix: np.ndarray,
+        b_matrix: np.ndarray,
+        d_matrix: np.ndarray,
+        problem_dimension: int,
+        weights: np.ndarray,
+        p_sigma: np.ndarray,
+        c_sigma: float,
+        mu_eff: float,
+        d_sigma: float,
+        p_c: np.ndarray,
+        c_c: float,
+        c_1: float,
+        c_mu: float,
+        limits: Dict,
+        exploration: bool,
+    ) -> None:
         """
         Initializes a CMAParameter object.
         Parameters
@@ -785,6 +806,7 @@ class CMAParameter:
         c_1 : learning rate for the rank-one update of the covariance matrix update
         c_mu : learning rate for the rank-mu update of the covariance matrix update
         limits : limits of search space
+        exploration : if true decompose covariance matrix for each generation (worse runtime, less exploitation, more exploration)), else decompose covariance matrix only after a certain number of individuals evaluated (better runtime, more exploitation, less exploration)
         """
         self.limits = limits
         self.mean = mean
@@ -794,11 +816,12 @@ class CMAParameter:
         self.lamb = lamb
         self.mu = mu
         self.co_matrix = co_matrix
+        self.exploration = exploration
         self.problem_dimension = problem_dimension
         self.b_matrix = b_matrix
         self.d_matrix = d_matrix
         # the square root of the inverse of the covariance matrix: C^-1/2 = B*D^(-1)*B^T
-        self.co_inv_sqrt = b_matrix @ np.diag(d_matrix[:, 0]**-1) @ b_matrix.T
+        self.co_inv_sqrt = b_matrix @ np.diag(d_matrix[:, 0] ** -1) @ b_matrix.T
         self.weights = weights
         # self.c_m = c_m
         self.p_sigma = p_sigma
@@ -815,7 +838,9 @@ class CMAParameter:
         self.c_1 = c_1
         self.c_mu = c_mu
         # expectation value of ||N(0,I)||
-        self.chiN = problem_dimension**0.5 * (1 - 1. / (4 * problem_dimension) + 1. / (21 * problem_dimension**2))
+        self.chiN = problem_dimension**0.5 * (
+            1 - 1.0 / (4 * problem_dimension) + 1.0 / (21 * problem_dimension**2)
+        )
 
     def get_mean(self) -> np.ndarray:
         """
@@ -909,12 +934,17 @@ class CMAParameter:
         self.co_matrix = new_co_matrix
         # Update b and d matrix and co_inv_sqrt only after certain number of evaluations to ensure 0(n^2)
         # Also trade-Off exploitation vs exploration
-        if self.count_eval - self.eigen_eval > self.lamb / (self.c_1 + self.c_mu) / self.problem_dimension / 10:
+        if self.exploration or (
+            self.count_eval - self.eigen_eval
+            > self.lamb / (self.c_1 + self.c_mu) / self.problem_dimension / 10
+        ):
             self.eigen_eval = self.count_eval
             c = np.triu(new_co_matrix) + np.triu(new_co_matrix, 1).T  # Enforce symmetry
             d, self.b_matrix = np.linalg.eig(c)  # Eigen decomposition
             self.d_matrix = np.sqrt(d)  # Replace eigenvalues with standard deviations
-            self.co_inv_sqrt = self.b_matrix @ np.diag(self.d_matrix**(-1)) @ self.b_matrix.T
+            self.co_inv_sqrt = (
+                self.b_matrix @ np.diag(self.d_matrix ** (-1)) @ self.b_matrix.T
+            )
 
     def mahalanobis_norm(self, dx: np.ndarray) -> np.ndarray:
         """
@@ -934,6 +964,7 @@ class CMAAdapter(ABC):
     """
     Abstract base class for the adaption of strategy parameters of CMA-ES. Strategy class from the viewpoint of the strategy desing pattern.
     """
+
     @abstractmethod
     def update_mean(self, par: CMAParameter, arx: np.ndarray) -> None:
         """
@@ -952,9 +983,20 @@ class CMAAdapter(ABC):
         ----------
         par : the parameter object of the CMA-ES propagation
         """
-        par.set_p_sigma((1 - par.c_sigma) * par.p_sigma + np.sqrt(par.c_sigma * (2 - par.c_sigma) * par.mu_eff) * par.co_inv_sqrt @ (par.mean - par.old_mean) / par.sigma)
-        par.set_sigma(par.sigma * np.exp((par.c_sigma / par.d_sigma) * (
-                np.linalg.norm(par.p_sigma, ord=2) / par.chiN - 1)))
+        par.set_p_sigma(
+            (1 - par.c_sigma) * par.p_sigma
+            + np.sqrt(par.c_sigma * (2 - par.c_sigma) * par.mu_eff)
+            * par.co_inv_sqrt
+            @ (par.mean - par.old_mean)
+            / par.sigma
+        )
+        par.set_sigma(
+            par.sigma
+            * np.exp(
+                (par.c_sigma / par.d_sigma)
+                * (np.linalg.norm(par.p_sigma, ord=2) / par.chiN - 1)
+            )
+        )
 
     @abstractmethod
     def update_covariance_matrix(self, par: CMAParameter, arx: np.ndarray) -> None:
@@ -968,7 +1010,9 @@ class CMAAdapter(ABC):
         pass
 
     @abstractmethod
-    def compute_weights(self, mu: int, lamb: int, problem_dimension: int) -> Tuple[np.ndarray, float, float, float, float]:
+    def compute_weights(
+        self, mu: int, lamb: int, problem_dimension: int
+    ) -> Tuple[np.ndarray, float, float, float, float]:
         """
         Abstract method for computing the recombination weights of a CMA-ES variant.
         Parameters
@@ -984,7 +1028,9 @@ class CMAAdapter(ABC):
         pass
 
     @staticmethod
-    def compute_learning_rates(mu_eff: float, problem_dimension: int) -> Tuple[float, float, float]:
+    def compute_learning_rates(
+        mu_eff: float, problem_dimension: int
+    ) -> Tuple[float, float, float]:
         """
         Computes the learning rates for the CMA-variants.
         Parameters
@@ -996,9 +1042,14 @@ class CMAAdapter(ABC):
         -------
         A Tuple of c_c, c_1, c_mu
         """
-        c_c = (4 + mu_eff / problem_dimension) / (problem_dimension + 4 + 2 * mu_eff / problem_dimension)
-        c_1 = 2 / ((problem_dimension + 1.3)**2 + mu_eff)
-        c_mu = min(1 - c_1, 2 * (mu_eff - 2 + (1 / mu_eff)) / ((problem_dimension + 2)**2 + mu_eff))
+        c_c = (4 + mu_eff / problem_dimension) / (
+            problem_dimension + 4 + 2 * mu_eff / problem_dimension
+        )
+        c_1 = 2 / ((problem_dimension + 1.3) ** 2 + mu_eff)
+        c_mu = min(
+            1 - c_1,
+            2 * (mu_eff - 2 + (1 / mu_eff)) / ((problem_dimension + 2) ** 2 + mu_eff),
+        )
         return c_c, c_1, c_mu
 
 
@@ -1006,7 +1057,10 @@ class BasicCMA(CMAAdapter):
     """
     Adaption of strategy parameters of CMA-ES according to the original CMA-ES algorithm. Concrete strategy class from the viewpoint of the strategy design pattern.
     """
-    def compute_weights(self, mu: int, lamb: int, problem_dimension: int) -> Tuple[np.ndarray, float, float, float, float]:
+
+    def compute_weights(
+        self, mu: int, lamb: int, problem_dimension: int
+    ) -> Tuple[np.ndarray, float, float, float, float]:
         """
         Computes the recombination weights for Basic CMA-ES
         Parameters
@@ -1021,7 +1075,7 @@ class BasicCMA(CMAAdapter):
         """
         weights = np.log(mu + 0.5) - np.log(np.arange(1, mu + 1))
         weights /= np.sum(weights)
-        mu_eff = np.sum(weights)**2 / np.sum(weights**2)
+        mu_eff = np.sum(weights) ** 2 / np.sum(weights**2)
         c_c, c_1, c_mu = BasicCMA.compute_learning_rates(mu_eff, problem_dimension)
         return weights, mu_eff, c_c, c_1, c_mu
 
@@ -1046,13 +1100,31 @@ class BasicCMA(CMAAdapter):
         arx : the individuals of the distribution
         """
         # turn off rank-one accumulation when sigma increases quickly
-        h_sig = np.sum(par.p_sigma**2) / (1 - (1 - par.c_sigma)**(2 * (par.count_eval / par.lamb))) / par.problem_dimension < 2 + 4. / (par.problem_dimension + 1)
+        h_sig = np.sum(par.p_sigma**2) / (
+            1 - (1 - par.c_sigma) ** (2 * (par.count_eval / par.lamb))
+        ) / par.problem_dimension < 2 + 4.0 / (par.problem_dimension + 1)
         # update evolution path
-        par.set_p_c((1 - par.c_c) * par.p_c + h_sig * np.sqrt(par.c_c * (2 - par.c_c) * par.mu_eff) * (par.mean - par.old_mean) / par.sigma)
+        par.set_p_c(
+            (1 - par.c_c) * par.p_c
+            + h_sig
+            * np.sqrt(par.c_c * (2 - par.c_c) * par.mu_eff)
+            * (par.mean - par.old_mean)
+            / par.sigma
+        )
         # use h_sig to the power of two (unlike in paper) for the variance loss from h_sig
-        ar_tmp = (1 / par.sigma) * (arx[:, :par.mu] - np.tile(par.old_mean, (1, par.mu)))
-        new_co_matrix = (1 - par.c_1 - par.c_mu) * par.co_matrix + par.c_1 * (par.p_c @ par.p_c.T + (1 - h_sig) * par.c_c * (2 - par.c_c) * par.co_matrix) + par.c_mu * ar_tmp @ (par.weights * ar_tmp).T
-        #new_co_matrix = (1 - par.c_1 - par.c_mu) * par.co_matrix + par.c_1 * (par.p_c @ par.p_c.T + (1 - h_sig) * par.c_c * par.c_1 * (2 - par.c_c) * par.co_matrix) + par.c_mu * ar_tmp @ (par.weights * ar_tmp).T
+        ar_tmp = (1 / par.sigma) * (
+            arx[:, : par.mu] - np.tile(par.old_mean, (1, par.mu))
+        )
+        new_co_matrix = (
+            (1 - par.c_1 - par.c_mu) * par.co_matrix
+            + par.c_1
+            * (
+                par.p_c @ par.p_c.T
+                + (1 - h_sig) * par.c_c * (2 - par.c_c) * par.co_matrix
+            )
+            + par.c_mu * ar_tmp @ (par.weights * ar_tmp).T
+        )
+        # new_co_matrix = (1 - par.c_1 - par.c_mu) * par.co_matrix + par.c_1 * (par.p_c @ par.p_c.T + (1 - h_sig) * par.c_c * par.c_1 * (2 - par.c_c) * par.co_matrix) + par.c_mu * ar_tmp @ (par.weights * ar_tmp).T
         par.set_co_matrix(new_co_matrix)
 
 
@@ -1060,7 +1132,10 @@ class ActiveCMA(CMAAdapter):
     """
     Adaption of strategy parameters of CMA-ES according to the Active CMA-ES algorithm. Different to the original CMA-ES algorithm Active CMA-ES uses negative recombination weights (only for the covariance matrix adaption) for individuals with relatively low fitness. Concrete strategy class from the viewpoint of the strategy design pattern.
     """
-    def compute_weights(self, mu: int, lamb: int, problem_dimension: int) -> Tuple[np.ndarray, float, float, float, float]:
+
+    def compute_weights(
+        self, mu: int, lamb: int, problem_dimension: int
+    ) -> Tuple[np.ndarray, float, float, float, float]:
         """
         Computes the recombination weights for Active CMA-ES
         Parameters
@@ -1073,17 +1148,25 @@ class ActiveCMA(CMAAdapter):
         -------
         A Tuple of the weights, mu_eff, c_1, c_c and c_mu.
         """
-        weights_preliminary = np.log(lamb/2 + 0.5) - np.log(np.arange(1, lamb + 1))
-        mu_eff = np.sum(weights_preliminary[:mu])**2 / np.sum(weights_preliminary[:mu]**2)
+        weights_preliminary = np.log(lamb / 2 + 0.5) - np.log(np.arange(1, lamb + 1))
+        mu_eff = np.sum(weights_preliminary[:mu]) ** 2 / np.sum(
+            weights_preliminary[:mu] ** 2
+        )
         c_c, c_1, c_mu = ActiveCMA.compute_learning_rates(mu_eff, problem_dimension)
         # now compute final weights
-        mu_eff_minus = np.sum(weights_preliminary[mu:])**2 / np.sum(weights_preliminary[mu:]**2)
+        mu_eff_minus = np.sum(weights_preliminary[mu:]) ** 2 / np.sum(
+            weights_preliminary[mu:] ** 2
+        )
         alpha_mu_minus = 1 + c_1 / c_mu
         alpha_mu_eff_minus = 1 + 2 * mu_eff_minus / (mu_eff + 2)
         alpha_pos_def_minus = (1 - c_1 - c_mu) / problem_dimension * c_mu
         weights = weights_preliminary
         weights[:mu] /= np.sum(weights_preliminary[:mu])
-        weights[mu:] *= min(alpha_mu_minus, alpha_mu_eff_minus, alpha_pos_def_minus) / np.sum(weights_preliminary[mu:]) * -1
+        weights[mu:] *= (
+            min(alpha_mu_minus, alpha_mu_eff_minus, alpha_pos_def_minus)
+            / np.sum(weights_preliminary[mu:])
+            * -1
+        )
         return weights, mu_eff, c_c, c_1, c_mu
 
     def update_mean(self, par: CMAParameter, arx: np.ndarray) -> None:
@@ -1096,7 +1179,7 @@ class ActiveCMA(CMAAdapter):
         """
         # matrix vector multiplication (reshape weights to column vector)
         # Only consider positive weights
-        par.set_mean(arx @ par.weights[:par.mu].reshape(-1, 1))
+        par.set_mean(arx @ par.weights[: par.mu].reshape(-1, 1))
 
     def update_covariance_matrix(self, par: CMAParameter, arx: np.ndarray) -> None:
         """
@@ -1107,22 +1190,41 @@ class ActiveCMA(CMAAdapter):
         arx : the individuals of the distribution
         """
         # turn off rank-one accumulation when sigma increases quickly
-        h_sig = np.sum(par.p_sigma ** 2) / (
-                    1 - (1 - par.c_sigma) ** (2 * (par.count_eval / par.lamb))) / par.problem_dimension < 2 + 4. / (
-                            par.problem_dimension + 1)
+        h_sig = np.sum(par.p_sigma**2) / (
+            1 - (1 - par.c_sigma) ** (2 * (par.count_eval / par.lamb))
+        ) / par.problem_dimension < 2 + 4.0 / (par.problem_dimension + 1)
         # update evolution path
-        par.set_p_c((1 - par.c_c) * par.p_c + h_sig * np.sqrt(par.c_c * (2 - par.c_c) * par.mu_eff) * (par.mean - par.old_mean) / par.sigma)
-        weights_circle = np.zeros((par.lamb, ))
+        par.set_p_c(
+            (1 - par.c_c) * par.p_c
+            + h_sig
+            * np.sqrt(par.c_c * (2 - par.c_c) * par.mu_eff)
+            * (par.mean - par.old_mean)
+            / par.sigma
+        )
+        weights_circle = np.zeros((par.lamb,))
         for i, w_i in enumerate(par.weights):
             # guaranty positive definiteness
             weights_circle[i] = w_i
             if w_i < 0:
-                weights_circle[i] *= par.problem_dimension * (par.sigma / par.mahalanobis_norm(arx[:, i] - par.old_mean.ravel()))**2
+                weights_circle[i] *= (
+                    par.problem_dimension
+                    * (
+                        par.sigma
+                        / par.mahalanobis_norm(arx[:, i] - par.old_mean.ravel())
+                    )
+                    ** 2
+                )
         # use h_sig to the power of two (unlike in paper) for the variance loss from h_sig
         ar_tmp = (1 / par.sigma) * (arx - np.tile(par.old_mean, (1, par.lamb)))
-        new_co_matrix = (1 - par.c_1 - par.c_mu) * par.co_matrix + par.c_1 * (
-                    par.p_c @ par.p_c.T + (1 - h_sig) * par.c_c * (2 - par.c_c) * par.co_matrix) + par.c_mu * ar_tmp @ (
-                                    weights_circle * ar_tmp).T
+        new_co_matrix = (
+            (1 - par.c_1 - par.c_mu) * par.co_matrix
+            + par.c_1
+            * (
+                par.p_c @ par.p_c.T
+                + (1 - h_sig) * par.c_c * (2 - par.c_c) * par.co_matrix
+            )
+            + par.c_mu * ar_tmp @ (weights_circle * ar_tmp).T
+        )
         # new_co_matrix = (1 - par.c_1 - par.c_mu) * par.co_matrix + par.c_1 * (par.p_c @ par.p_c.T + (1 - h_sig) * par.c_c * par.c_1 * (2 - par.c_c) * par.co_matrix) + par.c_mu * ar_tmp @ (par.weights * ar_tmp).T
         par.set_co_matrix(new_co_matrix)
 
@@ -1133,19 +1235,29 @@ class CMAPropagator(Propagator):
     The context class from the viewpoint of the strategy design pattern.
     """
 
-    def __init__(self, adapter: CMAAdapter, problem_dimension: int, limits: Dict, pop_size=None) -> None:
+    def __init__(
+        self,
+        adapter: CMAAdapter,
+        limits: Dict,
+        exploration=False,
+        select_worst_all_time=False,
+        pop_size=None,
+    ) -> None:
         """
         Constructor of CMAPropagator.
         Parameters
         ----------
         adapter : the adaption strategy of CMA-ES
-        problem_dimension : the number of dimension in the search space
         limits : the limits of the search space
+        exploration : if true decompose covariance matrix for each generation (worse runtime, less exploitation, more exploration)), else decompose covariance matrix only after a certain number of individuals evaluated (better runtime, more exploitation, less exploration)
+        select_worst_all_time : if true use the worst individuals for negative recombination weights in active CMA-ES, else use the worst (lambda - mu) individuals of the best lambda individuals. If BasicCMA is used the given value is irrelevant with regards to functionality.
         pop_size: the number of individuals to be considered in each generation
         """
-        # TODO check input
         self.adapter = adapter
-        lamb = pop_size if pop_size else 4 + int(np.floor(3 * np.log(problem_dimension)))
+        problem_dimension = len(limits)
+        lamb = (
+            pop_size if pop_size else 4 + int(np.floor(3 * np.log(problem_dimension)))
+        )
         super(CMAPropagator, self).__init__(lamb, 1)
 
         # Selection and Recombination params and Covariance Matrix Adaption
@@ -1153,26 +1265,59 @@ class CMAPropagator(Propagator):
         self.selectBestMu = SelectBest(mu)
         self.selectBestLambda = SelectBest(lamb)
         self.selectWorst = SelectWorst(lamb - mu)
-        weights, mu_eff, c_c, c_1, c_mu = adapter.compute_weights(mu, lamb, problem_dimension)
-        #c_m = 1
+        self.select_worst_all_time = select_worst_all_time
+
+        weights, mu_eff, c_c, c_1, c_mu = adapter.compute_weights(
+            mu, lamb, problem_dimension
+        )
+        # c_m = 1
 
         # Step-size control params
         c_sigma = (mu_eff + 2) / (problem_dimension + mu_eff + 5)
-        d_sigma = 1 + 2 * max(0, np.sqrt((mu_eff - 1) / (problem_dimension + 1)) - 1) + c_sigma
+        d_sigma = (
+            1
+            + 2 * max(0, np.sqrt((mu_eff - 1) / (problem_dimension + 1)) - 1)
+            + c_sigma
+        )
 
         # Initialize dynamic strategy variables
         p_sigma = np.zeros((problem_dimension, 1))
         p_c = np.zeros((problem_dimension, 1))
         b_matrix = np.eye(problem_dimension)
-        d_matrix = np.ones((problem_dimension, 1)) # Diagonal entries responsible for scaling co_matrix
+        d_matrix = np.ones(
+            (problem_dimension, 1)
+        )  # Diagonal entries responsible for scaling co_matrix
         co_matrix = b_matrix @ np.diag(d_matrix[:, 0] ** 2) @ b_matrix.T
 
-        mean = np.array([[np.random.uniform(*limits[limit]) for limit in limits]]).reshape((problem_dimension, 1))
-        #mean = np.random.rand(problem_dimension, 1)
-        sigma = 0.2 * ((max(max(limits[i]) for i in limits)) - min(min(limits[i]) for i in limits))
+        # use this initial mean when using multiple islands
+        # mean = np.array([[np.random.uniform(*limits[limit]) for limit in limits]]).reshape((problem_dimension, 1))
+        # use this initial mean when using one island
+        mean = np.random.rand(problem_dimension, 1)
+        sigma = 0.2 * (
+            (max(max(limits[i]) for i in limits)) - min(min(limits[i]) for i in limits)
+        )
 
-        self.par = CMAParameter(mean, sigma, lamb, mu, co_matrix, b_matrix, d_matrix, problem_dimension, weights,
-                                p_sigma, c_sigma, mu_eff, d_sigma, p_c, c_c, c_1, c_mu, limits)
+        self.par = CMAParameter(
+            mean,
+            sigma,
+            lamb,
+            mu,
+            co_matrix,
+            b_matrix,
+            d_matrix,
+            problem_dimension,
+            weights,
+            p_sigma,
+            c_sigma,
+            mu_eff,
+            d_sigma,
+            p_c,
+            c_c,
+            c_1,
+            c_mu,
+            limits,
+            exploration,
+        )
 
     def __call__(self, inds: List[Individual]) -> Individual:
         """
@@ -1194,10 +1339,22 @@ class CMAPropagator(Propagator):
         # check if len(inds) >= oder < lambda and make sample or sample + update
         if num_inds >= self.par.lamb:
             # Update mean
-            self.adapter.update_mean(self.par, self._transform_individuals_to_matrix(self.selectBestMu(inds)))
+            self.adapter.update_mean(
+                self.par, self._transform_individuals_to_matrix(self.selectBestMu(inds))
+            )
             # Update Covariance Matrix
-            self.adapter.update_covariance_matrix(self.par, self._transform_individuals_to_matrix(self.selectBestLambda(inds)))
-            #self.adapter.update_covariance_matrix(self.params, self.__transform_individuals_to_matrix(self.selectBestMu(inds) + self.selectWorst(inds)))
+            if not self.select_worst_all_time:
+                self.adapter.update_covariance_matrix(
+                    self.par,
+                    self._transform_individuals_to_matrix(self.selectBestLambda(inds)),
+                )
+            else:
+                self.adapter.update_covariance_matrix(
+                    self.par,
+                    self._transform_individuals_to_matrix(
+                        self.selectBestMu(inds) + self.selectWorst(inds)
+                    ),
+                )
             # Update step_size
             self.adapter.update_step_size(self.par)
         return new_ind
@@ -1228,7 +1385,9 @@ class CMAPropagator(Propagator):
         """
         # Generate new offspring
         random_vector = np.random.randn(self.par.problem_dimension, 1)
-        new_x = self.par.mean + self.par.sigma * self.par.b_matrix @ (self.par.d_matrix * random_vector)
+        new_x = self.par.mean + self.par.sigma * self.par.b_matrix @ (
+            self.par.d_matrix * random_vector
+        )
         self.par.count_eval += 1
 
         new_ind = Individual()
