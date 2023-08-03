@@ -1253,9 +1253,9 @@ class CMAPropagator(Propagator):
 
         # Selection and Recombination params and Covariance Matrix Adaption
         mu = lamb // 2
-        self.selectBestMu = SelectBest(mu)
-        self.selectBestLambda = SelectBest(lamb)
-        self.selectWorst = SelectWorst(lamb - mu)
+        self.selectBestMu = SelectMin(mu)
+        self.selectBestLambda = SelectMin(lamb)
+        self.selectWorst = SelectMax(lamb - mu)
         self.select_worst_all_time = select_worst_all_time
 
         weights, mu_eff, c_c, c_1, c_mu = adapter.compute_weights(
