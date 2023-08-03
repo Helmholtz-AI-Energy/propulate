@@ -9,7 +9,7 @@ from .population import Individual
 
 def _check_compatible(out1, in2):
     """
-    Check compability of two propagators for stacking them together sequentially with Cascade().
+    Check compability of two propagators for stacking them together sequentially with Compose().
     """
     return out1 == in2 or in2 == -1
 
@@ -79,17 +79,6 @@ class Stochastic(Propagator):
         if offspring == 0:
             raise ValueError("Propagator has to sire more than 0 offspring.")
 
-    def __call__(self, inds):
-        """
-        Apply stochastic propagator (not implemented!).
-
-        Parameters
-        ----------
-        inds: propulate.population.Individual
-              individuals the propagator is applied to
-        """
-        raise NotImplementedError()
-
 
 class Conditional(Propagator):
     """
@@ -138,21 +127,21 @@ class Conditional(Propagator):
             return self.false_prop(inds)
 
 
-class Cascade(Propagator):
+class Compose(Propagator):
     """
     Stack propagators together sequentially for successive application.
     """
 
     def __init__(self, propagators):
         """
-        Constructor of Cascade class.
+        Constructor of Compose class.
 
         Parameters
         ----------
         propagators : list of propulate.propagators.Propagator objects
                       propagators to be stacked together sequentially
         """
-        super(Cascade, self).__init__(propagators[0].parents, propagators[-1].offspring)
+        super(Compose, self).__init__(propagators[0].parents, propagators[-1].offspring)
         self.propagators = propagators
         for i in range(len(propagators) - 1):
             # Check compability of consecutive propagators in terms of number of parents + offsprings.
@@ -170,9 +159,9 @@ class Cascade(Propagator):
 
     def __call__(
         self, inds
-    ):  # Apply propagators sequentially as requested in Cascade(...)
+    ):  # Apply propagators sequentially as requested in Compose(...)
         """
-        Apply Cascade propagator.
+        Apply Compose propagator.
 
         Parameters
         ----------
@@ -239,12 +228,12 @@ class PointMutation(Stochastic):
             # Determine traits to mutate via random sampling.
             # Return `self.points` length list of unique elements chosen from `ind.keys()`.
             # Used for random sampling without replacement.
-            to_mutate = self.rng.sample(ind.keys(), self.points)
+            to_mutate = self.rng.sample(sorted(ind.keys()), self.points)
             # Point-mutate `self.points` randomly chosen traits of individual `ind`.
             for i in to_mutate:
                 if type(ind[i]) == int:
                     # Return randomly selected element from int range(start, stop, step).
-                    ind[i] = self.rng.randrange(*self.limits[i])
+                    ind[i] = self.rng.randint(*self.limits[i])
                 elif type(ind[i]) == float:
                     # Return random floating point number N within limits.
                     ind[i] = self.rng.uniform(*self.limits[i])
@@ -317,12 +306,12 @@ class RandomPointMutation(Stochastic):
             # Return `self.points` length list of unique elements chosen from `ind.keys()`.
             # Used for random sampling without replacement.
             points = self.rng.randint(self.min_points, self.max_points)
-            to_mutate = self.rng.sample(ind.keys(), points)
+            to_mutate = self.rng.sample(sorted(ind.keys()), points)
             # Point-mutate `points` randomly chosen traits of individual `ind`.
             for i in to_mutate:
                 if type(ind[i]) == int:
                     # Return randomly selected element from int range(start, stop, step).
-                    ind[i] = self.rng.randrange(*self.limits[i])
+                    ind[i] = self.rng.randint(*self.limits[i])
                 elif type(ind[i]) == float:
                     # Return random floating point number N within limits.
                     ind[i] = self.rng.uniform(*self.limits[i])
@@ -570,21 +559,22 @@ class MateSigmoid(
         return ind  # Return offspring.
 
 
-class SelectBest(Propagator):
+class SelectMin(Propagator):
     """
     Select specified number of best performing individuals as evaluated by their losses.
+    i.e., those individuals with minimum losses.
     """
 
     def __init__(self, offspring, rng=None):
         """
-        Constructor of SelectBest class.
+        Constructor of SelectMin class.
 
         Parameters
         ----------
         offspring : int
                     number of offsprings (individuals to be selected)
         """
-        super(SelectBest, self).__init__(-1, offspring)
+        super(SelectMin, self).__init__(-1, offspring)
 
     def __call__(self, inds):
         """
@@ -610,21 +600,22 @@ class SelectBest(Propagator):
         ]  # Return `self.offspring` best individuals in terms of loss.
 
 
-class SelectWorst(Propagator):
+class SelectMax(Propagator):
     """
-    Select specified number of worst performing individuals as evaluated by their losses.
+    Select specified number of worst performing individuals as evaluated by their losses,
+    i.e., those individuals with maximum losses.
     """
 
     def __init__(self, offspring, rng=None):
         """
-        Constructor of SelectBest class.
+        Constructor of SelectMax class.
 
         Parameters
         ----------
         offspring : int
                     number of offsprings (individuals to be selected)
         """
-        super(SelectWorst, self).__init__(-1, offspring)
+        super(SelectMax, self).__init__(-1, offspring)
 
     def __call__(self, inds):
         """
@@ -657,7 +648,7 @@ class SelectUniform(Propagator):
 
     def __init__(self, offspring, rng=None):
         """
-        Constructor of SelectRandom class.
+        Constructor of SelectUniform class.
 
         Parameters
         ----------
@@ -738,7 +729,7 @@ class InitUniform(Stochastic):
                 if (
                     type(self.limits[limit][0]) == int
                 ):  # If ordinal trait of type integer.
-                    ind[limit] = self.rng.randrange(*self.limits[limit])
+                    ind[limit] = self.rng.randint(*self.limits[limit])
                 elif (
                     type(self.limits[limit][0]) == float
                 ):  # If interval trait of type float.

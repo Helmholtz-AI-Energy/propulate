@@ -19,6 +19,7 @@ class Individual(dict):
         self.migration_steps = None  # number of migration steps performed
         self.migration_history = None  # migration history
         self.evaltime = None
+        self.evalperiod = None
 
     def __repr__(self):
         rep = {
