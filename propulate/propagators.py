@@ -587,7 +587,7 @@ class SelectMin(Propagator):
 
         Returns
         -------
-        ind : propulate.population.Individual
+        inds : list of propulate.population.Individual objects
               list of selected individuals after application of propagator
         """
         if len(inds) < self.offspring:
@@ -628,7 +628,7 @@ class SelectMax(Propagator):
 
         Returns
         -------
-        ind : propulate.population.Individual
+        inds : list of propulate.population.Individual objects
               list of selected individuals after application of propagator
         """
         if len(inds) < self.offspring:
@@ -755,20 +755,11 @@ class CMAParameter:
 
     def __init__(
         self,
-        mean: np.ndarray,
-        sigma: float,
         lamb: int,
         mu: int,
-        co_matrix: np.ndarray,
-        b_matrix: np.ndarray,
-        d_matrix: np.ndarray,
         problem_dimension: int,
         weights: np.ndarray,
-        p_sigma: np.ndarray,
-        c_sigma: float,
         mu_eff: float,
-        d_sigma: float,
-        p_c: np.ndarray,
         c_c: float,
         c_1: float,
         c_mu: float,
@@ -779,55 +770,68 @@ class CMAParameter:
         Initializes a CMAParameter object.
         Parameters
         ----------
-        mean : the current cma-es mean of the best mu individuals
-        sigma : the current step-size
         lamb : the number of individuals considered for each generation
         mu : number of positive recombination weights
-        co_matrix : current covariance matrix
-        b_matrix : orthogonal matrix, where columns of b_matrix are eigenvectors of C
-        d_matrix : diagional matrix, where diagonal elements of D are square roots of eigenvalues of C (corresponding to b_matrix)
         problem_dimension: the number of dimensions in the search space
         weights : recombination weights
-        p_sigma : evolution path for step-size adaption
-        c_sigma : decay rate for evolution path of step-size control
         mu_eff : variance effective selection mass
-        d_sigma : damping factor for step-size adaption
-        p_c : evolution path for covariance matrix adaption
         c_c : decay rate for evolution path for the rank-one update of the covariance matrix
         c_1 : learning rate for the rank-one update of the covariance matrix update
         c_mu : learning rate for the rank-mu update of the covariance matrix update
         limits : limits of search space
         exploration : if true decompose covariance matrix for each generation (worse runtime, less exploitation, more exploration)), else decompose covariance matrix only after a certain number of individuals evaluated (better runtime, more exploitation, less exploration)
         """
+        self.problem_dimension = problem_dimension
         self.limits = limits
-        self.mean = mean
-        # the mean of the last generation
-        self.old_mean = None
-        self.sigma = sigma
         self.lamb = lamb
         self.mu = mu
-        self.co_matrix = co_matrix
-        self.exploration = exploration
-        self.problem_dimension = problem_dimension
-        self.b_matrix = b_matrix
-        self.d_matrix = d_matrix
-        # the square root of the inverse of the covariance matrix: C^-1/2 = B*D^(-1)*B^T
-        self.co_inv_sqrt = b_matrix @ np.diag(d_matrix[:, 0] ** -1) @ b_matrix.T
         self.weights = weights
         # self.c_m = c_m
-        self.p_sigma = p_sigma
-        self.c_sigma = c_sigma
         self.mu_eff = mu_eff
-        self.d_sigma = d_sigma
-        self.p_c = p_c
         self.c_c = c_c
+        self.c_1 = c_1
+        self.c_mu = c_mu
+
+        # Step-size control params
+        self.c_sigma = (mu_eff + 2) / (problem_dimension + mu_eff + 5)
+        self.d_sigma = (
+            1
+            + 2 * max(0, np.sqrt((mu_eff - 1) / (problem_dimension + 1)) - 1)
+            + self.c_sigma
+        )
+
+        # Initialize dynamic strategy variables
+        self.p_sigma = np.zeros((problem_dimension, 1))
+        self.p_c = np.zeros((problem_dimension, 1))
+        self.b_matrix = np.eye(problem_dimension)
+        self.d_matrix = np.ones(
+            (problem_dimension, 1)
+        )  # Diagonal entries responsible for scaling co_matrix
+        self.co_matrix = (
+            self.b_matrix @ np.diag(self.d_matrix[:, 0] ** 2) @ self.b_matrix.T
+        )
+        # the square root of the inverse of the covariance matrix: C^-1/2 = B*D^(-1)*B^T
+        self.co_inv_sqrt = (
+            self.b_matrix @ np.diag(self.d_matrix[:, 0] ** -1) @ self.b_matrix.T
+        )
+
+        # use this initial mean when using multiple islands?
+        # mean = np.array([[np.random.uniform(*limits[limit]) for limit in limits]]).reshape((problem_dimension, 1))
+        # use this initial mean when using one island?
+        self.mean = np.random.rand(problem_dimension, 1)
+        self.sigma = 0.2 * (
+            (max(max(limits[i]) for i in limits)) - min(min(limits[i]) for i in limits)
+        )
+
+        # the mean of the last generation
+        self.old_mean = None
+        self.exploration = exploration
+
         # the number of individuals evaluated when the covariance matrix was last decomposed into B and D
         self.eigen_eval = 0
         # the number of individuals evaluated
         self.count_eval = 0
-        self.problem_dimension = problem_dimension
-        self.c_1 = c_1
-        self.c_mu = c_mu
+
         # expectation value of ||N(0,I)||
         self.chiN = problem_dimension**0.5 * (
             1 - 1.0 / (4 * problem_dimension) + 1.0 / (21 * problem_dimension**2)
@@ -1246,63 +1250,30 @@ class CMAPropagator(Propagator):
         """
         self.adapter = adapter
         problem_dimension = len(limits)
+        # The number of individuals considered for each generation
         lamb = (
             pop_size if pop_size else 4 + int(np.floor(3 * np.log(problem_dimension)))
         )
         super(CMAPropagator, self).__init__(lamb, 1)
 
-        # Selection and Recombination params and Covariance Matrix Adaption
+        # Number of positive recombination weights
         mu = lamb // 2
         self.selectBestMu = SelectMin(mu)
         self.selectBestLambda = SelectMin(lamb)
         self.selectWorst = SelectMax(lamb - mu)
         self.select_worst_all_time = select_worst_all_time
 
+        # CMA-ES variant specific weights and learning rates
         weights, mu_eff, c_c, c_1, c_mu = adapter.compute_weights(
             mu, lamb, problem_dimension
         )
-        # c_m = 1
-
-        # Step-size control params
-        c_sigma = (mu_eff + 2) / (problem_dimension + mu_eff + 5)
-        d_sigma = (
-            1
-            + 2 * max(0, np.sqrt((mu_eff - 1) / (problem_dimension + 1)) - 1)
-            + c_sigma
-        )
-
-        # Initialize dynamic strategy variables
-        p_sigma = np.zeros((problem_dimension, 1))
-        p_c = np.zeros((problem_dimension, 1))
-        b_matrix = np.eye(problem_dimension)
-        d_matrix = np.ones(
-            (problem_dimension, 1)
-        )  # Diagonal entries responsible for scaling co_matrix
-        co_matrix = b_matrix @ np.diag(d_matrix[:, 0] ** 2) @ b_matrix.T
-
-        # use this initial mean when using multiple islands
-        # mean = np.array([[np.random.uniform(*limits[limit]) for limit in limits]]).reshape((problem_dimension, 1))
-        # use this initial mean when using one island
-        mean = np.random.rand(problem_dimension, 1)
-        sigma = 0.2 * (
-            (max(max(limits[i]) for i in limits)) - min(min(limits[i]) for i in limits)
-        )
 
         self.par = CMAParameter(
-            mean,
-            sigma,
             lamb,
             mu,
-            co_matrix,
-            b_matrix,
-            d_matrix,
             problem_dimension,
             weights,
-            p_sigma,
-            c_sigma,
             mu_eff,
-            d_sigma,
-            p_c,
             c_c,
             c_1,
             c_mu,
