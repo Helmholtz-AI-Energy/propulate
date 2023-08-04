@@ -24,28 +24,27 @@ def get_default_propagator(
     rng: random.Random = None
 ) -> Propagator:
     """
-    Get propulate's default evolutionary optimization propagator.
+    Get Propulate's default evolutionary optimization propagator.
 
     Parameters
     ----------
-    pop_size : int
-        number of individuals in breeding population
-    limits : dict
-    mate_prob : float
-        uniform-crossover probability
-    mut_prob : float
-        point-mutation probability
-    random_prob : float
-        random-initialization probability
-    sigma_factor : float
-        scaling factor for obtaining std from search-space boundaries for interval mutation
-    rng : random.Random
-        random number generator
+    pop_size: int
+              number of individuals in breeding population
+    limits: dict
+    mate_prob: float
+               uniform-crossover probability
+    mut_prob: float
+              point-mutation probability
+    random_prob: float
+                 random-initialization probability
+    sigma_factor: float
+                  scaling factor for obtaining std from search-space boundaries for interval mutation
+    rng: random.Random
+         random number generator
 
     Returns
     -------
-    propagators.Propagator
-        A basic evolutionary optimization propagator.
+    propagators.Propagator: A basic evolutionary optimization propagator.
     """
     if any(isinstance(limits[x][0], float) for x in limits):  # Check for existence of at least one continuous trait.
         propagator = Compose([  # Compose propagator out of basic evolutionary operators with Compose(...).

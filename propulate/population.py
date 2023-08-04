@@ -1,25 +1,33 @@
-# TODO invalidate loss, when entry is modified so this does not have to be done by the propagator
-# TODO genealogy
-# TODO have ordinal vs categorical inferred from list vs set
-
 from decimal import Decimal
 
 
 class Individual(dict):
-    def __init__(self, generation=None, rank=None):
+    def __init__(
+            self,
+            generation: int = -1,
+            rank: int = -1
+    ) -> None:
+        """
+        Initialize individual with given paramters.
+
+        Parameters
+        ----------
+        generation: int
+                    current generation (-1 if unset)
+        rank: int
+              rank (-1 if unset)
+        """
         super(Individual, self).__init__(list())
         self.generation = generation  # Equals each worker's iteration for continuous population in propulate.
         self.rank = rank
-        self.loss = (
-            None  # NOTE set to None instead of inf since there are no comparisons
-        )
+        self.loss = None  # NOTE set to None instead of inf since there are no comparisons
         self.active = True
-        self.isle = None  # isle of origin
-        self.current = None  # current responsible worker
-        self.migration_steps = None  # number of migration steps performed
+        self.island = -1  # island of origin
+        self.current = -1  # current responsible worker
+        self.migration_steps = -1  # number of migration steps performed
         self.migration_history = None  # migration history
-        self.evaltime = None
-        self.evalperiod = None
+        self.evaltime = None  # evaluation time
+        self.evalperiod = None  #
 
     def __repr__(self):
         rep = {
@@ -28,14 +36,14 @@ class Individual(dict):
             )
             for key in self
         }
-        Active = "active" if self.active else "deactivated"
+        is_active = "active" if self.active else "deactivated"
         if self.loss is None:
             loss_str = f"{self.loss}"
         else:
             loss_str = f"{Decimal(float(self.loss)):.2E}"
         return (
-            f"[{rep}, loss " + loss_str + f", I{self.isle}, W{self.rank}, "
-            f"G{self.generation}, {self.evaltime}, w{self.current}, m{self.migration_steps}, {Active}]"
+            f"[{rep}, loss " + loss_str + f", I{self.island}, W{self.rank}, "
+            f"G{self.generation}, {self.evaltime}, w{self.current}, m{self.migration_steps}, {is_active}]"
         )
 
     def __eq__(self, other):
@@ -55,7 +63,7 @@ class Individual(dict):
             and self.loss == other.loss
             and self.generation == other.generation
             and self.rank == other.rank
-            and self.isle == other.isle
+            and self.island == other.island
             and self.active == other.active
         )
 
