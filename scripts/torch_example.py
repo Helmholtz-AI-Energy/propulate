@@ -130,12 +130,5 @@ def ind_loss(params):
 if __name__ == "__main__":
     rng = random.Random(MPI.COMM_WORLD.rank)
     propagator = get_default_propagator(pop_size, limits, 0.7, 0.4, 0.1, rng=rng)
-    islands = Islands(
-            ind_loss,
-            propagator,
-            rng,
-            generations=num_generations,
-            num_isles=2,
-            migration_probability=0.9,
-        )
-    islands.evolve(top_n=1, logging_interval=1, DEBUG=2)
+    islands = Islands(ind_loss, propagator, rng, generations=num_generations, num_islands=2, migration_probability=0.9)
+    islands.evolve(top_n=1, logging_interval=1, debug=2)
