@@ -44,7 +44,7 @@ done
 
 NTASKS=$(($NODES * $CPUS_PER_NODE))
 
-JOB=$((${generation}gens_${dimension}dims_${num_isles}isles_${NTASKS}cpus))
+JOB_NAME=$((${generation}gens_${dimension}dims_${num_isles}isles_${NTASKS}cpus))
 
 # Construct SBATCH base command
 BASE_SCRIPT="#!/bin/bash
@@ -60,7 +60,6 @@ BASE_SCRIPT="#!/bin/bash
 
 module purge
 module load compiler/gnu/11.2
-module load devel/cuda/11.6
 module load mpi/openmpi/4.1
 
 source venv3.9/bin/activate
