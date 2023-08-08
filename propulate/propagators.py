@@ -818,28 +818,33 @@ class CMAParameter:
         )"""
 
         # prevent equal eigenvals, equal eigenvalues in a matrix can lead to numerical instability in e.g. matrix inversion or decomposition of matrix and therefore convergence issues
-        self.co_matrix = np.diag(np.ones(problem_dimension)
-                         * np.exp((1e-4 / self.problem_dimension) *
-                                  np.arange(self.problem_dimension)))
+        self.co_matrix = np.diag(
+            np.ones(problem_dimension)
+            * np.exp(
+                (1e-4 / self.problem_dimension) * np.arange(self.problem_dimension)
+            )
+        )
         self.b_matrix = np.eye(self.problem_dimension)
         # assuming here self.co_matrix is initialized to be diagonal
-        self.d_matrix = np.diag(self.co_matrix)**0.5
+        self.d_matrix = np.diag(self.co_matrix) ** 0.5
         # sort eigenvalues in ascending order
         indices_eig = self.d_matrix.argsort()
         self.d_matrix = self.d_matrix[indices_eig]
         self.b_matrix = self.b_matrix[:, indices_eig]
         self.co_inv_sqrt = (
-                self.b_matrix @ np.diag(self.d_matrix ** (-1)) @ self.b_matrix.T
-            )
+            self.b_matrix @ np.diag(self.d_matrix ** (-1)) @ self.b_matrix.T
+        )
         # the maximum allowed condition of the covariance matrix to ensure numerical stability
         self.condition_limit = 1e5 - 1
         # whether to keep the trace (sum of diagonal elements) of self.co_matrix constant
         self.constant_trace = False
 
         # use this initial mean when using multiple islands?
-        self.mean = np.array([[np.random.uniform(*limits[limit]) for limit in limits]]).reshape((problem_dimension, 1))
+        self.mean = np.array(
+            [[np.random.uniform(*limits[limit]) for limit in limits]]
+        ).reshape((problem_dimension, 1))
         # use this initial mean when using one island?
-        #self.mean = np.random.rand(problem_dimension, 1)
+        # self.mean = np.random.rand(problem_dimension, 1)
         self.sigma = 0.2 * (
             (max(max(limits[i]) for i in limits)) - min(min(limits[i]) for i in limits)
         )
@@ -1001,15 +1006,14 @@ class CMAParameter:
             # self.d_matrix, self.b_matrix = np.linalg.eig(c)
             if any(self.d_matrix <= 0):
                 # covariance matrix eigen decomposition failed, consider reformulating objective function
-                raise ValueError(
-                    "covariance matrix was not positive definite")
+                raise ValueError("covariance matrix was not positive definite")
         except Exception as _:
             # add min(eigenvalues(self.co_matrix_old)) to diag(self.co_matrix) and try again
-            min_eig_old = min(d_matrix_old)**2
+            min_eig_old = min(d_matrix_old) ** 2
             for i in range(self.problem_dimension):
                 self.co_matrix[i, i] += min_eig_old
             # Replace eigenvalues with standard deviations
-            self.d_matrix = (d_matrix_old ** 2 + min_eig_old)**0.5
+            self.d_matrix = (d_matrix_old**2 + min_eig_old) ** 0.5
             self._decompose_co_matrix(self.co_matrix)
         else:
             assert all(np.isfinite(self.d_matrix))
@@ -1019,8 +1023,10 @@ class CMAParameter:
             if not self.constant_trace:
                 s = 1
             else:
-                s = 1 / np.mean(self.d_matrix)  # normalize co_matrix to control overall magnitude
-                #s = np.exp(-np.mean(np.log(self.D))) #  This setting uses the geometric mean of the eigenvalues to normalize the covariance matrix. It takes the logarithm of the eigenvalues, computes the mean, and then exponentiates the negative of that mean.
+                s = 1 / np.mean(
+                    self.d_matrix
+                )  # normalize co_matrix to control overall magnitude
+                # s = np.exp(-np.mean(np.log(self.D))) #  This setting uses the geometric mean of the eigenvalues to normalize the covariance matrix. It takes the logarithm of the eigenvalues, computes the mean, and then exponentiates the negative of that mean.
                 self.co_matrix *= s
                 self.d_matrix *= s
             self.d_matrix **= 0.5
@@ -1033,7 +1039,7 @@ class CMAParameter:
         limit: the treshold for the condition of the matrix
         """
         # check if condition number of matrix is to big
-        if (self.d_matrix[-1] / self.d_matrix[0])**2 > limit:
+        if (self.d_matrix[-1] / self.d_matrix[0]) ** 2 > limit:
             eps = (self.d_matrix[-1] ** 2 - limit * self.d_matrix[0] ** 2) / (limit - 1)
             for i in range(self.problem_dimension):
                 # decrease ratio of largest to smallest eigenvalue, absolute difference remains
@@ -1050,7 +1056,10 @@ class CMAParameter:
         indices_eig = np.argsort(self.d_matrix)
         self.d_matrix = self.d_matrix[indices_eig]
         self.b_matrix = self.b_matrix[:, indices_eig]
-        assert (min(self.d_matrix), max(self.d_matrix)) == (self.d_matrix[0], self.d_matrix[-1])
+        assert (min(self.d_matrix), max(self.d_matrix)) == (
+            self.d_matrix[0],
+            self.d_matrix[-1],
+        )
 
     def mahalanobis_norm(self, dx: np.ndarray) -> np.ndarray:
         """
@@ -1219,16 +1228,16 @@ class BasicCMA(CMAAdapter):
         )
         # use h_sig to the power of two (unlike in paper) for the variance loss from h_sig
         ar_tmp = (1 / par.sigma) * (
-                arx[:, : par.mu] - np.tile(par.old_mean, (1, par.mu))
+            arx[:, : par.mu] - np.tile(par.old_mean, (1, par.mu))
         )
         new_co_matrix = (
-                (1 - par.c_1 - par.c_mu) * par.co_matrix
-                + par.c_1
-                * (
-                        par.p_c @ par.p_c.T
-                        + (1 - h_sig) * par.c_c * (2 - par.c_c) * par.co_matrix
-                )
-                + par.c_mu * ar_tmp @ (par.weights * ar_tmp).T
+            (1 - par.c_1 - par.c_mu) * par.co_matrix
+            + par.c_1
+            * (
+                par.p_c @ par.p_c.T
+                + (1 - h_sig) * par.c_c * (2 - par.c_c) * par.co_matrix
+            )
+            + par.c_mu * ar_tmp @ (par.weights * ar_tmp).T
         )
         # new_co_matrix = (1 - par.c_1 - par.c_mu) * par.co_matrix + par.c_1 * (par.p_c @ par.p_c.T + (1 - h_sig) * par.c_c * par.c_1 * (2 - par.c_c) * par.co_matrix) + par.c_mu * ar_tmp @ (par.weights * ar_tmp).T
         par.set_co_matrix(new_co_matrix)
