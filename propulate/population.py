@@ -6,7 +6,7 @@ from decimal import Decimal
 
 
 class Individual(dict):
-    def __init__(self, generation=None, rank=None):
+    def __init__(self, generation=None, rank=None, problem_dim=None):
         super(Individual, self).__init__(list())
         self.generation = generation  # Equals each worker's iteration for continuous population in propulate.
         self.rank = rank
@@ -20,6 +20,7 @@ class Individual(dict):
         self.migration_history = None  # migration history
         self.evaltime = None
         self.evalperiod = None
+        self.problem_dim = problem_dim  # number of dimension of search space
 
     def __repr__(self):
         rep = {
