@@ -6,7 +6,7 @@ import numpy as np
 from mpi4py import MPI
 
 from propulate import Islands
-from propulate.propagators import SelectMin, SelectMax
+from propulate.propagators import SelectMin, SelectMax, CMAPropagator, BasicCMA, ActiveCMA
 from propulate.utils import get_default_propagator
 
 ############
@@ -120,7 +120,8 @@ def rastrigin(params):
     """
     x = params["x"]
     y = params["y"]
-    return x**2 - 10 * np.cos(2 * np.pi * x) + y**2 - 10 * np.cos(2 * np.pi * y)
+    #return x**2 - 10 * np.cos(2 * np.pi * x) + y**2 - 10 * np.cos(2 * np.pi * y)
+    return 10 * 2 + x**2 - 10 * np.cos(2 * np.pi * x) + y**2 - 10 * np.cos(2 * np.pi * y)
 
 def schwefel(params):
     """
@@ -230,8 +231,9 @@ if __name__ == "__main__":
     
     # General settings
     fname = sys.argv[1]                                 # Get function name to optimize from command-line.
-    generations = 10                                    # Set number of generations.
-    pop_size = 2 * MPI.COMM_WORLD.size                  # Set size of breeding population. 
+    generations = 100                                    # Set number of generations.
+    pop_size = 2 * MPI.COMM_WORLD.size
+    print(MPI.COMM_WORLD.size) # Set size of breeding population.
     num_isles = 2                                       # Set number of separate evolutionary islands.
     migration_probability = 0.9                         # Set migration probability.
     pollination = False                                 # Pollination or real migration?
@@ -248,14 +250,16 @@ if __name__ == "__main__":
     rng = random.Random(MPI.COMM_WORLD.rank)            # Set up separate random number generator for evolutionary optimization process.
     
     # Set up evolutionary operator.
-    propagator = get_default_propagator(                # Get default evolutionary operator.
+    """propagator = get_default_propagator(                # Get default evolutionary operator.
             pop_size=pop_size,                          # Breeding population size
             limits=limits,                              # Search-space limits
             mate_prob=0.7,                              # Crossover probability
             mut_prob=0.4,                               # Mutation probability
             random_prob=0.1,                            # Random-initialization probability
             rng=rng                                     # Random number generator    
-        )
+        )"""
+    #propagator = CMAPropagator(BasicCMA(), limits, rng)
+    propagator = CMAPropagator(ActiveCMA(), limits, rng)
 
     # Set up island model.
     islands = Islands(
@@ -263,10 +267,10 @@ if __name__ == "__main__":
         propagator,                                     # Evolutionary operator
         rng,                                            # Random number generator
         generations=generations,                        # Number of generations
-        num_isles=num_isles,                            # Number of separate evolutionary islands
+        num_isles=2,                            # Number of separate evolutionary islands
         migration_topology=migration_topology,          # Migration topology
         checkpoint_path='./',                           # Path to potentially read checkpoints from and write new checkpoints to
-        migration_probability=migration_probability,    # Migration probability
+        migration_probability=0.9,                        # Migration probability
         emigration_propagator=SelectMin,                # Emigration propagator (how to select migrants)
         immigration_propagator=SelectMax,               # Immigration propagator (only relevant for pollination, how to choose individuals to be replaced by immigrants)
         pollination=pollination,                        # Pollination or real migration?
