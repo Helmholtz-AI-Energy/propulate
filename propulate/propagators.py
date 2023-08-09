@@ -831,6 +831,7 @@ class CMAParameter:
         indices_eig = self.d_matrix.argsort()
         self.d_matrix = self.d_matrix[indices_eig]
         self.b_matrix = self.b_matrix[:, indices_eig]
+        # the square root of the inverse of the covariance matrix: C^-1/2 = B*D^(-1)*B^T
         self.co_inv_sqrt = (
             self.b_matrix @ np.diag(self.d_matrix ** (-1)) @ self.b_matrix.T
         )
@@ -863,6 +864,7 @@ class CMAParameter:
             1 - 1.0 / (4 * problem_dimension) + 1.0 / (21 * problem_dimension**2)
         )
 
+    # TODO Getter should be in Propagator class
     def get_mean(self) -> np.ndarray:
         """
         Getter for mean attribute.
@@ -971,7 +973,7 @@ class CMAParameter:
     def set_co_matrix(self, new_co_matrix: np.ndarray) -> None:
         """
         Setter for the covariance matrix. Computes new values for b_matrix, d_matrix and co_inv_sqrt as well
-        Decomposition of co_matrix in O(n^3), hence why the possibility of lazy updating.
+        Decomposition of co_matrix in O(n^3), hence why the possibility of lazy updating b_matrix and d_matrix.
         Parameters
         ----------
         new_co_matrix : the new covariance matrix
@@ -999,7 +1001,7 @@ class CMAParameter:
         """
         # Enforce symmetry
         self.co_matrix = np.triu(new_co_matrix) + np.triu(new_co_matrix, 1).T
-        # c = (self.co_matrix + self.co_matrix.T) / 2
+        # self.co_matrix = (new_co_matrix + new_co_matrix.T) / 2
         d_matrix_old = self.d_matrix
         try:
             self.d_matrix, self.b_matrix = np.linalg.eigh(self.co_matrix)
@@ -1020,9 +1022,7 @@ class CMAParameter:
             self._sort_b_d_matrix()
             if self.condition_limit is not None:
                 self._limit_condition(self.condition_limit)
-            if not self.constant_trace:
-                s = 1
-            else:
+            if self.constant_trace:
                 s = 1 / np.mean(
                     self.d_matrix
                 )  # normalize co_matrix to control overall magnitude
@@ -1329,7 +1329,7 @@ class ActiveCMA(CMAAdapter):
                     )
                     ** 2
                 )
-        # use h_sig to the power of two (unlike in paper) for the variance loss from h_sig
+        # use h_sig to the power of two (unlike in paper) for the variance loss from h_sig?
         ar_tmp = (1 / par.sigma) * (arx - np.tile(par.old_mean, (1, par.lamb)))
         new_co_matrix = (
             (1 - par.c_1 - par.c_mu) * par.co_matrix
@@ -1354,6 +1354,7 @@ class CMAPropagator(Propagator):
         self,
         adapter: CMAAdapter,
         limits: Dict,
+        rng,
         exploration=False,
         select_worst_all_time=False,
         pop_size=None,
@@ -1401,6 +1402,11 @@ class CMAPropagator(Propagator):
             exploration,
         )
 
+        # TODO
+        self.selectPool = SelectMin(2 * lamb)
+        self.selectFromPool = SelectUniform(lamb - 1, rng=rng)
+        self.selectBest1 = SelectMin(1)
+
     def __call__(self, inds: List[Individual]) -> Individual:
         """
         The skeleton of the CMA-ES algorithm using the template method design pattern. Sampling individuals and adapting the strategy parameters.
@@ -1419,16 +1425,22 @@ class CMAPropagator(Propagator):
         # sample new individual
         new_ind = self._sample_cma()
         # check if len(inds) >= oder < lambda and make sample or sample + update
-        if num_inds >= self.par.lamb:
+        #if num_inds >= self.par.lamb:
+        if num_inds >= 2 * self.par.lamb:
+            inds = self.selectPool(inds)
             # Update mean
             self.adapter.update_mean(
                 self.par, self._transform_individuals_to_matrix(self.selectBestMu(inds))
             )
             # Update Covariance Matrix
             if not self.select_worst_all_time:
+                #best_mu = self.selectBestMu(inds)
+                best = self.selectBest1(inds)
+                inds_filtered = [ind for ind in inds if ind not in best]
                 self.adapter.update_covariance_matrix(
                     self.par,
-                    self._transform_individuals_to_matrix(self.selectBestLambda(inds)),
+                    #self._transform_individuals_to_matrix(self.selectBestLambda(inds))
+                    self._transform_individuals_to_matrix(best + self.selectFromPool(inds_filtered))
                 )
             else:
                 self.adapter.update_covariance_matrix(
