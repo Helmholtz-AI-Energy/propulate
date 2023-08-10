@@ -36,4 +36,6 @@ class VelocityClampingPropagator(BasicPSOPropagator):
         p.position -= p.velocity
         p.velocity = p.velocity.clip(*(self.v_cap * self.laa))
         p.position += p.velocity
+        for i, k in enumerate(self.limits):
+            p[k] = p.position[i]
         return p

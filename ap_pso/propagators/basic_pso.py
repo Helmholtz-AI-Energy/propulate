@@ -51,5 +51,5 @@ class BasicPSOPropagator(Propagator):
 
         new_p = Particle(new_position, new_velocity, old_p.generation + 1, self.rank)
         for i, k in enumerate(self.limits):
-            new_p[k] = new_p.velocity[i]
+            new_p[k] = new_p.position[i]
         return new_p
