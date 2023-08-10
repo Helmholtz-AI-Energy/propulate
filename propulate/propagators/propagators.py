@@ -5,7 +5,7 @@ from typing import List, Dict, Union, Tuple
 import numpy as np
 from abc import ABC, abstractmethod
 
-from propulate.population import Individual
+from ..population import Individual
 
 
 def _check_compatible(out1: int, in2: int) -> bool:
