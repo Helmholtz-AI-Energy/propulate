@@ -27,7 +27,7 @@ if __name__ == "__main__":
         "-f",
         "--function",
         type=str,
-        choices=["bukin", "eggcrate", "himmelblau", "keane", "leon", "rastrigin", "schwefel", "sphere"],
+        choices=["bukin", "eggcrate", "himmelblau", "keane", "leon", "rastrigin", "schwefel", "sphere", "step"],
         default="sphere"
     )
     parser.add_argument("-g", "--generations", type=int, default=1000)  # Number of generations
