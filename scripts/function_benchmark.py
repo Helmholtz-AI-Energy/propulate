@@ -185,7 +185,7 @@ def step(params: Dict[str, float]) -> float:
     return np.sum(np.floor(params))
 
 
-def get_function_search_space(fname: str) -> (Callable, Dict[str, Tuple[float, float]]):
+def get_function_search_space(fname: str) -> Tuple[Callable, Dict[str, Tuple[float, float]]]:
     """
     Get search space limits and function from function name.
 
