@@ -173,7 +173,7 @@ class Islands:
         else:
             if rank == 0:
                 print("Pollination.")
-            self.propulator = Pollinator(loss_fn=loss_fn, propagator=propagator, comm=comm_intra,
+            self.propulator = Pollinator(loss_fn=loss_fn, propagator=propagator, island_idx=island_idx, comm=comm_intra,
                                          generations=generations, checkpoint_path=checkpoint_path,
                                          migration_topology=migration_topology, migration_prob=migration_prob_rank,
                                          emigration_propagator=emigration_propagator,
