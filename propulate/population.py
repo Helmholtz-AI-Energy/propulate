@@ -8,7 +8,7 @@ class Individual(dict):
             rank: int = -1
     ) -> None:
         """
-        Initialize individual with given paramters.
+        Initialize individual with given parameters.
 
         Parameters
         ----------
@@ -64,10 +64,14 @@ class Individual(dict):
         Returns
         -------
         bool: True if individuals are the same, false if not.
+
+        Raises
+        ------
+        TypeError: If other is not an instance or subclass of `Individual`.
         """
         # Check if object to compare to is of the same class.
         if not isinstance(other, self.__class__):
-            raise TypeError(f"{other} not of type `Individual` but {type(other)}.")
+            raise TypeError(f"{other} not an instance of `Individual` but {type(other)}.")
 
         # Check equivalence of actual traits, i.e., hyperparameter values.
         compare_traits = True
@@ -104,10 +108,14 @@ class Individual(dict):
         Returns
         -------
         bool: True if individuals are the same, false if not.
+
+        Raises
+        ------
+        TypeError: If other is not an instance or subclass of `Individual`.
         """
         # Check if object to compare to is of the same class.
         if not isinstance(other, self.__class__):
-            raise TypeError(f"{other} not of type `Individual` but {type(other)}.")
+            raise TypeError(f"{other} not an instance of `Individual` but {type(other)}.")
         # Check equivalence of traits, i.e., hyperparameter values.
         compare_traits = True
         for key in self.keys():
