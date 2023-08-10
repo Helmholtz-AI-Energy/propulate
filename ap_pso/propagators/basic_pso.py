@@ -32,24 +32,39 @@ class BasicPSOPropagator(Propagator):
         self.laa = np.array(list(limits.values())).T  # laa - "limits as array"
 
     def __call__(self, particles: list[Particle]) -> Particle:
+        old_p, p_best, g_best = self._prepare_data(particles)
+
+        new_velocity: np.ndarray = self.w_k * old_p.velocity \
+                       + self.c_cognitive * self.rng.uniform(*self.laa) * (p_best.position - old_p.position) \
+                       + self.c_social * self.rng.uniform(*self.laa) * (g_best.position - old_p.position)
+        new_position: np.ndarray = old_p.position + new_velocity
+
+        return self._make_new_particle(new_position, new_velocity, old_p.generation + 1)
+
+    def _prepare_data(self, particles: list[Particle]) -> tuple[Particle, Particle, Particle]:
+        """
+        Returns the following particles in this very order:
+        1.  old_p: the current particle to be updated now
+        2.  p_best: the personal best value of this particle
+        3.  g_best: the global best value currently known
+        """
         if len(particles) < self.offspring:
             raise ValueError("Not enough Particles")
+
         own_p = [x for x in particles if x.rank == self.rank]
-        old_p = Particle(iteration=-1)
-        for y in own_p:
-            if y.generation > old_p.generation:
-                old_p = y
+        old_p = max(own_p, key=lambda p: p.generation)
+
         if not isinstance(old_p, Particle):
             old_p = make_particle(old_p)
             print(f"R{self.rank}, Iteration#{old_p.generation}: Type Error. Converted Individual to Particle. Continuing.")
+
         g_best = min(particles, key=lambda p: p.loss)
         p_best = min(own_p, key=lambda p: p.loss)
-        new_velocity = self.w_k * old_p.velocity \
-                       + self.c_cognitive * self.rng.uniform(*self.laa) * (p_best.position - old_p.position) \
-                       + self.c_social * self.rng.uniform(*self.laa) * (g_best.position - old_p.position)
-        new_position = old_p.position + new_velocity
 
-        new_p = Particle(new_position, new_velocity, old_p.generation + 1, self.rank)
+        return old_p, p_best, g_best
+
+    def _make_new_particle(self, position: np.ndarray, velocity: np.ndarray, generation: int):
+        new_p = Particle(position, velocity, generation, self.rank)
         for i, k in enumerate(self.limits):
             new_p[k] = new_p.position[i]
         return new_p
