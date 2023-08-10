@@ -35,8 +35,8 @@ class BasicPSOPropagator(Propagator):
         old_p, p_best, g_best = self._prepare_data(particles)
 
         new_velocity: np.ndarray = self.w_k * old_p.velocity \
-                       + self.c_cognitive * self.rng.uniform(*self.laa) * (p_best.position - old_p.position) \
-                       + self.c_social * self.rng.uniform(*self.laa) * (g_best.position - old_p.position)
+                       + self.rng.uniform(0, self.c_cognitive) * (p_best.position - old_p.position) \
+                       + self.rng.uniform(0, self.c_social) * (g_best.position - old_p.position)
         new_position: np.ndarray = old_p.position + new_velocity
 
         return self._make_new_particle(new_position, new_velocity, old_p.generation + 1)
@@ -64,6 +64,10 @@ class BasicPSOPropagator(Propagator):
         return old_p, p_best, g_best
 
     def _make_new_particle(self, position: np.ndarray, velocity: np.ndarray, generation: int):
+        """
+        Takes the necessary data to create a new Particle with the position dict set to the correct values.
+        :return: The newly created Particle object
+        """
         new_p = Particle(position, velocity, generation, self.rank)
         for i, k in enumerate(self.limits):
             new_p[k] = new_p.position[i]
