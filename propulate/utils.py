@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import random
+from typing import Dict, Union, Tuple
 
 from .propagators import (
     Compose,
@@ -16,7 +17,7 @@ from .propagators import (
 
 def get_default_propagator(
     pop_size: int,
-    limits: dict,
+    limits: Union[Dict[str, Tuple[float, float]], Dict[str, Tuple[int, int]], Dict[str, Tuple[str, ...]]],
     mate_prob: float,
     mut_prob: float,
     random_prob: float,
@@ -31,6 +32,7 @@ def get_default_propagator(
     pop_size: int
               number of individuals in breeding population
     limits: dict
+            (hyper-)parameters to be optimized, i.e., search space
     mate_prob: float
                uniform-crossover probability
     mut_prob: float
