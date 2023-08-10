@@ -27,9 +27,9 @@ class Individual(dict):
         self.migration_steps = -1  # number of migration steps performed
         self.migration_history = None  # migration history
         self.evaltime = None  # evaluation time
-        self.evalperiod = None  #
+        self.evalperiod = None  # evaluation duration
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         rep = {
             key: (
                 f"{Decimal(self[key]):.2E}" if type(self[key]) == float else self[key]
@@ -42,13 +42,33 @@ class Individual(dict):
         else:
             loss_str = f"{Decimal(float(self.loss)):.2E}"
         return (
-            f"[{rep}, loss " + loss_str + f", I{self.island}, W{self.rank}, "
-            f"G{self.generation}, {self.evaltime}, w{self.current}, m{self.migration_steps}, {is_active}]"
+            f"[{rep}, loss " + loss_str + f", island {self.island}, worker {self.rank}, "
+            f"generation {self.generation}]"
         )
 
-    def __eq__(self, other):
+    def __eq__(
+            self,
+            other
+    ) -> bool:
+        """
+        Define equality operator "==" for class Individual`.
+
+        Checks for equality of traits, loss, generation, worker rank, birth island, and active status. Other attributes,
+        like migration steps, are not considered.
+
+        Parameters
+        ----------
+        other: Individual
+               Other individual to compare individual under consideration to
+
+        Returns
+        -------
+        bool: True if individuals are the same, false if not.
+        """
         # Check if object to compare to is of the same class.
-        assert isinstance(other, self.__class__)
+        if not isinstance(other, self.__class__):
+            raise TypeError(f"{other} not of type `Individual` but {type(other)}.")
+
         # Check equivalence of actual traits, i.e., hyperparameter values.
         compare_traits = True
         for key in self.keys():
@@ -67,9 +87,27 @@ class Individual(dict):
             and self.active == other.active
         )
 
-    def equals(self, other):
+    def equals(
+            self,
+            other
+    ) -> bool:
+        """
+        Define alternative equality check for class `Individual`.
+
+        Checks for equality of traits and loss. Other attributes, like birth island or generation, are not considered.
+
+        Parameters
+        ----------
+        other: Individual
+               Other individual to compare individual under consideration to
+
+        Returns
+        -------
+        bool: True if individuals are the same, false if not.
+        """
         # Check if object to compare to is of the same class.
-        assert isinstance(other, self.__class__)
+        if not isinstance(other, self.__class__):
+            raise TypeError(f"{other} not of type `Individual` but {type(other)}.")
         # Check equivalence of traits, i.e., hyperparameter values.
         compare_traits = True
         for key in self.keys():
