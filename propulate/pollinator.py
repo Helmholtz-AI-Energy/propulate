@@ -3,7 +3,7 @@ import random
 import os
 import pickle
 import time
-from typing import Callable
+from typing import Callable, Union, Tuple, List
 from operator import attrgetter
 from pathlib import Path
 
@@ -13,6 +13,7 @@ from mpi4py import MPI
 
 from ._globals import DUMP_TAG, INDIVIDUAL_TAG, MIGRATION_TAG, SYNCHRONIZATION_TAG
 from .propagators import Propagator, SelectMin, SelectMax
+from .population import Individual
 
 
 class Pollinator:
@@ -32,15 +33,15 @@ class Pollinator:
         island_idx: int = 0,
         comm: MPI.Comm = MPI.COMM_WORLD,
         generations: int = 0,
-        checkpoint_path: Path = Path('./'),
+        checkpoint_path: Union[Path, str] = Path("./"),
         migration_topology: np.ndarray = None,
         migration_prob: float = 0.0,
         emigration_propagator: Propagator = SelectMin,
         immigration_propagator: Propagator = SelectMax,
         island_displs: np.ndarray = None,
         island_counts: np.ndarray = None,
-        rng: random.Random = None,
-    ):
+        rng: random.Random = None
+    ) -> None:
         """
         Initialize Pollinator with given parameters.
 
@@ -88,10 +89,10 @@ class Pollinator:
                 print("Requested number of generations is zero...[RETURN]")
             return
         self.generations = generations  # number of generations, i.e., number of evaluations per individual
-        self.generation = 0
+        self.generation = 0  # current generation not yet evaluated
         self.island_idx = island_idx  # island index
         self.comm = comm  # intra-island communicator
-        self.checkpoint_path = Path(checkpoint_path)
+        self.checkpoint_path = Path(checkpoint_path)  # checkpoint path
         self.checkpoint_path.mkdir(parents=True, exist_ok=True)
         self.migration_prob = migration_prob  # per-rank migration probability
         self.migration_topology = migration_topology  # migration topology
@@ -103,9 +104,9 @@ class Pollinator:
         self.rng = rng
 
         # Load initial population of evaluated individuals from checkpoint if exists.
-        load_ckpt_file = self.checkpoint_path / f'island_{self.island_idx}_ckpt.pkl'
+        load_ckpt_file = self.checkpoint_path / f"island_{self.island_idx}_ckpt.pkl"
         if not os.path.isfile(load_ckpt_file):  # If not exists, check for backup file.
-            load_ckpt_file = load_ckpt_file.with_suffix('.bkp')
+            load_ckpt_file = load_ckpt_file.with_suffix(".bkp")
 
         if os.path.isfile(load_ckpt_file):
             with open(load_ckpt_file, "rb") as f:
@@ -117,7 +118,7 @@ class Pollinator:
                             "NOTE: Valid checkpoint file found. "
                             f"Resuming from generation {self.generation} of loaded population..."
                         )
-                except FileNotFoundError:
+                except OSError:
                     self.population = []
                     if self.comm.rank == 0:
                         print(
@@ -135,7 +136,8 @@ class Pollinator:
     def propulate(
             self,
             logging_interval: int = 10,
-            debug: int = 1):
+            debug: int = 1
+    ) -> None:
         """
         Run evolutionary optimization.
 
@@ -149,21 +151,20 @@ class Pollinator:
         """
         self._work(logging_interval, debug)
 
-    def _get_active_individuals(self):
+    def _get_active_individuals(self) -> Tuple[List[Individual], int]:
         """
         Get active individuals in current population list.
 
         Returns
         -------
-        list: list of propulate.population.Individuals
-              currently active individuals in population
+        list[propulate.population.Individual]: currently active individuals in population
         int: number of currently active individuals
         """
         active_pop = [ind for ind in self.population if ind.active]
 
         return active_pop, len(active_pop)
 
-    def _breed(self):
+    def _breed(self) -> Individual:
         """
         Apply propagator to current population of active
         individuals to breed new individual.
@@ -185,8 +186,8 @@ class Pollinator:
 
     def _evaluate_individual(
             self,
-            debug
-    ):
+            debug: int
+    ) -> None:
         """
         Breed and evaluate individual.
 
@@ -203,7 +204,7 @@ class Pollinator:
         self.population.append(ind)  # Add evaluated individual to worker-local population.
         if debug == 2:
             print(
-                f"I{self.island_idx} W{self.comm.rank} G{self.generation}: BREEDING\n"
+                f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: BREEDING\n"
                 f"Bred and evaluated individual {ind}.\n"
             )
 
@@ -226,7 +227,8 @@ class Pollinator:
         debug: int
                verbosity level; 0 - silent; 1 - moderate, 2 - noisy (debug mode)
         """
-        log_string = f"I{self.island_idx} W{self.comm.rank} G{self.generation}: INTRA-ISLAND SYNCHRONIZATION\n"
+        log_string = f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: " \
+                     f"INTRA-ISLAND SYNCHRONIZATION\n"
         probe_ind = True
         while probe_ind:
             stat = MPI.Status()  # Retrieve status of reception operation, including source and tag.
@@ -239,7 +241,7 @@ class Pollinator:
                 # Receive individual and add it to own population.
                 ind_temp = self.comm.recv(source=stat.Get_source(), tag=INDIVIDUAL_TAG)
                 self.population.append(copy.deepcopy(ind_temp))
-                log_string += f"Added individual {ind_temp} from W{stat.Get_source()} to own population.\n"
+                log_string += f"Added individual {ind_temp} from worker {stat.Get_source()} to own population.\n"
         _, n_active = self._get_active_individuals()
         log_string += (
             f"After probing within island: {n_active}/{len(self.population)} active.\n"
@@ -259,7 +261,7 @@ class Pollinator:
         debug: int
                verbosity/debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode)
         """
-        log_string = f"I{self.island_idx} W{self.comm.rank} G{self.generation}: EMIGRATION\n"
+        log_string = f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: EMIGRATION\n"
         # Determine relevant line of migration topology.
         to_migrate = self.migration_topology[self.island_idx, :]
         num_emigrants = np.amax(to_migrate)  # Determine maximum number of emigrants to be sent out at once.
@@ -294,16 +296,15 @@ class Pollinator:
                 # Determine new responsible worker on target island.
                 for ind in departing:
                     ind.current = self.rng.randrange(0, count)
-                    ind.migration_history += str(target_island)
+                    ind.migration_history += f"-{target_island}"
                     ind.timestamp = time.time()
-                    # print(f"{ind} with migration history {ind.migration_history}")
+                    if debug == 2:
+                        log_string += f"{ind} with migration history {ind.migration_history}\n"
                 for r in dest_island:  # Loop through MPI.COMM_WORLD destination ranks.
-                    MPI.COMM_WORLD.send(
-                        copy.deepcopy(departing), dest=r, tag=MIGRATION_TAG
-                    )
+                    MPI.COMM_WORLD.send(copy.deepcopy(departing), dest=r, tag=MIGRATION_TAG)
                     log_string += (
-                        f"Sent {len(departing)} individual(s) to W{r-self.island_displs[target_island]} "
-                        f"on target I{target_island}.\n"
+                        f"Sent {len(departing)} individual(s) to worker {r-self.island_displs[target_island]} "
+                        f"on target island {target_island}.\n"
                     )
 
             _, num_active = self._get_active_individuals()
@@ -316,7 +317,7 @@ class Pollinator:
         else:
             if debug == 2:
                 print(
-                    f"I{self.island_idx} W{self.comm.rank} G{self.generation}: "
+                    f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
                     f"Population size {len(eligible_emigrants)} too small "
                     f"to select {num_emigrants} migrants."
                 )
@@ -333,7 +334,7 @@ class Pollinator:
         debug: int
                verbosity level; 0 - silent; 1 - moderate, 2 - noisy (debug mode)
         """
-        log_string = f"I{self.island_idx} W{self.comm.rank} G{self.generation}: IMMIGRATION\n"
+        log_string = f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: IMMIGRATION\n"
         probe_migrants = True
         while probe_migrants:
             stat = MPI.Status()
@@ -343,7 +344,7 @@ class Pollinator:
                 immigrants = MPI.COMM_WORLD.recv(source=stat.Get_source(), tag=MIGRATION_TAG)
                 log_string += (
                     f"Received {len(immigrants)} immigrant(s) from global "
-                    f"W{stat.Get_source()}: {immigrants}\n"
+                    f"worker {stat.Get_source()}: {immigrants}\n"
                 )
 
                 # Add immigrants to own population.
@@ -371,7 +372,7 @@ class Pollinator:
                         if ind.active and ind.current == self.comm.rank
                     ]
 
-                    immigrator = self.immigration_propagator(replace_num, self.rng)  # Set up immigration propagator.
+                    immigrator = self.immigration_propagator(replace_num)  # Set up immigration propagator.
                     to_replace = immigrator(eligible_for_replacement)  # Choose individual to be replaced by immigrant.
 
                     # Send individuals to be replaced to other intra-island workers for deactivation.
@@ -383,7 +384,7 @@ class Pollinator:
                         )
                         log_string += (
                             f"Sent {len(to_replace)} individual(s) {to_replace} to "
-                            f"intra-island W{r} for replacement.\n"
+                            f"intra-island worker {r} for replacement.\n"
                         )
 
                     # Deactivate individuals to be replaced in own population.
@@ -411,7 +412,7 @@ class Pollinator:
         debug: int
                verbosity/debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode)
         """
-        log_string = f"I{self.island_idx} W{self.comm.rank} G{self.generation}: REPLACEMENT\n"
+        log_string = f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: REPLACEMENT\n"
         probe_sync = True
         while probe_sync:
             stat = MPI.Status()
@@ -428,7 +429,7 @@ class Pollinator:
                 self.replaced = self.replaced + copy.deepcopy(to_replace)
                 log_string += (
                     f"Got {len(to_replace)} new replaced individual(s) {to_replace} "
-                    f"from W{stat.Get_source()} to be deactivated.\n"
+                    f"from worker {stat.Get_source()} to be deactivated.\n"
                     f"Overall {len(self.replaced)} individuals to deactivate: {self.replaced}\n"
                 )
         replaced_copy = copy.deepcopy(self.replaced)
@@ -441,9 +442,7 @@ class Pollinator:
                 and ind.migration_steps == individual.migration_steps
             ]
             if len(to_deactivate) == 0:
-                log_string += (
-                    f"Individual {individual} to deactivate not yet received.\n"
-                )
+                log_string += f"Individual {individual} to deactivate not yet received.\n"
                 continue
             # NOTE As copies are allowed, len(to_deactivate) can be greater than 1.
             # However, only one of the copies should be replaced / deactivated.
@@ -465,14 +464,13 @@ class Pollinator:
         if debug == 2:
             print(log_string)
 
-    def _get_unique_individuals(self):
+    def _get_unique_individuals(self) -> List[Individual]:
         """
-        Get unique individuals (in terms of traits + loss) in current population.
+        Get unique individuals in terms of traits and loss in current population.
 
         Returns
-        ----------
-        unique_inds : list of propulate.population.Individuals
-                      list of unique individuals
+        -------
+        list[propulate.population.Individual]: unique individuals
         """
         unique_inds = []
         for individual in self.population:
@@ -493,7 +491,7 @@ class Pollinator:
             self,
             active: bool,
             debug: int
-    ) -> (list, list):
+    ) -> Tuple[List[List[Union[Individual, int]]], List[Individual]]:
         """
         Check for duplicates in current population.
 
@@ -506,6 +504,11 @@ class Pollinator:
                 Whether to consider active individuals (True) or all individuals (False)
         debug: int
                verbosity/debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode)
+
+        Returns
+        -------
+        list[list[propulate.population.Individual | int]]: individuals and their occurrences
+        list[propulate.population.Individual]: unique individuals in population
         """
         if active:
             population, _ = self._get_active_individuals()
@@ -528,7 +531,7 @@ class Pollinator:
                 num_copies = population.count(individual)
                 if debug == 2:
                     print(
-                        f"I{self.island_idx} W{self.comm.rank} G{self.generation}: "
+                        f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
                         f"{individual} occurs {num_copies} time(s)."
                     )
                 unique_inds.append(individual)
@@ -537,29 +540,28 @@ class Pollinator:
 
     def _check_intra_island_synchronization(
             self,
-            populations: list
+            populations: List[List[Individual]]
     ) -> bool:
         """
         Check synchronization of populations of workers within one island.
 
         Parameters
         ----------
-        populations : list of sorted population lists with
-                      propulate.population.Individual
+        populations: list[list[propulate.population.Individual]]
+                     list of islands' sorted population lists
 
         Returns
         -------
-        synchronized : bool
-                       If True, populations are synchronized.
+        bool: True if populations are synchronized, False if not.
         """
         synchronized = True
         for idx, population in enumerate(populations):
-            diffi = deepdiff.DeepDiff(population, populations[0], ignore_order=True)
-            if len(diffi) == 0:
+            difference = deepdiff.DeepDiff(population, populations[0], ignore_order=True)
+            if len(difference) == 0:
                 continue
             print(
-                f"I{self.island_idx} W{self.comm.rank}: Population not synchronized:\n"
-                f"{diffi}\n"
+                f"Island {self.island_idx} Worker {self.comm.rank}: Population not synchronized:\n"
+                f"{difference}\n"
             )
             synchronized = False
         return synchronized
@@ -579,7 +581,7 @@ class Pollinator:
                verbosity/debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode)
         """
         if self.comm.rank == 0:
-            print(f"I{self.island_idx} has {self.comm.size} workers.")
+            print(f"Island {self.island_idx} has {self.comm.size} workers.")
 
         dump = True if self.comm.rank == 0 else False
         migration = True if self.migration_prob > 0 else False
@@ -589,7 +591,7 @@ class Pollinator:
         while self.generations <= -1 or self.generation < self.generations:
 
             if debug == 1 and self.generation % int(logging_interval) == 0:
-                print(f"I{self.island_idx} W{self.comm.rank}: In generation {self.generation}...")
+                print(f"Island {self.island_idx} Worker {self.comm.rank}: In generation {self.generation}...")
 
             # Breed and evaluate individual.
             self._evaluate_individual(debug)
@@ -611,15 +613,18 @@ class Pollinator:
 
             if dump:  # Dump checkpoint.
                 if debug == 2:
-                    print(f"I{self.island_idx} W{self.comm.rank} G{self.generation}: Dumping checkpoint...")
-                save_ckpt_file = self.checkpoint_path / f'island_{self.island_idx}_ckpt.pkl'
+                    print(
+                        f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
+                          f"Dumping checkpoint..."
+                    )
+                save_ckpt_file = self.checkpoint_path / f"island_{self.island_idx}_ckpt.pkl"
                 if os.path.isfile(save_ckpt_file):
                     try:
                         os.replace(save_ckpt_file, save_ckpt_file.with_suffix(".bkp"))
-                    except Exception as e:
+                    except OSError as e:
                         print(e)
                 with open(save_ckpt_file, "wb") as f:
-                    pickle.dump((self.population), f)
+                    pickle.dump(self.population, f)
 
                 dest = self.comm.rank + 1 if self.comm.rank + 1 < self.comm.size else 0
                 self.comm.send(copy.deepcopy(dump), dest=dest, tag=DUMP_TAG)
@@ -631,8 +636,8 @@ class Pollinator:
                 dump = self.comm.recv(source=stat.Get_source(), tag=DUMP_TAG)
                 if debug == 2:
                     print(
-                        f"I{self.island_idx} W{self.comm.rank} G{self.generation}: "
-                        f"Going to dump next: {dump}. Before: W{stat.Get_source()}"
+                        f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
+                        f"Going to dump next: {dump}. Before: Worker {stat.Get_source()}"
                     )
 
             # Go to next generation.
@@ -661,10 +666,10 @@ class Pollinator:
             self._deactivate_replaced_individuals(debug)
             MPI.COMM_WORLD.barrier()
 
-            if debug == 1:
+            if debug > 0:
                 if len(self.replaced) > 0:
                     print(
-                        f"I{self.island_idx} W{self.comm.rank} G{self.generation}: "
+                        f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
                         f"Finally {len(self.replaced)} individual(s) in replaced: {self.replaced}:\n"
                         f"{self.population}"
                     )
@@ -672,12 +677,12 @@ class Pollinator:
                 MPI.COMM_WORLD.barrier()
 
         # Final checkpointing on rank 0.
-        save_ckpt_file = self.checkpoint_path / f'island_{self.island_idx}_ckpt.pkl'
+        save_ckpt_file = self.checkpoint_path / f"island_{self.island_idx}_ckpt.pkl"
         if self.comm.rank == 0:  # Dump checkpoint.
             if os.path.isfile(save_ckpt_file):
                 try:
                     os.replace(save_ckpt_file, save_ckpt_file.with_suffix(".bkp"))
-                except Exception as e:
+                except OSError as e:
                     print(e)
                 with open(save_ckpt_file, "wb") as f:
                     pickle.dump(self.population, f)
@@ -693,7 +698,7 @@ class Pollinator:
             self,
             top_n: int = 1,
             debug: int = 1
-    ) -> list:
+    ) -> List[Union[List[Individual], Individual]]:
         """
         Get top-n results from propulate optimization.
 
@@ -703,6 +708,10 @@ class Pollinator:
                number of best results to report
         debug: int
                verbosity/debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode)
+
+        Returns
+        -------
+        list[list[Individual] | Individual]]: top-n best individuals on each island
         """
         active_pop, num_active = self._get_active_individuals()
         assert (np.all(np.array(self.comm.allgather(num_active), dtype=int) == num_active))
@@ -724,11 +733,11 @@ class Pollinator:
             occurrences, _ = self._check_for_duplicates(True, debug)
             if self.comm.rank == 0:
                 if self._check_intra_island_synchronization(populations):
-                    print(f"I{self.island_idx}: Populations among workers synchronized.")
+                    print(f"Island {self.island_idx}: Populations among workers synchronized.")
                 else:
-                    print(f"I{self.island_idx}: Populations among workers not synchronized:\n{populations}")
+                    print(f"Island {self.island_idx}: Populations among workers not synchronized:\n{populations}")
                 print(
-                    f"I{self.island_idx}: {len(active_pop)}/{len(self.population)} "
+                    f"Island {self.island_idx}: {len(active_pop)}/{len(self.population)} "
                     f"individuals active ({len(occurrences)} unique)."
                 )
         MPI.COMM_WORLD.barrier()
