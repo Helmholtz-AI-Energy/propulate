@@ -44,7 +44,7 @@ class PSOInitUniform(Stochastic):
             assert v_init_limit.shape[-1] == self.laa.shape[-1]
         self.v_limits = v_init_limit
 
-    def __call__(self, *particles: Individual) -> Particle:
+    def __call__(self, particles: list[Individual]) -> Particle:
         """
         Apply uniform-initialization propagator.
 
@@ -55,10 +55,10 @@ class PSOInitUniform(Stochastic):
 
         Returns
         -------
-        ind : propulate.population.Individual
-              list of selected individuals after application of propagator
+        ind : propulate.ap_pso.Particle
+              one particle object
         """
-        if self.rng.random() < self.probability:  # Apply only with specified `probability`.
+        if self.rng.random() < self.probability or len(particles) == 0:  # Apply only with specified `probability`.
 
             position = self.rng.uniform(*self.laa)
             velocity = self.rng.uniform(*(self.v_limits * self.laa))
