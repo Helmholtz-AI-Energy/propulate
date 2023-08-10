@@ -29,7 +29,7 @@ class BasicPSOPropagator(Propagator):
         self.rank = rank
         self.limits = limits
         self.rng = rng
-        self.laa = np.array(list(limits.values())).T
+        self.laa = np.array(list(limits.values())).T  # laa - "limits as array"
 
     def __call__(self, particles: list[Particle]) -> Particle:
         if len(particles) < self.offspring:
@@ -41,7 +41,7 @@ class BasicPSOPropagator(Propagator):
                 old_p = y
         if not isinstance(old_p, Particle):
             old_p = make_particle(old_p)
-            print(f"R{self.rank}, Iteration#{old_p.generation}: Type Error.")
+            print(f"R{self.rank}, Iteration#{old_p.generation}: Type Error. Converted Individual to Particle. Continuing.")
         g_best = min(particles, key=lambda p: p.loss)
         p_best = min(own_p, key=lambda p: p.loss)
         new_velocity = self.w_k * old_p.velocity \
