@@ -42,7 +42,7 @@ class Islands:
         Parameters
         ----------
         loss_fn: Callable
-                  loss function to be minimized
+                 loss function to be minimized
         propagator: propulate.propagators.Propagator
                     propagator to apply for breeding
         rng: random.Random
@@ -73,6 +73,13 @@ class Islands:
                      original island.
         checkpoint_path: Union[Path, str]
                          Path where checkpoints are loaded from and stored.
+
+        Raises
+        ------
+        ValueError: If specified number of islands is smaller than 1.
+        ValueError: If number of workers in custom worker distribution does not equal overall number of processors.
+        ValueError: If custom migration topology has the wrong shape.
+        ValueError: If migration probability is not within [0, 1].
         """
         # Set up communicator.
         rank, size = MPI.COMM_WORLD.rank, MPI.COMM_WORLD.size
