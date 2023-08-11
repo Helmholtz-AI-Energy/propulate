@@ -1,6 +1,6 @@
 import random
 from pathlib import Path
-from typing import Callable, Union, Tuple
+from typing import Callable, Union, List
 
 from mpi4py import MPI
 import numpy as np
@@ -8,6 +8,7 @@ import numpy as np
 from .propagators import Propagator, SelectMin, SelectMax
 from .propulator import Propulator
 from .pollinator import Pollinator
+from .population import Individual
 
 
 class Islands:
@@ -35,7 +36,7 @@ class Islands:
             immigration_propagator: Propagator = SelectMax,
             pollination: bool = True,
             checkpoint_path: Union[str, Path] = Path('./')
-    ):
+    ) -> None:
         """
         Initialize island model with given parameters.
 
@@ -192,7 +193,7 @@ class Islands:
             top_n: int,
             logging_interval: int,
             debug: int
-    ) -> list:
+    ) -> List[Union[List[Individual], Individual]]:
         """
         Run propulate optimization.
 
@@ -207,7 +208,7 @@ class Islands:
 
         Returns
         -------
-        list : list of top-n best individuals on each island
+        list[list[Individual] | Individual]]: top-n best individuals on each island
         """
         self.propulator.propulate(logging_interval, debug)
         return self.propulator.summarize(top_n)
@@ -217,7 +218,7 @@ class Islands:
             top_n: int = 3,
             logging_interval: int = 10,
             debug: int = 1
-    ) -> list:
+    ) -> List[Union[List[Individual], Individual]]:
         """
         Run Propulate optimization.
 
@@ -232,6 +233,6 @@ class Islands:
 
         Returns
         -------
-        list : top-n best individuals on each island
+        list[list[Individual] | Individual]]: top-n best individuals on each island
         """
         return self._run(top_n, logging_interval, debug)
