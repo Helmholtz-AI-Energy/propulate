@@ -251,7 +251,7 @@ class PointMutation(Stochastic):
 
         Parameters
         ----------
-        limits: dict
+        limits: dict[str, tuple[float, float]] | dict[str, tuple[int, int]] | dict[str, tuple[str, ...]]
                  limits of (hyper-)parameters to be optimized
         points: int
                 number of points to mutate
@@ -326,7 +326,7 @@ class RandomPointMutation(Stochastic):
 
         Parameters
         ----------
-        limits: dict
+        limits: dict[str, tuple[float, float]] | dict[str, tuple[int, int]] | dict[str, tuple[str, ...]]
                 limits of parameters to optimize, i.e., search space
         min_points: int
                     minimum number of points to mutate
@@ -417,7 +417,7 @@ class IntervalMutationNormal(Stochastic):
 
         Parameters
         ----------
-        limits: dict
+        limits: dict[str, tuple[float, float]] | dict[str, tuple[int, int]] | dict[str, tuple[str, ...]]
                 limits of (hyper-)parameters to be optimized, i.e., search space
         sigma_factor: float
                       scaling factor for interval width to obtain standard deviation
@@ -817,7 +817,7 @@ class InitUniform(Stochastic):
 
         Parameters
         ----------
-        limits: dict
+        limits: dict[str, tuple[float, float]] | dict[str, tuple[int, int]] | dict[str, tuple[str, ...]]
                 search space, i.e., limits of (hyper-)parameters to be optimized
         parents: int
                  number of parents
