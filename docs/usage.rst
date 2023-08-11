@@ -24,7 +24,6 @@ beneficial traits are selected, recombined, and mutated to breed more fit indivi
 Multi-island evolutionary optimization of mathematical functions
 ----------------------------------------------------------------
 Find the corresponding ``Python`` script here: https://github.com/Helmholtz-AI-Energy/propulate/blob/master/scripts/islands_example.py
-
 Next, we want to minimize the sphere function using ``Propulate``'s asynchronous island model.
 
 On a higher level, Propulate employs an IM, which combines independent evolution of self-contained subpopulations with intermittent exchange of selected individuals.
@@ -36,7 +35,5 @@ Hyperparameter optimization of a neural network
 -----------------------------------------------
 Find the corresponding ``Python`` script here: https://github.com/Helmholtz-AI-Energy/propulate/blob/master/scripts/torch_example.py
 
-
 .. Links
 .. _Github: https://github.com/Helmholtz-AI-Energy/propulate
-
