@@ -4,9 +4,6 @@
    contain the root `toctree` directive.
 
 .. image:: images/LOGO.svg
-|
-
-`Click`_ to watch our 3 min introduction video!
 
 |
 
@@ -98,3 +95,10 @@ You can find the corresponding publication `here`_:
 .. _here: https://doi.org/10.1007/978-3-031-32041-5_6
 .. _Github page: https://github.com/Helmholtz-AI-Energy/propulate
 .. _Helmholtz Research Software Directory: https://helmholtz.software/software/propulate
+
+Indices and tables
+==================
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`
