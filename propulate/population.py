@@ -63,11 +63,13 @@ class Individual(dict):
 
         Returns
         -------
-        bool: True if individuals are the same, false if not.
+        bool
+            True if individuals are the same, false if not.
 
         Raises
         ------
-        TypeError: If other is not an instance or subclass of `Individual`.
+        TypeError
+            If other is not an instance or subclass of `Individual`.
         """
         # Check if object to compare to is of the same class.
         if not isinstance(other, self.__class__):
@@ -107,11 +109,13 @@ class Individual(dict):
 
         Returns
         -------
-        bool: True if individuals are the same, false if not.
+        bool
+            True if individuals are the same, false if not.
 
         Raises
         ------
-        TypeError: If other is not an instance or subclass of `Individual`.
+        TypeError
+            If other is not an instance or subclass of `Individual`.
         """
         # Check if object to compare to is of the same class.
         if not isinstance(other, self.__class__):

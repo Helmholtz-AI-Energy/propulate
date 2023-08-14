@@ -157,8 +157,10 @@ class Pollinator:
 
         Returns
         -------
-        list[propulate.population.Individual]: currently active individuals in population
-        int: number of currently active individuals
+        list[propulate.population.Individual]
+            currently active individuals in population
+        int
+            number of currently active individuals
         """
         active_pop = [ind for ind in self.population if ind.active]
 
@@ -171,7 +173,8 @@ class Pollinator:
 
         Returns
         -------
-        propulate.population.Individual: newly bred individual
+        propulate.population.Individual
+            newly bred individual
         """
         active_pop, _ = self._get_active_individuals()
         ind = self.propagator(active_pop)  # Breed new individual from active population.
@@ -470,7 +473,8 @@ class Pollinator:
 
         Returns
         -------
-        list[propulate.population.Individual]: unique individuals
+        list[propulate.population.Individual]
+            unique individuals
         """
         unique_inds = []
         for individual in self.population:
@@ -507,8 +511,10 @@ class Pollinator:
 
         Returns
         -------
-        list[list[propulate.population.Individual | int]]: individuals and their occurrences
-        list[propulate.population.Individual]: unique individuals in population
+        list[list[propulate.population.Individual | int]]
+            individuals and their occurrences
+        list[propulate.population.Individual]
+            unique individuals in population
         """
         if active:
             population, _ = self._get_active_individuals()
@@ -552,7 +558,8 @@ class Pollinator:
 
         Returns
         -------
-        bool: True if populations are synchronized, False if not.
+        bool
+            True if populations are synchronized, False if not.
         """
         synchronized = True
         for idx, population in enumerate(populations):
@@ -711,7 +718,8 @@ class Pollinator:
 
         Returns
         -------
-        list[list[Individual] | Individual]]: top-n best individuals on each island
+        list[list[Individual] | Individual]]
+            top-n best individuals on each island
         """
         active_pop, num_active = self._get_active_individuals()
         assert (np.all(np.array(self.comm.allgather(num_active), dtype=int) == num_active))

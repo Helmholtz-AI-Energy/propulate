@@ -23,7 +23,8 @@ def _check_compatible(
 
     Returns
     -------
-    bool: True if propagators can be stacked, False if not.
+    bool
+        True if propagators can be stacked, False if not.
     """
     return out1 == in2 or in2 == -1
 
@@ -54,7 +55,8 @@ class Propagator:
 
         Raises
         ------
-        ValueError: If the number of offspring to breed is zero.
+        ValueError
+            If the number of offspring to breed is zero.
         """
         if offspring == 0:
             raise ValueError("Propagator has to sire more than 0 offspring.")
@@ -76,7 +78,8 @@ class Propagator:
 
         Raises
         ------
-        NotImplementedError: Whenever called (abstract base class method).
+        NotImplementedError
+            Whenever called (abstract base class method).
         """
         raise NotImplementedError()
 
@@ -111,7 +114,8 @@ class Stochastic(Propagator):
 
         Raises
         ------
-        ValueError: If the number of offspring to breed is zero.
+        ValueError
+            If the number of offspring to breed is zero.
         """
         super(Stochastic, self).__init__(parents, offspring, rng)
         self.probability = probability
@@ -170,7 +174,8 @@ class Conditional(Propagator):
 
         Returns
         -------
-        list[propulate.population.Individual]: output individuals returned by the conditional propagator
+        list[propulate.population.Individual]
+            output individuals returned by the conditional propagator
         """
         if len(inds) >= self.pop_size:  # If number of evaluated individuals >= pop_size apply true_prop.
             return self.true_prop(inds)
@@ -196,7 +201,8 @@ class Compose(Propagator):
 
         Raises
         ------
-        ValueError: If propagators to stack are incompatible in terms of number of input and output individuals.
+        ValueError
+            If propagators to stack are incompatible in terms of number of input and output individuals.
         """
         super(Compose, self).__init__(propagators[0].parents, propagators[-1].offspring)
         for i in range(len(propagators) - 1):
@@ -227,7 +233,8 @@ class Compose(Propagator):
 
         Returns
         -------
-        list[propulate.population.Individual]: output individuals after application of propagator
+        list[propulate.population.Individual]
+            output individuals after application of propagator
         """
         for p in self.propagators:
             inds = p(inds)
@@ -262,7 +269,8 @@ class PointMutation(Stochastic):
 
         Raises
         ------
-        ValueError: If the requested number of points to mutate is greater than the number of traits.
+        ValueError
+            If the requested number of points to mutate is greater than the number of traits.
         """
         super(PointMutation, self).__init__(1, 1, probability, rng)
         self.points = points
@@ -284,7 +292,8 @@ class PointMutation(Stochastic):
 
         Returns
         -------
-        propulate.population.Individual: possibly point-mutated individual after application of propagator
+        propulate.population.Individual
+            possibly point-mutated individual after application of propagator
         """
         if self.rng.random() < self.probability:  # Apply propagator only with specified probability
             ind = copy.deepcopy(ind)
@@ -339,9 +348,12 @@ class RandomPointMutation(Stochastic):
 
         Raises
         ------
-        ValueError: If no or a negative number of points shall be mutated.
-        ValueError: If there are fewer traits than requested number of points to mutate.
-        ValueError: If the requested minimum number of points to mutate is greater than the requested maximum number.
+        ValueError
+            If no or a negative number of points shall be mutated.
+        ValueError
+            If there are fewer traits than requested number of points to mutate.
+        ValueError
+            If the requested minimum number of points to mutate is greater than the requested maximum number.
         """
         super(RandomPointMutation, self).__init__(1, 1, probability, rng)
         if min_points <= 0:
@@ -375,7 +387,8 @@ class RandomPointMutation(Stochastic):
 
         Returns
         -------
-        propulate.population.Individual: possibly point-mutated individual after application of propagator
+        propulate.population.Individual
+            possibly point-mutated individual after application of propagator
         """
         if self.rng.random() < self.probability:  # Apply propagator only with specified probability.
             ind = copy.deepcopy(ind)
@@ -430,7 +443,8 @@ class IntervalMutationNormal(Stochastic):
 
         Raises
         ------
-        ValueError: If the individuals has fewer continuous traits than the requested number of points to mutate.
+        ValueError
+            If the individuals has fewer continuous traits than the requested number of points to mutate.
         """
         super(IntervalMutationNormal, self).__init__(1, 1, probability, rng)
         self.points = points  # number of traits to point-mutate
@@ -456,7 +470,8 @@ class IntervalMutationNormal(Stochastic):
 
         Returns
         -------
-        propulate.population.Individual: possibly interval-mutated output individual after application of propagator
+        propulate.population.Individual
+            possibly interval-mutated output individual after application of propagator
         """
         if self.rng.random() < self.probability:  # Apply propagator only with specified probability.
             ind = copy.deepcopy(ind)
@@ -503,7 +518,8 @@ class MateUniform(Stochastic):  # uniform crossover
 
         Raises
         ------
-        ValueError: If the relative parent contribution is not within [0, 1].
+        ValueError
+            If the relative parent contribution is not within [0, 1].
         """
         super(MateUniform, self).__init__(2, 1, probability, rng)  # Breed 1 offspring from 2 parents.
         if rel_parent_contrib <= 0 or rel_parent_contrib >= 1:
@@ -526,7 +542,8 @@ class MateUniform(Stochastic):  # uniform crossover
 
         Returns
         -------
-        propulate.population.Individual: possibly cross-bred individual after application of propagator
+        propulate.population.Individual
+            possibly cross-bred individual after application of propagator
         """
         ind = copy.deepcopy(inds[0])  # Consider 1st parent.
         ind.loss = None  # Initialize individual's loss attribute.
@@ -579,7 +596,8 @@ class MateMultiple(Stochastic):  # uniform crossover
 
         Returns
         -------
-        propulate.population.Individual: possibly cross-bred individual after application of propagator
+        propulate.population.Individual
+            possibly cross-bred individual after application of propagator
         """
         ind = copy.deepcopy(inds[0])  # Consider 1st parent.
         ind.loss = None  # Initialize individual's loss attribute.
@@ -632,7 +650,8 @@ class MateSigmoid(Stochastic):
 
         Returns
         -------
-        propulate.population.Individual: possibly cross-bred individual after application of propagator
+        propulate.population.Individual
+            possibly cross-bred individual after application of propagator
         """
         ind = copy.deepcopy(inds[0])  # Consider 1st parent.
         ind.loss = None  # Initialize individual's loss attribute.
@@ -684,11 +703,13 @@ class SelectMin(Propagator):
 
         Returns
         -------
-        list[propulate.population.Individual]: selected output individuals after application of the propagator
+        list[propulate.population.Individual]
+            selected output individuals after application of the propagator
 
         Raises
         ------
-        ValueError: If more individuals than put in shall be selected.
+        ValueError
+            If more individuals than put in shall be selected.
         """
         if len(inds) < self.offspring:
             raise ValueError(
@@ -734,7 +755,8 @@ class SelectMax(Propagator):
 
         Returns
         -------
-        list[propulate.population.Individual]: list of selected individuals after application of the propagator
+        list[propulate.population.Individual]
+            selected individuals after application of the propagator
 
         Raises
         ------
@@ -785,7 +807,8 @@ class SelectUniform(Propagator):
 
         Returns
         -------
-        list[propulate.population.Individual]: list of selected individuals after application of propagator
+        list[propulate.population.Individual]
+            selected individuals after application of propagator
 
         Raises
         ------
@@ -843,11 +866,13 @@ class InitUniform(Stochastic):
 
         Returns
         -------
-        propulate.population.Individual: output individual after application of propagator
+        propulate.population.Individual
+            output individual after application of propagator
 
         Raises
         ------
-        ValueError: If a parameter's type is invalid, i.e., not float (continuous), int (ordinal), or str (categorical).
+        ValueError
+            If a parameter's type is invalid, i.e., not float (continuous), int (ordinal), or str (categorical).
         """
         if self.rng.random() < self.probability:  # Apply only with specified probability.
             ind = Individual()  # Instantiate new individual.

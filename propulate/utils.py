@@ -46,7 +46,8 @@ def get_default_propagator(
 
     Returns
     -------
-    propagators.Propagator: A basic evolutionary optimization propagator.
+    propagators.Propagator
+        A basic evolutionary optimization propagator.
     """
     if any(isinstance(limits[x][0], float) for x in limits):  # Check for existence of at least one continuous trait.
         propagator = Compose([  # Compose propagator out of basic evolutionary operators with Compose(...).

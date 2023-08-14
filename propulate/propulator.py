@@ -141,8 +141,10 @@ class Propulator:
 
         Returns
         -------
-        list[propulate.population.Individual]: currently active individuals in population
-        int: number of currently active individuals
+        list[propulate.population.Individual]
+            currently active individuals in population
+        int
+            number of currently active individuals
         """
         active_pop = [ind for ind in self.population if ind.active]
 
@@ -154,7 +156,8 @@ class Propulator:
 
         Returns
         -------
-        propulate.population.Individual: newly bred individual
+        propulate.population.Individual
+            newly bred individual
         """
         active_pop, _ = self._get_active_individuals()
         ind = self.propagator(active_pop)  # Breed new individual from active population.
@@ -348,7 +351,8 @@ class Propulator:
 
         Raises
         ------
-        RuntimeError: If identical immigrant is already active on target island for real migration.
+        RuntimeError
+            If identical immigrant is already active on target island for real migration.
         """
         log_string = f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: IMMIGRATION\n"
         probe_migrants = True
@@ -406,7 +410,8 @@ class Propulator:
 
         Returns
         -------
-        bool: True if emigrants to be deactivated exist in population, False if not.
+        bool
+            True if emigrants to be deactivated exist in population, False if not.
         """
         check = False
         # Loop over emigrants still to be deactivated.
@@ -516,7 +521,8 @@ class Propulator:
 
         Returns
         -------
-        list[propulate.population.Individual]: unique individuals
+        list[propulate.population.Individual]
+            unique individuals
         """
         unique_inds = []
         for individual in self.population:
@@ -551,8 +557,10 @@ class Propulator:
 
         Returns
         -------
-        list[list[propulate.population.Individual | int]]: individuals and their occurrences
-        list[propulate.population.Individual]: unique individuals in population
+        list[list[propulate.population.Individual | int]]
+            individuals and their occurrences
+        list[propulate.population.Individual]
+            unique individuals in population
         """
         if active:
             population, _ = self._get_active_individuals()
@@ -591,7 +599,8 @@ class Propulator:
 
         Returns
         -------
-        bool: True if populations are synchronized, False if not.
+        bool
+            True if populations are synchronized, False if not.
         """
         synchronized = True
         for population in populations:
@@ -622,7 +631,8 @@ class Propulator:
 
         Raises
         ------
-        ValueError: If any individuals are left that should have been deactivated before (only for debug > 0).
+        ValueError
+            If any individuals are left that should have been deactivated before (only for debug > 0).
 
         """
 
@@ -769,7 +779,8 @@ class Propulator:
 
         Returns
         -------
-        list[list[Individual] | Individual]]: top-n best individuals on each island
+        list[list[Individual] | Individual]]
+            top-n best individuals on each island
         """
         active_pop, num_active = self._get_active_individuals()
         assert (np.all(np.array(self.comm.allgather(num_active), dtype=int) == num_active))

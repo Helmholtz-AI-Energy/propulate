@@ -77,10 +77,14 @@ class Islands:
 
         Raises
         ------
-        ValueError: If specified number of islands is smaller than 1.
-        ValueError: If number of workers in custom worker distribution does not equal overall number of processors.
-        ValueError: If custom migration topology has the wrong shape.
-        ValueError: If migration probability is not within [0, 1].
+        ValueError
+            If specified number of islands is smaller than 1.
+        ValueError
+            If number of workers in custom worker distribution does not equal overall number of processors.
+        ValueError
+            If custom migration topology has the wrong shape.
+        ValueError
+            If migration probability is not within [0, 1].
         """
         # Set up communicator.
         rank, size = MPI.COMM_WORLD.rank, MPI.COMM_WORLD.size
@@ -208,7 +212,8 @@ class Islands:
 
         Returns
         -------
-        list[list[Individual] | Individual]]: top-n best individuals on each island
+        list[list[Individual] | Individual]]
+            top-n best individuals on each island
         """
         self.propulator.propulate(logging_interval, debug)
         return self.propulator.summarize(top_n)
@@ -233,6 +238,7 @@ class Islands:
 
         Returns
         -------
-        list[list[Individual] | Individual]]: top-n best individuals on each island
+        list[list[Individual] | Individual]]
+            top-n best individuals on each island
         """
         return self._run(top_n, logging_interval, debug)
