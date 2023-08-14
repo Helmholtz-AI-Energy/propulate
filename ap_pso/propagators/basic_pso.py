@@ -29,7 +29,7 @@ class BasicPSOPropagator(Propagator):
         self.rank = rank
         self.limits = limits
         self.rng = rng
-        self.laa = np.array(list(limits.values())).T  # laa - "limits as array"
+        self.laa: np.ndarray = np.array(list(limits.values())).T  # laa - "limits as array"
 
     def __call__(self, particles: list[Particle]) -> Particle:
         old_p, p_best, g_best = self._prepare_data(particles)

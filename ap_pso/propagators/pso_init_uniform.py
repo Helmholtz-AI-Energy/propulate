@@ -60,8 +60,8 @@ class PSOInitUniform(Stochastic):
         """
         if self.rng.random() < self.probability or len(particles) == 0:  # Apply only with specified `probability`.
 
-            position = self.rng.uniform(*self.laa)
-            velocity = self.rng.uniform(*(self.v_limits * self.laa))
+            position = np.array([self.rng.uniform(*self.laa[..., i]) for i in range(self.laa.shape[-1])])
+            velocity = np.array([self.rng.uniform(*(self.v_limits * self.laa)[..., i]) for i in range(self.laa.shape[-1])])
 
             particle = Particle(position, velocity)  # Instantiate new particle.
 
