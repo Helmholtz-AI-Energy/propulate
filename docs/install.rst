@@ -39,9 +39,10 @@ Alternatively:
 
 .. note::
 
-   ``Propulate`` uses the message passing interface (MPI) and requires an MPI implementation (currently only tested with `OpenMPI`_).
+   ``Propulate`` uses the message passing interface (MPI) and requires an MPI implementation under the hood.
+   Currently, it is only tested with `OpenMPI`_.
 
-You can test whether your installation was successful by importing ``Propulate`` in ``Python``:
+You can check whether your installation was successful by importing ``Propulate`` in ``Python``:
 
 .. code-block:: python
 
