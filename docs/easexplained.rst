@@ -33,7 +33,7 @@ Evolutionary Algorithms Explained
 
 |
 
-How evolutionary algorithms work
+How Evolutionary Algorithms Work
 --------------------------------
 
 .. image:: images/ea_pop.png
@@ -42,7 +42,7 @@ How evolutionary algorithms work
 
 |
 
-Evolutionary operators
+Evolutionary Operators
 ----------------------
 
 We use evolutionary operators to generate new individuals from current ones.
@@ -78,7 +78,7 @@ Mutation
 
 |
 
-Let's go parallel
+Let's Go Parallel
 -----------------
 .. image:: images/ea_parallel.png
    :width: 100 %
@@ -88,7 +88,7 @@ Let's go parallel
 
 Since all individuals in each generation are independent, they can be evaluated in parallel.
 
-The problem with synchronous parallel evaluation
+The Problem with Synchronous Parallel Evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Typically, all evaluations of the current generation have to be completed before the next one is bred synchronously
 from the discrete population of the last generation. This is what is known as a *synchronous* parallel EA.
@@ -102,8 +102,8 @@ processors. This hinders optimal resource utilization and affects the scalabilit
 
 |
 
-The solution in Propulate: Asynchronous parallel evaluation
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Solution in Propulate: Asynchronous Parallel Evaluation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 To alleviate the bottleneck inherent to synchronous parallel EAs, we introduce ``Propulate``, a massively parallel
 evolutionary optimizer with *asynchronous* propagation of populations.
 Unlike classical EAs, ``Propulate`` maintains a continuous population of all evaluated individuals so far with a
@@ -116,3 +116,39 @@ efficiency.
    :align: center
 
 |
+
+Propulate - Asynchronous Propagation of Populations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. image:: images/async_prop.png
+   :width: 100 %
+   :align: center
+
+|
+
+The Island Model
+^^^^^^^^^^^^^^^^
+
+On top of its basic asynchronous evolutionary optimizer, ``Propulate`` implements an *asynchronous island model*.
+The island model is a common parallelization scheme for evolutionary algorithms. It combines independent evolution of
+self-contained subpopulations (or islands) with intermittent exchange of selected individuals (migration).
+To coordinate the search globally, each island occasionally delegates migrants to be included in the target islands'
+populations. With worse performing islands typically receiving candidates from better performing ones, islands
+communicate genetic information competitively, thus increasing diversity among the subpopulations.
+
+What this basically means is, that we do not only consider one population of individuals but multiple independent
+populations. We call each of these populations an island. Those islands co-exist peacefully most of the time. But from
+time to time, individuals migrate from one island to another. In this way, we can explore the
+search space more comprehensively and prevent local trapping.
+
+|im|  |im|
+
+.. |im| image:: images/async_prop_island_reduced.png
+   :width: 49 %
+
+
+Propulate - Asynchronous Migration Between Islands
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. image:: images/async_migr.png
+   :width: 100 %
+   :align: center
