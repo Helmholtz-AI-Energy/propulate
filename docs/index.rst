@@ -81,7 +81,7 @@ You can find the corresponding publication `here`_:
 ``Propulate`` is also listed in the `Helmholtz Research Software Directory`_.
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :caption: Contents:
 
    quickstart
