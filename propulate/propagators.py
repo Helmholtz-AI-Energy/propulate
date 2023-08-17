@@ -864,52 +864,6 @@ class CMAParameter:
             1 - 1.0 / (4 * problem_dimension) + 1.0 / (21 * problem_dimension**2)
         )
 
-    # TODO Getter should be in Propagator class
-    def get_mean(self) -> np.ndarray:
-        """
-        Getter for mean attribute.
-        Returns
-        -------
-        mean : the current cma-es mean of the best mu individuals
-        """
-        return self.mean
-
-    def get_sigma(self) -> float:
-        """
-        Getter for step size.
-        Returns
-        -------
-        sigma : the current step-size
-        """
-        return self.sigma
-
-    def get_co_matrix(self) -> np.ndarray:
-        """
-        Getter for covariance matrix.
-        Returns
-        -------
-        co_matrix : current covariance matrix
-        """
-        return self.co_matrix
-
-    def get_evolution_path_sigma(self) -> np.ndarray:
-        """
-        Getter for evolution path of step-size adaption.
-        Returns
-        -------
-        p_sigma : evolution path for step-size adaption
-        """
-        return self.p_sigma
-
-    def get_evolution_path_co_matrix(self) -> np.ndarray:
-        """
-        Getter for evolution path of covariance matrix adpation.
-        Returns
-        -------
-        p_c : evolution path for covariance matrix adaption
-        """
-        return self.p_c
-
     def set_mean(self, new_mean: np.ndarray) -> None:
         """
         Setter for mean property. Updates the old mean as well.
@@ -1358,6 +1312,7 @@ class CMAPropagator(Propagator):
         exploration=False,
         select_worst_all_time=False,
         pop_size=None,
+        pool_size=2,
     ) -> None:
         """
         Constructor of CMAPropagator.
@@ -1368,6 +1323,7 @@ class CMAPropagator(Propagator):
         exploration : if true decompose covariance matrix for each generation (worse runtime, less exploitation, more exploration)), else decompose covariance matrix only after a certain number of individuals evaluated (better runtime, more exploitation, less exploration)
         select_worst_all_time : if true use the worst individuals for negative recombination weights in active CMA-ES, else use the worst (lambda - mu) individuals of the best lambda individuals. If BasicCMA is used the given value is irrelevant with regards to functionality.
         pop_size: the number of individuals to be considered in each generation
+        pool_size: the size of the pool of individuals preselected before selecting the best of this pool
         """
         self.adapter = adapter
         problem_dimension = len(limits)
@@ -1401,9 +1357,8 @@ class CMAPropagator(Propagator):
             limits,
             exploration,
         )
-
-        # TODO
-        self.selectPool = SelectMin(2 * lamb)
+        self.pool_size = int(pool_size) if int(pool_size) >= 1 else 2
+        self.selectPool = SelectMin(self.pool_size * lamb)
         self.selectFromPool = SelectUniform(lamb - 1, rng=rng)
         self.selectBest1 = SelectMin(1)
 
@@ -1424,9 +1379,8 @@ class CMAPropagator(Propagator):
         self.par.count_eval += num_inds - self.par.count_eval
         # sample new individual
         new_ind = self._sample_cma()
-        # check if len(inds) >= oder < lambda and make sample or sample + update
-        #if num_inds >= self.par.lamb:
-        if num_inds >= 2 * self.par.lamb:
+        # check if len(inds) >= or < pool_size * lambda and make sample or sample + update
+        if num_inds >= self.pool_size * self.par.lamb:
             inds = self.selectPool(inds)
             # Update mean
             self.adapter.update_mean(
@@ -1434,13 +1388,15 @@ class CMAPropagator(Propagator):
             )
             # Update Covariance Matrix
             if not self.select_worst_all_time:
-                #best_mu = self.selectBestMu(inds)
+                # Alternatively select best mu: best_mu = self.selectBestMu(inds)
                 best = self.selectBest1(inds)
                 inds_filtered = [ind for ind in inds if ind not in best]
                 self.adapter.update_covariance_matrix(
                     self.par,
-                    #self._transform_individuals_to_matrix(self.selectBestLambda(inds))
-                    self._transform_individuals_to_matrix(best + self.selectFromPool(inds_filtered))
+                    # self._transform_individuals_to_matrix(self.selectBestLambda(inds))
+                    self._transform_individuals_to_matrix(
+                        best + self.selectFromPool(inds_filtered)
+                    ),
                 )
             else:
                 self.adapter.update_covariance_matrix(
@@ -1489,3 +1445,48 @@ class CMAPropagator(Propagator):
         for i, (dim, _) in enumerate(self.par.limits.items()):
             new_ind[dim] = new_x[i, 0]
         return new_ind
+
+    def get_mean(self) -> np.ndarray:
+        """
+        Getter for mean attribute.
+        Returns
+        -------
+        mean : the current cma-es mean of the best mu individuals
+        """
+        return self.par.mean
+
+    def get_sigma(self) -> float:
+        """
+        Getter for step size.
+        Returns
+        -------
+        sigma : the current step-size
+        """
+        return self.par.sigma
+
+    def get_co_matrix(self) -> np.ndarray:
+        """
+        Getter for covariance matrix.
+        Returns
+        -------
+        co_matrix : current covariance matrix
+        """
+        return self.par.co_matrix
+
+    def get_evolution_path_sigma(self) -> np.ndarray:
+        """
+        Getter for evolution path of step-size adaption.
+        Returns
+        -------
+        p_sigma : evolution path for step-size adaption
+        """
+        return self.par.p_sigma
+
+    def get_evolution_path_co_matrix(self) -> np.ndarray:
+        """
+        Getter for evolution path of covariance matrix adpation.
+        Returns
+        -------
+        p_c : evolution path for covariance matrix adaption
+        """
+        return self.par.p_c

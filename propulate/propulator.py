@@ -123,6 +123,11 @@ class Propulator:
                     "Initializing population randomly..."
                 )
 
+        self.best_ind_per_island_per_generation = np.empty(0)
+        self.mean_generation = np.empty(0)
+        self.co_matrix_generation = np.empty(0)
+        self.sigma_generation = np.empty(0)
+
     def propulate(self, logging_interval=10, DEBUG=1):
         """
         Run actual evolutionary optimization.""
@@ -669,6 +674,14 @@ class Propulator:
                         f"Going to dump next: {dump}. Before: W{stat.Get_source()}"
                     )
 
+            # load balancing needed?
+            if self.comm.rank == 0:
+                # just the best ind of worker 0 since populations should be very similar and it is a lot cheaper
+                self.best_ind_per_island_per_generation = np.append(self.best_ind_per_island_per_generation, min(self.population, key=attrgetter("loss")).loss)
+                self.mean_generation = np.append(self.mean_generation, self.propagator.get_mean())
+                self.co_matrix_generation = np.append(self.co_matrix_generation, self.propagator.get_co_matrix())
+                self.sigma_generation = np.append(self.sigma_generation, self.propagator.get_sigma())
+
             # Go to next generation.
             self.generation += 1
 
@@ -782,4 +795,12 @@ class Propulator:
                 for i in range(top_n):
                     res_str += f"({i+1}): {unique_pop[i]}\n"
                 print(res_str)
+
+        # GEHT NUR FÜR CMAPROPAGATOR
+        if self.comm.rank == 0:
+            np.save(self.checkpoint_path / f"best_ind_over_gens_I{self.isle_idx}.npy", self.best_ind_per_island_per_generation)
+            np.save(self.checkpoint_path / f"mean_over_gens_I{self.isle_idx}.npy", self.mean_generation)
+            np.save(self.checkpoint_path / f"sigma_over_gens_I{self.isle_idx}.npy", self.sigma_generation)
+            np.save(self.checkpoint_path / f"co_matrix_over_gens_I{self.isle_idx}.npy", self.co_matrix_generation)
+
         return MPI.COMM_WORLD.allgather(best)

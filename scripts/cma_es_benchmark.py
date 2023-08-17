@@ -204,8 +204,9 @@ if __name__ == "__main__":
     parser.add_argument("--exploration", type=bool, default=False, help="Whether to update the covariance matrix after each generation")
     parser.add_argument("--select_worst_all_time", type=bool, default=False, help="Whether to always use the worst individuals of all time in the case of active cma.")
     parser.add_argument("--dimension", type=int, default=2, help="The number of dimension in the search space.")
+    parser.add_argument("--checkpoint_path", type=str, default='./checkpoint_data/', help="The path for the checkpoint and logging data.")
+    parser.add_argument("--pool_size", type=int, default=2, help="The pool size of the cma propagator.")
 
-    # TODO ADD CHOICES
     args = parser.parse_args()
 
     # Set up migration topology.
@@ -233,7 +234,7 @@ if __name__ == "__main__":
             )
     else:
         adapter = ActiveCMA() if args.active_cma else adapter = BasicCMA()
-        propagator = CMAPropagator(adapter, limits, exploration=args.exploration, select_worst_all_time=args.select_worst_all_time, pop_size=args.pop_size)
+        propagator = CMAPropagator(adapter, limits, exploration=args.exploration, select_worst_all_time=args.select_worst_all_time, pop_size=args.pop_size, pool_size=args.pool_size)
 
     # Set up island model.
     islands = Islands(
@@ -242,8 +243,8 @@ if __name__ == "__main__":
         rng,  # Random number generator
         generations=args.generations,  # Number of generations
         num_isles=args.num_isles,  # Number of separate evolutionary islands
-        # migration_topology=migration_topology,          # Migration topology
-        checkpoint_path='./',  # Path to potentially read checkpoints from and write new checkpoints to
+        migration_topology=migration_topology,          # Migration topology
+        checkpoint_path=args.checkpoint_path,  # Path to potentially read checkpoints from and write new checkpoints to
         migration_probability=args.migration_probability,  # Migration probability
         emigration_propagator=SelectMin,  # Emigration propagator (how to select migrants)
         immigration_propagator=SelectMax,
