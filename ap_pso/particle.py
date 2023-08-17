@@ -27,3 +27,5 @@ class Particle(Individual):
             assert position.shape == velocity.shape
         self.velocity = velocity
         self.position = position
+        self.g_rank = rank  # necessary as Propulate splits up the COMM_WORLD communicator which leads to errors with
+        # rank.

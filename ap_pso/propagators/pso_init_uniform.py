@@ -17,7 +17,7 @@ class PSOInitUniform(Stochastic):
     """
 
     def __init__(self, limits: Dict[str, Tuple[float, float]], parents=0, probability=1.0, rng: Random = None, *,
-                 v_init_limit: Union[float, np.ndarray] = 0.1):
+                 v_init_limit: Union[float, np.ndarray] = 0.1, rank: int):
         """
         Constructor of PSOInitUniform class.
 
@@ -33,10 +33,12 @@ class PSOInitUniform(Stochastic):
                   number of input individuals (-1 for any)
         probability : float
                     the probability with which a completely new individual is created
-        rng : random.Random()
+        rng : random.Random
               random number generator
         v_init_limit: float | np.ndarray
                       some multiplicative constant to reduce initial random velocity values.
+        rank : int
+               The rank of the worker in MPI.COMM_WORLD
         """
         super().__init__(parents, 1, probability, rng)
         self.limits = limits
@@ -44,6 +46,7 @@ class PSOInitUniform(Stochastic):
         if isinstance(v_init_limit, np.ndarray):
             assert v_init_limit.shape[-1] == self.laa.shape[-1]
         self.v_limits = v_init_limit
+        self.rank = rank
 
     def __call__(self, particles: List[Individual]) -> Particle:
         """
@@ -73,7 +76,7 @@ class PSOInitUniform(Stochastic):
                 ]
             )
 
-            particle = Particle(position, velocity)  # Instantiate new particle.
+            particle = Particle(position, velocity, rank=self.rank)  # Instantiate new particle.
 
             for index, limit in enumerate(self.limits):
                 # Since Py 3.7, iterating over dicts is stable, so we can do the following.

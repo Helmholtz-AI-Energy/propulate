@@ -52,8 +52,12 @@ class BasicPSOPropagator(Propagator):
         if len(particles) < self.offspring:
             raise ValueError("Not enough Particles")
 
-        own_p = [x for x in particles if x.rank == self.rank]
-        old_p = max(own_p, key=lambda p: p.generation)
+        own_p = [x for x in particles if (isinstance(x, Particle) and x.g_rank == self.rank) or x.rank == self.rank]
+        if len(own_p) > 0:
+            old_p = max(own_p, key=lambda p: p.generation)
+        else:
+            victim = max(particles, key=lambda p: p.generation)
+            old_p = self._make_new_particle(victim.position, victim.velocity, victim.generation)
 
         if not isinstance(old_p, Particle):
             old_p = make_particle(old_p)

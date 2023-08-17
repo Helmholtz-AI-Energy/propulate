@@ -34,14 +34,15 @@ if __name__ == "__main__":
             # ConstrictionPropagator(2.49618, 2.49618, MPI.COMM_WORLD.rank, limits, rng)
             # BasicPSOPropagator(0.7298, 0.5, 0.5, MPI.COMM_WORLD.rank, limits, rng)
             CanonicalPropagator(2.49618, 2.49618, MPI.COMM_WORLD.rank, limits, rng)
-            # StatelessPSOPropagator(0, 1.49618, 1.49618, MPI.COMM_WORLD.rank, limits, rng) # Attention! Does not work with current chart drawing script!
+            # StatelessPSOPropagator(0, 1.49618, 1.49618, MPI.COMM_WORLD.rank, limits, rng) # Attention! Does not work
+            # with current chart drawing script!
         ]
     )
 
-    init = PSOInitUniform(limits, rng=rng)
+    init = PSOInitUniform(limits, rng=rng, rank=MPI.COMM_WORLD.rank)
     propagator = Conditional(POP_SIZE, propagator, init)
 
-    islands = Islands(function, propagator, rng, generations=NUM_GENERATIONS, checkpoint_path='./checkpoints/',
+    islands = Islands(function, propagator, rng, generations=NUM_GENERATIONS, num_islands=4, checkpoint_path='./checkpoints/',
                       migration_probability=0, pollination=False)
     islands.evolve(top_n=1, logging_interval=1)
     islands.propulator.paint_graphs(function_name)
