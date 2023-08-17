@@ -1,8 +1,6 @@
 """
 This file contains all sort of more or less useful stuff.
 """
-from typing import Iterable
-
 import numpy as np
 
 from ap_pso import Particle

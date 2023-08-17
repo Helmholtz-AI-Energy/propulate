@@ -2,6 +2,7 @@
 This file contains the first stateful PSO propagator for Propulate.
 """
 from random import Random
+from typing import Dict, Tuple, List
 
 import numpy as np
 
@@ -12,7 +13,7 @@ from propulate.propagators import Propagator
 class BasicPSOPropagator(Propagator):
 
     def __init__(self, w_k: float, c_cognitive: float, c_social: float, rank: int,
-                 limits: dict[str, tuple[float, float]], rng: Random):
+                 limits: Dict[str, Tuple[float, float]], rng: Random):
         """
         Class constructor.
         :param w_k: The learning rate ... somehow
@@ -31,17 +32,17 @@ class BasicPSOPropagator(Propagator):
         self.rng = rng
         self.laa: np.ndarray = np.array(list(limits.values())).T  # laa - "limits as array"
 
-    def __call__(self, particles: list[Particle]) -> Particle:
+    def __call__(self, particles: List[Particle]) -> Particle:
         old_p, p_best, g_best = self._prepare_data(particles)
 
         new_velocity: np.ndarray = self.w_k * old_p.velocity \
-                       + self.rng.uniform(0, self.c_cognitive) * (p_best.position - old_p.position) \
-                       + self.rng.uniform(0, self.c_social) * (g_best.position - old_p.position)
+                                   + self.rng.uniform(0, self.c_cognitive) * (p_best.position - old_p.position) \
+                                   + self.rng.uniform(0, self.c_social) * (g_best.position - old_p.position)
         new_position: np.ndarray = old_p.position + new_velocity
 
         return self._make_new_particle(new_position, new_velocity, old_p.generation + 1)
 
-    def _prepare_data(self, particles: list[Particle]) -> tuple[Particle, Particle, Particle]:
+    def _prepare_data(self, particles: List[Particle]) -> Tuple[Particle, Particle, Particle]:
         """
         Returns the following particles in this very order:
         1.  old_p: the current particle to be updated now
@@ -56,7 +57,9 @@ class BasicPSOPropagator(Propagator):
 
         if not isinstance(old_p, Particle):
             old_p = make_particle(old_p)
-            print(f"R{self.rank}, Iteration#{old_p.generation}: Type Error. Converted Individual to Particle. Continuing.")
+            print(
+                f"R{self.rank}, Iteration#{old_p.generation}: Type Error. "
+                f"Converted Individual to Particle. Continuing.")
 
         g_best = min(particles, key=lambda p: p.loss)
         p_best = min(own_p, key=lambda p: p.loss)

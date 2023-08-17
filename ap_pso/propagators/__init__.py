@@ -1,7 +1,8 @@
 """
 In this package, I collect all PSO-related propagators.
 """
-__all__ = ["PSOInitUniform", "StatelessPSOPropagator", "BasicPSOPropagator", "VelocityClampingPropagator", "ConstrictionPropagator", "CanonicalPropagator", "PSOCompose"]
+__all__ = ["PSOInitUniform", "StatelessPSOPropagator", "BasicPSOPropagator", "VelocityClampingPropagator",
+           "ConstrictionPropagator", "CanonicalPropagator", "PSOCompose"]
 
 from ap_pso.propagators.basic_pso import BasicPSOPropagator
 from ap_pso.propagators.constriction import ConstrictionPropagator

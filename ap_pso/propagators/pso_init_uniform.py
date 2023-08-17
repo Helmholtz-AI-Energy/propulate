@@ -2,6 +2,7 @@
 This file contains propagators, that can be used to initialize a population of either Individuals or Particles.
 """
 from random import Random
+from typing import Union, Dict, Tuple, List
 
 import numpy as np
 
@@ -15,8 +16,8 @@ class PSOInitUniform(Stochastic):
     Initialize individuals by uniformly sampling specified limits for each trait.
     """
 
-    def __init__(self, limits: dict[str, tuple[float, float]], parents=0, probability=1.0, rng: Random = None, *,
-                 v_init_limit: float | np.ndarray = 0.1):
+    def __init__(self, limits: Dict[str, Tuple[float, float]], parents=0, probability=1.0, rng: Random = None, *,
+                 v_init_limit: Union[float, np.ndarray] = 0.1):
         """
         Constructor of PSOInitUniform class.
 
@@ -44,7 +45,7 @@ class PSOInitUniform(Stochastic):
             assert v_init_limit.shape[-1] == self.laa.shape[-1]
         self.v_limits = v_init_limit
 
-    def __call__(self, particles: list[Individual]) -> Particle:
+    def __call__(self, particles: List[Individual]) -> Particle:
         """
         Apply uniform-initialization propagator.
 
@@ -61,7 +62,16 @@ class PSOInitUniform(Stochastic):
         if self.rng.random() < self.probability or len(particles) == 0:  # Apply only with specified `probability`.
 
             position = np.array([self.rng.uniform(*self.laa[..., i]) for i in range(self.laa.shape[-1])])
-            velocity = np.array([self.rng.uniform(*(self.v_limits * self.laa)[..., i]) for i in range(self.laa.shape[-1])])
+            velocity = np.array(
+                [
+                    self.rng.uniform(
+                        *(
+                                self.v_limits * self.laa
+                        )[..., i]
+                    )
+                    for i in range(self.laa.shape[-1])
+                ]
+            )
 
             particle = Particle(position, velocity)  # Instantiate new particle.
 

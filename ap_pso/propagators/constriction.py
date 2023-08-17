@@ -2,6 +2,7 @@
 This file contains a Propagator subclass providing constriction-flavoured pso.
 """
 from random import Random
+from typing import List, Dict, Tuple
 
 import numpy as np
 
@@ -14,7 +15,7 @@ class ConstrictionPropagator(BasicPSOPropagator):
                  c_cognitive: float,
                  c_social: float,
                  rank: int,
-                 limits: dict[str, tuple[float, float]],
+                 limits: Dict[str, Tuple[float, float]],
                  rng: Random):
         """
         Class constructor.
@@ -30,7 +31,7 @@ class ConstrictionPropagator(BasicPSOPropagator):
         chi: float = 2.0 / (phi - 2.0 + np.sqrt(phi * (phi - 4.0)))
         super().__init__(chi, c_cognitive, c_social, rank, limits, rng)
 
-    def __call__(self, particles: list[Particle]) -> Particle:
+    def __call__(self, particles: List[Particle]) -> Particle:
         old_p, p_best, g_best = self._prepare_data(particles)
 
         new_velocity = self.w_k * (old_p.velocity

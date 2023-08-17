@@ -3,16 +3,16 @@ This file contains the first prototype of a propagator that runs PSO on Propulat
 """
 
 from random import Random
+from typing import Dict, Tuple, List
 
 from propulate.population import Individual
-
 from propulate.propagators import Propagator
 
 
 class StatelessPSOPropagator(Propagator):
 
     def __init__(self, w_k: float, c_cognitive: float, c_social: float, rank: int,
-                 limits: dict[str, tuple[float, float]], rng: Random):
+                 limits: Dict[str, Tuple[float, float]], rng: Random):
         """
 
         :param w_k: The learning rate ... somehow - currently without effect
@@ -30,7 +30,7 @@ class StatelessPSOPropagator(Propagator):
         self.limits = limits
         self.rng = rng
 
-    def __call__(self, particles: list[Individual]) -> Individual:
+    def __call__(self, particles: List[Individual]) -> Individual:
         if len(particles) < self.offspring:
             raise ValueError("Not enough Particles")
         own_p = [x for x in particles if x.rank == self.rank]
@@ -42,6 +42,7 @@ class StatelessPSOPropagator(Propagator):
         p_best = sorted(own_p, key=lambda p: p.loss)[0]
         new_p = Individual(generation=old_p.generation + 1)
         for k in self.limits:
-            new_p[k] = self.c_cognitive * self.rng.uniform(*self.limits[k]) * (p_best[k] - old_p[k]) \
-                        + self.c_social * self.rng.uniform(*self.limits[k]) * (g_best[k] - old_p[k])
+            new_p[k] = self.c_cognitive * self.rng.uniform(*self.limits[k]) * (
+                        p_best[k] - old_p[k]) + self.c_social * self.rng.uniform(*self.limits[k]) * (
+                                   g_best[k] - old_p[k])
         return new_p

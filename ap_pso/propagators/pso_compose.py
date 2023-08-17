@@ -1,4 +1,4 @@
-from typing import Iterable
+from typing import List
 
 from ap_pso import Particle
 from propulate.population import Individual
@@ -6,11 +6,13 @@ from propulate.propagators import Compose
 
 
 class PSOCompose(Compose):
-    def __call__(self, particles: list[Particle]) -> Particle:
+    def __call__(self, particles: List[Particle]) -> Particle:
         """
-        Returns the first element of the list of particles returned by the last Propagator in the list input upon creation of the object.
+        Returns the first element of the list of particles returned by the last Propagator in the list
+        input upon creation of the object.
 
-        This behaviour should change in near future, so that a list of Particles is returned, with hopefully only one member.
+        This behaviour should change in near future, so that a list of Particles is returned,
+        with hopefully only one member.
         """
         for p in self.propagators:
             tmp = p(particles)

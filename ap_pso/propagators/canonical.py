@@ -1,3 +1,5 @@
+from typing import List
+
 import numpy as np
 
 from ap_pso import Particle
@@ -12,7 +14,7 @@ class CanonicalPropagator(ConstrictionPropagator):
         x_range = np.abs(x_max - x_min)
         self.v_cap: np.ndarray = np.array([-x_range, x_range])
 
-    def __call__(self, particles: list[Particle]):
+    def __call__(self, particles: List[Particle]):
         # Abuse Constriction's update rule so I don't have to rewrite it.
         victim = super().__call__(particles)
 
