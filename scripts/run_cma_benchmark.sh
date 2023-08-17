@@ -58,6 +58,7 @@ BASE_SCRIPT="#!/bin/bash
 #SBATCH --nodes=$NODES
 #SBATCH --ntasks=$NTASKS
 #SBATCH --gres=cpu:$CPUS_PER_NODE
+#SBATCH --partition=dev_multiple
 
 module purge
 module load compiler/gnu/12.1
