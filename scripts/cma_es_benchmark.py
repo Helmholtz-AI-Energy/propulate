@@ -258,12 +258,12 @@ def get_function_search_space(fname, problem_dimension):
         function = griewank
         limits = {}
         for i in range(problem_dimension):
-            limits[i] = (-600, 600)
+            limits[i] = (-600., 600.)
     elif fname == "schwefel":
         function = schwefel
         limits = {}
         for i in range(problem_dimension):
-            limits[i] = (-500, 500)
+            limits[i] = (-500., 500.)
     elif fname == "sphere":
         function = sphere
         limits = {}
@@ -290,7 +290,7 @@ def get_propagator(prop_id: int, limits: Dict) -> Propagator:
 
     if prop_id == 0:
         propagator = get_default_propagator(
-            pop_size=4,
+            pop_size=8,
             limits=limits,
             mate_prob=0.7,
             mut_prob=0.4,
@@ -342,16 +342,16 @@ if __name__ == "__main__":
     configurations = {
         "default_prop_migr": {"checkpoint_path": "default_prop/migr", "num_islands": args.num_islands, "pollination": False, "propagator": 0, "dimension": args.dimension}, # TODO Wie num_islands setzen für default propulat?
         "default_prop_polli": {"checkpoint_path": "default_prop/polli", "num_islands": args.num_islands, "pollination": True, "propagator": 0, "dimension": args.dimension}, # TODO Wie num_islands setzen für default propulate?
-        "cma_basic": {"checkpoint_path": "cma/basic", "num_islands": 1, "pollination": False, "propagator": 1, "dimension": args.dimension},
-        "cma_active": {"checkpoint_path": "cma/active", "num_islands": 1, "pollination": False, "propagator": 2, "dimension": args.dimension},
-        "cma_island_basic_migr": {"checkpoint_path": "cma_island/basic/migr", "num_islands": args.num_islands, "pollination": False, "propagator": 1, "dimension": args.dimension},
-        "cma_island_active_migr": {"checkpoint_path": "cma_island/active/migr", "num_islands": args.num_islands, "pollination": False, "propagator": 2, "dimension": args.dimension},
-        "multi_dim_default_prop_polli_10": {"checkpoint_path": "multi_dim/default_prop/polli", "num_islands": args.num_islands, "pollination": True, "propagator": 0, "dimension": 10},
-        "multi_dim_cma_active_10": {"checkpoint_path": "multi_dim/cma/active", "num_islands": 1, "pollination": False, "propagator": 2, "dimension": 10},
-        "multi_dim_cma_island_active_migr_10": {"checkpoint_path": "multi_dim/cma_island/active/migr", "num_islands": args.num_islands, "pollination": False, "propagator": 2, "dimension": 10}, # TODO auch mit basic?
-        "multi_dim_default_prop_polli_30": {"checkpoint_path": "multi_dim/default_prop/polli", "num_islands": args.num_islands, "pollination": True, "propagator": 0, "dimension": 30},
-        "multi_dim_cma_active_30": {"checkpoint_path": "multi_dim/cma/active", "num_islands": 1, "pollination": False, "propagator": 2, "dimension": 30},
-        "multi_dim_cma_island_active_migr_30": {"checkpoint_path": "multi_dim/cma_island/active/migr", "num_islands": args.num_islands, "pollination": False, "propagator": 2, "dimension": 30}  # TODO auch mit basic?
+        #"cma_basic": {"checkpoint_path": "cma/basic", "num_islands": 1, "pollination": False, "propagator": 1, "dimension": args.dimension},
+        #"cma_active": {"checkpoint_path": "cma/active", "num_islands": 1, "pollination": False, "propagator": 2, "dimension": args.dimension},
+        #"cma_island_basic_migr": {"checkpoint_path": "cma_island/basic/migr", "num_islands": args.num_islands, "pollination": False, "propagator": 1, "dimension": args.dimension},
+        #"cma_island_active_migr": {"checkpoint_path": "cma_island/active/migr", "num_islands": args.num_islands, "pollination": False, "propagator": 2, "dimension": args.dimension},
+        #"multi_dim_default_prop_polli_10": {"checkpoint_path": "multi_dim/default_prop/polli", "num_islands": args.num_islands, "pollination": True, "propagator": 0, "dimension": 10},
+        #"multi_dim_cma_active_10": {"checkpoint_path": "multi_dim/cma/active", "num_islands": 1, "pollination": False, "propagator": 2, "dimension": 10},
+        #"multi_dim_cma_island_active_migr_10": {"checkpoint_path": "multi_dim/cma_island/active/migr", "num_islands": args.num_islands, "pollination": False, "propagator": 2, "dimension": 10}, # TODO auch mit basic?
+        #"multi_dim_default_prop_polli_30": {"checkpoint_path": "multi_dim/default_prop/polli", "num_islands": args.num_islands, "pollination": True, "propagator": 0, "dimension": 30},
+        #"multi_dim_cma_active_30": {"checkpoint_path": "multi_dim/cma/active", "num_islands": 1, "pollination": False, "propagator": 2, "dimension": 30},
+        #"multi_dim_cma_island_active_migr_30": {"checkpoint_path": "multi_dim/cma_island/active/migr", "num_islands": args.num_islands, "pollination": False, "propagator": 2, "dimension": 30}  # TODO auch mit basic?
     }
 
     for f in functions:
