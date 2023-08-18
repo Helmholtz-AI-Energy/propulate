@@ -24,7 +24,7 @@ class Propulator:
         self,
         loss_fn,
         propagator,
-        isle_idx=0,
+        islands_idx=0,
         comm=MPI.COMM_WORLD,
         generations=0,
         checkpoint_path=Path('./'),
@@ -44,7 +44,7 @@ class Propulator:
                   loss function to be minimized
         propagator : propulate.propagators.Propagator
                      propagator to apply for breeding
-        isle_idx : int
+        islands_idx : int
                    index of isle
         comm : MPI communicator
                intra-isle communicator
@@ -81,7 +81,7 @@ class Propulator:
             generations
         )  # number of generations (evaluations per individual)
         self.generation = 0 # current generation not yet evaluated
-        self.isle_idx = int(isle_idx)  # isle index
+        self.islands_idx = int(islands_idx)  # isle index
         self.comm = comm  # intra-isle communicator
         self.checkpoint_path = Path(checkpoint_path)
         self.checkpoint_path.mkdir(parents=True, exist_ok=True)
@@ -92,6 +92,11 @@ class Propulator:
         self.emigration_propagator = emigration_propagator  # emigration propagator
         self.emigrated = []  # emigrated individuals to be deactivated on sending isle
         self.rng = rng
+
+        self.best_ind_per_island_per_generation = np.empty(0)
+        self.mean_generation = np.empty(0)
+        self.co_matrix_generation = np.empty(0)
+        self.sigma_generation = np.empty(0)
 
         # Load initial population of evaluated individuals from checkpoint if exists.
         load_ckpt_file = self.checkpoint_path / f'island_{self.isle_idx}_ckpt.pkl'
@@ -123,10 +128,7 @@ class Propulator:
                     "Initializing population randomly..."
                 )
 
-        self.best_ind_per_island_per_generation = np.empty(0)
-        self.mean_generation = np.empty(0)
-        self.co_matrix_generation = np.empty(0)
-        self.sigma_generation = np.empty(0)
+
 
     def propulate(self, logging_interval=10, DEBUG=1):
         """
@@ -675,7 +677,7 @@ class Propulator:
                     )
 
             # load balancing needed?
-            if self.comm.rank == 0:
+            if hasattr(self.propagator, 'get_co_matrix') and self.comm.rank == 0:
                 # just the best ind of worker 0 since populations should be very similar and it is a lot cheaper
                 self.best_ind_per_island_per_generation = np.append(self.best_ind_per_island_per_generation, min(self.population, key=attrgetter("loss")).loss)
                 self.mean_generation = np.append(self.mean_generation, self.propagator.get_mean())
@@ -796,8 +798,7 @@ class Propulator:
                     res_str += f"({i+1}): {unique_pop[i]}\n"
                 print(res_str)
 
-        # GEHT NUR FÜR CMAPROPAGATOR
-        if self.comm.rank == 0:
+        if hasattr(self.propagator, 'get_co_matrix') and self.comm.rank == 0:
             np.save(self.checkpoint_path / f"best_ind_over_gens_I{self.isle_idx}.npy", self.best_ind_per_island_per_generation)
             np.save(self.checkpoint_path / f"mean_over_gens_I{self.isle_idx}.npy", self.mean_generation)
             np.save(self.checkpoint_path / f"sigma_over_gens_I{self.isle_idx}.npy", self.sigma_generation)

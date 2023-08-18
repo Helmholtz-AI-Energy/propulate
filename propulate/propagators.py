@@ -587,8 +587,11 @@ class SelectMin(Propagator):
 
         Returns
         -------
-        inds : list of propulate.population.Individual objects
-              list of selected individuals after application of propagator
+        list[propulate.population.Individual]: selected output individuals after application of the propagator
+
+        Raises
+        ------
+        ValueError: If more individuals than put in shall be selected.
         """
         if len(inds) < self.offspring:
             raise ValueError(
@@ -628,8 +631,11 @@ class SelectMax(Propagator):
 
         Returns
         -------
-        inds : list of propulate.population.Individual objects
-              list of selected individuals after application of propagator
+        list[propulate.population.Individual]: list of selected individuals after application of the propagator
+
+        Raises
+        ------
+        ValueError: If more individuals than put in shall be selected.
         """
         if len(inds) < self.offspring:
             raise ValueError(
@@ -1294,7 +1300,6 @@ class ActiveCMA(CMAAdapter):
             )
             + par.c_mu * ar_tmp @ (weights_circle * ar_tmp).T
         )
-        # new_co_matrix = (1 - par.c_1 - par.c_mu) * par.co_matrix + par.c_1 * (par.p_c @ par.p_c.T + (1 - h_sig) * par.c_c * par.c_1 * (2 - par.c_c) * par.co_matrix) + par.c_mu * ar_tmp @ (par.weights * ar_tmp).T
         par.set_co_matrix(new_co_matrix)
 
 
@@ -1312,7 +1317,7 @@ class CMAPropagator(Propagator):
         exploration=False,
         select_worst_all_time=False,
         pop_size=None,
-        pool_size=2,
+        pool_size=3,
     ) -> None:
         """
         Constructor of CMAPropagator.
@@ -1357,7 +1362,7 @@ class CMAPropagator(Propagator):
             limits,
             exploration,
         )
-        self.pool_size = int(pool_size) if int(pool_size) >= 1 else 2
+        self.pool_size = int(pool_size) if int(pool_size) >= 1 else 3
         self.selectPool = SelectMin(self.pool_size * lamb)
         self.selectFromPool = SelectUniform(lamb - 1, rng=rng)
         self.selectBest1 = SelectMin(1)
@@ -1439,7 +1444,7 @@ class CMAPropagator(Propagator):
             self.par.d_matrix * random_vector
         )
         self.par.count_eval += 1
-
+        # Remove problem_dim
         new_ind = Individual(problem_dim=self.par.problem_dimension)
 
         for i, (dim, _) in enumerate(self.par.limits.items()):

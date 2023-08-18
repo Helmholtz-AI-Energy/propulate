@@ -198,7 +198,7 @@ if __name__ == "__main__":
     parser.add_argument("--pop_size", type=int, default=None, help="The size of the breeding population.")
     parser.add_argument("--num_isles", type=int, default=2, help="The number of isles for the Island model.")
     parser.add_argument("--migration_probability", type=float, default=0.9, help="The probability of migration for each generation.")
-    parser.add_argument("--pollination", type=bool, default=True, help="Whether to use real migration or pollination.")
+    parser.add_argument("--pollination", type=bool, default=False, help="Whether to use real migration or pollination.")
     parser.add_argument("--default_propulate", type=bool, default=False, help="Whether to use the default propulate propagator.")
     parser.add_argument("--active_cma", type=bool, default=False, help="Whether to use active CMA or the basic algorithm.")
     parser.add_argument("--exploration", type=bool, default=False, help="Whether to update the covariance matrix after each generation")
@@ -233,16 +233,16 @@ if __name__ == "__main__":
                 rng=rng                                     # Random number generator
             )
     else:
-        adapter = ActiveCMA() if args.active_cma else adapter = BasicCMA()
-        propagator = CMAPropagator(adapter, limits, exploration=args.exploration, select_worst_all_time=args.select_worst_all_time, pop_size=args.pop_size, pool_size=args.pool_size)
+        adapter = ActiveCMA() if args.active_cma else BasicCMA()
+        propagator = CMAPropagator(adapter, limits, rng, exploration=args.exploration, select_worst_all_time=args.select_worst_all_time, pop_size=args.pop_size, pool_size=args.pool_size)
 
     # Set up island model.
     islands = Islands(
         func,  # Function to optimize
         propagator,  # Evolutionary operator
         rng,  # Random number generator
-        generations=args.generations,  # Number of generations
-        num_isles=args.num_isles,  # Number of separate evolutionary islands
+        generations=args.generation,  # Number of generations
+        num_islands=args.num_isles,  # Number of separate evolutionary islands
         migration_topology=migration_topology,          # Migration topology
         checkpoint_path=args.checkpoint_path,  # Path to potentially read checkpoints from and write new checkpoints to
         migration_probability=args.migration_probability,  # Migration probability
