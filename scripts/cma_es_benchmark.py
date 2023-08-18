@@ -2,6 +2,7 @@
 import argparse
 import random
 import sys
+from typing import Dict
 
 from mpi4py import MPI
 
@@ -28,7 +29,44 @@ def sphere(ind: Individual):
     -------
     float : loss value
     """
-    return np.sum(ind[i] ** 2 for i in range(ind.problem_dim))
+    problem_dim = len(ind.values())
+    return np.sum(ind[i] ** 2 for i in range(problem_dim))
+
+
+def bisphere(ind: Individual) -> float:
+    """
+    Lunacek's double-sphere benchmark function.
+
+    Lunacek, M., Whitley, D., & Sutton, A. (2008, September).
+    The impact of global structure on search.
+    In International Conference on Parallel Problem Solving from Nature
+    (pp. 498-507). Springer, Berlin, Heidelberg.
+
+    This function's landscape structure is the minimum of two quadratic functions, each creating a single funnel in the
+    search space. The spheres are placed along the positive search-space diagonal, with the optimal and sub-optimal
+    sphere in the middle of the positive and negative quadrant, respectively. Their distance and the barrier's height
+    increase with dimensionality, creating a globally non-separable underlying surface.
+
+    Input domain: -5.12 <= x_i <= 5.12, i = 1,...,N
+    Global minimum 0 at (x_i)_N = (µ_1)_N with µ_1 = 2.5
+    The Propulate paper uses N = 30.
+
+    Parameters
+    ----------
+    ind: : Individual
+             Individual to be evaluated
+
+    Returns
+    -------
+    float: function value
+    """
+    params = np.array(list(ind.values()))
+    n = len(params)
+    d = 1
+    s = 1 - np.sqrt(1 / (2 * np.sqrt(n + 20) - 8.2))
+    mu1 = 2.5
+    mu2 = - np.sqrt((mu1**2 - d) / s)
+    return min(np.sum((params - mu1) ** 2), d * n + s * np.sum((params - mu2) ** 2))
 
 
 def rosenbrock(ind: Individual):
@@ -45,7 +83,8 @@ def rosenbrock(ind: Individual):
     -------
     float : loss value
     """
-    return np.sum((1 - ind[i]) ** 2 + 100 * (ind[i + 1] - ind[i] ** 2) ** 2 for i in range(ind.problem_dim - 1))
+    problem_dim = len(ind.values())
+    return np.sum((1 - ind[i]) ** 2 + 100 * (ind[i + 1] - ind[i] ** 2) ** 2 for i in range(problem_dim - 1))
 
 
 def step(ind: Individual):
@@ -62,7 +101,8 @@ def step(ind: Individual):
     -------
     float : loss value
     """
-    return np.sum(int(ind[i]) for i in range(ind.problem_dim)) + (5 * ind.problem_dim)
+    problem_dim = len(ind.values())
+    return np.abs(np.sum(int(ind[i]) for i in range(problem_dim)) + (5 * problem_dim))
 
 
 def quartic(ind: Individual):
@@ -79,7 +119,8 @@ def quartic(ind: Individual):
     -------
     float : loss value
     """
-    return np.sum(i * ind[i]**4 + np.random.randn() for i in range(ind.problem_dim))
+    problem_dim = len(ind.values())
+    return np.abs(np.sum(i * ind[i]**4 + np.random.randn() for i in range(problem_dim)))
 
 
 def rastrigin(ind: Individual):
@@ -96,7 +137,43 @@ def rastrigin(ind: Individual):
     -------
     float : loss value
     """
-    return 10 * ind.problem_dim + np.sum(ind[i]**2 - 10 * np.cos(2 * np.pi * ind[i]) for i in range(ind.problem_dim))
+    problem_dim = len(ind.values())
+    return 10 * problem_dim + np.sum(ind[i]**2 - 10 * np.cos(2 * np.pi * ind[i]) for i in range(problem_dim))
+
+
+def birastrigin(ind: Individual) -> float:
+    """
+    Lunacek's double-Rastrigin benchmark function.
+
+    Lunacek, M., Whitley, D., & Sutton, A. (2008, September).
+    The impact of global structure on search.
+    In International Conference on Parallel Problem Solving from Nature
+    (pp. 498-507). Springer, Berlin, Heidelberg.
+
+    A double-funnel version of Rastrigin. This function isolates global structure as the main difference impacting
+    problem difficulty on a well understood test case.
+
+    Input domain: -5.12 <= x_i <= 5.12, i = 1,...,N
+    Global minimum 0 at (x_i)_N = (µ_1)_N with µ_1 = 2.5
+    The Propulate paper uses N = 30.
+
+    Parameters
+    ----------
+    ind: : Individual
+             Individual to be evaluated
+
+    Returns
+    -------
+    float: function value
+    """
+    params = np.array(list(ind.values()))
+    n = len(params)
+    d = 1
+    s = 1 - np.sqrt(1 / (2 * np.sqrt(n + 20) - 8.2))
+    mu1 = 2.5
+    mu2 = - np.sqrt((mu1**2 - d) / s)
+    return min(np.sum((params - mu1) ** 2), d * n + s * np.sum((params - mu2) ** 2)) + \
+        10 * np.sum(1 - np.cos(2 * np.pi * (params - mu1)))
 
 
 def griewank(ind: Individual):
@@ -114,25 +191,32 @@ def griewank(ind: Individual):
     -------
     float : loss value
     """
-    return 1 + np.sum([ind[i] ** 2 for i in range(ind.problem_dim)]) / 4000 - np.prod([np.cos(ind[i] / np.sqrt(i + 1)) for i in range(ind.problem_dim)])
+    problem_dim = len(ind.values())
+    return 1 + np.sum([ind[i] ** 2 for i in range(problem_dim)]) / 4000 - np.prod([np.cos(ind[i] / np.sqrt(i + 1)) for i in range(problem_dim)])
 
 
-def schwefel(ind: Individual):
+def schwefel(ind: Individual) -> float:
     """
-    Schwefel: TODO continuous, convex, separable, non-differentiable, non-multimodal
+    Schwefel 2.20 function: continuous, convex, separable, non-differentiable, non-multimodal
 
-    Input domain: -500 <= xi <= 500
-    Global minimum 0 at xi = 420.968746 for all i in [1,N]
-    Params
-    ------
-    ind : Individual
-        Individual to be evaluated
+    This function has a second-best minimum far away from the global optimum.
+
+    Input domain: -500 <= x_i <= 500, i = 1,...,N
+    Global minimum 0 at (x_i)_N = (420.968746)_N
+    The Propulate paper uses N = 10.
+
+    Parameters
+    ----------
+    params: dict[str, float]
+            function parameters
 
     Returns
     -------
-    float : loss value
+    float: function value
     """
-    return 418.982887 * ind.problem_dim - np.sum(ind[i] * np.sin(np.sqrt(np.abs(ind[i]))) for i in range(ind.problem_dim))
+    v = 418.982887
+    params = np.array(list(ind.values()))
+    return np.abs(v * len(params) - np.sum(params * np.sin(np.sqrt(np.abs(params)))))
 
 
 def get_function_search_space(fname, problem_dimension):
@@ -182,6 +266,16 @@ def get_function_search_space(fname, problem_dimension):
             limits[i] = (-500, 500)
     elif fname == "sphere":
         function = sphere
+        limits = {}
+        for i in range(problem_dimension):
+            limits[i] = (-5.12, 5.12)
+    elif fname == "bisphere":
+        function = bisphere
+        limits = {}
+        for i in range(problem_dimension):
+            limits[i] = (-5.12, 5.12)
+    elif fname == "birastrigin":
+        function = birastrigin
         limits = {}
         for i in range(problem_dimension):
             limits[i] = (-5.12, 5.12)
@@ -257,5 +351,5 @@ if __name__ == "__main__":
         top_n=1,
         # Top-n best individuals are returned and printed (whole population can be accessed from checkpoint file).
         logging_interval=1,  # Logging interval used for print-outs.
-        DEBUG=2  # Debug / verbosity level
+        debug=2  # Debug / verbosity level
     )

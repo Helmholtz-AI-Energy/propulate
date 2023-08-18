@@ -5,8 +5,7 @@ class Individual(dict):
     def __init__(
             self,
             generation: int = -1,
-            rank: int = -1,
-            problem_dim=2
+            rank: int = -1
     ) -> None:
         """
         Initialize individual with given parameters.
@@ -29,7 +28,6 @@ class Individual(dict):
         self.migration_history = None  # migration history
         self.evaltime = None  # evaluation time
         self.evalperiod = None  # evaluation duration
-        self.problem_dim = problem_dim
 
     def __repr__(self) -> str:
         rep = {

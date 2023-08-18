@@ -1440,12 +1440,15 @@ class CMAPropagator(Propagator):
         """
         # Generate new offspring
         random_vector = np.random.randn(self.par.problem_dimension, 1)
-        new_x = self.par.mean + self.par.sigma * self.par.b_matrix @ (
-            self.par.d_matrix * random_vector
-        )
+        try:
+            new_x = self.par.mean + self.par.sigma * self.par.b_matrix @ (
+                self.par.d_matrix * random_vector
+            )
+        except (RuntimeWarning, Exception) as _:
+            print("ERROR, probably due to not well defined target function.")
         self.par.count_eval += 1
         # Remove problem_dim
-        new_ind = Individual(problem_dim=self.par.problem_dimension)
+        new_ind = Individual()
 
         for i, (dim, _) in enumerate(self.par.limits.items()):
             new_ind[dim] = new_x[i, 0]
