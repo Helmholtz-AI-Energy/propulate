@@ -8,7 +8,6 @@ If you want to use ``Propulate`` for your own applications, you can use these sc
 
 .. toctree::
    :maxdepth: 1
-   :caption: Contents:
 
    tut_propulator
    tut_islands

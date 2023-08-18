@@ -1,20 +1,20 @@
 .. _tut_propulator:
 
-Evolutionary optimization of a mathematical function
+Evolutionary Optimization of a Mathematical Function
 ====================================================
 You can find the corresponding ``Python`` script here:
 https://github.com/Helmholtz-AI-Energy/propulate/blob/master/scripts/propulator_example.py
 
 The basic optimization mechanism in ``Propulate`` is that of Darwinian evolution, i.e.,
 beneficial traits are selected, recombined, and mutated to breed more fit individuals.
-To show you how ``Propulate`` works, we use its **basic asynchronous evolutionary optimizer** to minimize
+To show you how ``Propulate`` works, we use its *basic asynchronous evolutionary optimizer* to minimize
 two-dimensional mathematical functions. Let us consider the sphere function:
 
 .. math::
     f_\mathrm{sphere}\left(x,y\right)=x^2+y^2
 
 The sphere function is smooth, unimodal, strongly convex, symmetric, and thus easy to optimize. Its global minimum is
-:math:`f_\mathrm{sphere}\left(x^*,y^*\right)=0` at :math:`x^*=y^*=0`.
+:math:`f_\mathrm{sphere}\left(x^*,y^*\right)=0` at :math:`x^*=y^*=0` at the orange star.
 
 .. image:: images/sphere.png
    :width: 80 %
@@ -22,7 +22,7 @@ The sphere function is smooth, unimodal, strongly convex, symmetric, and thus ea
 
 |
 
-How to use ``Propulate`` - A recipe
+How to Use Propulate - A Recipe
 -----------------------------------
 
 As the very first step, we need to define the key ingredients that define the optimization problem we want to solve:
@@ -53,7 +53,7 @@ As the very first step, we need to define the key ingredients that define the op
     limits = {"x": (-5.12, 5.12),
               "y": (-5.12, 5.12)}
 
-* The fitness or **loss function** (also known as the objective function). This is the function we want to optimize in order
+* The fitness or *loss function* (also known as the objective function). This is the function we want to optimize in order
   to find the best parameters. The loss function can be any ``Python`` function with the following characteristics:
 
     - Its input is a set of parameters to be optimized as a ``Python`` dictionary.
@@ -126,7 +126,7 @@ Now it's time to run the actual optimization. Overall, ``generations * MPI.COMM_
     propulator.propulate(logging_interval=config.logging_int, debug=config.verbosity)
     propulator.summarize(top_n=config.top_n, debug=config.verbosity)
 
-Let's get your hands dirty (at least a bit)
+Let's Get Your Hands Dirty (At Least a Bit)
 -------------------------------------------
 Do the following to run the example script:
 
@@ -156,8 +156,8 @@ will use your current working directory.
 
 .. warning::
     If you start an optimization run requesting 100 generations from a checkpoint file with 100 generations,
-    nothing will happen.
+    the optimizer will return immediately.
 .. warning::
     If you start an optimization run from existing checkpoints, those checkpoints must be compatible with your current
     parallel computing environment. This means that if you use a checkpoint created in a setting with 20 processing
-    elements in a different computing environment with, e.g., 10 processing elements, weird things will happen.
+    elements in a different computing environment with, e.g., 10 processing elements, the behaviour is undefined.

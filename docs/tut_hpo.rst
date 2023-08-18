@@ -12,8 +12,11 @@ to do this using a simple toy example. We want to train a simple convolutional n
 ``Pytorch-Lightning`` for MNIST classification and we want to know the best hyperparameters in terms of prediction
 accuracy of our network for this.
 
-.. image:: images/mnist.png
+.. figure:: images/mnist.png
     :width: 100 %
+    :align: center
+
+    Exemplary samples from the MNIST dataset.
 
 We consider:
 
@@ -25,10 +28,9 @@ Thus, our search space dictionary looks as follows:
 
 .. code-block:: python
 
-    limits = {
-        "conv_layers": (2, 10),  # number of convolutional layers, int for ordinal
-        "activation": ("relu", "sigmoid", "tanh"),  # activation function to use, str for categorical
-        "learning_rate": (0.01, 0.0001)}  # learning rate, float for continuous
+    limits = {"conv_layers": (2, 10),  # number of convolutional layers, int for ordinal
+              "activation": ("relu", "sigmoid", "tanh"),  # activation function, str for categorical
+              "learning_rate": (0.01, 0.0001)}  # learning rate, float for continuous
 
 When tuning the hyperparameters of an ML model, evaluating an individual during the optimization corresponds to training
 a neural network instance using a specific combination of hyperparameters to be optimized. In addition, we need some

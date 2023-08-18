@@ -32,7 +32,7 @@ island. With ``num_migrants = 1``, this also is the default behaviour in ``Propu
         dtype=int)
     np.fill_diagonal(migration_topology, 0)  # An island does not send migrants to itself.
 
-Next, we set up the island model itself using the ``Islands`` class. In addition to the `Propulator` arguments defining
+Next, we set up the island model itself using the ``Islands`` class. In addition to the ``Propulator`` arguments defining
 the islands' internal asynchronous evolutionary optimization process, ``Islands`` takes all migration-relevant arguments
 for setting up the island model and migration:
 
