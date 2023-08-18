@@ -41,7 +41,7 @@
 * {
 	-webkit-box-sizing: border-box;
 	-moz-box-sizing: border-box;
-	box-sizing: border-box
+	box-sizing: border-box;
 }
 
 article,
@@ -49,8 +49,8 @@ aside,
 details,
 figcaption {
 	padding: 10px;
-	text-align: justify;
-},
+	text-align: justify
+}
 figure,
 footer,
 header,
@@ -148,7 +148,6 @@ q {
 
 q:before,
 q:after {
-	content: "";
 	content: none
 }
 
@@ -178,7 +177,6 @@ dl {
 	margin: 0;
 	padding: 0;
 	list-style: none;
-	list-style-image: none
 }
 
 li {
@@ -298,7 +296,7 @@ td {
 
 .chromeframe {
 	margin: .2em 0;
-	background: #ccc;
+	background: #e5eaec;
 	color: #000;
 	padding: .2em 0
 }
@@ -4027,7 +4025,6 @@ a .icon {
 	color: #fff;
 	font-weight: bold;
 	display: block;
-	color: #fff;
 	background: #6ab0de;
 	margin: -12px;
 	padding: 6px 12px;
@@ -5051,7 +5048,7 @@ input[type="search"][disabled],
 input[type="tel"][disabled],
 input[type="color"][disabled] {
 	cursor: not-allowed;
-	background-color: #fafafa
+	background-color: #e5eaec;
 }
 
 input:focus:invalid,
@@ -5523,11 +5520,11 @@ input[type="checkbox"][disabled] {
 .wy-table-odd td,
 .wy-table-striped tr:nth-child(2n-1) td,
 .rst-content table.docutils:not(.field-list) tr:nth-child(2n-1) td {
-	background-color: #f3f6f6
+	background-color: #e5eaec
 }
 
 .wy-table-backed {
-	background-color: #f3f6f6
+	background-color: #e5eaec
 }
 
 .wy-table-bordered-all,
@@ -5588,13 +5585,13 @@ input[type="checkbox"][disabled] {
 }
 
 a {
-	color: var(--black);
+	color: black;
 	text-decoration: none;
 	cursor: pointer
 }
 
 a:hover {
-	color: var(--black)
+	color: black
 }
 
 a:visited {
@@ -5915,7 +5912,7 @@ article ol li ul li {
 }
 
 html {
-	font-size: 16px
+	font-size: 16px;
 }
 
 .wy-affix {
@@ -6175,7 +6172,7 @@ html {
 	padding: .809em;
 	margin-bottom: .809em;
 	z-index: 200;
-	background-color: #2980B9;
+	background-color: #e5eaec;
 	text-align: center;
 	padding: .809em;
 	display: block;
@@ -6258,7 +6255,7 @@ html {
 	position: absolute;
 	opacity: 1;
 	width: 100%;
-	opacity: 0
+	opacity: 0;
 }
 
 [data-menu-wrap].move-center {
@@ -6299,8 +6296,8 @@ html {
 	overflow-x: hidden;
 	overflow-y: hidden;
 	min-height: 100%;
-	color: var(--hgrey);
-	background: none;
+	color: #e5eaec;
+	background: #e5eaec;
 	z-index: 200
 }
 
@@ -6314,7 +6311,7 @@ html {
 
 .wy-nav-top {
 	display: none;
-	background: #2980B9;
+	background: #e5eaec;
 	color: #fff;
 	padding: .4045em .809em;
 	position: relative;
@@ -6382,7 +6379,7 @@ html {
 }
 
 footer {
-	color: gray
+	color: gray;
 }
 
 footer p {
@@ -6462,13 +6459,15 @@ footer span.commit .rst-content tt,
 
 @media screen and (max-width: 768px) {
 	.wy-body-for-nav {
-		background: #fcfcfc
+		color: #e5eaec;
+		background: #e5eaec;
 	}
 	.wy-nav-top {
 		display: block
 	}
 	.wy-nav-side {
-		left: -300px
+		left: -300px;
+		background: #e5eaec;
 	}
 	.wy-nav-side.shift {
 		width: 85%;
@@ -6501,7 +6500,7 @@ footer span.commit .rst-content tt,
 
 @media screen and (min-width: 1100px) {
 	.wy-nav-content-wrap {
-		background: rgba(0, 0, 0, 0.05)
+		background: #e5eaec
 	}
 	.wy-nav-content {
 		margin: 0;
@@ -6984,7 +6983,7 @@ footer span.commit .rst-content tt,
 	display: block;
 	font-family: "Roboto Slab", "ff-tisa-web-pro", "Georgia", Arial, sans-serif;
 	font-weight: bold;
-	background: #e1e4e5;
+	background: #e5eaec;
 	padding: 6px 12px;
 	margin: -24px;
 	margin-bottom: 24px;
@@ -7222,7 +7221,7 @@ a .rst-content code {
 	border: none;
 	border-left: solid 3px var(--hred);
 	background: var(--hgrey-light);
-	color: var(--black)
+	color: black
 }
 
 .rst-content dl:not(.docutils) dl dt .headerlink {
@@ -7237,7 +7236,7 @@ a .rst-content code {
 .rst-content dl:not(.docutils) tt,
 .rst-content dl:not(.docutils) tt,
 .rst-content dl:not(.docutils) code {
-	color: var(--black);
+	color: black;
     font-weight: bold
 }
 
