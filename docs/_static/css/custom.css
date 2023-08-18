@@ -6332,7 +6332,7 @@ html {
 }
 
 .wy-nav-top a {
-	color: #fff;
+	color: #D23264;
 	font-weight: bold
 }
 
@@ -6459,15 +6459,17 @@ footer span.commit .rst-content tt,
 
 @media screen and (max-width: 768px) {
 	.wy-body-for-nav {
-		color: #e5eaec;
+		color: #D23264;
 		background: #e5eaec;
 	}
 	.wy-nav-top {
-		display: block
+		display: block;
+		color: #D23264;
 	}
 	.wy-nav-side {
 		left: -300px;
 		background: #e5eaec;
+		color: #D23264;
 	}
 	.wy-nav-side.shift {
 		width: 85%;
