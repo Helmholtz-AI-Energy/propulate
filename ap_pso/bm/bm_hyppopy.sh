@@ -1,6 +1,5 @@
 #!/bin/bash
-# BASE_DIR="/pfs/work7/workspace/scratch/pa1164-propulate_bm_1/async-parallel-pso"
-BASE_DIR="."
+BASE_DIR="/pfs/work7/workspace/scratch/pa1164-propulate_bm_1/async-parallel-pso"
 for RACE in {0..4}
 do
   NODES=$(( 2 ** RACE ))
