@@ -40,7 +40,7 @@ source ${BASE_DIR}/../.venvs/async-parallel-pso/bin/activate
   for FUNCTION in "sphere" "rosenbrock" "step" "quartic" "rastrigin" "griewank" "schwefel" "bisphere" "birastrigin"
   do
     DIRNAME="bm_P_${FUNCTION}_${RACE}"
-    EXECUTION_DIR="${BASE_DIR}/ap_pso/bm/${DIRNAME}"
+    EXECUTION_DIR="${BASE_DIR}/ap_pso/bm/results/${DIRNAME}"
     mkdir "$EXECUTION_DIR"
 
     SCRIPT+="mpirun python -u ${BASE_DIR}/scripts/islands_example.py -f ${FUNCTION} -g ${ITERATIONS} -ckpt ${EXECUTION_DIR} -i 1 -migp 0
