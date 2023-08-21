@@ -89,7 +89,8 @@ html {
 }
 
 body {
-	margin: 0
+	margin: 0;
+	text-align: justify;
 }
 
 a:hover,
@@ -137,6 +138,8 @@ samp {
 	_font-family: "courier new", monospace;
 	font-size: 1em
 }
+
+.highlight .hll {background-color: rgb(210, 50, 100, 0.3)}
 
 pre {
 	white-space: pre
@@ -4090,7 +4093,7 @@ a .icon {
 .rst-content .wy-alert-warning.seealso,
 .rst-content .admonition-todo,
 .rst-content .wy-alert-warning.admonition {
-	background: #f8d0cb
+	background: rgb(210, 50, 100, 0.3);
 }
 
 .wy-alert.wy-alert-warning .wy-alert-title,
@@ -4136,7 +4139,7 @@ a .icon {
 .rst-content .seealso,
 .rst-content .wy-alert-info.admonition-todo,
 .rst-content .wy-alert-info.admonition {
-	background: #CDD7EB
+	background: rgb(0, 90, 160, 0.3)
 }
 
 .wy-alert.wy-alert-info .wy-alert-title,
@@ -6133,7 +6136,7 @@ html {
 
 .wy-menu-vertical li ul li a {
 	margin-bottom: 0;
-	color: #D23264;
+	color: #d9d9d9;
 	font-weight: normal
 }
 
@@ -7430,11 +7433,11 @@ span[id*='MathJax-Span'] {
 }
 
 .highlight-output>.highlight {
-	background-color: var(--horange-light) !important;
+	background-color: rgba(210, 50, 100, 0.1) !important;
 }
 
 .highlight-text>.highlight {
-  background-color: var(--horange-light) !important;
+  background-color: rgba(210, 50, 100, 0.1) !important;
 }
 
 .case {
