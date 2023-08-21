@@ -4,7 +4,7 @@ Evolutionary Algorithms
 =======================
 |
 
-.. image:: images/mario_cropped.png
+.. image:: images/mario.png
    :width: 80 %
    :align: center
 
@@ -65,5 +65,7 @@ Mutation
     Randomly change an individual's genes to promote genetic diversity.
 
 .. image:: images/mutation.png
-   :width: 72 %
+   :width: 76 %
    :align: center
+
+|
