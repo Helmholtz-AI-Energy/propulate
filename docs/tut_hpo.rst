@@ -1,14 +1,17 @@
 .. _tut_hpo:
 
-Hyperparameter optimization of a neural network
+Hyperparameter Optimization of a Neural Network
 ===============================================
-You can find the corresponding ``Python`` script here:
-https://github.com/Helmholtz-AI-Energy/propulate/blob/master/scripts/torch_example.py
+
+.. note::
+
+   You can find the corresponding ``Python`` script here:
+   https://github.com/Helmholtz-AI-Energy/propulate/blob/master/scripts/torch_example.py
 
 Almost all machine-learning algorithms have non-learnable hyperparameters that influence the training and in
 particular their predictive capacity.
-``Propulate`` is intended to help AI practitioners optimizing those hyperparameters efficiently. Below, we show you how
-to do this using a simple toy example. We want to train a simple convolutional neural network in ``Pytorch`` and
+``Propulate`` is intended to help AI practitioners optimizing those hyperparameters efficiently on a large scale. Below,
+we show you how to do this using a simple toy example. We want to train a simple convolutional neural network in ``Pytorch`` and
 ``Pytorch-Lightning`` for MNIST classification and we want to know the best hyperparameters in terms of prediction
 accuracy of our network for this.
 
@@ -16,12 +19,12 @@ accuracy of our network for this.
     :width: 100 %
     :align: center
 
-    Exemplary samples from the MNIST dataset.
+    **The MNIST dataset.** The MNIST dataset is a large collection of handwritten digits from 0 to 9.
 
 We consider:
 
 * the number of convolutional layers ``conv_layers``
-* the activation function to use ``activation``
+* the activation function ``activation``
 * the learning rate ``learning_rate``
 
 Thus, our search space dictionary looks as follows:
@@ -32,18 +35,19 @@ Thus, our search space dictionary looks as follows:
               "activation": ("relu", "sigmoid", "tanh"),  # activation function, str for categorical
               "learning_rate": (0.01, 0.0001)}  # learning rate, float for continuous
 
-When tuning the hyperparameters of an ML model, evaluating an individual during the optimization corresponds to training
+When tuning an ML model's hyperparameters, evaluating an individual during the optimization corresponds to training
 a neural network instance using a specific combination of hyperparameters to be optimized. In addition, we need some
 model performance metric to assign each evaluated individual, i.e., tested hyperparameter combination, a scalar loss.
-Here, we choose the model's (negative) validation accuracy for this. Remember that the ``Propulate`` loss function takes
+We choose the model's (negative) validation accuracy for this. Remember that the ``Propulate`` loss function takes
 in a combination of those parameters that we want to optimize and returns a scalar value telling us how good this
 parameter combination actually was. For hyperparameter optimization, the loss function thus takes in a hyperparameter
-combination of our model, trains the model using this specific hyperparameter combination, and returns its validation
-accuracy as a loss for the evolutionary optimization.
-Below, we show you how to do this using the example of the most important code snippets. We start with defining the
-neural network which looks like this:
+combination of our model, trains the model using this specific hyperparameter combination, and returns its (negative)
+validation accuracy as a loss for the evolutionary optimization.
+Below, we show you how to do this using the example of the most important code snippets. The lines directly related to
+the hyperparameters we want to optimize are highlighted in pink. We start with defining the neural network which looks like this:
 
 .. code-block:: python
+    :emphasize-lines: 5,6,7,26,28,29,33-35,106,107,120
 
     class Net(LightningModule):
         """Neural network class."""
@@ -72,6 +76,7 @@ neural network which looks like this:
 
             self.lr = lr  # Set learning rate
             self.loss_fn = loss_fn  # Set loss function for neural network training.
+            # This is the metric Propulate optimizes to find the best hyperparameters.
             self.best_accuracy = 0.0  # Initialize the model's best validation accuracy.
             layers = []  # Set up the model architecture (depending on number of convolutional layers specified).
             layers += [nn.Sequential(nn.Conv2d(in_channels=1, out_channels=10, kernel_size=3, padding=1),
@@ -192,6 +197,7 @@ Now we are ready to set up the ``Propulate`` loss function that is minimized dur
 order to find the best hyperparameters for our model:
 
 .. code-block:: python
+    :emphasize-lines: 18-20, 24-26, 29, 30, 48
 
     def ind_loss(
             params: Dict[str, Union[int, float, str]]
@@ -246,4 +252,4 @@ Just as before, this loss function is fed into the asynchronous evolutionary opt
 asynchronous island model (``Islands``) which takes care of the actual genetic optimization.
 
 .. note::
-    Running this script without any modifications requires compute nodes with four GPUs.
+    Running the script from our Github repo without any modifications requires compute nodes with four GPUs.

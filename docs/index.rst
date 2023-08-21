@@ -44,7 +44,7 @@ Like in nature, ``Propulate`` does not wait for all compute units to finish the 
 Instead, the units communicate the currently available information and use that to breed the next candidate immediately.
 This avoids waiting idly for other units.
 Each unit is responsible for evaluating a single candidate.
-The result is a fitness level corresponding with that candidate’s genes, allowing us to compare and rank all candidates.
+The result is a fitness level corresponding with that candidate's genes, allowing us to compare and rank all candidates.
 This information is sent to other compute units as soon as it becomes available.
 When a unit is finished evaluating a candidate and communicating the resulting fitness, it breeds the candidate for the next
 generation using the fitness values of all candidates it evaluated and received from other units so far.
@@ -64,16 +64,17 @@ separated, discrete generations. Our contributions include:
    :width: 59 %
    :align: center
 
-   The parallelization structure of synchronous evolutionary algorithms introduces explicit synchronization points at
-   every discrete generation update of the population. Different evaluation times of different individuals thus lead to idle
-   times of the faster processors. This hinders optimal resource utilization.
+   **Synchronous parallel evolutionary algorithms.** The parallelization structure of synchronous evolutionary
+   algorithms introduces explicit synchronization points at every discrete generation update of the population.
+   Different evaluation times of different individuals thus lead to idle times of the faster processors. This hinders
+   optimal resource utilization.
 
 .. figure:: images/asynchronous_pop.png
    :width: 50 %
    :align: center
 
-   To alleviate the bottleneck inherent to synchronous parallel evolutionary algorithms,
-   ``Propulate`` implements a fully asynchronous island model specifically designed
+   **Asynchronous parallel evolutionary algorithms.** To alleviate the bottleneck inherent to synchronous parallel
+   evolutionary algorithms, ``Propulate`` implements a fully asynchronous island model specifically designed
    for large-scale HPC systems. Unlike conventional GAs, Propulate maintains a continuous population of evaluated
    individuals with a softened notion of the typically strictly separated generations.
    This enables asynchronous evaluation, variation, propagation, and migration of individuals with maximum computational

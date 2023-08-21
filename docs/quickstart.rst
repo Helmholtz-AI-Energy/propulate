@@ -18,7 +18,7 @@ You can find those scripts in the Github repository's `subfolder`_ ``scripts/``.
 
 ``Propulate`` has more functionality and configurable options available, to accomodate various use cases and workflows.
 To learn more about how to use ``Propulate`` and adapt it to your needs, check out the :ref:`usage` section of the
-documentation.
+documentation |:raised_hands:|.
 
 
 .. Links
