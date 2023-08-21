@@ -19,7 +19,7 @@ do
 #SBATCH --ntasks=${TASKS}
 #SBATCH --partition=${QUEUE}
 #SBATCH --job-name=\"all_${RACE}\"
-#SBATCH --time=60:00
+#SBATCH --time=30:00
 #SBATCH --mem=40000
 #SBATCH --cpus-per-task=1
 #SBATCH --mail-type=ALL
@@ -64,5 +64,5 @@ source ${BASE_DIR}/../.venvs/async-parallel-pso/bin/activate
 "
   FILE="${BASE_DIR}/ap_pso/bm/start_bm_A_${RACE}.sh"
   echo "${SCRIPT}" > "${FILE}"
-  sbatch -p "${QUEUE}" -N "${NODES}" -n "${TASKS}" --cpus-per-task 1 -t 60:00 "${FILE}"
+  sbatch -p "${QUEUE}" -N "${NODES}" -n "${TASKS}" --cpus-per-task 1 "${FILE}"
 done
