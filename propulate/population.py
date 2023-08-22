@@ -5,11 +5,8 @@ class Individual(dict):
     """
     An individual represents a candidate solution to the considered optimization problem.
     """
-    def __init__(
-            self,
-            generation: int = -1,
-            rank: int = -1
-    ) -> None:
+
+    def __init__(self, generation: int = -1, rank: int = -1) -> None:
         """
         Initialize an individual with given parameters.
 
@@ -38,7 +35,9 @@ class Individual(dict):
         """
         rep = {
             key: (
-                f"{Decimal(self[key]):.2E}" if type(self[key]) == float else self[key]
+                f"{Decimal(self[key]):.2E}"
+                if isinstance(self[key], float)
+                else self[key]
             )
             for key in self
         }
@@ -47,14 +46,13 @@ class Individual(dict):
         else:
             loss_str = f"{Decimal(float(self.loss)):.2E}"
         return (
-            f"[{rep}, loss " + loss_str + f", island {self.island}, worker {self.rank}, "
+            f"[{rep}, loss "
+            + loss_str
+            + f", island {self.island}, worker {self.rank}, "
             f"generation {self.generation}]"
         )
 
-    def __eq__(
-            self,
-            other
-    ) -> bool:
+    def __eq__(self, other) -> bool:
         """
         Define equality operator ``==`` for class ``Individual``.
 
@@ -78,7 +76,9 @@ class Individual(dict):
         """
         # Check if object to compare to is of the same class.
         if not isinstance(other, self.__class__):
-            raise TypeError(f"{other} not an instance of `Individual` but {type(other)}.")
+            raise TypeError(
+                f"{other} not an instance of `Individual` but {type(other)}."
+            )
 
         # Check equivalence of actual traits, i.e., hyperparameter values.
         compare_traits = True
@@ -98,10 +98,7 @@ class Individual(dict):
             and self.active == other.active
         )
 
-    def equals(
-            self,
-            other
-    ) -> bool:
+    def equals(self, other) -> bool:
         """
         Define alternative equality check for class ``Individual``.
 
@@ -124,7 +121,9 @@ class Individual(dict):
         """
         # Check if object to compare to is of the same class.
         if not isinstance(other, self.__class__):
-            raise TypeError(f"{other} not an instance of `Individual` but {type(other)}.")
+            raise TypeError(
+                f"{other} not an instance of `Individual` but {type(other)}."
+            )
         # Check equivalence of traits, i.e., hyperparameter values.
         compare_traits = True
         for key in self.keys():
