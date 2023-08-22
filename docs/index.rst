@@ -6,7 +6,6 @@
 
 What Propulate Can Do For You
 =============================
-
 |:bulb:| `Click`_ to watch our 3 min introduction video |:movie_camera:|!
 
 ``Propulate`` is an HPC-tailored software for solving optimization problems in parallel.

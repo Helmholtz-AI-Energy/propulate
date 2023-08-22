@@ -174,7 +174,7 @@ We also need some helper function to load the MNIST data:
 
 .. code-block:: python
 
-    def get_data_loaders(batch_size):
+    def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
         """
         Get MNIST train and validation dataloaders.
 
