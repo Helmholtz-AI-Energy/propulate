@@ -53,11 +53,12 @@ figcaption {
 }
 figure,
 footer,
-header,
+header {align: left}
 hgroup,
-nav,
+nav {text-align: left}
 section {
-	display: block
+	display: block;
+	text-align: justify;
 }
 
 audio,
@@ -90,7 +91,6 @@ html {
 
 body {
 	margin: 0;
-	text-align: justify;
 }
 
 a:hover,
@@ -290,7 +290,8 @@ textarea {
 
 table {
 	border-collapse: collapse;
-	border-spacing: 0
+	border-spacing: 0;
+	text-align: left;
 }
 
 td {
@@ -5684,13 +5685,13 @@ a.wy-text-neutral:hover {
 	color: #595959 !important
 }
 
-h1,
-h2,
+h1 {text-align: left}
+h2 {text-align: left}
 .rst-content .toctree-wrapper p.caption,
-h3,
-h4,
-h5,
-h6,
+h3 {text-align: left}
+h4 {text-align: left}
+h5 {text-align: left}
+h6 {text-align: left}
 legend {
 	margin-top: 0;
 	font-weight: 700;
@@ -6235,7 +6236,7 @@ html {
 	margin-top: -.4045em;
 	margin-bottom: .809em;
 	font-weight: normal;
-	color: rgba(255, 255, 255, 0.3)
+	color: #D23264
 }
 
 .wy-nav .wy-menu-vertical header {
@@ -6630,7 +6631,7 @@ footer span.commit .rst-content tt,
 .rst-versions .rst-other-versions {
 	font-size: 90%;
 	padding: 12px;
-	color: gray;
+	color: #D23264;
 	display: none
 }
 
@@ -6651,7 +6652,7 @@ footer span.commit .rst-content tt,
 .rst-versions .rst-other-versions dd a {
 	display: inline-block;
 	padding: 6px;
-	color: #fcfcfc
+	color: #D23264
 }
 
 .rst-versions.rst-badge {
@@ -6692,7 +6693,8 @@ footer span.commit .rst-content tt,
 	line-height: 30px;
 	padding: 0 6px;
 	display: block;
-	text-align: center
+	text-align: center;
+	color: #D23264;
 }
 
 @media screen and (max-width: 768px) {
@@ -7166,7 +7168,8 @@ a .rst-content code {
 
 .rst-content dl p,
 .rst-content dl table{
-	margin-bottom: 12px !important
+	margin-bottom: 12px !important;
+	margin-top: 5px !important;
 }
 
 .rst-content dl ul,
@@ -7192,7 +7195,8 @@ a .rst-content code {
 
 .rst-content dl dd {
 	margin: 0 0 12px 24px;
-	line-height: 24px
+	line-height: 24px;
+	text-align: left;
 }
 
 .rst-content dl:not(.docutils) {
@@ -7231,6 +7235,7 @@ a .rst-content code {
 
 .rst-content dl:not(.docutils) dl dt .headerlink {
 	color: #404040;
+	text-align: left !important;
 	font-size: 100% !important
 }
 
@@ -7482,3 +7487,10 @@ span[id*='MathJax-Span'] {
 	padding: 20px;
 	border-top: 1px solid var(--hgrey-light);
 }
+
+/*
+.rst-content dd.field-even {margin-top: 8px}
+ */
+.rst-content dl.field-list > dd {margin-top: 5px !important; margin-bottom: 4px !important}
+.rst-content dl.field-list > dt {margin-top: 5px !important; margin-bottom: 4px !important}
+.rst-content dl dd > p:last-child {margin-top: 4px !important}
