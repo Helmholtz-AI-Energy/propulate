@@ -145,7 +145,7 @@ class Pollinator:
         ----------
         logging_interval : int
                            Print each worker's progress every
-                           `logging_interval`th generation.
+                           ``logging_interval`` th generation.
         debug: int
                verbosity/debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode)
         """
