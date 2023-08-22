@@ -156,7 +156,7 @@ class Net(LightningModule):
         return torch.optim.SGD(self.parameters(), lr=self.lr)
 
 
-def get_data_loaders(batch_size):
+def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
     """
     Get MNIST train and validation dataloaders.
 
