@@ -6,7 +6,7 @@ Multi-Island Optimization of a Mathematical Function
 .. note::
 
    You can find the corresponding ``Python`` script here:
-   https://github.com/Helmholtz-AI-Energy/propulate/blob/master/scripts/islands_example.py
+   https://github.com/Helmholtz-AI-Energy/propulate/blob/master/tutorials/islands_example.py
 
 Next, we want to go one step further and minimize the sphere function using ``Propulate``'s *asynchronous island model*.
 ``Propulate`` provides a specific class called ``Islands`` for this. The basic procedure, including defining

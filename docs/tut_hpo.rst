@@ -6,7 +6,7 @@ Hyperparameter Optimization of a Neural Network
 .. note::
 
    You can find the corresponding ``Python`` script here:
-   https://github.com/Helmholtz-AI-Energy/propulate/blob/master/scripts/torch_example.py
+   https://github.com/Helmholtz-AI-Energy/propulate/blob/master/tutorials/torch_example.py
 
 Almost all machine-learning algorithms have non-learnable hyperparameters that influence the training and in
 particular their predictive capacity.

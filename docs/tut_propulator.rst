@@ -5,7 +5,7 @@ Evolutionary Optimization of a Mathematical Function
 .. note::
 
    You can find the corresponding ``Python`` script here:
-   https://github.com/Helmholtz-AI-Energy/propulate/blob/master/scripts/propulator_example.py
+   https://github.com/Helmholtz-AI-Energy/propulate/blob/master/tutorials/propulator_example.py
 
 The basic optimization mechanism in ``Propulate`` is that of Darwinian evolution, i.e.,
 beneficial traits are selected, recombined, and mutated to breed more fit individuals.
