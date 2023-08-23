@@ -7,7 +7,7 @@ from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
 functions = ("Sphere", "Rosenbrock", "Step", "Quartic", "Griewank", "Rastrigin", "Schwefel", "BiSphere", "BiRastrigin")
-function_name = functions[8]
+function_name = functions[7]
 
 if __name__ == "__main__":
     path = Path(".")
@@ -54,7 +54,7 @@ if __name__ == "__main__":
 
     for i in range(4):
         ax.plot(plt_data[i][1], plt_data[i][0], label=pso_names[i], marker=marker_list[i], ls="dotted", lw=2)
-    ax.plot(plt_data[4][1], plt_data[4][0], label="Vanilla Propulate", marker=marker_list[4], ls="dotted", lw=2, ms=8)
+    ax.plot(plt_data[4][1], plt_data[4][0], label="Vanilla Propulate", marker=marker_list[4], lw=1, ms=8)
     ax.set_xscale("log", base=2)
     ax.set_xticks([1, 2, 4, 8, 16], [1, 2, 4, 8, 16])
     ax.grid(True)
