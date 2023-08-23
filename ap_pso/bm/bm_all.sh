@@ -3,7 +3,7 @@ BASE_DIR="/pfs/work7/workspace/scratch/pa1164-propulate_bm_1/async-parallel-pso"
 for RACE in {0..4}
 do
   NODES=$(( 2 ** RACE ))
-  TASKS=$(( 64 * NODES ))
+  TASKS=$(( 32 * NODES ))
   ITERATIONS=$(( 2000 / NODES ))
   QUEUE="dev_multiple_il"
   if [[ $RACE -eq 0 ]]
@@ -56,7 +56,7 @@ source ${BASE_DIR}/../.venvs/async-parallel-pso/bin/activate
       RESULTS_DIR="${BASE_DIR}/ap_pso/bm/results2/${DIRNAME}"
       mkdir "$RESULTS_DIR"
 
-      SCRIPT+="mpirun --bind-to core --map-by core python -u ${BASE_DIR}/ap_pso/bm/pso_benchmark.py ${FUNCTION} ${ITERATIONS} ${I} ${RESULTS_DIR}
+      SCRIPT+="mpirun --bind-to core --map-by core python -u ${BASE_DIR}/ap_pso/bm/pso_benchmark.py ${FUNCTION} ${ITERATIONS} ${PSO} ${RESULTS_DIR}
 "
     done
   done
