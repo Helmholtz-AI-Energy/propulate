@@ -3,7 +3,7 @@ BASE_DIR="/pfs/work7/workspace/scratch/pa1164-propulate_bm_1/async-parallel-pso"
 for RACE in {0..4}
 do
   NODES=$(( 2 ** RACE ))
-  TASKS=$(( 32 * NODES ))
+  TASKS=$(( 64 * NODES ))
   ITERATIONS=$(( 2000 / NODES ))
   QUEUE="dev_multiple_il"
   if [[ $RACE -eq 0 ]]
