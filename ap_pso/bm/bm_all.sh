@@ -5,7 +5,7 @@ do
   NODES=$(( 2 ** RACE ))
   TASKS=$(( 64 * NODES ))
   ITERATIONS=$(( 2000 / NODES ))
-  QUEUE="dev_multiple_il"
+  QUEUE="multiple_il"
   if [[ $RACE -eq 0 ]]
   then
     NODES=2
@@ -19,7 +19,7 @@ do
 #SBATCH --ntasks=${TASKS}
 #SBATCH --partition=${QUEUE}
 #SBATCH --job-name=\"all_${RACE}\"
-#SBATCH --time=30:00
+#SBATCH --time=4:00:00
 #SBATCH --mem=40000
 #SBATCH --cpus-per-task=1
 #SBATCH --mail-type=ALL
@@ -45,7 +45,7 @@ source ${BASE_DIR}/../.venvs/async-parallel-pso/bin/activate
     RESULTS_DIR="${BASE_DIR}/ap_pso/bm/results2/${DIRNAME}"
     mkdir "$RESULTS_DIR"
 
-    SCRIPT+="mpirun --bind-to core --map-by core python -u ${BASE_DIR}/ap_pso/bm/hyppopy_benchmark.py -${FUNCTION} ${ITERATIONS} ${RESULTS_DIR}
+    SCRIPT+="mpirun --bind-to core --map-by core python -u ${BASE_DIR}/ap_pso/bm/hyppopy_benchmark.py ${FUNCTION} ${ITERATIONS} ${RESULTS_DIR}
 "
   done
   for FUNCTION in "sphere" "rosenbrock" "step" "quartic" "rastrigin" "griewank" "schwefel" "bisphere" "birastrigin"
