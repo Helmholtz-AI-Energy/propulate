@@ -17,7 +17,6 @@ from scripts.function_benchmark import get_function_search_space
 function_name = sys.argv[1]  # Get function to optimize from command-line.
 NUM_GENERATIONS: int = int(sys.argv[2])  # Set number of generations.
 POP_SIZE = 2 * MPI.COMM_WORLD.size  # Set size of breeding population.
-num_migrants = 1
 
 function, limits = get_function_search_space(function_name)
 
@@ -42,7 +41,7 @@ if __name__ == "__main__":
     init = PSOInitUniform(limits, rng=rng, rank=MPI.COMM_WORLD.rank)
     propagator = Conditional(POP_SIZE, propagator, init)
 
-    islands = Islands(function, propagator, rng, generations=NUM_GENERATIONS, num_islands=4, checkpoint_path='./checkpoints/',
+    islands = Islands(function, propagator, rng, generations=NUM_GENERATIONS, checkpoint_path='./checkpoints/',
                       migration_probability=0, pollination=False)
-    islands.evolve(top_n=1, logging_interval=1)
-    islands.propulator.paint_graphs(function_name)
+    islands.evolve(debug=0)
+    # islands.propulator.paint_graphs(function_name)
