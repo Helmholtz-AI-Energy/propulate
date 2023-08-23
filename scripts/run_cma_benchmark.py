@@ -96,40 +96,31 @@ def main():
         job_name = f"{config['propagator']}{dimension}dims_{num_islands}islands_polli{config['pollination']}"
         outfile = f"{job_name}.out"
         job_script_name = f"{job_name}.sh"
+        scriptcontent = f"""#!/bin/bash
+                #SBATCH --ntasks=16
+                #SBATCH --nodes=2
+                #SBATCH --job-name={job_name}
+                #SBATCH --mail-type=BEGIN,END,FAIL
+                #SBATCH --mail-user=uxyme@student.kit.edu
+                #SBATCH --partition=dev_multiple
+                #SBATCH --output={outfile}
+
+                module purge
+                module load devel/python/3.8.6_gnu_10.2
+                module load compiler/gnu/10.2
+                module load mpi/openmpi/4.1
+
+                source /pfs/work7/workspace/scratch/fp5870-propulate/propulate_venv/bin/activate
+
+                python /pfs/work7/workspace/scratch/fp5870-propulate/propulate/scripts/cma_es_benchmark.py --checkpoint_path {config["checkpoint_path"]} --num_islands {config["num_islands"]} --generation 100 --exploration False --select_worst_all_time False --dimension {config["dimension"]} --pool_size 3 --propagator {config["propagator"]} --pollination {config["pollination"]}
+                    """
+
         with open(job_script_name, "wt") as f:
             f.write(
-                scriptcontent.format(
-                    job_name=job_name,
-                    outfile=outfile,
-                    checkpoint_path=config["checkpoint_path"],
-                    num_islands=config["num_islands"],
-                    dimension=config["dimension"],
-                    propagator=config["propagator"],
-                    pollination=config["pollination"],
-                )
+                scriptcontent
             )
 
         subprocess.run(["sbatch", job_script_name])
-
-
-scriptcontent = f"""#!/bin/bash
-#SBATCH --ntasks=16
-#SBATCH --nodes=2
-#SBATCH --job-name={job_name}
-#SBATCH --mail-type=BEGIN,END,FAIL
-#SBATCH --mail-user=uxyme@student.kit.edu
-#SBATCH --partition=dev_multiple
-#SBATCH --output={outfile}
-
-module purge
-module load devel/python/3.8.6_gnu_10.2
-module load compiler/gnu/10.2
-module load mpi/openmpi/4.1
-
-source /pfs/work7/workspace/scratch/fp5870-propulate/propulate_venv/bin/activate
-
-python /pfs/work7/workspace/scratch/fp5870-propulate/propulate/scripts/cma_es_benchmark.py --checkpoint_path {checkpoint_path} --num_islands {num_islands} --generation 100 --exploration False --select_worst_all_time False --dimension {dimension} --pool_size 3 --propagator {propagator} --pollination {pollination}
-    """
 
 
 if __name__ == "__main__":
