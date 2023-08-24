@@ -36,7 +36,7 @@ if __name__ == "__main__":
         CanonicalPropagator(2.49618, 2.49618, MPI.COMM_WORLD.rank, limits, rng)
     ][PSO_TYPE]
 
-    init = PSOInitUniform(limits, rng=rng)
+    init = PSOInitUniform(limits, rng=rng, rank=MPI.COMM_WORLD.rank)
     propagator = Conditional(POP_SIZE, propagator, init)
 
     islands = Islands(function, propagator, rng, generations=NUM_GENERATIONS, checkpoint_path=CHECKPOINT_PLACE,
