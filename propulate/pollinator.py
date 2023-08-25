@@ -4,14 +4,12 @@ import os
 import pickle
 import time
 from typing import Callable, Union, Tuple, List
-from operator import attrgetter
 from pathlib import Path
 
-import deepdiff
 import numpy as np
 from mpi4py import MPI
 
-from ._globals import DUMP_TAG, INDIVIDUAL_TAG, MIGRATION_TAG, SYNCHRONIZATION_TAG
+from ._globals import DUMP_TAG, MIGRATION_TAG, SYNCHRONIZATION_TAG
 from .propagators import Propagator, SelectMin, SelectMax
 from .population import Individual
 from .propulator import Propulator
@@ -44,7 +42,7 @@ class Pollinator(Propulator):
         rng: random.Random = None,
     ) -> None:
         """
-        Initialize Pollinator with given parameters.
+        Initialize ``Pollinator`` with given parameters.
 
         Parameters
         ----------
@@ -99,20 +97,6 @@ class Pollinator(Propulator):
         # Set class attributes.
         self.immigration_propagator = immigration_propagator  # immigration propagator
         self.replaced = []  # individuals to be replaced by immigrants
-
-    def propulate(self, logging_interval: int = 10, debug: int = 1) -> None:
-        """
-        Run evolutionary optimization.
-
-        Parameters
-        ----------
-        logging_interval : int
-                           Print each worker's progress every
-                           ``logging_interval`` th generation.
-        debug: int
-               verbosity/debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode)
-        """
-        self._work(logging_interval, debug)
 
     def _send_emigrants(self, debug: int) -> None:
         """
@@ -342,30 +326,6 @@ class Pollinator(Propulator):
         if debug == 2:
             print(log_string)
 
-    def _get_unique_individuals(self) -> List[Individual]:
-        """
-        Get unique individuals in terms of traits and loss in current population.
-
-        Returns
-        -------
-        list[propulate.population.Individual]
-            unique individuals
-        """
-        unique_inds = []
-        for individual in self.population:
-            considered = False
-            for ind in unique_inds:
-                # Check for equivalence of traits only when
-                # determining unique individuals. To do so, use
-                # self.equals(other) member function of Individual()
-                # class instead of `==` operator.
-                if individual.equals(ind):
-                    considered = True
-                    break
-            if not considered:
-                unique_inds.append(individual)
-        return unique_inds
-
     def _check_for_duplicates(
         self, active: bool, debug: int
     ) -> Tuple[List[List[Union[Individual, int]]], List[Individual]]:
@@ -417,39 +377,9 @@ class Pollinator(Propulator):
                 occurrences.append([individual, num_copies])
         return occurrences, unique_inds
 
-    def _check_intra_island_synchronization(
-        self, populations: List[List[Individual]]
-    ) -> bool:
-        """
-        Check synchronization of populations of workers within one island.
-
-        Parameters
-        ----------
-        populations: list[list[propulate.population.Individual]]
-                     list of islands' sorted population lists
-
-        Returns
-        -------
-        bool
-            True if populations are synchronized, False if not.
-        """
-        synchronized = True
-        for idx, population in enumerate(populations):
-            difference = deepdiff.DeepDiff(
-                population, populations[0], ignore_order=True
-            )
-            if len(difference) == 0:
-                continue
-            print(
-                f"Island {self.island_idx} Worker {self.comm.rank}: Population not synchronized:\n"
-                f"{difference}\n"
-            )
-            synchronized = False
-        return synchronized
-
     def _work(self, logging_interval: int, debug: int):
         """
-        Execute evolutionary algorithm in parallel.
+        Execute evolutionary algorithm using island model with pollination in parallel.
 
         Parameters
         ----------
@@ -576,74 +506,3 @@ class Pollinator(Propulator):
         if probe_dump:
             _ = self.comm.recv(source=stat.Get_source(), tag=DUMP_TAG)
         MPI.COMM_WORLD.barrier()
-
-    def summarize(
-        self, top_n: int = 1, debug: int = 1
-    ) -> List[Union[List[Individual], Individual]]:
-        """
-        Get top-n results from propulate optimization.
-
-        Parameters
-        ----------
-        top_n: int
-               number of best results to report
-        debug: int
-               verbosity/debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode)
-
-        Returns
-        -------
-        list[list[Individual] | Individual]]
-            top-n best individuals on each island
-        """
-        active_pop, num_active = self._get_active_individuals()
-        assert np.all(
-            np.array(self.comm.allgather(num_active), dtype=int) == num_active
-        )
-        if self.island_counts is not None:
-            num_active = int(
-                MPI.COMM_WORLD.allreduce(
-                    num_active / self.island_counts[self.island_idx]
-                )
-            )
-
-        MPI.COMM_WORLD.barrier()
-        if MPI.COMM_WORLD.rank == 0:
-            print("\n###########")
-            print("# SUMMARY #")
-            print("###########\n")
-            print(
-                f"Number of currently active individuals is {num_active}. "
-                f"\nExpected overall number of evaluations is {self.generations*MPI.COMM_WORLD.size}."
-            )
-        # Only double-check number of occurrences of each individual for debug level 2.
-        if debug == 2:
-            populations = self.comm.gather(self.population, root=0)
-            occurrences, _ = self._check_for_duplicates(True, debug)
-            if self.comm.rank == 0:
-                if self._check_intra_island_synchronization(populations):
-                    print(
-                        f"Island {self.island_idx}: Populations among workers synchronized."
-                    )
-                else:
-                    print(
-                        f"Island {self.island_idx}: Populations among workers not synchronized:\n{populations}"
-                    )
-                print(
-                    f"Island {self.island_idx}: {len(active_pop)}/{len(self.population)} "
-                    f"individuals active ({len(occurrences)} unique)."
-                )
-        MPI.COMM_WORLD.barrier()
-        if debug == 0:
-            best = min(self.population, key=attrgetter("loss"))
-            if self.comm.rank == 0:
-                print(f"Top result on island {self.island_idx}: {best}\n")
-        else:
-            unique_pop = self._get_unique_individuals()
-            unique_pop.sort(key=lambda x: x.loss)
-            best = unique_pop[:top_n]
-            if self.comm.rank == 0:
-                res_str = f"Top {top_n} result(s) on island {self.island_idx}:\n"
-                for i in range(top_n):
-                    res_str += f"({i+1}): {unique_pop[i]}\n"
-                print(res_str)
-        return MPI.COMM_WORLD.allgather(best)

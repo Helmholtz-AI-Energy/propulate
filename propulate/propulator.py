@@ -2,6 +2,7 @@ import copy
 import os
 import pickle
 import random
+import sys
 import time
 from operator import attrgetter
 from pathlib import Path
@@ -77,7 +78,7 @@ class Propulator:
         if generations == 0:  # If number of iterations requested == 0.
             if MPI.COMM_WORLD.rank == 0:
                 print("Requested number of generations is zero...[RETURN]")
-            return
+            sys.exit(0)
         self.generations = (
             generations  # number of generations (evaluations per individual)
         )
@@ -260,6 +261,12 @@ class Propulator:
         ----------
         debug: int
                verbosity/debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode)
+
+        Raises
+        ------
+        NotImplementedError
+            Not implemented in ``Propulator`` base class. Exact migration and pollination behavior is defined in the
+            ``Migrator`` and ``Pollinator`` classes, respectively.
         """
         raise NotImplementedError
 
@@ -275,51 +282,10 @@ class Propulator:
         Raises
         ------
         NotImplementedError
-            Not implemented for Propulator base class.
+            Not implemented in ``Propulator`` base class. Exact migration and pollination behavior is defined in the
+            ``Migrator`` and ``Pollinator`` classes, respectively.
         """
-
-    def _check_emigrants_to_deactivate(self) -> bool:
-        """
-        Redundant safety check for existence of emigrants that could not be deactivated in population.
-
-        Returns
-        -------
-        bool
-            True if emigrants to be deactivated exist in population, False if not.
-        """
-        check = False
-        # Loop over emigrants still to be deactivated.
-        for idx, emigrant in enumerate(self.emigrated):
-            existing_ind = [
-                ind
-                for ind in self.population
-                if ind == emigrant and ind.migration_steps == emigrant.migration_steps
-            ]
-            if len(existing_ind) > 0:
-                check = True
-                break
-        if check:
-            # Check equivalence of actual traits, i.e., (hyper-)parameter values.
-            compare_traits = True
-            for key in emigrant.keys():
-                if existing_ind[0][key] == emigrant[key]:
-                    continue
-                else:
-                    compare_traits = False
-                    break
-
-            print(
-                f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}:\n"
-                f"Currently in emigrated: {emigrant}\n"
-                f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
-                f"Currently in population: {existing_ind}\nEquivalence check: {existing_ind[0] == emigrant} "
-                f"{compare_traits} {existing_ind[0].loss == self.emigrated[idx].loss} "
-                f"{existing_ind[0].active == emigrant.active} {existing_ind[0].current == emigrant.current} "
-                f"{existing_ind[0].island == emigrant.island} "
-                f"{existing_ind[0].migration_steps == emigrant.migration_steps}"
-            )
-
-        return check
+        raise NotImplementedError
 
     def _deactivate_emigrants(self, debug: int) -> None:
         """
@@ -508,7 +474,6 @@ class Propulator:
             print(f"Island {self.island_idx} has {self.comm.size} workers.")
 
         dump = True if self.comm.rank == 0 else False
-        migration = True if self.migration_prob > 0 else False
         MPI.COMM_WORLD.barrier()
 
         # Loop over generations.
@@ -523,22 +488,6 @@ class Propulator:
 
             # Check for and possibly receive incoming individuals from other intra-island workers.
             self._receive_intra_island_individuals(debug)
-
-            # Migration.
-            if migration:
-                # Emigration: Island sends individuals out.
-                # Happens on per-worker basis with certain probability.
-                if self.rng.random() < self.migration_prob:
-                    self._send_emigrants(debug)
-
-                # Immigration: Check for incoming individuals from other islands.
-                self._receive_immigrants(debug)
-
-                # Emigration: Check for emigrants from other intra-island workers to be deactivated.
-                self._deactivate_emigrants(debug)
-                if debug == 2:
-                    check = self._check_emigrants_to_deactivate()
-                    assert check is False
 
             if dump:  # Dump checkpoint.
                 if debug == 2:
@@ -589,32 +538,6 @@ class Propulator:
         # Final check for incoming individuals evaluated by other intra-island workers.
         self._receive_intra_island_individuals(debug)
         MPI.COMM_WORLD.barrier()
-
-        if migration:
-            # Final check for incoming individuals from other islands.
-            self._receive_immigrants(debug)
-            MPI.COMM_WORLD.barrier()
-
-            # Emigration: Final check for emigrants from other intra-island workers to be deactivated.
-            self._deactivate_emigrants(debug)
-
-            if debug > 0:
-                check = self._check_emigrants_to_deactivate()
-                assert check is False
-                MPI.COMM_WORLD.barrier()
-                if len(self.emigrated) > 0:
-                    print(
-                        f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
-                        f"Finally {len(self.emigrated)} individual(s) in emigrated: {self.emigrated}:\n"
-                        f"{self.population}"
-                    )
-                    self._deactivate_emigrants(debug)
-                    if self._check_emigrants_to_deactivate():
-                        raise ValueError(
-                            "There should not be any individuals left that need to be deactivated."
-                        )
-
-            MPI.COMM_WORLD.barrier()
 
         # Final checkpointing on rank 0.
         save_ckpt_file = self.checkpoint_path / f"island_{self.island_idx}_ckpt.pkl"
@@ -672,7 +595,7 @@ class Propulator:
                 f"Number of currently active individuals is {num_active}. "
                 f"\nExpected overall number of evaluations is {self.generations*MPI.COMM_WORLD.size}."
             )
-        # Only double-check number of occurrences of each individual for DEBUG level 2.
+        # Only double-check number of occurrences of each individual for debug level 2.
         if debug == 2:
             populations = self.comm.gather(self.population, root=0)
             occurrences, _ = self._check_for_duplicates(True, debug)
