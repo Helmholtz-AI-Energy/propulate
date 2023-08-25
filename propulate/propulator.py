@@ -18,10 +18,7 @@ from ._globals import DUMP_TAG, INDIVIDUAL_TAG, MIGRATION_TAG, SYNCHRONIZATION_T
 
 class Propulator:
     """
-    Parallel propagator of populations with real migration.
-
-    Individuals can only exist on one evolutionary island at a time, i.e., they are removed
-    (i.e. deactivated for breeding) from the sending island upon emigration.
+    Parallel propagator of populations.
     """
 
     def __init__(
@@ -96,7 +93,6 @@ class Propulator:
         )
         self.island_counts = island_counts  # number of workers on each island
         self.emigration_propagator = emigration_propagator  # emigration propagator
-        self.emigrated = []  # emigrated individuals to be deactivated on sending island
         self.rng = rng
 
         # Load initial population of evaluated individuals from checkpoint if exists.
@@ -183,6 +179,8 @@ class Propulator:
         ind.island = self.island_idx  # Set birth island.
         ind.current = self.comm.rank  # Set worker responsible for migration.
         ind.migration_steps = 0  # Set number of migration steps performed.
+        ind.migration_history = str(self.island_idx)
+
         return ind  # Return new individual.
 
     def _evaluate_individual(self, debug: int) -> None:
@@ -263,108 +261,8 @@ class Propulator:
         debug: int
                verbosity/debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode)
         """
-        log_string = f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: EMIGRATION\n"
-        # Determine relevant line of migration topology.
-        to_migrate = self.migration_topology[self.island_idx, :]
-        num_emigrants = np.sum(
-            to_migrate
-        )  # Determine overall number of emigrants to be sent out.
-        eligible_emigrants = [
-            ind
-            for ind in self.population
-            if ind.active and ind.current == self.comm.rank
-        ]
+        raise NotImplementedError
 
-        # Only perform migration if overall number of emigrants to be sent
-        # out is smaller than current number of eligible emigrants.
-        if num_emigrants <= len(eligible_emigrants):
-            # Select all migrants to be sent out in this migration step.
-            emigrator = self.emigration_propagator(
-                num_emigrants
-            )  # Set up emigration propagator.
-            all_emigrants = emigrator(
-                eligible_emigrants
-            )  # Choose `offspring` eligible emigrants.
-            self.rng.shuffle(all_emigrants)
-            # Loop through relevant part of migration topology.
-            offsprings_sent = 0
-            for target_island, offspring in enumerate(to_migrate):
-                if offspring == 0:
-                    continue
-                # Determine MPI.COMM_WORLD ranks of workers on target island.
-                displ = self.island_displs[target_island]
-                count = self.island_counts[target_island]
-                dest_island = np.arange(displ, displ + count)
-
-                # Worker sends *different* individuals to each target island.
-                emigrants = all_emigrants[
-                    offsprings_sent : offsprings_sent + offspring
-                ]  # Choose `offspring` eligible emigrants.
-                offsprings_sent += offspring
-                log_string += f"Chose {len(emigrants)} emigrant(s): {emigrants}\n"
-
-                # Deactivate emigrants on sending island (true migration).
-                for r in range(
-                    self.comm.size
-                ):  # Send emigrants to other intra-island workers for deactivation.
-                    if r == self.comm.rank:
-                        continue  # No self-talk.
-                    self.comm.send(
-                        copy.deepcopy(emigrants), dest=r, tag=SYNCHRONIZATION_TAG
-                    )
-                    log_string += (
-                        f"Sent {len(emigrants)} individual(s) {emigrants} to "
-                        f"intra-island worker {r} to deactivate.\n"
-                    )
-
-                # Send emigrants to target island.
-                departing = copy.deepcopy(emigrants)
-                # Determine new responsible worker on target island.
-                for ind in departing:
-                    ind.current = self.rng.randrange(0, count)
-                for r in dest_island:  # Loop over MPI.COMM_WORLD destination ranks.
-                    MPI.COMM_WORLD.send(
-                        copy.deepcopy(departing), dest=r, tag=MIGRATION_TAG
-                    )
-                    log_string += (
-                        f"Sent {len(departing)} individual(s) to worker {r-self.island_displs[target_island]} "
-                        + f"on target island {target_island}.\n"
-                    )
-
-                # Deactivate emigrants for sending worker.
-                for emigrant in emigrants:
-                    # Look for emigrant to deactivate in original population list.
-                    to_deactivate = [
-                        idx
-                        for idx, ind in enumerate(self.population)
-                        if ind == emigrant
-                        and ind.migration_steps == emigrant.migration_steps
-                    ]
-                    assert len(to_deactivate) == 1  # There should be exactly one!
-                    _, n_active_before = self._get_active_individuals()
-                    self.population[
-                        to_deactivate[0]
-                    ].active = False  # Deactivate emigrant in population.
-                    _, n_active_after = self._get_active_individuals()
-                    log_string += (
-                        f"Deactivated own emigrant {self.population[to_deactivate[0]]}. "
-                        + f"Active before/after: {n_active_before}/{n_active_after}\n"
-                    )
-            _, n_active = self._get_active_individuals()
-            log_string += (
-                f"After emigration: {n_active}/{len(self.population)} active.\n"
-            )
-
-            if debug == 2:
-                print(log_string)
-
-        else:
-            if debug == 2:
-                print(
-                    f"Island {self.island_idx} worker {self.comm.rank} generation {self.generation}: \n"
-                    f"Population size {len(eligible_emigrants)} too small "
-                    f"to select {num_emigrants} migrants."
-                )
 
     def _receive_immigrants(self, debug: int) -> None:
         """
@@ -377,58 +275,9 @@ class Propulator:
 
         Raises
         ------
-        RuntimeError
-            If identical immigrant is already active on target island for real migration.
+        NotImplementedError
+            Not implemented for Propulator base class.
         """
-        log_string = f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: IMMIGRATION\n"
-        probe_migrants = True
-        while probe_migrants:
-            stat = MPI.Status()
-            probe_migrants = MPI.COMM_WORLD.iprobe(
-                source=MPI.ANY_SOURCE, tag=MIGRATION_TAG, status=stat
-            )
-            log_string += f"Immigrant(s) to receive?...{probe_migrants}\n"
-            if probe_migrants:
-                immigrants = MPI.COMM_WORLD.recv(
-                    source=stat.Get_source(), tag=MIGRATION_TAG
-                )
-                log_string += (
-                    f"Received {len(immigrants)} immigrant(s) from global "
-                    f"worker {stat.Get_source()}: {immigrants}\n"
-                )
-                for immigrant in immigrants:
-                    immigrant.migration_steps += 1
-                    assert immigrant.active is True
-                    catastrophic_failure = (
-                        len(
-                            [
-                                ind
-                                for ind in self.population
-                                if ind == immigrant
-                                and immigrant.migration_steps == ind.migration_steps
-                                and immigrant.current == ind.current
-                            ]
-                        )
-                        > 0
-                    )
-                    if catastrophic_failure:
-                        raise RuntimeError(
-                            log_string
-                            + f"Identical immigrant {immigrant} already active on target  island {self.island_idx}."
-                        )
-                    self.population.append(
-                        copy.deepcopy(immigrant)
-                    )  # Append immigrant to population.
-                    log_string += f"Added immigrant {immigrant} to population.\n"
-
-                    # NOTE Do not remove obsolete individuals from population upon immigration
-                    # as they should be deactivated in the next step anyway.
-
-        _, n_active = self._get_active_individuals()
-        log_string += f"After immigration: {n_active}/{len(self.population)} active.\n"
-
-        if debug == 2:
-            print(log_string)
 
     def _check_emigrants_to_deactivate(self) -> bool:
         """
