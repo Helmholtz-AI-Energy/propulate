@@ -211,7 +211,7 @@ class Islands:
         list[list[Individual] | Individual]]: top-n best individuals on each island
         """
         self.propulator.propulate(logging_interval, debug)
-        return self.propulator.summarize(top_n)
+        return self.propulator.summarize(top_n, debug)
 
     def evolve(
             self,
