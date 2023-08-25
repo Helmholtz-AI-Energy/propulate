@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import random
 import sys
+import time
 
 from mpi4py import MPI
 
@@ -38,8 +39,18 @@ if __name__ == "__main__":
 
     init = PSOInitUniform(limits, rng=rng, rank=MPI.COMM_WORLD.rank)
     propagator = Conditional(POP_SIZE, propagator, init)
+    if MPI.COMM_WORLD.rank == 0:
+        print("#-----------------------------------#")
+        print(f"| Current time: {time.time_ns()} |")
+        print("#-----------------------------------#")
 
     islands = Islands(function, propagator, rng, generations=NUM_GENERATIONS, checkpoint_path=CHECKPOINT_PLACE,
                       migration_probability=0, pollination=False)
-    islands.evolve(top_n=1, logging_interval=1)
-    islands.propulator.paint_graphs(function_name)
+    islands.evolve(top_n=1, logging_interval=10, debug=0)
+
+    if MPI.COMM_WORLD.rank == 0:
+        print("#-----------------------------------#")
+        print(f"| Current time: {time.time_ns()} |")
+        print("#-----------------------------------#")
+
+#    islands.propulator.paint_graphs(function_name)

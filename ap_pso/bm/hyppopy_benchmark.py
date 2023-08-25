@@ -4,6 +4,7 @@ import pickle
 import random
 import sys
 import warnings
+import time
 from pathlib import Path
 
 from hyppopy.HyppopyProject import HyppopyProject
@@ -30,6 +31,11 @@ if __name__ == "__main__":
     function, limits = get_function_search_space(function_name)
     rng = random.Random(MPI.COMM_WORLD.rank)
 
+    if MPI.COMM_WORLD.rank == 0:
+        print("#-----------------------------------#")
+        print(f"| Current time: {time.time_ns()} |")
+        print("#-----------------------------------#")
+
     project = HyppopyProject()
     for key in limits:
         project.add_hyperparameter(name=key, domain="uniform", data=list(limits[key]), type=float)
@@ -55,3 +61,9 @@ if __name__ == "__main__":
             print(e)
     with open(path, "wb") as f:
         pickle.dump((df, best), f)
+
+    if MPI.COMM_WORLD.rank == 0:
+        print("#-----------------------------------#")
+        print(f"| Current time: {time.time_ns()} |")
+        print("#-----------------------------------#")
+
