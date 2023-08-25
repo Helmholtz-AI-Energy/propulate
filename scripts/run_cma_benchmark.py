@@ -92,17 +92,18 @@ configurations = {
 
 
 def main():
-    for config in configurations:
-        job_name = f"{config['propagator']}{dimension}dims_{num_islands}islands_polli{config['pollination']}"
+    for key, config in configurations.items():
+        print("Current config:", config)
+        job_name = f"{key}{dimension}dims_{num_islands}islands_polli{config['pollination']}"
         outfile = f"{job_name}.out"
         job_script_name = f"{job_name}.sh"
         scriptcontent = f"""#!/bin/bash
-                #SBATCH --ntasks=16
-                #SBATCH --nodes=2
+                #SBATCH --ntasks=40
+                #SBATCH --nodes=1
                 #SBATCH --job-name={job_name}
                 #SBATCH --mail-type=BEGIN,END,FAIL
                 #SBATCH --mail-user=uxyme@student.kit.edu
-                #SBATCH --partition=dev_multiple
+                #SBATCH --partition=dev_single
                 #SBATCH --output={outfile}
 
                 module purge
@@ -112,15 +113,17 @@ def main():
 
                 source /pfs/work7/workspace/scratch/fp5870-propulate/propulate_venv/bin/activate
 
-                python /pfs/work7/workspace/scratch/fp5870-propulate/propulate/scripts/cma_es_benchmark.py --checkpoint_path {config["checkpoint_path"]} --num_islands {config["num_islands"]} --generation 100 --exploration False --select_worst_all_time False --dimension {config["dimension"]} --pool_size 3 --propagator {config["propagator"]} --pollination {config["pollination"]}
+                mpirun python /pfs/work7/workspace/scratch/fp5870-propulate/propulate/scripts/cma_es_benchmark.py --checkpoint_path {config["checkpoint_path"]} --num_islands {config["num_islands"]} --generation 100 --dimension {config["dimension"]} --pool_size 3 --propagator {config["propagator"]}
                     """
+        if config["pollination"]:
+            scriptcontent += " --pollination"
 
         with open(job_script_name, "wt") as f:
             f.write(
                 scriptcontent
             )
 
-        subprocess.run(["sbatch", job_script_name])
+        subprocess.run(f"sbatch -p dev_single {job_script_name}", shell=True)
 
 
 if __name__ == "__main__":

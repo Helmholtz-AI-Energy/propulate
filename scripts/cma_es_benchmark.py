@@ -307,14 +307,14 @@ def get_propagator(prop: str, limits: Dict) -> Propagator:
 
     if prop == "default":
         propagator = get_default_propagator(
-            pop_size=2 * MPI.COMM_WORLD.rank,
+            pop_size=2 * MPI.COMM_WORLD.size,
             limits=limits,
             mate_prob=0.7,
             mut_prob=0.4,
             random_prob=0.1,
             rng=rng,
         )
-    elif prop == "basicCMA":
+    elif prop == "cmaBasic":
         propagator = CMAPropagator(
             BasicCMA(),
             limits,
@@ -324,7 +324,7 @@ def get_propagator(prop: str, limits: Dict) -> Propagator:
             pop_size=args.pop_size,
             pool_size=args.pool_size,
         )
-    elif prop == "activeCMA":
+    elif prop == "cmaActive":
         propagator = CMAPropagator(
             ActiveCMA(),
             limits,
@@ -356,7 +356,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--num_islands",
         type=int,
-        default=2,
+        default=4,
         help="The number of isles for the Island model.",
     )
     parser.add_argument(
@@ -367,14 +367,14 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--exploration",
-        type=bool,
         default=False,
+        action="store_true",
         help="Whether to update the covariance matrix after each generation",
     )
     parser.add_argument(
         "--select_worst_all_time",
-        type=bool,
         default=False,
+        action="store_true",
         help="Whether to always use the worst individuals of all time in the case of active cma.",
     )
     parser.add_argument(
@@ -395,14 +395,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "--propagator",
         type=str,
-        choices=["default", "basicCMA", "activeCMA"],
+        choices=["default", "cmaBasic", "cmaActive"],
         default="default",
-        help="default, basicCMA or activeCMA",
+        help="default, cmaBasic or cmaActive",
     )
     parser.add_argument(
         "--pollination",
-        type=bool,
         default=False,
+        action="store_true",
         help="Pollination activated or Migration",
     )
 
@@ -449,13 +449,13 @@ if __name__ == "__main__":
 
             checkpoint_dir = f"benchmark/{args.checkpoint_path}_{f}_run{run}_dim{args.dimension}"
             parent_dir = os.path.dirname(checkpoint_dir)
-            if not os.path.exists(parent_dir):
-                os.makedirs(parent_dir)
+
+            os.makedirs(parent_dir, exist_ok=True)
 
             islands = Islands(
-                func,  # Function to optimize
-                get_propagator(args.propagator, limits),  # Evolutionary operator
-                rng,  # Random number generator
+                loss_fn=func,  # Function to optimize
+                propagator=get_propagator(args.propagator, limits),  # Evolutionary operator
+                rng=rng,  # Random number generator
                 generations=args.generation,  # Number of generations
                 num_islands=args.num_islands,  # Number of separate evolutionary islands
                 migration_topology=migration_topology,  # Migration topology

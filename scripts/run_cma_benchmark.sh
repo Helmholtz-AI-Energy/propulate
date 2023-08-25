@@ -55,10 +55,11 @@ BASE_SCRIPT="#!/bin/bash
 #SBATCH --output=${JOB_NAME}.out
 #SBATCH --nodes=$NODES
 #SBATCH --ntasks=$NTASKS
+#SBATCH --mail-type=BEGIN,END,FAIL
+#SBATCH --mail-user=uxyme@student.kit.edu
 #SBATCH --partition=dev_multiple
 
 module purge
-module load compiler/gnu/12.1
 module load mpi/openmpi/4.1
 
 source propulate_venv/bin/activate
