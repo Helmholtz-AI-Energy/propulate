@@ -263,7 +263,6 @@ class Propulator:
         """
         raise NotImplementedError
 
-
     def _receive_immigrants(self, debug: int) -> None:
         """
         Check for and possibly receive immigrants send by other islands.
