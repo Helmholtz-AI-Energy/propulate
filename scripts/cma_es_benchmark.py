@@ -408,7 +408,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    functions = {
+    functions = [
         "rosenbrock",
         "step",
         "quartic",
@@ -418,13 +418,14 @@ if __name__ == "__main__":
         "sphere",
         "bisphere",
         "birastrigin",
-    }
+    ]
 
     # Set up migration topology.
     num_migrants = 1  # Set number of individuals migrating at once.
 
     for f in functions:
-        for run in range(1, 2):
+        for run in range(1, 3):
+            print(MPI.COMM_WORLD.rank, f, run)
             rng = random.Random(
                 MPI.COMM_WORLD.rank
             )  # Set up separate random number generator for evolutionary optimization process.
@@ -472,3 +473,5 @@ if __name__ == "__main__":
                 logging_interval=1,  # Logging interval used for print-outs.
                 debug=2,  # Debug / verbosity level
             )
+            del islands
+            MPI.COMM_WORLD.barrier()
