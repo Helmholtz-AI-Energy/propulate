@@ -6,7 +6,7 @@ from mpi4py import MPI
 import numpy as np
 
 from .propagators import Propagator, SelectMin, SelectMax
-from .propulator import Propulator
+from .migrator import Migrator
 from .pollinator import Pollinator
 from .population import Individual
 
@@ -193,7 +193,7 @@ class Islands:
         if pollination is False:
             if rank == 0:
                 print("No pollination.")
-            self.propulator = Propulator(
+            self.propulator = Migrator(
                 loss_fn=loss_fn,
                 propagator=propagator,
                 island_idx=island_idx,
