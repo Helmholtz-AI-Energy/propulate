@@ -1,5 +1,11 @@
 # -*- coding: utf-8 -*-
+import logging
+from pathlib import Path
+
+import colorlog
 import random
+import sys
+from mpi4py import MPI
 from typing import Dict, Union, Tuple
 
 from .propagators import (
@@ -85,3 +91,69 @@ def get_default_propagator(
     )  # Initialize random if population size < specified `pop_size`.
 
     return propagator
+
+
+def set_logger_config(
+    level=logging.INFO,
+    log_file: Union[str, Path] = None,
+    log_to_stdout: bool = True,
+    log_rank: bool = False,
+    colors: bool = True,
+) -> None:
+    """
+    Set up the logger. Should only need to be done once.
+    Generally, logging should only be done on the master rank.
+
+    Parameters
+    ----------
+    level: logging.INFO, ...
+           default level for logging
+           default: INFO
+    log_file: str, Path
+              file to save the log to
+              default: None
+    log_to_stdout: bool
+                   flag indicating if the log should be printed on stdout
+                   default: True
+    log_rank: bool
+              Flag for prepending the MPI rank to the logging message
+    colors: bool
+            Flag for using colored logs
+    """
+    rank = f"{MPI.COMM_WORLD.Get_rank()}:" if log_rank else ""
+    # Get base logger for Propulate.
+    base_logger = logging.getLogger("propulate")
+    simple_formatter = logging.Formatter(
+        f"{rank}:[%(asctime)s][%(name)s][%(levelname)s] - %(message)s"
+    )
+    if colors:
+        formatter = colorlog.ColoredFormatter(
+            f"{rank}[%(cyan)s%(asctime)s%(reset)s][%(blue)s%(name)s%(reset)s][%(log_color)s%(levelname)s%(reset)s] - %(message)s",
+            datefmt=None,
+            reset=True,
+            log_colors={
+                "DEBUG": "cyan",
+                "INFO": "green",
+                "WARNING": "yellow",
+                "ERROR": "red",
+                "CRITICAL": "red,bg_white",
+            },
+            secondary_log_colors={},
+            # style='%'
+        )
+        stdhandler = logging.StreamHandler(stream=sys.stdout)
+        stdhandler.setFormatter(formatter)
+    else:
+        stdhandler = logging.StreamHandler(stream=sys.stdout)
+        stdhandler.setFormatter(simple_formatter)
+
+    # Remove all handlers which might already be there
+    # base_logger.handlers.clear()
+    if log_to_stdout:
+        base_logger.addHandler(stdhandler)
+    if log_file is not None:
+        filehandler = logging.FileHandler(filename=log_file)
+        filehandler.setFormatter(simple_formatter)
+        base_logger.addHandler(filehandler)
+    base_logger.setLevel(level)
+    return

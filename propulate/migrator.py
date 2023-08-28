@@ -2,6 +2,7 @@ import copy
 import os
 import pickle
 import random
+import logging
 from pathlib import Path
 from typing import Callable, Union, List, Tuple
 
@@ -12,6 +13,9 @@ from .propagators import Propagator, SelectMin
 from .propulator import Propulator
 from .population import Individual
 from ._globals import DUMP_TAG, MIGRATION_TAG, SYNCHRONIZATION_TAG
+
+
+log = logging.getLogger(__name__)
 
 
 class Migrator(Propulator):
@@ -190,16 +194,14 @@ class Migrator(Propulator):
                 f"After emigration: {n_active}/{len(self.population)} active.\n"
             )
 
-            if debug == 2:
-                print(log_string)
+            log.debug(log_string)
 
         else:
-            if debug == 2:
-                print(
-                    f"Island {self.island_idx} worker {self.comm.rank} generation {self.generation}: \n"
-                    f"Population size {len(eligible_emigrants)} too small "
-                    f"to select {num_emigrants} migrants."
-                )
+            log.debug(
+                f"Island {self.island_idx} worker {self.comm.rank} generation {self.generation}: \n"
+                f"Population size {len(eligible_emigrants)} too small "
+                f"to select {num_emigrants} migrants."
+            )
 
     def _receive_immigrants(self, debug: int) -> None:
         """
@@ -262,8 +264,7 @@ class Migrator(Propulator):
         _, n_active = self._get_active_individuals()
         log_string += f"After immigration: {n_active}/{len(self.population)} active.\n"
 
-        if debug == 2:
-            print(log_string)
+        log.debug(log_string)
 
     def _check_emigrants_to_deactivate(self) -> bool:
         """
@@ -295,7 +296,7 @@ class Migrator(Propulator):
                     compare_traits = False
                     break
 
-            print(
+            log.info(
                 f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}:\n"
                 f"Currently in emigrated: {emigrant}\n"
                 f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
@@ -372,54 +373,7 @@ class Migrator(Propulator):
             + f"{n_active}/{len(self.population)} active.\n"
             + f"{len(self.emigrated)} individuals in emigrated.\n"
         )
-        if debug == 2:
-            print(log_string)
-
-    def _check_for_duplicates(
-        self, active: bool, debug: int
-    ) -> Tuple[List[List[Union[Individual, int]]], List[Individual]]:
-        """
-        Check for duplicates in current population.
-
-        For pollination, duplicates are allowed as emigrants are sent as copies
-        and not deactivated on sending island.
-
-        Parameters
-        ----------
-        active: bool
-                Whether to consider active individuals (True) or all individuals (False)
-        debug: int
-               verbosity/debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode)
-
-        Returns
-        -------
-        list[list[propulate.population.Individual | int]]
-            individuals and their occurrences
-        list[propulate.population.Individual]
-            unique individuals in population
-        """
-        if active:
-            population, _ = self._get_active_individuals()
-        else:
-            population = self.population
-        unique_inds = []
-        occurrences = []
-        for individual in population:
-            considered = False
-            for ind in unique_inds:
-                if individual == ind:
-                    considered = True
-                    break
-            if not considered:
-                num_copies = population.count(individual)
-                if debug == 2:
-                    print(
-                        f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
-                        f"{individual} occurs {num_copies} time(s)."
-                    )
-                unique_inds.append(individual)
-                occurrences.append([individual, num_copies])
-        return occurrences, unique_inds
+        log.debug(log_string)
 
     def _work(self, logging_interval: int, debug: int):
         """
@@ -439,7 +393,7 @@ class Migrator(Propulator):
         """
 
         if self.comm.rank == 0:
-            print(f"Island {self.island_idx} has {self.comm.size} workers.")
+            log.info(f"Island {self.island_idx} has {self.comm.size} workers.")
 
         dump = True if self.comm.rank == 0 else False
         migration = True if self.migration_prob > 0 else False
@@ -447,8 +401,8 @@ class Migrator(Propulator):
 
         # Loop over generations.
         while self.generations <= -1 or self.generation < self.generations:
-            if debug == 1 and self.generation % int(logging_interval) == 0:
-                print(
+            if self.generation % int(logging_interval) == 0:
+                log.info(
                     f"Island {self.island_idx} Worker {self.comm.rank}: In generation {self.generation}..."
                 )
 
@@ -475,11 +429,10 @@ class Migrator(Propulator):
                     assert check is False
 
             if dump:  # Dump checkpoint.
-                if debug == 2:
-                    print(
-                        f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
-                        f"Dumping checkpoint..."
-                    )
+                log.debug(
+                    f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
+                    f"Dumping checkpoint..."
+                )
                 save_ckpt_file = (
                     self.checkpoint_path / f"island_{self.island_idx}_ckpt.pkl"
                 )
@@ -487,7 +440,7 @@ class Migrator(Propulator):
                     try:
                         os.replace(save_ckpt_file, save_ckpt_file.with_suffix(".bkp"))
                     except OSError as e:
-                        print(e)
+                        log.warning(e)
                 with open(save_ckpt_file, "wb") as f:
                     pickle.dump(self.population, f)
 
@@ -501,11 +454,10 @@ class Migrator(Propulator):
             )
             if probe_dump:
                 dump = self.comm.recv(source=stat.Get_source(), tag=DUMP_TAG)
-                if debug == 2:
-                    print(
-                        f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
-                        f"Going to dump next: {dump}. Before: Worker {stat.Get_source()}"
-                    )
+                log.debug(
+                    f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
+                    f"Going to dump next: {dump}. Before: Worker {stat.Get_source()}"
+                )
 
             # Go to next generation.
             self.generation += 1
@@ -517,7 +469,7 @@ class Migrator(Propulator):
 
         MPI.COMM_WORLD.barrier()
         if MPI.COMM_WORLD.rank == 0:
-            print("OPTIMIZATION DONE.\nNEXT: Final checks for incoming messages...")
+            log.info("OPTIMIZATION DONE.\nNEXT: Final checks for incoming messages...")
         MPI.COMM_WORLD.barrier()
 
         # Final check for incoming individuals evaluated by other intra-island workers.
@@ -537,7 +489,7 @@ class Migrator(Propulator):
                 assert check is False
                 MPI.COMM_WORLD.barrier()
                 if len(self.emigrated) > 0:
-                    print(
+                    log.info(
                         f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
                         f"Finally {len(self.emigrated)} individual(s) in emigrated: {self.emigrated}:\n"
                         f"{self.population}"
@@ -557,7 +509,7 @@ class Migrator(Propulator):
                 try:
                     os.replace(save_ckpt_file, save_ckpt_file.with_suffix(".bkp"))
                 except OSError as e:
-                    print(e)
+                    log.warning(e)
                 with open(save_ckpt_file, "wb") as f:
                     pickle.dump(self.population, f)
 

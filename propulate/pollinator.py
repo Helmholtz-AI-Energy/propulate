@@ -1,4 +1,5 @@
 import copy
+import logging
 import random
 import os
 import pickle
@@ -13,6 +14,9 @@ from ._globals import DUMP_TAG, MIGRATION_TAG, SYNCHRONIZATION_TAG
 from .propagators import Propagator, SelectMin, SelectMax
 from .population import Individual
 from .propulator import Propulator
+
+
+log = logging.getLogger(__name__)
 
 
 class Pollinator(Propulator):
@@ -167,16 +171,14 @@ class Pollinator(Propulator):
             log_string += (
                 f"After emigration: {num_active}/{len(self.population)} active.\n"
             )
-            if debug == 2:
-                print(log_string)
+            log.debug(log_string)
 
         else:
-            if debug == 2:
-                print(
-                    f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
-                    f"Population size {len(eligible_emigrants)} too small "
-                    f"to select {num_emigrants} migrants."
-                )
+            log.debug(
+                f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
+                f"Population size {len(eligible_emigrants)} too small "
+                f"to select {num_emigrants} migrants."
+            )
 
     def _receive_immigrants(self, debug: int) -> None:
         """
@@ -259,18 +261,12 @@ class Pollinator(Propulator):
         log_string += (
             f"After immigration: {num_active}/{len(self.population)} active.\n"
         )
-        if debug == 2:
-            print(log_string)
+        log.debug(log_string)
 
-    def _deactivate_replaced_individuals(self, debug: int) -> None:
+    def _deactivate_replaced_individuals(self) -> None:
         """
         Check for and possibly receive individuals from other intra-island workers to be deactivated
         because of immigration.
-
-        Parameters
-        ----------
-        debug: int
-               verbosity/debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode)
         """
         log_string = f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: REPLACEMENT\n"
         probe_sync = True
@@ -323,8 +319,7 @@ class Pollinator(Propulator):
             f"After synchronization: {num_active}/{len(self.population)} active.\n"
             f"{len(self.replaced)} individuals in replaced.\n"
         )
-        if debug == 2:
-            print(log_string)
+        log.debug(log_string)
 
     def _check_for_duplicates(
         self, active: bool, debug: int
@@ -368,11 +363,10 @@ class Pollinator(Propulator):
                     break
             if not considered:
                 num_copies = population.count(individual)
-                if debug == 2:
-                    print(
-                        f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
-                        f"{individual} occurs {num_copies} time(s)."
-                    )
+                log.debug(
+                    f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
+                    f"{individual} occurs {num_copies} time(s)."
+                )
                 unique_inds.append(individual)
                 occurrences.append([individual, num_copies])
         return occurrences, unique_inds
@@ -389,7 +383,7 @@ class Pollinator(Propulator):
                verbosity/debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode)
         """
         if self.comm.rank == 0:
-            print(f"Island {self.island_idx} has {self.comm.size} workers.")
+            log.info(f"Island {self.island_idx} has {self.comm.size} workers.")
 
         dump = True if self.comm.rank == 0 else False
         migration = True if self.migration_prob > 0 else False
@@ -398,15 +392,15 @@ class Pollinator(Propulator):
         # Loop over generations.
         while self.generations <= -1 or self.generation < self.generations:
             if debug == 1 and self.generation % int(logging_interval) == 0:
-                print(
+                log.info(
                     f"Island {self.island_idx} Worker {self.comm.rank}: In generation {self.generation}..."
                 )
 
             # Breed and evaluate individual.
-            self._evaluate_individual(debug)
+            self._evaluate_individual()
 
             # Check for and possibly receive incoming individuals from other intra-island workers.
-            self._receive_intra_island_individuals(debug)
+            self._receive_intra_island_individuals()
 
             if migration:
                 # Emigration: Island sends individuals out.
@@ -418,14 +412,13 @@ class Pollinator(Propulator):
                 self._receive_immigrants(debug)
 
                 # Immigration: Check for individuals replaced by other intra-island workers to be deactivated.
-                self._deactivate_replaced_individuals(debug)
+                self._deactivate_replaced_individuals()
 
             if dump:  # Dump checkpoint.
-                if debug == 2:
-                    print(
-                        f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
-                        f"Dumping checkpoint..."
-                    )
+                log.debug(
+                    f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
+                    f"Dumping checkpoint..."
+                )
                 save_ckpt_file = (
                     self.checkpoint_path / f"island_{self.island_idx}_ckpt.pkl"
                 )
@@ -433,7 +426,7 @@ class Pollinator(Propulator):
                     try:
                         os.replace(save_ckpt_file, save_ckpt_file.with_suffix(".bkp"))
                     except OSError as e:
-                        print(e)
+                        log.warning(e)
                 with open(save_ckpt_file, "wb") as f:
                     pickle.dump(self.population, f)
 
@@ -447,11 +440,10 @@ class Pollinator(Propulator):
             )
             if probe_dump:
                 dump = self.comm.recv(source=stat.Get_source(), tag=DUMP_TAG)
-                if debug == 2:
-                    print(
-                        f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
-                        f"Going to dump next: {dump}. Before: Worker {stat.Get_source()}"
-                    )
+                log.debug(
+                    f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
+                    f"Going to dump next: {dump}. Before: Worker {stat.Get_source()}"
+                )
 
             # Go to next generation.
             self.generation += 1
@@ -463,11 +455,11 @@ class Pollinator(Propulator):
 
         MPI.COMM_WORLD.barrier()
         if MPI.COMM_WORLD.rank == 0:
-            print("OPTIMIZATION DONE.\nNEXT: Final checks for incoming messages...")
+            log.info("OPTIMIZATION DONE.\nNEXT: Final checks for incoming messages...")
         MPI.COMM_WORLD.barrier()
 
         # Final check for incoming individuals evaluated by other intra-island workers.
-        self._receive_intra_island_individuals(debug)
+        self._receive_intra_island_individuals()
         MPI.COMM_WORLD.barrier()
 
         if migration:
@@ -476,18 +468,17 @@ class Pollinator(Propulator):
             MPI.COMM_WORLD.barrier()
 
             # Immigration: Final check for individuals replaced by other intra-island workers to be deactivated.
-            self._deactivate_replaced_individuals(debug)
+            self._deactivate_replaced_individuals()
             MPI.COMM_WORLD.barrier()
 
-            if debug > 0:
-                if len(self.replaced) > 0:
-                    print(
-                        f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
-                        f"Finally {len(self.replaced)} individual(s) in replaced: {self.replaced}:\n"
-                        f"{self.population}"
-                    )
-                    self._deactivate_replaced_individuals(debug)
-                MPI.COMM_WORLD.barrier()
+            if len(self.replaced) > 0:
+                log.info(
+                    f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
+                    f"Finally {len(self.replaced)} individual(s) in replaced: {self.replaced}:\n"
+                    f"{self.population}"
+                )
+                self._deactivate_replaced_individuals()
+            MPI.COMM_WORLD.barrier()
 
         # Final checkpointing on rank 0.
         save_ckpt_file = self.checkpoint_path / f"island_{self.island_idx}_ckpt.pkl"
@@ -496,7 +487,7 @@ class Pollinator(Propulator):
                 try:
                     os.replace(save_ckpt_file, save_ckpt_file.with_suffix(".bkp"))
                 except OSError as e:
-                    print(e)
+                    log.info(e)
                 with open(save_ckpt_file, "wb") as f:
                     pickle.dump(self.population, f)
 

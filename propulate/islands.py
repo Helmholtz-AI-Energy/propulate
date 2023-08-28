@@ -1,6 +1,7 @@
 import random
 from pathlib import Path
 from typing import Callable, Union, List
+import logging
 
 from mpi4py import MPI
 import numpy as np
@@ -9,6 +10,9 @@ from .propagators import Propagator, SelectMin, SelectMax
 from .migrator import Migrator
 from .pollinator import Pollinator
 from .population import Individual
+
+
+log = logging.getLogger(__name__)
 
 
 class Islands:
@@ -145,10 +149,11 @@ class Islands:
         _, island_displs = np.unique(intra_color, return_index=True)
 
         if rank == 0:
-            print(
+            msg = (
                 f"Worker distribution {intra_color} with island counts "
                 f"{island_sizes} and island displacements {island_displs}."
             )
+            log.info(msg)
 
         # Create new communicators by splitting MPI.COMM_WORLD into group of sub-communicators based on
         # input values `color` and `key`. `color` determines to which new communicator each processes will belong.
@@ -160,14 +165,12 @@ class Islands:
             migration_topology = np.ones((num_islands, num_islands), dtype=int)
             np.fill_diagonal(migration_topology, 0)  # No island self-talk.
             if rank == 0:
-                print(
-                    "NOTE: No migration topology given, using fully connected top-1 topology."
-                )
+                msg = "NOTE: No migration topology given, using fully connected top-1 topology."
+                log.info(msg)
 
         if rank == 0:
-            print(
-                f"Migration topology {migration_topology} has shape {migration_topology.shape}."
-            )
+            msg = f"Migration topology {migration_topology} has shape {migration_topology.shape}."
+            log.info(msg)
 
         if migration_topology.shape != (num_islands, num_islands):
             raise ValueError(
@@ -182,17 +185,18 @@ class Islands:
         migration_prob_rank = migration_probability / comm_intra.size
 
         if rank == 0:
-            print(
+            msg = (
                 f"NOTE: Island migration probability {migration_probability} "
                 f"results in per-rank migration probability {migration_prob_rank}.\n"
                 "Starting parallel optimization process."
             )
+            log.info(msg)
 
         MPI.COMM_WORLD.barrier()
         # Set up one Propulator for each island.
         if pollination is False:
             if rank == 0:
-                print("No pollination.")
+                log.info("No pollination.")
             self.propulator = Migrator(
                 loss_fn=loss_fn,
                 propagator=propagator,
@@ -209,7 +213,7 @@ class Islands:
             )
         else:
             if rank == 0:
-                print("Pollination.")
+                log.info("Pollination.")
             self.propulator = Pollinator(
                 loss_fn=loss_fn,
                 propagator=propagator,
@@ -243,7 +247,7 @@ class Islands:
 
         Returns
         -------
-        list[list[Individual] | Individual]]
+        list[list[Individual] | Individual]
             top-n best individuals on each island
         """
         self.propulator.propulate(logging_interval, debug)
@@ -266,7 +270,7 @@ class Islands:
 
         Returns
         -------
-        list[list[Individual] | Individual]]
+        list[list[Individual] | Individual]
             top-n best individuals on each island
         """
         return self._run(top_n, logging_interval, debug)
