@@ -16,7 +16,8 @@ def rosenbrock(params: Dict[str, float]) -> float:
 
     Returns
     -------
-    float: function value
+    float
+        function value
     """
     params = np.array(list(params.values()))
     return 100 * (params[0]**2 - params[1])**2 + (1 - params[0])**2
@@ -41,7 +42,8 @@ def step(params: Dict[str, float]) -> float:
 
     Returns
     -------
-    float: function value
+    float
+        function value
     """
     params = np.array(list(params.values()))
     return np.sum(params.astype(int), dtype=float)
@@ -65,7 +67,8 @@ def quartic(params: Dict[str, float]) -> float:
 
     Returns
     -------
-    float: function value
+    float
+        function value
     """
     params = np.array(list(params.values()))
     idx = np.arange(1, len(params)+1)
@@ -92,7 +95,8 @@ def rastrigin(params: Dict[str, float]) -> float:
 
     Returns
     -------
-    float: function value
+    float
+        function value
     """
     a = 10.
     params = np.array(list(params.values()))
@@ -118,7 +122,8 @@ def griewank(params: Dict[str, float]) -> float:
 
     Returns
     -------
-    float: function value
+    float
+        function value
     """
     params = np.array(list(params.values()))
     idx = np.arange(1, len(params) + 1)
@@ -142,7 +147,8 @@ def schwefel(params: Dict[str, float]) -> float:
 
     Returns
     -------
-    float: function value
+    float
+        function value
     """
     v = 418.982887
     params = np.array(list(params.values()))
@@ -174,7 +180,8 @@ def bisphere(params: Dict[str, float]) -> float:
 
     Returns
     -------
-    float: function value
+    float
+        function value
     """
     params = np.array(list(params.values()))
     n = len(params)
@@ -208,7 +215,8 @@ def birastrigin(params: Dict[str, float]) -> float:
 
     Returns
     -------
-    float: function value
+    float
+        function value
     """
     params = np.array(list(params.values()))
     n = len(params)
@@ -234,7 +242,8 @@ def bukin_n6(params: Dict[str, float]) -> float:
 
     Returns
     -------
-    float: function value
+    float
+        function value
     """
     params = np.array(list(params.values()))
     return 100 * np.sqrt(np.abs(params[1] - 0.01 * params[0] ** 2)) + 0.01 * np.abs(params[0] + 10)
@@ -254,7 +263,8 @@ def egg_crate(params: Dict[str, float]) -> float:
 
     Returns
     -------
-    float: function value
+    float
+        function value
     """
     params = np.array(list(params.values()))
     return params[0] ** 2 + params[1] ** 2 + 25 * (np.sin(params[0]) ** 2 + np.sin(params[1]) ** 2)
@@ -274,7 +284,8 @@ def himmelblau(params: Dict[str, float]) -> float:
 
     Returns
     -------
-    float: function value
+    float
+        function value
     """
     params = np.array(list(params.values()))
     return (params[0] ** 2 + params[1] - 11) ** 2 + (params[0] + params[1] ** 2 - 7) ** 2
@@ -294,7 +305,8 @@ def keane(params: Dict[str, float]) -> float:
 
     Returns
     -------
-    float: function value
+    float
+        function value
     """
     params = np.array(list(params.values()))
     return -np.sin(params[0] - params[1]) ** 2 * np.sin(params[0] + params[1]) ** 2 / \
@@ -315,7 +327,8 @@ def leon(params: Dict[str, float]) -> float:
 
     Returns
     -------
-    float: function value
+    float
+        function value
     """
     params = np.array(list(params.values()))
     return 100 * (params[1] - params[0] ** 3) ** 2 + (1 - params[0]) ** 2
@@ -334,7 +347,8 @@ def sphere(params: Dict[str, float]) -> float:
             function parameters
     Returns
     -------
-    float : function value
+    float
+        function value
     """
     return np.sum(np.array(list(params.values())) ** 2)
 
@@ -350,8 +364,10 @@ def get_function_search_space(fname: str) -> Tuple[Callable, Dict[str, Tuple[flo
 
     Returns
     -------
-    Callable: function
-    dict[str, tuple[float, float]]: search space
+    Callable
+        function
+    dict[str, tuple[float, float]]
+        search space
     """
     if fname == "bukin":
         function = bukin_n6
