@@ -6,19 +6,22 @@ import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
-functions = ("Sphere", "Rosenbrock", "Step", "Quartic", "Griewank", "Rastrigin", "Schwefel", "BiSphere", "BiRastrigin")
+functions = ("Sphere", "Rosenbrock", "Step", "Quartic", "Rastrigin", "Griewank", "Schwefel", "BiSphere", "BiRastrigin")
+pso_names = ("VelocityClamping", "Constriction", "Basic", "Canonical")
+
+time_path = Path("./slurm3/")
 path = Path("./results3/")
 
 
 def insert_data(d_array, idx, pt):
     if not p.is_dir() or len([f for f in p.iterdir()]) == 0:
         return
-    for file in pt.iterdir():
-        if not file.suffix == ".pkl":
+    for fil in pt.iterdir():
+        if not fil.suffix == ".pkl":
             continue
-        with open(file, "rb") as f:
-            tmp = pickle.load(f, fix_imports=True)
-            d_array[idx].append([min(tmp, key=lambda v: v.loss).loss, (max(tmp, key=lambda v: v.rank).rank + 1) / 64])
+        with open(fil, "rb") as f:
+            tm = pickle.load(f, fix_imports=True)
+            d_array[idx].append([min(tm, key=lambda v: v.loss).loss, (max(tm, key=lambda v: v.rank).rank + 1) / 64])
 
 
 def refine_value(raw_value) -> int:
@@ -29,12 +32,38 @@ def refine_value(raw_value) -> int:
         return 16
 
 
+def calc_time(iterator) -> float:
+    start = int(next(iterator).strip("\n|: Ceirmnrtu"))
+    end = int(next(iterator).strip("\n|: Ceirmnrtu"))
+    return (end - start) / 1e9
+
+
 if __name__ == "__main__":
+    raw_time_data: list[str] = []
+    time_data: dict[str, dict[str, float]] = {}
+
+    for function_name in functions:
+        time_data[function_name] = {}
+
+    for file in time_path.iterdir():
+        with open(file, "r") as f:
+            raw_time_data.append(f.read())
+
+    for x in raw_time_data:
+        scatter = [st for st in x.split("#-----------------------------------#") if "Current time" in st]
+        itx = iter(scatter)
+        for program in ("Vanilla Propulate", "Hyppopy"):
+            for function_name in functions:
+                time_data[function_name][program] = calc_time(itx)
+        for function_name in functions:
+            for program in pso_names:
+                time_data[function_name][program] = calc_time(itx)
+
     for function_name in functions:
         data = []
         pso_names = ("VelocityClamping", "Constriction", "Basic", "Canonical")
         marker_list = ("o", "s", "D", "^", "P", "X")  # ["o", "v", "^", "<", ">", "s", "p", "P", "*", "h", "X", "D"]
-        # np.random.shuffle(marker_list)
+
         for i in range(5):
             data.append([])
             if i == 4:
