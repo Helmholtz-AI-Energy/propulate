@@ -407,10 +407,10 @@ class Migrator(Propulator):
                 )
 
             # Breed and evaluate individual.
-            self._evaluate_individual(debug)
+            self._evaluate_individual()
 
             # Check for and possibly receive incoming individuals from other intra-island workers.
-            self._receive_intra_island_individuals(debug)
+            self._receive_intra_island_individuals()
 
             # Migration.
             if migration:
@@ -473,7 +473,7 @@ class Migrator(Propulator):
         MPI.COMM_WORLD.barrier()
 
         # Final check for incoming individuals evaluated by other intra-island workers.
-        self._receive_intra_island_individuals(debug)
+        self._receive_intra_island_individuals()
         MPI.COMM_WORLD.barrier()
 
         if migration:
