@@ -58,6 +58,8 @@ OpenMPI.
 
 ## Acknowledgments
 *This work is supported by the Helmholtz AI platform grant.*
-<div align="center"; style="position:absolute;top:50%;left:50%;">
-  <a href="http://www.kit.edu/english/index.php"><img src=./.figs/logo_KIT.svg height="50px" hspace="5%" vspace="0px"></a><a href="https://www.helmholtz.ai"><img src=./.figs/logo_HelmholtzAI.svg height="25px" hspace="5%" vspace="0px"></a>
-</div>
+
+![](./.figs/logos.svg)
+
+
+
