@@ -13,7 +13,10 @@ time_path = Path("./slurm3/")
 path = Path("./results3/")
 
 
-def insert_data(d_array, idx, pt):
+def insert_data(d_array, idx: int, pt: Path):
+    """
+    This function adds the data given via `pt` into the data array given by `d_array` at position `idx`.
+    """
     if not p.is_dir() or len([f for f in p.iterdir()]) == 0:
         return
     for fil in pt.iterdir():
@@ -25,6 +28,9 @@ def insert_data(d_array, idx, pt):
 
 
 def refine_value(raw_value) -> int:
+    """
+    This function ensures that values that are larger than they should be, are corrected to the correct number of cores.
+    """
     for x in range(5):
         if raw_value < 2 ** x:
             return 2 ** (x - 1)
@@ -33,6 +39,9 @@ def refine_value(raw_value) -> int:
 
 
 def calc_time(iterator) -> float:
+    """
+    This function takes an iterator on a certain string array and calculates out of this a time span in seconds.
+    """
     start = int(next(iterator).strip("\n|: Ceirmnrtu"))
     end = int(next(iterator).strip("\n|: Ceirmnrtu"))
     return (end - start) / 1e9
@@ -46,7 +55,7 @@ if __name__ == "__main__":
         time_data[function_name] = {}
 
     for file in time_path.iterdir():
-        with open(file, "r") as f:
+        with open(file) as f:
             raw_time_data.append(f.read())
 
     for x in raw_time_data:
@@ -93,17 +102,22 @@ if __name__ == "__main__":
 
         ax.set_title(f"PSO@Propulate on {function_name} function")
         ax.set_xlabel("Nodes")
-
-        for i in range(4):
-            # if function_name == "Schwefel" and i < len(pso_names) and pso_names[i] == "VelocityClamping":
-            #     continue
-            ax.plot(data[i][1], data[i][0], label=pso_names[i], marker=marker_list[i], ls="dotted", lw=2)
-        ax.plot(data[4][1], data[4][0], label="Vanilla Propulate", marker=marker_list[4], lw=1, ms=8)
-        ax.plot(data[5][1], data[5][0], label="Hyppopy", marker=marker_list[5], lw=1, ms=8)
         ax.set_xscale("log", base=2)
         ax.set_xticks([1, 2, 4, 8, 16], [1, 2, 4, 8, 16])
         ax.grid(True)
         ax.set_ylabel("Loss")
+
+        ax_t = ax.twinx()
+        ax_t.set_ylabel("Time [s]")
+
+        for i in range(4):
+            ax.plot(data[i][1], data[i][0], label=pso_names[i], marker=marker_list[i], ls="dashed", lw=2)
+            ax_t.plot(data[i][1], time_data[function_name][pso_names[i]], marker=marker_list[i], ls="dotted")
+        ax.plot(data[4][1], data[4][0], label="Vanilla Propulate", marker=marker_list[4], lw=1, ms=8)
+        ax_t.plot(data[4][1], time_data[function_name]["Vanilla Propulate"], marker=marker_list[4], ms=8, ls="dotted")
+        ax.plot(data[5][1], data[5][0], label="Hyppopy", marker=marker_list[5], lw=1, ms=8)
+        ax_t.plot(data[4][1], time_data[function_name]["Hyppopy"], marker=marker_list[5], ms=8, ls="dotted")
+
         if function_name == "Rosenbrock":
             ax.set_yscale("symlog", linthresh=1e-36)
             ax.set_yticks([0, 1e-36, 1e-30, 1e-24, 1e-18, 1e-12, 1e-6, 1])
