@@ -8,6 +8,7 @@ from matplotlib.figure import Figure
 
 functions = ("Sphere", "Rosenbrock", "Step", "Quartic", "Rastrigin", "Griewank", "Schwefel", "BiSphere", "BiRastrigin")
 pso_names = ("VelocityClamping", "Constriction", "Basic", "Canonical")
+other_stuff = ("Vanilla Propulate", "Hyppopy")
 
 time_path = Path("./slurm3/")
 path = Path("./results3/")
@@ -42,17 +43,25 @@ def calc_time(iterator) -> float:
     """
     This function takes an iterator on a certain string array and calculates out of this a time span in seconds.
     """
-    start = int(next(iterator).strip("\n|: Ceirmnrtu"))
-    end = int(next(iterator).strip("\n|: Ceirmnrtu"))
+    try:
+        start = int(next(iterator).strip("\n|: Ceirmnrtu"))
+    except ValueError:
+        return np.nan
+    try:
+        end = int(next(iterator).strip("\n|: Ceirmnrtu"))
+    except ValueError:
+        return np.nan
     return (end - start) / 1e9
 
 
 if __name__ == "__main__":
     raw_time_data: list[str] = []
-    time_data: dict[str, dict[str, float]] = {}
+    time_data: dict[str, dict[str, list[float]]] = {}
 
     for function_name in functions:
         time_data[function_name] = {}
+        for program in other_stuff + pso_names:
+            time_data[function_name][program] = []
 
     for file in time_path.iterdir():
         with open(file) as f:
@@ -61,16 +70,15 @@ if __name__ == "__main__":
     for x in raw_time_data:
         scatter = [st for st in x.split("#-----------------------------------#") if "Current time" in st]
         itx = iter(scatter)
-        for program in ("Vanilla Propulate", "Hyppopy"):
+        for program in other_stuff:
             for function_name in functions:
-                time_data[function_name][program] = calc_time(itx)
+                time_data[function_name][program].append(calc_time(itx))
         for function_name in functions:
             for program in pso_names:
-                time_data[function_name][program] = calc_time(itx)
+                time_data[function_name][program].append(calc_time(itx))
 
     for function_name in functions:
         data = []
-        pso_names = ("VelocityClamping", "Constriction", "Basic", "Canonical")
         marker_list = ("o", "s", "D", "^", "P", "X")  # ["o", "v", "^", "<", ">", "s", "p", "P", "*", "h", "X", "D"]
 
         for i in range(5):
@@ -109,14 +117,16 @@ if __name__ == "__main__":
 
         ax_t = ax.twinx()
         ax_t.set_ylabel("Time [s]")
+        ax_t.set_yscale("log")
 
-        for i in range(4):
-            ax.plot(data[i][1], data[i][0], label=pso_names[i], marker=marker_list[i], ls="dashed", lw=2)
-            ax_t.plot(data[i][1], time_data[function_name][pso_names[i]], marker=marker_list[i], ls="dotted")
-        ax.plot(data[4][1], data[4][0], label="Vanilla Propulate", marker=marker_list[4], lw=1, ms=8)
-        ax_t.plot(data[4][1], time_data[function_name]["Vanilla Propulate"], marker=marker_list[4], ms=8, ls="dotted")
-        ax.plot(data[5][1], data[5][0], label="Hyppopy", marker=marker_list[5], lw=1, ms=8)
-        ax_t.plot(data[4][1], time_data[function_name]["Hyppopy"], marker=marker_list[5], ms=8, ls="dotted")
+        everything = pso_names + other_stuff
+        for i, name in enumerate(everything):
+            if i < 4:
+                ms = 6
+            else:
+                ms = 7
+            ax.plot(data[i][1], data[i][0], label=name, marker=marker_list[i], ls="dashed", lw=2, ms=ms)
+            ax_t.plot(data[i][1], time_data[function_name][name], marker=marker_list[i], ls="dotted", ms=ms)
 
         if function_name == "Rosenbrock":
             ax.set_yscale("symlog", linthresh=1e-36)
