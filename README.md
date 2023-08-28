@@ -45,13 +45,16 @@ You can find the corresponding publication [here](https://doi.org/10.1007/978-3-
 
 ## Documentation
 
-For usage example, see scripts. We plan to provide a full readthedocs.io documentation soon!
+Check out the full documentation at [https://propulate.readthedocs.io/](https://propulate.readthedocs.io/) :rocket:! Here you can 
+find installation instructions, tutorials, theoretical background, and API references.
 
 ## Installation
 
-From PyPI: ``pip install propulate``  
-Alternatively, pull and run ``pip install -e .`` or ``python setup.py develop``.  
-Requires an MPI implementation (currently only tested with OpenMPI) and ``mpi4py``.
+You can install the latest stable release from PyPI: ``pip install propulate``  
+If you need the latest updates, you can also install ``Propulate`` directly from the master branch at you own risk.
+Pull and run ``pip install -e .`` or ``python setup.py develop``.  
+``Propulate`` depends on ``mpi4py`` and requires an MPI implementation under the hood. Currently, it is only tested with 
+OpenMPI.
 
 ## Acknowledgments
 *This work is supported by the Helmholtz AI platform grant.*
