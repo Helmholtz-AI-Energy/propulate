@@ -58,7 +58,6 @@ OpenMPI.
 
 ## Acknowledgments
 *This work is supported by the Helmholtz AI platform grant.*
-
 ![](./.figs/hai_kit_logos.svg)
 
 
