@@ -12,7 +12,15 @@ finally:
 
 from .islands import Islands
 from .propulator import Propulator
+from .migrator import Migrator
 from .pollinator import Pollinator
-from .utils import set_logger_config
+from .utils import get_default_propagator, set_logger_config
 
-__all__ = ["Islands", "Propulator", "Pollinator", "set_logger_config"]
+__all__ = [
+    "Islands",
+    "Propulator",
+    "Migrator",
+    "Pollinator",
+    "get_default_propagator",
+    "set_logger_config",
+]
