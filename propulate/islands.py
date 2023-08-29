@@ -1,6 +1,7 @@
 import random
 from pathlib import Path
 from typing import Callable, Union, List
+import logging
 
 from mpi4py import MPI
 import numpy as np
@@ -9,6 +10,9 @@ from .propagators import Propagator, SelectMin, SelectMax
 from .migrator import Migrator
 from .pollinator import Pollinator
 from .population import Individual
+
+
+log = logging.getLogger(__name__)  # Get logger instance.
 
 
 class Islands:
@@ -32,8 +36,8 @@ class Islands:
         island_sizes: np.ndarray = None,
         migration_topology: np.ndarray = None,
         migration_probability: float = 0.0,
-        emigration_propagator: Propagator = SelectMin,
-        immigration_propagator: Propagator = SelectMax,
+        emigration_propagator: type[Propagator] = SelectMin,
+        immigration_propagator: type[Propagator] = SelectMax,
         pollination: bool = True,
         checkpoint_path: Union[str, Path] = Path("./"),
     ) -> None:
@@ -51,7 +55,7 @@ class Islands:
         generations: int
                      number of generations
         num_islands: int
-                     number of separate, equally sized evolutionary islands (ignored if `island_sizes` is not None)
+                     number of separate, equally sized evolutionary islands (ignored if ``island_sizes`` is not None)
                      (differences +-1 possible due to load balancing)
         island_sizes: numpy.ndarray
                       array with numbers of workers for each island (heterogeneous case)
@@ -61,11 +65,11 @@ class Islands:
                             (int: absolute number, float: relative fraction of population)
         migration_probability: float
                                probability of migration after each generation
-        emigration_propagator: propulate.propagators.Propagator
+        emigration_propagator: type[propulate.propagators.Propagator]
                                emigration propagator, i.e., how to choose individuals for emigration
                                that are sent to destination island.
                                Should be some kind of selection operator.
-        immigration_propagator: propulate.propagators.Propagator
+        immigration_propagator: type[propulate.propagators.Propagator]
                                 immigration propagator, i.e., how to choose individuals on target island
                                 to be replaced by immigrants.
                                 Should be some kind of selection operator.
@@ -145,7 +149,7 @@ class Islands:
         _, island_displs = np.unique(intra_color, return_index=True)
 
         if rank == 0:
-            print(
+            log.info(
                 f"Worker distribution {intra_color} with island counts "
                 f"{island_sizes} and island displacements {island_displs}."
             )
@@ -160,12 +164,12 @@ class Islands:
             migration_topology = np.ones((num_islands, num_islands), dtype=int)
             np.fill_diagonal(migration_topology, 0)  # No island self-talk.
             if rank == 0:
-                print(
+                log.info(
                     "NOTE: No migration topology given, using fully connected top-1 topology."
                 )
 
         if rank == 0:
-            print(
+            log.info(
                 f"Migration topology {migration_topology} has shape {migration_topology.shape}."
             )
 
@@ -182,7 +186,7 @@ class Islands:
         migration_prob_rank = migration_probability / comm_intra.size
 
         if rank == 0:
-            print(
+            log.info(
                 f"NOTE: Island migration probability {migration_probability} "
                 f"results in per-rank migration probability {migration_prob_rank}.\n"
                 "Starting parallel optimization process."
@@ -192,7 +196,7 @@ class Islands:
         # Set up one Propulator for each island.
         if pollination is False:
             if rank == 0:
-                print("No pollination.")
+                log.info("Use island model with real migration.")
             self.propulator = Migrator(
                 loss_fn=loss_fn,
                 propagator=propagator,
@@ -209,7 +213,7 @@ class Islands:
             )
         else:
             if rank == 0:
-                print("Pollination.")
+                log.info("Use island model with pollination.")
             self.propulator = Pollinator(
                 loss_fn=loss_fn,
                 propagator=propagator,
@@ -227,10 +231,10 @@ class Islands:
             )
 
     def _run(
-        self, top_n: int, logging_interval: int, debug: int
+        self, top_n: int = 3, logging_interval: int = 10, debug: int = 1
     ) -> List[Union[List[Individual], Individual]]:
         """
-        Run propulate optimization.
+        Run Propulate optimization.
 
         Parameters
         ----------
@@ -243,7 +247,7 @@ class Islands:
 
         Returns
         -------
-        list[list[Individual] | Individual]]
+        list[list[Individual] | Individual]
             top-n best individuals on each island
         """
         self.propulator.propulate(logging_interval, debug)
@@ -266,7 +270,7 @@ class Islands:
 
         Returns
         -------
-        list[list[Individual] | Individual]]
+        list[list[Individual] | Individual]
             top-n best individuals on each island
         """
         return self._run(top_n, logging_interval, debug)

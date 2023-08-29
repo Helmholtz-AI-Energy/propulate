@@ -59,7 +59,7 @@ class Propagator:
         self.parents = parents  # Number of parent individuals
         self.rng = rng  # Random number generator
 
-    def __call__(self, inds: List[Individual]) -> None:
+    def __call__(self, inds: List[Individual]) -> Union[List[Individual], Individual]:
         """
         Apply the propagator (not implemented for abstract base class).
 
@@ -67,6 +67,13 @@ class Propagator:
         ----------
         inds: list[propulate.population.Individual]
               input individuals the propagator is applied to
+
+        Returns
+        -------
+        list[Individual] | Individual
+            individual(s) bred by applying the propagator
+            While this abstract base class method actually returns ``None``, each concrete child class
+            of ``Propagator`` should return an individual or a list of individuals.
 
         Raises
         ------
