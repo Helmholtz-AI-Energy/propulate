@@ -516,12 +516,14 @@ class Propulator:
 
         MPI.COMM_WORLD.barrier()
         if MPI.COMM_WORLD.rank == 0:
-            log.info("\n###########")
+            log.info("###########")
             log.info("# SUMMARY #")
-            log.info("###########\n")
+            log.info("###########")
             log.info(
                 f"Number of currently active individuals is {num_active}. "
-                f"\nExpected overall number of evaluations is {self.generations*MPI.COMM_WORLD.size}."
+            )
+            log.info(
+                f"Expected overall number of evaluations is {self.generations*MPI.COMM_WORLD.size}."
             )
         # Only double-check number of occurrences of each individual for DEBUG level 2.
         if debug == 2:
