@@ -17,12 +17,16 @@ from .population import Individual
 from ._globals import DUMP_TAG, INDIVIDUAL_TAG
 
 
-log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)  # Get logger instance.
 
 
 class Propulator:
     """
     Parallel propagator of populations.
+
+    This class provides Propulate's basic asynchronous population-based optimization routine (without an island model).
+    At the same time, it serves as a base class of ``Migrator`` and ``Pollinator``, which implement an asynchronous
+    island model on top of the asynchronous base optimizer with real migration and pollination, respectively.
     """
 
     def __init__(
@@ -35,7 +39,7 @@ class Propulator:
         checkpoint_path: Union[str, Path] = Path("./"),
         migration_topology: np.ndarray = None,
         migration_prob: float = 0.0,
-        emigration_propagator: Propagator = SelectMin,
+        emigration_propagator: type[Propagator] = SelectMin,
         island_displs: np.ndarray = None,
         island_counts: np.ndarray = None,
         rng: random.Random = None,
@@ -62,7 +66,7 @@ class Propulator:
                             individuals are sent by island i to island j
         migration_prob: float
                         per-worker migration probability
-        emigration_propagator: propulate.propagators.Propagator
+        emigration_propagator: type[propulate.propagators.Propagator]
                                emigration propagator, i.e., how to choose individuals
                                for emigration that are sent to destination island.
                                Should be some kind of selection operator.
@@ -120,25 +124,25 @@ class Propulator:
                     )
                     if self.comm.rank == 0:
                         log.info(
-                            "NOTE: Valid checkpoint file found. "
+                            "Valid checkpoint file found. "
                             f"Resuming from generation {self.generation} of loaded population..."
                         )
                 except OSError:
                     self.population = []
                     if self.comm.rank == 0:
                         log.info(
-                            "NOTE: No valid checkpoint file. Initializing population randomly..."
+                            "No valid checkpoint file. Initializing population randomly..."
                         )
         else:
             self.population = []
             if self.comm.rank == 0:
                 log.info(
-                    "NOTE: No valid checkpoint file given. Initializing population randomly..."
+                    "No valid checkpoint file given. Initializing population randomly..."
                 )
 
     def propulate(self, logging_interval: int = 10, debug: int = 1) -> None:
         """
-        Run evolutionary optimization.
+        Run asynchronous evolutionary optimization routine.
 
         Parameters
         ----------
@@ -244,14 +248,9 @@ class Propulator:
         )
         log.debug(log_string)
 
-    def _send_emigrants(self, debug: int) -> None:
+    def _send_emigrants(self) -> None:
         """
         Perform migration, i.e. island sends individuals out to other islands.
-
-        Parameters
-        ----------
-        debug: int
-               verbosity/debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode)
 
         Raises
         ------
@@ -261,14 +260,9 @@ class Propulator:
         """
         raise NotImplementedError
 
-    def _receive_immigrants(self, debug: int) -> None:
+    def _receive_immigrants(self) -> None:
         """
         Check for and possibly receive immigrants send by other islands.
-
-        Parameters
-        ----------
-        debug: int
-               verbosity/debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode)
 
         Raises
         ------
@@ -368,35 +362,11 @@ class Propulator:
             self._receive_intra_island_individuals()
 
             if dump:  # Dump checkpoint.
-                log.debug(
-                    f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
-                    f"Dumping checkpoint..."
-                )
-                save_ckpt_file = (
-                    self.checkpoint_path / f"island_{self.island_idx}_ckpt.pkl"
-                )
-                if os.path.isfile(save_ckpt_file):
-                    try:
-                        os.replace(save_ckpt_file, save_ckpt_file.with_suffix(".bkp"))
-                    except OSError as e:
-                        log.warning(e)
-                with open(save_ckpt_file, "wb") as f:
-                    pickle.dump(self.population, f)
+                self._dump_checkpoint()
 
-                dest = self.comm.rank + 1 if self.comm.rank + 1 < self.comm.size else 0
-                self.comm.send(copy.deepcopy(dump), dest=dest, tag=DUMP_TAG)
-                dump = False
-
-            stat = MPI.Status()
-            probe_dump = self.comm.iprobe(
-                source=MPI.ANY_SOURCE, tag=DUMP_TAG, status=stat
-            )
-            if probe_dump:
-                dump = self.comm.recv(source=stat.Get_source(), tag=DUMP_TAG)
-                log.debug(
-                    f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
-                    f"Going to dump next: {dump}. Before: Worker {stat.Get_source()}"
-                )
+            dump = (
+                self._determine_worker_dumping_next()
+            )  # Determine worker dumping checkpoint in the next generation.
 
             # Go to next generation.
             self.generation += 1
@@ -416,22 +386,59 @@ class Propulator:
         MPI.COMM_WORLD.barrier()
 
         # Final checkpointing on rank 0.
-        save_ckpt_file = self.checkpoint_path / f"island_{self.island_idx}_ckpt.pkl"
-        if self.comm.rank == 0:  # Dump checkpoint.
-            if os.path.isfile(save_ckpt_file):
-                try:
-                    os.replace(save_ckpt_file, save_ckpt_file.with_suffix(".bkp"))
-                except OSError as e:
-                    log.warning(e)
-                with open(save_ckpt_file, "wb") as f:
-                    pickle.dump(self.population, f)
-
+        if self.comm.rank == 0:
+            self._dump_final_checkpoint()  # Dump checkpoint.
         MPI.COMM_WORLD.barrier()
+        _ = self._determine_worker_dumping_next()
+        MPI.COMM_WORLD.barrier()
+
+    def _dump_checkpoint(self):
+        """
+        Dump checkpoint to file.
+        """
+        log.debug(
+            f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
+            f"Dumping checkpoint..."
+        )
+        save_ckpt_file = self.checkpoint_path / f"island_{self.island_idx}_ckpt.pkl"
+        if os.path.isfile(save_ckpt_file):
+            try:
+                os.replace(save_ckpt_file, save_ckpt_file.with_suffix(".bkp"))
+            except OSError as e:
+                log.warning(e)
+        with open(save_ckpt_file, "wb") as f:
+            pickle.dump(self.population, f)
+
+        dest = self.comm.rank + 1 if self.comm.rank + 1 < self.comm.size else 0
+        self.comm.send(True, dest=dest, tag=DUMP_TAG)
+
+    def _determine_worker_dumping_next(self):
+        """
+        Determine the worker who dumps the checkpoint in the next generation.
+        """
+        dump = False
         stat = MPI.Status()
         probe_dump = self.comm.iprobe(source=MPI.ANY_SOURCE, tag=DUMP_TAG, status=stat)
         if probe_dump:
-            _ = self.comm.recv(source=stat.Get_source(), tag=DUMP_TAG)
-        MPI.COMM_WORLD.barrier()
+            dump = self.comm.recv(source=stat.Get_source(), tag=DUMP_TAG)
+            log.debug(
+                f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
+                f"Going to dump next: {dump}. Before: Worker {stat.Get_source()}"
+            )
+        return dump
+
+    def _dump_final_checkpoint(self):
+        """
+        Dump final checkpoint.
+        """
+        save_ckpt_file = self.checkpoint_path / f"island_{self.island_idx}_ckpt.pkl"
+        if os.path.isfile(save_ckpt_file):
+            try:
+                os.replace(save_ckpt_file, save_ckpt_file.with_suffix(".bkp"))
+            except OSError as e:
+                log.warning(e)
+            with open(save_ckpt_file, "wb") as f:
+                pickle.dump(self.population, f)
 
     def _check_for_duplicates(
         self, active: bool, debug: int
@@ -493,7 +500,7 @@ class Propulator:
 
         Returns
         -------
-        list[list[Individual] | Individual]]
+        list[list[Individual] | Individual]
             top-n best individuals on each island
         """
         active_pop, num_active = self._get_active_individuals()
