@@ -119,6 +119,7 @@ def set_logger_config(
               flag for prepending the MPI rank to the logging message
     colors: bool
             flag for using colored logs
+            default: True
     """
     rank = f"{MPI.COMM_WORLD.Get_rank()}:" if log_rank else ""
     # Get base logger for Propulate.
