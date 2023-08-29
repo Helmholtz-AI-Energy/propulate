@@ -94,7 +94,7 @@ def get_default_propagator(
 
 
 def set_logger_config(
-    level=logging.INFO,
+    level: int = logging.INFO,
     log_file: Union[str, Path] = None,
     log_to_stdout: bool = True,
     log_rank: bool = False,
@@ -128,7 +128,8 @@ def set_logger_config(
     )
     if colors:
         formatter = colorlog.ColoredFormatter(
-            f"{rank}[%(cyan)s%(asctime)s%(reset)s][%(blue)s%(name)s%(reset)s][%(log_color)s%(levelname)s%(reset)s] - %(message)s",
+            fmt=f"{rank}[%(cyan)s%(asctime)s%(reset)s][%(blue)s%(name)s%(reset)s]"
+            f"[%(log_color)s%(levelname)s%(reset)s] - %(message)s",
             datefmt=None,
             reset=True,
             log_colors={
@@ -139,21 +140,18 @@ def set_logger_config(
                 "CRITICAL": "red,bg_white",
             },
             secondary_log_colors={},
-            # style='%'
         )
-        stdhandler = logging.StreamHandler(stream=sys.stdout)
-        stdhandler.setFormatter(formatter)
+        std_handler = logging.StreamHandler(stream=sys.stdout)
+        std_handler.setFormatter(formatter)
     else:
-        stdhandler = logging.StreamHandler(stream=sys.stdout)
-        stdhandler.setFormatter(simple_formatter)
+        std_handler = logging.StreamHandler(stream=sys.stdout)
+        std_handler.setFormatter(simple_formatter)
 
-    # Remove all handlers which might already be there
-    # base_logger.handlers.clear()
     if log_to_stdout:
-        base_logger.addHandler(stdhandler)
+        base_logger.addHandler(std_handler)
     if log_file is not None:
-        filehandler = logging.FileHandler(filename=log_file)
-        filehandler.setFormatter(simple_formatter)
-        base_logger.addHandler(filehandler)
+        file_handler = logging.FileHandler(filename=log_file)
+        file_handler.setFormatter(simple_formatter)
+        base_logger.addHandler(file_handler)
     base_logger.setLevel(level)
     return
