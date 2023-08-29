@@ -36,8 +36,8 @@ class Islands:
         island_sizes: np.ndarray = None,
         migration_topology: np.ndarray = None,
         migration_probability: float = 0.0,
-        emigration_propagator: Propagator = SelectMin,
-        immigration_propagator: Propagator = SelectMax,
+        emigration_propagator: type[Propagator] = SelectMin,
+        immigration_propagator: type[Propagator] = SelectMax,
         pollination: bool = True,
         checkpoint_path: Union[str, Path] = Path("./"),
     ) -> None:
@@ -65,11 +65,11 @@ class Islands:
                             (int: absolute number, float: relative fraction of population)
         migration_probability: float
                                probability of migration after each generation
-        emigration_propagator: propulate.propagators.Propagator
+        emigration_propagator: type[propulate.propagators.Propagator]
                                emigration propagator, i.e., how to choose individuals for emigration
                                that are sent to destination island.
                                Should be some kind of selection operator.
-        immigration_propagator: propulate.propagators.Propagator
+        immigration_propagator: type[propulate.propagators.Propagator]
                                 immigration propagator, i.e., how to choose individuals on target island
                                 to be replaced by immigrants.
                                 Should be some kind of selection operator.
