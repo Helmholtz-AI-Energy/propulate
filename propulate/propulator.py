@@ -519,9 +519,7 @@ class Propulator:
             log.info("###########")
             log.info("# SUMMARY #")
             log.info("###########")
-            log.info(
-                f"Number of currently active individuals is {num_active}. "
-            )
+            log.info(f"Number of currently active individuals is {num_active}. ")
             log.info(
                 f"Expected overall number of evaluations is {self.generations*MPI.COMM_WORLD.size}."
             )
