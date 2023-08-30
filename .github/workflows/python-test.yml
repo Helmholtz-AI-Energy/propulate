@@ -23,5 +23,5 @@ jobs:
             - name: Test with pytest
               run: |
                   pwd
-                  ls
+                  ls /home/runner/work/propulate/propulate
                   pytest
