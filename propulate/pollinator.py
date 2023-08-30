@@ -2,7 +2,7 @@ import copy
 import logging
 import random
 import time
-from typing import Callable, Union, Tuple, List
+from typing import Callable, Union, Tuple, List, Type
 from pathlib import Path
 
 import numpy as np
@@ -37,8 +37,8 @@ class Pollinator(Propulator):
         checkpoint_path: Union[Path, str] = Path("./"),
         migration_topology: np.ndarray = None,
         migration_prob: float = 0.0,
-        emigration_propagator: type[Propagator] = SelectMin,
-        immigration_propagator: type[Propagator] = SelectMax,
+        emigration_propagator: Type[Propagator] = SelectMin,
+        immigration_propagator: Type[Propagator] = SelectMax,
         island_displs: np.ndarray = None,
         island_counts: np.ndarray = None,
         rng: random.Random = None,
@@ -417,7 +417,8 @@ class Pollinator(Propulator):
 
         MPI.COMM_WORLD.barrier()
         if MPI.COMM_WORLD.rank == 0:
-            log.info("OPTIMIZATION DONE.\nNEXT: Final checks for incoming messages...")
+            log.info("OPTIMIZATION DONE.")
+            log.info("NEXT: Final checks for incoming messages...")
         MPI.COMM_WORLD.barrier()
 
         # Final check for incoming individuals evaluated by other intra-island workers.

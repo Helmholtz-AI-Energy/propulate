@@ -6,7 +6,7 @@ import random
 import time
 from operator import attrgetter
 from pathlib import Path
-from typing import Callable, Union, List, Tuple
+from typing import Callable, Union, List, Tuple, Type
 
 import deepdiff
 import numpy as np
@@ -39,7 +39,7 @@ class Propulator:
         checkpoint_path: Union[str, Path] = Path("./"),
         migration_topology: np.ndarray = None,
         migration_prob: float = 0.0,
-        emigration_propagator: type[Propagator] = SelectMin,
+        emigration_propagator: Type[Propagator] = SelectMin,
         island_displs: np.ndarray = None,
         island_counts: np.ndarray = None,
         rng: random.Random = None,
@@ -378,7 +378,8 @@ class Propulator:
 
         MPI.COMM_WORLD.barrier()
         if MPI.COMM_WORLD.rank == 0:
-            log.info("OPTIMIZATION DONE.\nNEXT: Final checks for incoming messages...")
+            log.info("OPTIMIZATION DONE.")
+            log.info("NEXT: Final checks for incoming messages...")
         MPI.COMM_WORLD.barrier()
 
         # Final check for incoming individuals evaluated by other intra-island workers.

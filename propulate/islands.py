@@ -1,6 +1,6 @@
 import random
 from pathlib import Path
-from typing import Callable, Union, List
+from typing import Callable, Union, List, Type
 import logging
 
 from mpi4py import MPI
@@ -36,8 +36,8 @@ class Islands:
         island_sizes: np.ndarray = None,
         migration_topology: np.ndarray = None,
         migration_probability: float = 0.0,
-        emigration_propagator: type[Propagator] = SelectMin,
-        immigration_propagator: type[Propagator] = SelectMax,
+        emigration_propagator: Type[Propagator] = SelectMin,
+        immigration_propagator: Type[Propagator] = SelectMax,
         pollination: bool = True,
         checkpoint_path: Union[str, Path] = Path("./"),
     ) -> None:
