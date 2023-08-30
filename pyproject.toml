@@ -1,6 +1,6 @@
 [tool.ruff]
 select = ["E", "F"]
-ignore = [E501]
+ignore = ["E501"]
 
 exclude = [
     ".bzr",
