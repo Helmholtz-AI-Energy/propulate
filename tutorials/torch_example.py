@@ -7,6 +7,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 
 from pytorch_lightning import LightningModule, Trainer
+from lightning.pytorch import loggers
 from torchmetrics import Accuracy
 
 from torchvision.datasets import MNIST
@@ -19,6 +20,8 @@ from propulate.utils import get_default_propagator
 
 
 GPUS_PER_NODE: int = 4
+
+log_path = "torch_ckpts"
 
 
 class Net(LightningModule):
@@ -70,6 +73,7 @@ class Net(LightningModule):
         self.fc = nn.Linear(in_features=7840, out_features=10)  # MNIST has 10 classes.
         self.conv_layers = nn.Sequential(*layers)
         self.val_acc = Accuracy("multiclass", num_classes=10)
+        self.train_acc = Accuracy("multiclass", num_classes=10)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -110,7 +114,12 @@ class Net(LightningModule):
             training loss for input batch
         """
         x, y = batch
-        return self.loss_fn(self(x), y)
+        pred = self(x)
+        loss_val = self.loss_fn(pred, y)
+        self.log("train loss", loss_val)
+        train_acc_val = self.train_acc(torch.nn.functional.softmax(pred, dim=-1), y)
+        self.log("train_ acc", train_acc_val)
+        return loss_val
 
     def validation_step(
         self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int
@@ -132,11 +141,13 @@ class Net(LightningModule):
         """
         x, y = batch
         pred = self(x)
-        loss = self.loss_fn(pred, y)
-        val_acc = self.val_acc(torch.nn.functional.softmax(pred, dim=-1), y)
-        if val_acc > self.best_accuracy:
-            self.best_accuracy = val_acc
-        return loss
+        loss_val = self.loss_fn(pred, y)
+        val_acc_val = self.val_acc(torch.nn.functional.softmax(pred, dim=-1), y)
+        self.log("val_loss", loss_val)
+        self.log("val_acc", val_acc_val)
+        # if val_acc > self.best_accuracy:
+        #     self.best_accuracy = val_acc
+        return loss_val
 
     def configure_optimizers(self) -> torch.optim.SGD:
         """
@@ -148,6 +159,12 @@ class Net(LightningModule):
             stochastic gradient descent optimizer
         """
         return torch.optim.SGD(self.parameters(), lr=self.lr)
+
+    def on_validation_epoch_end(self):
+        val_acc_val = self.val_acc.compute()
+        self.val_acc.reset()
+        if val_acc_val > self.best_accuracy:
+            self.best_accuracy = val_acc_val
 
 
 def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
@@ -235,12 +252,15 @@ def ind_loss(params: Dict[str, Union[int, float, str]]) -> float:
         batch_size=8
     )  # Get training and validation data loaders.
 
+    tb_logger = loggers.TensorBoardLogger(save_dir=log_path+"/lightning_logs")
+
     # Under the hood, the Lightning Trainer handles the training loop details.
     trainer = Trainer(
         max_epochs=epochs,  # Stop training once this number of epochs is reached.
-        accelerator="gpu",  # Pass accelerator type.
-        devices=[MPI.COMM_WORLD.Get_rank() % GPUS_PER_NODE],  # Devices to train on
-        enable_progress_bar=False,  # Disable progress bar.
+        # accelerator="gpu",  # Pass accelerator type.
+        # devices=[MPI.COMM_WORLD.Get_rank() % GPUS_PER_NODE],  # Devices to train on
+        enable_progress_bar=True,  # Disable progress bar.
+        logger=tb_logger
     )
     trainer.fit(  # Run full model training optimization routine.
         model=model,  # Model to train
@@ -275,8 +295,8 @@ if __name__ == "__main__":
         propagator=propagator,  # Evolutionary operator
         rng=rng,  # Random number generator
         generations=num_generations,  # Number of generations per worker
-        num_islands=2,  # Number of islands
-        migration_probability=0.9,  # Migration probability
+        num_islands=1,  # Number of islands
+        checkpoint_path=log_path,
     )
     islands.evolve(  # Run evolutionary optimization.
         top_n=1,  # Print top-n best individuals on each island in summary.
