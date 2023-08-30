@@ -159,6 +159,9 @@ class Net(LightningModule):
         return torch.optim.SGD(self.parameters(), lr=self.lr)
 
     def on_validation_epoch_end(self):
+        """
+        Calculate and store the model's validation accuracy after each epoch.
+        """
         val_acc_val = self.val_acc.compute()
         self.val_acc.reset()
         if val_acc_val > self.best_accuracy:
@@ -183,7 +186,7 @@ def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
     """
     data_transform = Compose([ToTensor(), Normalize((0.1307,), (0.3081,))])
 
-    if MPI.COMM_WORLD.Get_rank() == 0:
+    if MPI.COMM_WORLD.Get_rank() == 0:  # Only root downloads data.
         train_loader = DataLoader(
             dataset=MNIST(
                 download=True, root=".", transform=data_transform, train=True
@@ -250,7 +253,9 @@ def ind_loss(params: Dict[str, Union[int, float, str]]) -> float:
         batch_size=8
     )  # Get training and validation data loaders.
 
-    tb_logger = loggers.TensorBoardLogger(save_dir=log_path + "/lightning_logs")
+    tb_logger = loggers.TensorBoardLogger(
+        save_dir=log_path + "/lightning_logs"
+    )  # Get tensor board logger.
 
     # Under the hood, the Lightning Trainer handles the training loop details.
     trainer = Trainer(
@@ -258,7 +263,7 @@ def ind_loss(params: Dict[str, Union[int, float, str]]) -> float:
         accelerator="gpu",  # Pass accelerator type.
         devices=[MPI.COMM_WORLD.Get_rank() % GPUS_PER_NODE],  # Devices to train on
         enable_progress_bar=True,  # Disable progress bar.
-        logger=tb_logger,
+        logger=tb_logger,  # Logger
     )
     trainer.fit(  # Run full model training optimization routine.
         model=model,  # Model to train
@@ -270,13 +275,13 @@ def ind_loss(params: Dict[str, Union[int, float, str]]) -> float:
 
 
 if __name__ == "__main__":
-    num_generations = 3
-    pop_size = 2 * MPI.COMM_WORLD.size
+    num_generations = 3  # Number of generations
+    pop_size = 2 * MPI.COMM_WORLD.size  # Breeding population size
     limits = {
         "conv_layers": (2, 10),
         "activation": ("relu", "sigmoid", "tanh"),
         "lr": (0.01, 0.0001),
-    }
+    }  # Define search space.
     rng = random.Random(
         MPI.COMM_WORLD.rank
     )  # Set up separate random number generator for evolutionary optimizer.

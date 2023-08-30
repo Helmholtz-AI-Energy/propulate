@@ -170,8 +170,6 @@ the hyperparameters we want to optimize are highlighted in pink. We start with d
             val_acc_val = self.val_acc(torch.nn.functional.softmax(pred, dim=-1), y)
             self.log("val_loss", loss_val)
             self.log("val_acc", val_acc_val)
-            # if val_acc > self.best_accuracy:
-            #     self.best_accuracy = val_acc
             return loss_val
 
         def configure_optimizers(self) -> torch.optim.SGD:
@@ -186,6 +184,9 @@ the hyperparameters we want to optimize are highlighted in pink. We start with d
             return torch.optim.SGD(self.parameters(), lr=self.lr)
 
         def on_validation_epoch_end(self):
+            """
+            Calculate and store the model's validation accuracy after each epoch.
+            """
             val_acc_val = self.val_acc.compute()
             self.val_acc.reset()
             if val_acc_val > self.best_accuracy:
@@ -215,7 +216,7 @@ We also need some helper function to load the MNIST data:
 
         data_transform = Compose([ToTensor(), Normalize((0.1307,), (0.3081,))])
 
-        if MPI.COMM_WORLD.Get_rank() == 0:
+        if MPI.COMM_WORLD.Get_rank() == 0:  # Only root downloads data.
             train_loader = DataLoader(
                 dataset=MNIST(
                     download=True, root=".", transform=data_transform, train=True
@@ -301,13 +302,14 @@ Just as before, this loss function is fed into the asynchronous evolutionary opt
 asynchronous island model (``Islands``) which takes care of the actual genetic optimization.
 
 .. code-block:: python
-    num_generations = 3
-    pop_size = 2 * MPI.COMM_WORLD.size
+
+    num_generations = 3  # Number of generations
+    pop_size = 2 * MPI.COMM_WORLD.size  # Breeding population size
     limits = {
         "conv_layers": (2, 10),
         "activation": ("relu", "sigmoid", "tanh"),
         "lr": (0.01, 0.0001),
-    }
+    }  # Search space
     rng = random.Random(
         MPI.COMM_WORLD.rank
     )  # Set up separate random number generator for evolutionary optimizer.
@@ -333,7 +335,8 @@ asynchronous island model (``Islands``) which takes care of the actual genetic o
         debug=2,  # Verbosity level
     )
 
-After additionally installing ``torch``, ``lightning``, and ``tensorboard``, to run a search with four GPUs on a single node, we can use the the virtual environment from the previous example:
+After additionally installing ``torch``, ``lightning``, and ``tensorboard``, we can use the the virtual environment from
+the previous example to run a search with four GPUs on a single node:
 
 .. code-block:: console
 
@@ -341,4 +344,5 @@ After additionally installing ``torch``, ``lightning``, and ``tensorboard``, to 
     $ mpirun -N 4 python torch_example.py
 
 .. note::
-    Running the script from our Github repo without any modifications requires compute nodes with four GPUs and a CUDA installation.
+    Running the script from our Github repo without any modifications requires compute nodes with four GPUs and a CUDA
+    installation.
