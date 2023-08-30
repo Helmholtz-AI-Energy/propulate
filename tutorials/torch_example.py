@@ -145,8 +145,6 @@ class Net(LightningModule):
         val_acc_val = self.val_acc(torch.nn.functional.softmax(pred, dim=-1), y)
         self.log("val_loss", loss_val)
         self.log("val_acc", val_acc_val)
-        # if val_acc > self.best_accuracy:
-        #     self.best_accuracy = val_acc
         return loss_val
 
     def configure_optimizers(self) -> torch.optim.SGD:
