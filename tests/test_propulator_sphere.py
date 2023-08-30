@@ -1,6 +1,6 @@
 import random
 import tempfile
-from typing import Callable, Dict
+from typing import Dict
 from operator import attrgetter
 
 import numpy as np
@@ -29,6 +29,9 @@ def sphere(params: Dict[str, float]) -> float:
 
 
 def test_Propulator():
+    """
+    Test single worker using Propulator to optimize sphere.
+    """
     rng = random.Random(
         42
     )  # Separate random number generator for optimization.
