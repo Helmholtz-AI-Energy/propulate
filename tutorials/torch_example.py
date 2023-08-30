@@ -252,15 +252,15 @@ def ind_loss(params: Dict[str, Union[int, float, str]]) -> float:
         batch_size=8
     )  # Get training and validation data loaders.
 
-    tb_logger = loggers.TensorBoardLogger(save_dir=log_path+"/lightning_logs")
+    tb_logger = loggers.TensorBoardLogger(save_dir=log_path + "/lightning_logs")
 
     # Under the hood, the Lightning Trainer handles the training loop details.
     trainer = Trainer(
         max_epochs=epochs,  # Stop training once this number of epochs is reached.
-        # accelerator="gpu",  # Pass accelerator type.
-        # devices=[MPI.COMM_WORLD.Get_rank() % GPUS_PER_NODE],  # Devices to train on
+        accelerator="gpu",  # Pass accelerator type.
+        devices=[MPI.COMM_WORLD.Get_rank() % GPUS_PER_NODE],  # Devices to train on
         enable_progress_bar=True,  # Disable progress bar.
-        logger=tb_logger
+        logger=tb_logger,
     )
     trainer.fit(  # Run full model training optimization routine.
         model=model,  # Model to train
