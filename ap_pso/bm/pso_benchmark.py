@@ -2,6 +2,7 @@
 import random
 import sys
 import time
+from pathlib import Path
 
 from mpi4py import MPI
 
@@ -43,6 +44,7 @@ if __name__ == "__main__":
         print("#-----------------------------------#")
         print(f"| Current time: {time.time_ns()} |")
         print("#-----------------------------------#")
+        print(f"\nSaving files to: {Path(CHECKPOINT_PLACE).name}")
 
     islands = Islands(function, propagator, rng, generations=NUM_GENERATIONS, checkpoint_path=CHECKPOINT_PLACE,
                       migration_probability=0, pollination=False)
