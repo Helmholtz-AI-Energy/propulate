@@ -21,9 +21,10 @@ from ap_pso.propagators import *
 from propulate import Islands
 from propulate.propagators import Conditional
 
-num_generations = 3
+num_generations = 50
 pop_size = 2 * MPI.COMM_WORLD.size
-GPUS_PER_NODE = 4
+GPUS_PER_NODE = 1  # 4
+CHECKPOINT_PATH = "checkpoints"
 
 limits = {
     "convlayers": (2.0, 10.0),
@@ -35,7 +36,7 @@ class Net(LightningModule):
     def __init__(self, convlayers: int, activation, lr: float, loss_fn):
         super(Net, self).__init__()
 
-        self.best_accuracy: float = 0.0
+        self.best_loss: float = np.inf
         self.lr = lr
         self.loss_fn = loss_fn
         layers = []
@@ -79,8 +80,8 @@ class Net(LightningModule):
         pred = self(x)
         loss = self.loss_fn(pred, y)
         val_acc = self.val_acc(torch.nn.functional.softmax(pred, dim=-1), y)
-        if val_acc > self.best_accuracy:
-            self.best_accuracy = val_acc
+        if loss < self.best_loss:
+            self.best_loss = loss
         return loss
 
     def configure_optimizers(self):
@@ -105,6 +106,8 @@ def get_data_loaders(batch_size, dl=False):
 
 def ind_loss(params):
     convlayers = int(np.round(params["convlayers"]))
+    if convlayers < 0:
+        return float(-convlayers)
     activation = "leakyrelu"
     lr = params["lr"]
     epochs = 2
@@ -116,19 +119,21 @@ def ind_loss(params):
     model = Net(convlayers, activation, lr, loss_fn)
     if MPI.COMM_WORLD.rank == 0:
         train_loader, val_loader = get_data_loaders(8, True)
-    MPI.COMM_WORLD.barrier()
-    if MPI.COMM_WORLD.rank != 0:
+        MPI.COMM_WORLD.barrier()
+    else:
+        MPI.COMM_WORLD.barrier()
         train_loader, val_loader = get_data_loaders(8)
     trainer = Trainer(max_epochs=epochs,
                       accelerator='gpu',
                       devices=[
                           MPI.COMM_WORLD.Get_rank() % GPUS_PER_NODE
                       ],
+                      limit_train_batches=50,
                       enable_progress_bar=False,
                       )
     trainer.fit(model, train_loader, val_loader)
 
-    return -model.best_accuracy
+    return model.best_loss
 
 
 if __name__ == "__main__":
@@ -148,7 +153,8 @@ if __name__ == "__main__":
         print("#-----------------------------------#")
 
     propagator = Conditional(pop_size, pso, PSOInitUniform(limits, rng=rng, rank=MPI.COMM_WORLD.rank))
-    islands = Islands(ind_loss, propagator, rng, generations=num_generations, num_islands=1, migration_probability=0)
+    islands = Islands(ind_loss, propagator, rng, generations=num_generations, pollination=False,
+                      migration_probability=0, checkpoint_path=CHECKPOINT_PATH)
     islands.evolve(top_n=1, debug=2)
 
     if MPI.COMM_WORLD.rank == 0:
