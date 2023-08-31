@@ -29,7 +29,7 @@ GPUS_PER_NODE = 1  # 4
 log_path = "torch_ckpts"
 
 limits = {
-    "convlayers": (2.0, 10.0),
+    "conv_layers": (2.0, 10.0),
     "lr": (0.01, 0.0001),
 }
 
@@ -218,7 +218,7 @@ def ind_loss(params: Dict[str, Union[int, float, str]]) -> float:
     conv_layers = int(np.round(params["conv_layers"]))  # Number of convolutional layers
     if conv_layers < 1:
         return float(10 - 10 * conv_layers)
-    activation = params["activation"]  # Activation function
+    # activation = params["activation"]  # Activation function
     lr = params["lr"]  # Learning rate
 
     epochs = 2  # Number of epochs to train
@@ -227,8 +227,9 @@ def ind_loss(params: Dict[str, Union[int, float, str]]) -> float:
         "relu": nn.ReLU,
         "sigmoid": nn.Sigmoid,
         "tanh": nn.Tanh,
+        "leaky_relu": nn.LeakyReLU
     }  # Define activation function mapping.
-    activation = activations[activation]  # Get activation function.
+    activation = activations["leaky_relu"]  # Get activation function.
     loss_fn = (
         torch.nn.CrossEntropyLoss()
     )  # Use cross-entropy loss for multi-class classification.
