@@ -35,7 +35,7 @@ def sphere(ind: Individual):
     float : loss value
     """
     problem_dim = len(ind.values())
-    return np.sum(ind[i] ** 2 for i in range(problem_dim))
+    return sum(ind[i] ** 2 for i in range(problem_dim))
 
 
 def bisphere(ind: Individual) -> float:
@@ -89,7 +89,7 @@ def rosenbrock(ind: Individual):
     float : loss value
     """
     problem_dim = len(ind.values())
-    return np.sum(
+    return sum(
         (1 - ind[i]) ** 2 + 100 * (ind[i + 1] - ind[i] ** 2) ** 2
         for i in range(problem_dim - 1)
     )
@@ -110,7 +110,7 @@ def step(ind: Individual):
     float : loss value
     """
     problem_dim = len(ind.values())
-    return np.abs(np.sum(int(ind[i]) for i in range(problem_dim)) + (5 * problem_dim))
+    return np.abs(sum(int(ind[i]) for i in range(problem_dim)) + (5 * problem_dim))
 
 
 def quartic(ind: Individual):
@@ -127,10 +127,14 @@ def quartic(ind: Individual):
     -------
     float : loss value
     """
-    problem_dim = len(ind.values())
-    return np.abs(
-        np.sum(i * ind[i] ** 4 + np.random.randn() for i in range(problem_dim))
-    )
+    #problem_dim = len(ind.values())
+    #return np.abs(
+     #   sum(i * ind[i] ** 4 + np.random.randn() for i in range(problem_dim))
+    #)
+    params = np.array(list(ind.values()))
+    idx = np.arange(1, len(params)+1)
+    gauss = np.random.normal(size=len(params))
+    return abs(np.sum(idx * params**4 + gauss))
 
 
 def rastrigin(ind: Individual):
@@ -147,10 +151,13 @@ def rastrigin(ind: Individual):
     -------
     float : loss value
     """
-    problem_dim = len(ind.values())
-    return 10 * problem_dim + np.sum(
-        ind[i] ** 2 - 10 * np.cos(2 * np.pi * ind[i]) for i in range(problem_dim)
-    )
+    #problem_dim = len(ind.values())
+    #return 10 * problem_dim + sum(
+    #    ind[i] ** 2 - 10 * np.cos(2 * np.pi * ind[i]) for i in range(problem_dim)
+    #)
+    a = 10.
+    params = np.array(list(ind.values()))
+    return a * len(params) + np.sum(params ** 2 - a * np.cos(2 * np.pi * params))
 
 
 def birastrigin(ind: Individual) -> float:
@@ -386,7 +393,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--checkpoint_path",
         type=str,
-        default="./checkpoint_data/",
+        default="benchmark/",
         help="The path for the checkpoint and logging data.",
     )
     parser.add_argument(
@@ -425,7 +432,6 @@ if __name__ == "__main__":
 
     for f in functions:
         for run in range(1, 3):
-            print(MPI.COMM_WORLD.rank, f, run)
             rng = random.Random(
                 MPI.COMM_WORLD.rank
             )  # Set up separate random number generator for evolutionary optimization process.
@@ -448,7 +454,7 @@ if __name__ == "__main__":
                 f, args.dimension
             )  # Get callable function and search-space limits from function name.
 
-            checkpoint_dir = f"benchmark/{args.checkpoint_path}_{f}_run{run}_dim{args.dimension}"
+            checkpoint_dir = f"{args.checkpoint_path}_{f}_run{run}_dim{args.dimension}"
             parent_dir = os.path.dirname(checkpoint_dir)
 
             os.makedirs(parent_dir, exist_ok=True)
@@ -460,7 +466,7 @@ if __name__ == "__main__":
                 generations=args.generation,  # Number of generations
                 num_islands=args.num_islands,  # Number of separate evolutionary islands
                 migration_topology=migration_topology,  # Migration topology
-                checkpoint_path=f"benchmark/{args.checkpoint_path}_{f}_run{run}_dim{args.dimension}",  # Path to potentially read checkpoints from and write new checkpoints to
+                checkpoint_path=f"{args.checkpoint_path}_{f}_run{run}_dim{args.dimension}",  # Path to potentially read checkpoints from and write new checkpoints to
                 migration_probability=migration_probability,  # Migration probability
                 emigration_propagator=SelectMin,  # Emigration propagator (how to select migrants)
                 immigration_propagator=SelectMax,
@@ -468,10 +474,12 @@ if __name__ == "__main__":
                 pollination=args.pollination,  # Pollination or real migration?
             )
             # Run actual optimization.
+            if MPI.COMM_WORLD.rank == 0:
+                print("Function to Benchmark: ", f)
             islands.evolve(
                 top_n=1,
                 logging_interval=1,  # Logging interval used for print-outs.
-                debug=2,  # Debug / verbosity level
+                debug=1,  # Debug / verbosity level
             )
             del islands
             MPI.COMM_WORLD.barrier()

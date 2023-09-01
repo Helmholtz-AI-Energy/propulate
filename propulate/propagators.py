@@ -1479,7 +1479,7 @@ class CMAPropagator(Propagator):
         )
         self.pool_size = int(pool_size) if int(pool_size) >= 1 else 3
         self.selectPool = SelectMin(self.pool_size * lamb)
-        self.selectFromPool = SelectUniform(lamb - 1, rng=rng)
+        self.selectFromPool = SelectUniform(mu - 1, rng=rng)
         self.selectBest1 = SelectMin(1)
 
     def __call__(self, inds: List[Individual]) -> Individual:
@@ -1501,30 +1501,27 @@ class CMAPropagator(Propagator):
         new_ind = self._sample_cma()
         # check if len(inds) >= or < pool_size * lambda and make sample or sample + update
         if num_inds >= self.pool_size * self.par.lamb:
-            inds = self.selectPool(inds)
+            inds_pooled = self.selectPool(inds)
+            best = self.selectBest1(inds_pooled)
+            if not self.select_worst_all_time:
+                worst = self.selectWorst(inds_pooled)
+            else:
+                worst = self.selectWorst(inds)
+
+            inds_filtered = [ind for ind in inds_pooled if ind not in best and ind not in worst]
+            arx = self._transform_individuals_to_matrix(best + self.selectFromPool(inds_filtered) + worst)
+
             # Update mean
             self.adapter.update_mean(
-                self.par, self._transform_individuals_to_matrix(self.selectBestMu(inds))
+                self.par, arx[:, :self.par.mu]
             )
             # Update Covariance Matrix
-            if not self.select_worst_all_time:
-                # Alternatively select best mu: best_mu = self.selectBestMu(inds)
-                best = self.selectBest1(inds)
-                inds_filtered = [ind for ind in inds if ind not in best]
-                self.adapter.update_covariance_matrix(
-                    self.par,
-                    # self._transform_individuals_to_matrix(self.selectBestLambda(inds))
-                    self._transform_individuals_to_matrix(
-                        best + self.selectFromPool(inds_filtered)
-                    ),
-                )
-            else:
-                self.adapter.update_covariance_matrix(
-                    self.par,
-                    self._transform_individuals_to_matrix(
-                        self.selectBestMu(inds) + self.selectWorst(inds)
-                    ),
-                )
+            # Alternatively select best mu: best_mu = self.selectBestMu(inds)
+            self.adapter.update_covariance_matrix(
+                self.par,
+                # self._transform_individuals_to_matrix(self.selectBestLambda(inds))
+                arx
+            )
             # Update step_size
             self.adapter.update_step_size(self.par)
         return new_ind
