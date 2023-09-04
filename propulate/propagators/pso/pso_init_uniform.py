@@ -15,6 +15,9 @@ from propulate.utils import make_particle
 class PSOInitUniform(Stochastic):
     """
     Initialize individuals by uniformly sampling specified limits for each trait.
+
+    This propagator is the Particle-using counterpart to the InitUniform propagator.
+    For more information, please have a look there.
     """
 
     def __init__(self, limits: Dict[str, Tuple[float, float]], parents=0, probability=1.0, rng: Random = None, *,

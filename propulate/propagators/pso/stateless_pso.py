@@ -10,6 +10,13 @@ from propulate.propagators import Propagator
 
 
 class StatelessPSO(Propagator):
+    """
+    The first draft of a pso propagator. It uses the infrastructure brought to you by vanilla Propulate and nothing more.
+
+    Thus, it won't deliver that interesting results.
+
+    This propagator works on Propulate's Individual-class objects.
+    """
 
     def __init__(self, w_k: float, c_cognitive: float, c_social: float, rank: int,
                  limits: Dict[str, Tuple[float, float]], rng: Random):

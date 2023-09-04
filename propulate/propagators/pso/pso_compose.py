@@ -6,6 +6,10 @@ from propulate.propagators import Compose
 
 
 class PSOCompose(Compose):
+    """
+    This class is the  Particle-using counterpart to the Compose propagator.
+    It does basically exact the same things. For further reference, please refer to the standard Compose propagator.
+    """
     def __call__(self, particles: List[Particle]) -> Particle:
         """
         Returns the first element of the list of particles returned by the last Propagator in the list

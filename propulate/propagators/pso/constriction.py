@@ -11,6 +11,14 @@ from propulate.particle import Particle
 
 
 class Constriction(BasicPSO):
+    """
+    This propagator subclass features Constriction PSO as proposed by Clerc and Kennedy in 2002.
+
+    Instead of an inertia factor that affects the old velocity value within the velocity update,
+    there is a constriction factor, that is applied on the new velocity `after' the update.
+
+    This propagator runs on Particle-class objects.
+    """
     def __init__(self,
                  c_cognitive: float,
                  c_social: float,

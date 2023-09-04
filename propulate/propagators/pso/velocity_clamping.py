@@ -11,6 +11,14 @@ from basic_pso import BasicPSO
 
 
 class VelocityClamping(BasicPSO):
+    """
+    This propagator implements the Velocity Clamping pso variant.
+
+    In addition to the parameters known from the basic PSO propagator, it features a parameter,
+    via which relative values (best between 0 and 1) are passed to the propagator.
+
+    Based on these values, the velocities of the particles are cut down to a reasonable value.
+    """
     def __init__(self, w_k: float, c_cognitive: float, c_social: float, rank: int,
                  limits: Dict[str, Tuple[float, float]], rng: Random, v_limits: Union[float, np.ndarray]):
         """

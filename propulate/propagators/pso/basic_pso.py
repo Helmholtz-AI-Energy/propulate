@@ -12,6 +12,26 @@ from propulate.utils import make_particle
 
 
 class BasicPSO(Propagator):
+    """
+    This propagator implements the most basic PSO variant one possibly could think of.
+
+    It features an inertia factor w_k applied to the old velocity in the velocity update,
+    a social and a cognitive factor, as well as some measures to implement some none-linearity.
+
+    This is done with the help of some randomness.
+
+    As this propagator is very basic in all manners, it can only feature float-typed search domains.
+    Please keep this in mind when feeding the propagator with limits.
+    Else, it might happen that warnings occur.
+
+    This propagator also serves as the foundation of all other pso propagators and supplies
+    them with protected methods that help in the update process.
+
+    If you want to implement further pso propagators, please do your best to
+    derive them from this propagator or from one that is derived from this.
+
+    This propagator works on Particle-class objects.
+    """
 
     def __init__(self, w_k: float, c_cognitive: float, c_social: float, rank: int,
                  limits: Dict[str, Tuple[float, float]], rng: Random):
