@@ -4,5 +4,5 @@ run PSO on it.
 """
 __all__ = ["Particle", "propagators", "make_particle"]
 
-from ap_pso.particle import Particle
+from propulate.particle import Particle
 from ap_pso.utils import make_particle
