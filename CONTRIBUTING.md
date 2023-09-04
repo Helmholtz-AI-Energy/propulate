@@ -40,5 +40,3 @@ If you have questions or encounter any issues, please create an issue in the [Is
 
 Thank you for your contribution!
 ```
-
-You should replace `[Project Name]`, `[original-owner]`, `your-username`, and `project-name` with your project's actual name and relevant information. Additionally, feel free to add any specific contribution guidelines or additional details that are relevant to your project.
