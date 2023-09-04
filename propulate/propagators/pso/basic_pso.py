@@ -6,11 +6,12 @@ from typing import Dict, Tuple, List
 
 import numpy as np
 
-from ap_pso import Particle, make_particle
+from propulate.particle import Particle
 from propulate.propagators import Propagator
+from propulate.utils import make_particle
 
 
-class BasicPSOPropagator(Propagator):
+class BasicPSO(Propagator):
 
     def __init__(self, w_k: float, c_cognitive: float, c_social: float, rank: int,
                  limits: Dict[str, Tuple[float, float]], rng: Random):

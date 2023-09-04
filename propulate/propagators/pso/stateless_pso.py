@@ -9,7 +9,7 @@ from propulate.population import Individual
 from propulate.propagators import Propagator
 
 
-class StatelessPSOPropagator(Propagator):
+class StatelessPSO(Propagator):
 
     def __init__(self, w_k: float, c_cognitive: float, c_social: float, rank: int,
                  limits: Dict[str, Tuple[float, float]], rng: Random):

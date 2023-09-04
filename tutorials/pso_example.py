@@ -4,11 +4,10 @@ import sys
 
 from mpi4py import MPI
 
-from ap_pso.propagators import PSOInitUniform, VelocityClampingPropagator, ConstrictionPropagator, PSOCompose, \
-    BasicPSOPropagator, StatelessPSOPropagator, CanonicalPropagator
 from propulate import Islands
-from propulate.propagators import Conditional
+from propulate.propagators import Conditional, StatelessPSO
 from function_benchmark import get_function_search_space
+from propulate.propagators.pso import BasicPSO, VelocityClamping, Constriction, Canonical, PSOInitUniform
 
 ############
 # SETTINGS #
@@ -26,15 +25,14 @@ if __name__ == "__main__":
 
     rng = random.Random(MPI.COMM_WORLD.rank)
 
-    pso_propagator = PSOCompose(
-        [
-            # VelocityClampingPropagator(0.7298, 1.49618, 1.49618, MPI.COMM_WORLD.rank, limits, rng, 0.6)
-            # ConstrictionPropagator(2.49618, 2.49618, MPI.COMM_WORLD.rank, limits, rng)
-            # BasicPSOPropagator(0.7298, 0.5, 0.5, MPI.COMM_WORLD.rank, limits, rng)
-            CanonicalPropagator(2.49618, 2.49618, MPI.COMM_WORLD.rank, limits, rng)
-            # StatelessPSOPropagator(0, 1.49618, 1.49618, MPI.COMM_WORLD.rank, limits, rng)
-        ]
-    )
+    pso_propagator = [
+        StatelessPSO(0, 1.49618, 1.49618, MPI.COMM_WORLD.rank, limits, rng),
+
+        BasicPSO(0.7298, 0.5, 0.5, MPI.COMM_WORLD.rank, limits, rng),
+        VelocityClamping(0.7298, 1.49618, 1.49618, MPI.COMM_WORLD.rank, limits, rng, 0.6),
+        Constriction(2.49618, 2.49618, MPI.COMM_WORLD.rank, limits, rng),
+        Canonical(2.49618, 2.49618, MPI.COMM_WORLD.rank, limits, rng)
+    ][1]  # Please choose with this index, which Propagator to use in the optimisation process.
 
     init = PSOInitUniform(limits, rng=rng, rank=MPI.COMM_WORLD.rank)
     propagator = Conditional(POP_SIZE, pso_propagator, init)

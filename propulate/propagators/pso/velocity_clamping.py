@@ -6,11 +6,11 @@ from typing import Dict, Tuple, Union, List
 
 import numpy as np
 
-from ap_pso import Particle
-from ap_pso.propagators import BasicPSOPropagator
+from propulate.particle import Particle
+from basic_pso import BasicPSO
 
 
-class VelocityClampingPropagator(BasicPSOPropagator):
+class VelocityClamping(BasicPSO):
     def __init__(self, w_k: float, c_cognitive: float, c_social: float, rank: int,
                  limits: Dict[str, Tuple[float, float]], rng: Random, v_limits: Union[float, np.ndarray]):
         """

@@ -6,9 +6,10 @@ from typing import Union, Dict, Tuple, List
 
 import numpy as np
 
-from ap_pso import Particle, make_particle
+from propulate.particle import Particle
 from propulate.population import Individual
 from propulate.propagators import Stochastic
+from propulate.utils import make_particle
 
 
 class PSOInitUniform(Stochastic):

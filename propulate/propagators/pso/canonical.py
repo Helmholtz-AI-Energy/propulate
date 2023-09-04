@@ -2,11 +2,11 @@ from typing import List
 
 import numpy as np
 
-from ap_pso import Particle
-from ap_pso.propagators import ConstrictionPropagator
+from propulate.particle import Particle
+from constriction import Constriction
 
 
-class CanonicalPropagator(ConstrictionPropagator):
+class Canonical(Constriction):
 
     def __init__(self, c_cognitive, c_social, rank, limits, rng):
         super().__init__(c_cognitive, c_social, rank, limits, rng)

@@ -6,11 +6,11 @@ from typing import List, Dict, Tuple
 
 import numpy as np
 
-from ap_pso import Particle
-from ap_pso.propagators import BasicPSOPropagator
+from basic_pso import BasicPSO
+from propulate.particle import Particle
 
 
-class ConstrictionPropagator(BasicPSOPropagator):
+class Constriction(BasicPSO):
     def __init__(self,
                  c_cognitive: float,
                  c_social: float,
