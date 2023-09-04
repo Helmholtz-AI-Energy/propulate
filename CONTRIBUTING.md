@@ -39,4 +39,3 @@ Please note that we have a [Code of Conduct](CODE_OF_CONDUCT.md), and we expect 
 If you have questions or encounter any issues, please create an issue in the [Issues](https://github.com/Helmholtz-AI-Energy/propulate.git/issues) section of this repository.
 
 Thank you for your contribution!
-```
