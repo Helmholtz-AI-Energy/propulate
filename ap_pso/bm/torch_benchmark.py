@@ -31,6 +31,7 @@ log_path = "torch_ckpts"
 limits = {
     "conv_layers": (2.0, 10.0),
     "lr": (0.01, 0.0001),
+    "epochs": (2.0, 400.0)
 }
 
 
@@ -151,7 +152,7 @@ class Net(LightningModule):
         """
         Calculate and store the model's validation accuracy after each epoch.
         """
-        val_acc_val = self.val_acc.compute()
+        val_acc_val = self.val_acc.compute().item()
         self.log("val_acc_val", val_acc_val)
         self.val_acc.reset()
         if val_acc_val > self.best_accuracy:
@@ -183,9 +184,9 @@ def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
             batch_size=batch_size,  # Batch size
             shuffle=True,  # Shuffle data.
         )
-        MPI.COMM_WORLD.Barrier()
+        MPI.COMM_WORLD.barrier()
     else:
-        MPI.COMM_WORLD.Barrier()
+        MPI.COMM_WORLD.barrier()
         train_loader = DataLoader(
             dataset=MNIST(
                 root=".", transform=data_transform
@@ -214,14 +215,18 @@ def ind_loss(params: Dict[str, Union[int, float, str]]) -> float:
     float
         The trained model's negative validation accuracy
     """
+    loss = 0.0
     # Extract hyperparameter combination to test from input dictionary.
     conv_layers = int(np.round(params["conv_layers"]))  # Number of convolutional layers
-    if conv_layers < 1:
-        return float(10 - 10 * conv_layers)
+    if conv_layers < 2:
+        loss += 10 - 5 * conv_layers
+        conv_layers = 2
     # activation = params["activation"]  # Activation function
     lr = params["lr"]  # Learning rate
-
-    epochs = 2  # Number of epochs to train
+    epochs = params["epochs"]
+    if epochs < 2:
+        loss += 10 - 5 * epochs
+        epochs = 2  # Number of epochs to train
 
     activations = {
         "relu": nn.ReLU,
