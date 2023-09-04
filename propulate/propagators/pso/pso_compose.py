@@ -1,6 +1,6 @@
 from typing import List
 
-from ap_pso import Particle
+from propulate.particle import Particle
 from propulate.population import Individual
 from propulate.propagators import Compose
 
