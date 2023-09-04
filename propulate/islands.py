@@ -1,16 +1,16 @@
+import logging
+import platform
 import random
 from pathlib import Path
 from typing import Callable, Union, List, Type
-import logging
 
-from mpi4py import MPI
 import numpy as np
+from mpi4py import MPI
 
-from .propagators import Propagator, SelectMin, SelectMax
 from .migrator import Migrator
 from .pollinator import Pollinator
 from .population import Individual
-
+from .propagators import Propagator, SelectMin, SelectMax
 
 log = logging.getLogger(__name__)  # Get logger instance.
 
@@ -27,19 +27,19 @@ class Islands:
     """
 
     def __init__(
-        self,
-        loss_fn: Callable,
-        propagator: Propagator,
-        rng: random.Random,
-        generations: int = 0,
-        num_islands: int = 1,
-        island_sizes: np.ndarray = None,
-        migration_topology: np.ndarray = None,
-        migration_probability: float = 0.0,
-        emigration_propagator: Type[Propagator] = SelectMin,
-        immigration_propagator: Type[Propagator] = SelectMax,
-        pollination: bool = True,
-        checkpoint_path: Union[str, Path] = Path("./"),
+            self,
+            loss_fn: Callable,
+            propagator: Propagator,
+            rng: random.Random,
+            generations: int = 0,
+            num_islands: int = 1,
+            island_sizes: np.ndarray = None,
+            migration_topology: np.ndarray = None,
+            migration_probability: float = 0.0,
+            emigration_propagator: Type[Propagator] = SelectMin,
+            immigration_propagator: Type[Propagator] = SelectMax,
+            pollination: bool = True,
+            checkpoint_path: Union[str, Path] = Path("./"),
     ) -> None:
         """
         Initialize island model with given parameters.
@@ -97,22 +97,24 @@ class Islands:
             print(
                 "#################################################\n"
                 "# PROPULATE: Parallel Propagator of Populations #\n"
-                "#################################################\n\n"
-                "        ⠀⠀⠀⠈⠉⠛⢷⣦⡀⠀⣀⣠⣤⠤⠄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀\n"
-                "⠀        ⠀⠀⠀⠀⠀⣀⣻⣿⣿⣿⣋⣀⡀⠀⠀⢀⣠⣤⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀\n"
-                "⠀        ⠀⠀⣠⠾⠛⠛⢻⣿⣿⣿⠟⠛⠛⠓⠢⠀⠀⠉⢿⣿⣆⣀⣠⣤⣀⣀⠀⠀⠀\n"
-                "⠀        ⠀⠘⠁⠀⠀⣰⡿⠛⠿⠿⣧⡀⠀⠀⢀⣤⣤⣤⣼⣿⣿⣿⡿⠟⠋⠉⠉⠀⠀\n"
-                "⠀        ⠀⠀⠀⠀⠠⠋⠀⠀⠀⠀⠘⣷⡀⠀⠀⠀⠀⠹⣿⣿⣿⠟⠻⢶⣄⠀⠀⠀⠀\n"
-                "⠀⠀        ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣧⠀⠀⠀⠀⢠⡿⠁⠀⠀⠀⠀⠈⠀⠀⠀⠀\n"
-                "⠀⠀        ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢿⡄⠀⠀⢠⡟⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀\n"
-                "⠀⠀        ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⡇⠀⠀⣾⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀\n"
-                "⠀        ⣤⣤⣤⣤⣤⣤⡤⠄⠀⠀⣀⡀⢸⡇⢠⣤⣁⣀⠀⠀⠠⢤⣤⣤⣤⣤⣤⣤⠀\n"
-                "⠀⠀⠀⠀⠀        ⠀⣀⣤⣶⣾⣿⣿⣷⣤⣤⣾⣿⣿⣿⣿⣷⣶⣤⣀⠀⠀⠀⠀⠀⠀\n"
-                "        ⠀⠀⠀⣠⣴⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣦⣄⠀⠀⠀\n"
-                "⠀        ⠀⠼⠿⣿⣿⠿⠛⠉⠉⠉⠙⠛⠿⣿⣿⠿⠛⠛⠛⠛⠿⢿⣿⣿⠿⠿⠇⠀⠀\n"
-                "⠀        ⢶⣤⣀⣀⣠⣴⠶⠛⠋⠙⠻⣦⣄⣀⣀⣠⣤⣴⠶⠶⣦⣄⣀⣀⣠⣤⣤⡶⠀\n"
-                "        ⠀⠀⠈⠉⠉⠉⠀⠀⠀⠀⠀⠀⠀⠉⠉⠉⠉⠀⠀⠀⠀⠀⠉⠉⠉⠉⠀⠀⠀⠀\n"
+                "#################################################\n"
             )
+            if "Windows" not in platform.system():
+                print("        ⠀⠀⠀⠈⠉⠛⢷⣦⡀⠀⣀⣠⣤⠤⠄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀\n"
+                      "⠀        ⠀⠀⠀⠀⠀⣀⣻⣿⣿⣿⣋⣀⡀⠀⠀⢀⣠⣤⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀\n"
+                      "⠀        ⠀⠀⣠⠾⠛⠛⢻⣿⣿⣿⠟⠛⠛⠓⠢⠀⠀⠉⢿⣿⣆⣀⣠⣤⣀⣀⠀⠀⠀\n"
+                      "⠀        ⠀⠘⠁⠀⠀⣰⡿⠛⠿⠿⣧⡀⠀⠀⢀⣤⣤⣤⣼⣿⣿⣿⡿⠟⠋⠉⠉⠀⠀\n"
+                      "⠀        ⠀⠀⠀⠀⠠⠋⠀⠀⠀⠀⠘⣷⡀⠀⠀⠀⠀⠹⣿⣿⣿⠟⠻⢶⣄⠀⠀⠀⠀\n"
+                      "⠀⠀        ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣧⠀⠀⠀⠀⢠⡿⠁⠀⠀⠀⠀⠈⠀⠀⠀⠀\n"
+                      "⠀⠀        ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢿⡄⠀⠀⢠⡟⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀\n"
+                      "⠀⠀        ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⡇⠀⠀⣾⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀\n"
+                      "⠀        ⣤⣤⣤⣤⣤⣤⡤⠄⠀⠀⣀⡀⢸⡇⢠⣤⣁⣀⠀⠀⠠⢤⣤⣤⣤⣤⣤⣤⠀\n"
+                      "⠀⠀⠀⠀⠀        ⠀⣀⣤⣶⣾⣿⣿⣷⣤⣤⣾⣿⣿⣿⣿⣷⣶⣤⣀⠀⠀⠀⠀⠀⠀\n"
+                      "        ⠀⠀⠀⣠⣴⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣦⣄⠀⠀⠀\n"
+                      "⠀        ⠀⠼⠿⣿⣿⠿⠛⠉⠉⠉⠙⠛⠿⣿⣿⠿⠛⠛⠛⠛⠿⢿⣿⣿⠿⠿⠇⠀⠀\n"
+                      "⠀        ⢶⣤⣀⣀⣠⣴⠶⠛⠋⠙⠻⣦⣄⣀⣀⣠⣤⣴⠶⠶⣦⣄⣀⣀⣠⣤⣤⡶⠀\n"
+                      "        ⠀⠀⠈⠉⠉⠉⠀⠀⠀⠀⠀⠀⠀⠉⠉⠉⠉⠀⠀⠀⠀⠀⠉⠉⠉⠉⠀⠀⠀⠀\n"
+                      )
 
         # Homogeneous case with equal island sizes (differences of +-1 possible due to load balancing).
         if island_sizes is None:
@@ -122,11 +124,11 @@ class Islands:
                 )
             base_size = size // num_islands  # Base number of workers of each island
             remainder = (
-                size % num_islands
+                    size % num_islands
             )  # Number of remaining workers to be distributed
             island_sizes = base_size * np.ones(num_islands, dtype=int)
             island_sizes[
-                :remainder
+            :remainder
             ] += 1  # Distribute remaining workers equally for balanced load.
 
         # Heterogeneous case with user-defined island sizes.
@@ -254,7 +256,7 @@ class Islands:
         return self.propulator.summarize(top_n, debug)
 
     def evolve(
-        self, top_n: int = 3, logging_interval: int = 10, debug: int = 1
+            self, top_n: int = 3, logging_interval: int = 10, debug: int = 1
     ) -> List[Union[List[Individual], Individual]]:
         """
         Run Propulate optimization.
