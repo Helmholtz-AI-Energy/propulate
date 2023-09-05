@@ -20,17 +20,9 @@ class BasicPSO(Propagator):
 
     This is done with the help of some randomness.
 
-    As this propagator is very basic in all manners, it can only feature float-typed search domains.
-    Please keep this in mind when feeding the propagator with limits.
-    Else, it might happen that warnings occur.
-
-    This propagator also serves as the foundation of all other pso propagators and supplies
-    them with protected methods that help in the update process.
-
-    If you want to implement further pso propagators, please do your best to
-    derive them from this propagator or from one that is derived from this.
-
-    This propagator works on Particle-class objects.
+    This basic PSO propagator can only explore real-valued search spaces, i.e., continuous parameters.
+    It works on ``Particle`` objects and serves as the foundation of all other PSO propagators.
+    Further PSO propagators should be derived from this propagator or from one that is derived from this.
     """
 
     def __init__(
