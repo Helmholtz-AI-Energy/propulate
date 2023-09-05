@@ -9,7 +9,6 @@
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/propulate)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![](https://img.shields.io/badge/Python-3.6+-blue.svg)](https://www.python.org/downloads/)
-[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/7785/badge)](https://www.bestpractices.dev/projects/7785)
 [![](https://img.shields.io/badge/Contact-marie.weiel%40kit.edu-orange)](mailto:marie.weiel@kit.edu)
 [![Documentation Status](https://readthedocs.org/projects/propulate/badge/?version=latest)](https://propulate.readthedocs.io/en/latest/?badge=latest)
 
