@@ -75,7 +75,7 @@ class PSOInitUniform(Stochastic):
               one particle object
         """
         if (
-            self.rng.random() < self.probability or len(particles) == 0
+            len(particles) == 0 or self.rng.random() < self.probability
         ):  # Apply only with specified `probability`.
             position = np.array(
                 [self.rng.uniform(*self.laa[..., i]) for i in range(self.laa.shape[-1])]
