@@ -8,12 +8,9 @@ from propulate.population import Individual
 
 class Particle(Individual):
     """
-    Extension of Individual class with additional properties necessary for full PSO.
-    It also comes along with a numpy array to store positional information in.
-    As Propulate rather relies on Individuals being dicts and using this property to work with, it is just for future use.
-
-    Please keep in mind, that users of this class are responsible to ensure, that a Particle's position always
-    matches their dict contents and vice versa.
+    Child class of ``Individual`` with additional properties required for PSO, i.e., an array-type velocity field and a (redundant) array-type position field.
+    Note that Propulate relies on ``Individual``s being ``dict``s.
+    When defining new propagators, users of the ``Particle`` class thus need to ensure that a ``Particle``'s position always matches its dict contents and vice versa.
     """
 
     def __init__(
