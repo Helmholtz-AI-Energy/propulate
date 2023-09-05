@@ -21,6 +21,7 @@ __all__ = [
     "StatelessPSO",
 ]
 
-from propulate.propagators.propagators import *
+from propagators import Propagator, Stochastic, Conditional, Compose, PointMutation, RandomPointMutation, \
+    IntervalMutationNormal, MateUniform, MateMultiple, MateSigmoid, SelectMin, SelectMax, SelectUniform, InitUniform
 import pso
 from pso.stateless_pso import StatelessPSO
