@@ -16,12 +16,13 @@ class Particle(Individual):
     matches their dict contents and vice versa.
     """
 
-    def __init__(self,
-                 position: np.ndarray = None,
-                 velocity: np.ndarray = None,
-                 iteration: int = 0,
-                 rank: int = None
-                 ):
+    def __init__(
+        self,
+        position: np.ndarray = None,
+        velocity: np.ndarray = None,
+        iteration: int = 0,
+        rank: int = None,
+    ):
         super().__init__(generation=iteration, rank=rank)
         if position is not None and velocity is not None:
             assert position.shape == velocity.shape

@@ -33,8 +33,15 @@ class BasicPSO(Propagator):
     This propagator works on Particle-class objects.
     """
 
-    def __init__(self, w_k: float, c_cognitive: float, c_social: float, rank: int,
-                 limits: Dict[str, Tuple[float, float]], rng: Random):
+    def __init__(
+        self,
+        w_k: float,
+        c_cognitive: float,
+        c_social: float,
+        rank: int,
+        limits: Dict[str, Tuple[float, float]],
+        rng: Random,
+    ):
         """
         Class constructor.
         :param w_k: The learning rate ... somehow
@@ -51,19 +58,25 @@ class BasicPSO(Propagator):
         self.rank = rank
         self.limits = limits
         self.rng = rng
-        self.laa: np.ndarray = np.array(list(limits.values())).T  # laa - "limits as array"
+        self.laa: np.ndarray = np.array(
+            list(limits.values())
+        ).T  # laa - "limits as array"
 
     def __call__(self, particles: List[Particle]) -> Particle:
         old_p, p_best, g_best = self._prepare_data(particles)
 
-        new_velocity: np.ndarray = self.w_k * old_p.velocity \
-                                   + self.rng.uniform(0, self.c_cognitive) * (p_best.position - old_p.position) \
-                                   + self.rng.uniform(0, self.c_social) * (g_best.position - old_p.position)
+        new_velocity: np.ndarray = (
+            self.w_k * old_p.velocity
+            + self.rng.uniform(0, self.c_cognitive) * (p_best.position - old_p.position)
+            + self.rng.uniform(0, self.c_social) * (g_best.position - old_p.position)
+        )
         new_position: np.ndarray = old_p.position + new_velocity
 
         return self._make_new_particle(new_position, new_velocity, old_p.generation + 1)
 
-    def _prepare_data(self, particles: List[Particle]) -> Tuple[Particle, Particle, Particle]:
+    def _prepare_data(
+        self, particles: List[Particle]
+    ) -> Tuple[Particle, Particle, Particle]:
         """
         Returns the following particles in this very order:
         1.  old_p: the current particle to be updated now
@@ -73,25 +86,35 @@ class BasicPSO(Propagator):
         if len(particles) < self.offspring:
             raise ValueError("Not enough Particles")
 
-        own_p = [x for x in particles if (isinstance(x, Particle) and x.g_rank == self.rank) or x.rank == self.rank]
+        own_p = [
+            x
+            for x in particles
+            if (isinstance(x, Particle) and x.g_rank == self.rank)
+            or x.rank == self.rank
+        ]
         if len(own_p) > 0:
             old_p = max(own_p, key=lambda p: p.generation)
         else:
             victim = max(particles, key=lambda p: p.generation)
-            old_p = self._make_new_particle(victim.position, victim.velocity, victim.generation)
+            old_p = self._make_new_particle(
+                victim.position, victim.velocity, victim.generation
+            )
 
         if not isinstance(old_p, Particle):
             old_p = make_particle(old_p)
             print(
                 f"R{self.rank}, Iteration#{old_p.generation}: Type Error. "
-                f"Converted Individual to Particle. Continuing.")
+                f"Converted Individual to Particle. Continuing."
+            )
 
         g_best = min(particles, key=lambda p: p.loss)
         p_best = min(own_p, key=lambda p: p.loss)
 
         return old_p, p_best, g_best
 
-    def _make_new_particle(self, position: np.ndarray, velocity: np.ndarray, generation: int):
+    def _make_new_particle(
+        self, position: np.ndarray, velocity: np.ndarray, generation: int
+    ):
         """
         Takes the necessary data to create a new Particle with the position dict set to the correct values.
         :return: The newly created Particle object

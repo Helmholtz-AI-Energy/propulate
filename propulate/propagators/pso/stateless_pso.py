@@ -18,8 +18,15 @@ class StatelessPSO(Propagator):
     This propagator works on Propulate's Individual-class objects.
     """
 
-    def __init__(self, w_k: float, c_cognitive: float, c_social: float, rank: int,
-                 limits: Dict[str, Tuple[float, float]], rng: Random):
+    def __init__(
+        self,
+        w_k: float,
+        c_cognitive: float,
+        c_social: float,
+        rank: int,
+        limits: Dict[str, Tuple[float, float]],
+        rng: Random,
+    ):
         """
 
         :param w_k: The learning rate ... somehow - currently without effect
@@ -50,6 +57,8 @@ class StatelessPSO(Propagator):
         new_p = Individual(generation=old_p.generation + 1)
         for k in self.limits:
             new_p[k] = self.c_cognitive * self.rng.uniform(*self.limits[k]) * (
-                        p_best[k] - old_p[k]) + self.c_social * self.rng.uniform(*self.limits[k]) * (
-                                   g_best[k] - old_p[k])
+                p_best[k] - old_p[k]
+            ) + self.c_social * self.rng.uniform(*self.limits[k]) * (
+                g_best[k] - old_p[k]
+            )
         return new_p

@@ -19,8 +19,17 @@ class VelocityClamping(BasicPSO):
 
     Based on these values, the velocities of the particles are cut down to a reasonable value.
     """
-    def __init__(self, w_k: float, c_cognitive: float, c_social: float, rank: int,
-                 limits: Dict[str, Tuple[float, float]], rng: Random, v_limits: Union[float, np.ndarray]):
+
+    def __init__(
+        self,
+        w_k: float,
+        c_cognitive: float,
+        c_social: float,
+        rank: int,
+        limits: Dict[str, Tuple[float, float]],
+        rng: Random,
+        v_limits: Union[float, np.ndarray],
+    ):
         """
         Class constructor.
         :param w_k: The particle's inertia factor
@@ -42,10 +51,11 @@ class VelocityClamping(BasicPSO):
     def __call__(self, particles: List[Particle]) -> Particle:
         old_p, p_best, g_best = self._prepare_data(particles)
 
-        new_velocity: np.ndarray = (self.w_k * old_p.velocity
-                                    + self.rng.uniform(0, self.c_cognitive) * (p_best.position - old_p.position)
-                                    + self.rng.uniform(0, self.c_social) * (g_best.position - old_p.position)
-                                    ).clip(*self.v_cap)
+        new_velocity: np.ndarray = (
+            self.w_k * old_p.velocity
+            + self.rng.uniform(0, self.c_cognitive) * (p_best.position - old_p.position)
+            + self.rng.uniform(0, self.c_social) * (g_best.position - old_p.position)
+        ).clip(*self.v_cap)
         new_position: np.ndarray = old_p.position + new_velocity
 
         return self._make_new_particle(new_position, new_velocity, old_p.generation + 1)

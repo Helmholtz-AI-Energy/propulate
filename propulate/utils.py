@@ -26,17 +26,17 @@ from .propagators import (
 
 
 def get_default_propagator(
-        pop_size: int,
-        limits: Union[
-            Dict[str, Tuple[float, float]],
-            Dict[str, Tuple[int, int]],
-            Dict[str, Tuple[str, ...]],
-        ],
-        mate_prob: float,
-        mut_prob: float,
-        random_prob: float,
-        sigma_factor: float = 0.05,
-        rng: random.Random = None,
+    pop_size: int,
+    limits: Union[
+        Dict[str, Tuple[float, float]],
+        Dict[str, Tuple[int, int]],
+        Dict[str, Tuple[str, ...]],
+    ],
+    mate_prob: float,
+    mut_prob: float,
+    random_prob: float,
+    sigma_factor: float = 0.05,
+    rng: random.Random = None,
 ) -> Propagator:
     """
     Get Propulate's default evolutionary optimization propagator.
@@ -64,7 +64,7 @@ def get_default_propagator(
         A basic evolutionary optimization propagator.
     """
     if any(
-            isinstance(limits[x][0], float) for x in limits
+        isinstance(limits[x][0], float) for x in limits
     ):  # Check for existence of at least one continuous trait.
         propagator = Compose(
             [  # Compose propagator out of basic evolutionary operators with Compose(...).
@@ -98,11 +98,11 @@ def get_default_propagator(
 
 
 def set_logger_config(
-        level: int = logging.INFO,
-        log_file: Union[str, Path] = None,
-        log_to_stdout: bool = True,
-        log_rank: bool = False,
-        colors: bool = True,
+    level: int = logging.INFO,
+    log_file: Union[str, Path] = None,
+    log_to_stdout: bool = True,
+    log_rank: bool = False,
+    colors: bool = True,
 ) -> None:
     """
     Set up the logger. Should only need to be done once.
@@ -134,7 +134,7 @@ def set_logger_config(
     if colors:
         formatter = colorlog.ColoredFormatter(
             fmt=f"{rank}[%(cyan)s%(asctime)s%(reset)s][%(blue)s%(name)s%(reset)s]"
-                f"[%(log_color)s%(levelname)s%(reset)s] - %(message)s",
+            f"[%(log_color)s%(levelname)s%(reset)s] - %(message)s",
             datefmt=None,
             reset=True,
             log_colors={

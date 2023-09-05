@@ -20,8 +20,16 @@ class PSOInitUniform(Stochastic):
     For more information, please have a look there.
     """
 
-    def __init__(self, limits: Dict[str, Tuple[float, float]], parents=0, probability=1.0, rng: Random = None, *,
-                 v_init_limit: Union[float, np.ndarray] = 0.1, rank: int):
+    def __init__(
+        self,
+        limits: Dict[str, Tuple[float, float]],
+        parents=0,
+        probability=1.0,
+        rng: Random = None,
+        *,
+        v_init_limit: Union[float, np.ndarray] = 0.1,
+        rank: int
+    ):
         """
         Constructor of PSOInitUniform class.
 
@@ -66,26 +74,29 @@ class PSOInitUniform(Stochastic):
         ind : propulate.ap_pso.Particle
               one particle object
         """
-        if self.rng.random() < self.probability or len(particles) == 0:  # Apply only with specified `probability`.
-
-            position = np.array([self.rng.uniform(*self.laa[..., i]) for i in range(self.laa.shape[-1])])
+        if (
+            self.rng.random() < self.probability or len(particles) == 0
+        ):  # Apply only with specified `probability`.
+            position = np.array(
+                [self.rng.uniform(*self.laa[..., i]) for i in range(self.laa.shape[-1])]
+            )
             velocity = np.array(
                 [
-                    self.rng.uniform(
-                        *(
-                                self.v_limits * self.laa
-                        )[..., i]
-                    )
+                    self.rng.uniform(*(self.v_limits * self.laa)[..., i])
                     for i in range(self.laa.shape[-1])
                 ]
             )
 
-            particle = Particle(position, velocity, rank=self.rank)  # Instantiate new particle.
+            particle = Particle(
+                position, velocity, rank=self.rank
+            )  # Instantiate new particle.
 
             for index, limit in enumerate(self.limits):
                 # Since Py 3.7, iterating over dicts is stable, so we can do the following.
 
-                if type(self.limits[limit][0]) != float:  # Check search space for validity
+                if (
+                    type(self.limits[limit][0]) != float
+                ):  # Check search space for validity
                     raise TypeError("PSO only works on continuous search spaces!")
 
                 # Randomly sample from specified limits for each trait.
