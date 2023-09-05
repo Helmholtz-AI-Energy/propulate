@@ -8,12 +8,10 @@ from constriction import Constriction
 
 class Canonical(Constriction):
     """
-    This propagator subclass features a combination of Constriction PSO and VelocityClamping PSO.
+    This propagator subclass features a combination of constriction and velocity clamping.
 
-    The velocity clamping is made with a clamping factor of 1,
-    the constriction is done as on the parental Constriction propagator.
-
-    For information on the method parameters, please refer to the Constriction propagator.
+    The velocity clamping uses a clamping factor of 1,
+    the constriction is done as in the parental ``Constriction`` propagator.
     """
 
     def __init__(self, c_cognitive, c_social, rank, limits, rng):
