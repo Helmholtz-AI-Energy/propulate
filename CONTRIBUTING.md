@@ -18,9 +18,10 @@ By participating, you can help improve the project and make it even better.
    ```
 
 4. **Make Changes**: Make your desired changes to the codebase. Please stick to the following guidelines: 
-   * ``Propulate`` uses black code styling and so should you if you would like to contribute.
-   * Use American English for all comments and docstrings in the code.
-   * Please use the [NumPy Docstring Standard](https://numpydoc.readthedocs.io/en/latest/format.html) for your docstrings:
+   * `Propulate` uses [*Black*](https://black.readthedocs.io/en/stable/the_black_code_style/current_style.html) code style and so should you if you would like to contribute.
+   * Please use American English for all comments and docstrings in the code.
+   * `Propulate` uses Sphinx autoapi to automatically create API reference documentation from docstrings in the code. 
+     Please use the [NumPy Docstring Standard](https://numpydoc.readthedocs.io/en/latest/format.html) for your docstrings:
       
      ```python
      """
@@ -67,6 +68,53 @@ By participating, you can help improve the project and make it even better.
      -----
      Additional notes, recommendations, or important information.
      """
+     ```
+     When applicable, please make references to parent modules and classes using ```:class:`ParentClassName` ```
+as follows:
+   
+     ```python
+     """
+     This is the docstring for MyClass.
+
+     Parameters
+     ----------
+     param1 : type
+              Description of param1.
+
+     Attributes
+     ----------
+     attr1 : type
+         Description of attr1.
+
+     See Also
+     --------
+     :class:`ParentClassName` : Reference to the parent class.
+
+     """
+
+     class ParentClassName:
+         """
+         The docstring for the parent class.
+         """
+    
+     class MyClass(ParentClassName):
+         """
+         The docstring for MyClass.
+    
+         Parameters
+         ----------
+         param2 : type
+                  Description of param2.
+        
+         Attributes
+         ----------
+         attr2 : type
+                 Description of attr2.
+         """
+     ```
+     In the example above, ``` :class:`ParentClassName` ``` is used to create a reference to the parent class `ParentClassName`. 
+     Sphinx autoapi will automatically generate links to the parent class documentation.
+   
         
 5. **Commit Changes**: Commit your changes with a clear and concise commit message:
    ```bash
