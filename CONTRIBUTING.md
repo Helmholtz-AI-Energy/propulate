@@ -17,56 +17,56 @@ By participating, you can help improve the project and make it even better.
    git checkout -b your-feature-name
    ```
 
-   4. **Make Changes**: Make your desired changes to the codebase. Please stick to the following guidelines: 
-      * ``Propulate`` uses black code styling and so should you if you would like to contribute.
-      * Use American English for all comments and docstrings in the code.
-      * Please use the [NumPy Docstring Standard](https://numpydoc.readthedocs.io/en/latest/format.html) for your docstrings:
+4. **Make Changes**: Make your desired changes to the codebase. Please stick to the following guidelines: 
+   * ``Propulate`` uses black code styling and so should you if you would like to contribute.
+   * Use American English for all comments and docstrings in the code.
+   * Please use the [NumPy Docstring Standard](https://numpydoc.readthedocs.io/en/latest/format.html) for your docstrings:
       
-        ```python
-        """
-        Short Description
+     ```python
+     """
+     Short Description
 
-        Long Description (if needed)
+     Long Description (if needed)
 
-        Parameters
-        ----------
-        param1 : type
-        Description of param1.
+     Parameters
+     ----------
+     param1 : type
+     Description of param1.
 
-        param2 : type, optional
-        Description of param2. (if it's an optional argument)
+     param2 : type, optional
+     Description of param2. (if it's an optional argument)
 
-        Returns
-        -------
-        return_type
-            Description of the return value.
+     Returns
+     -------
+     return_type
+         Description of the return value.
 
-        Other Parameters
-        ----------------
-        param3 : type
-            Description of param3. (if there are additional parameters)
+     Other Parameters
+     ----------------
+     param3 : type
+         Description of param3. (if there are additional parameters)
 
-        Raises
-        ------
-        ExceptionType
-            Description of when and why this exception might be raised.
+     Raises
+     ------
+     ExceptionType
+         Description of when and why this exception might be raised.
 
-        See Also
-        --------
-        other_function : Related function or module.
+     See Also
+     --------
+     other_function : Related function or module.
 
-        Examples
-        --------
+     Examples
+     --------
         >>> import numpy as np
         >>> x = np.array([1, 2, 3])
         >>> y = np.square(x)
         >>> print(y)
-        array([1, 4, 9])
+     array([1, 4, 9])
 
-        Notes
-        -----
-        Additional notes, recommendations, or important information.
-        """
+     Notes
+     -----
+     Additional notes, recommendations, or important information.
+     """
         
 5. **Commit Changes**: Commit your changes with a clear and concise commit message:
    ```bash
