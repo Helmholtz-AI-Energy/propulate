@@ -19,6 +19,7 @@ By participating, you can help improve the project and make it even better.
 
 4. **Make Changes**: Make your desired changes to the codebase. Please stick to the following guidelines: 
    * `Propulate` uses [*Black*](https://black.readthedocs.io/en/stable/the_black_code_style/current_style.html) code style and so should you if you would like to contribute.
+   * Please use type hints in all function definitions.
    * Please use American English for all comments and docstrings in the code.
    * `Propulate` uses Sphinx autoapi to automatically create API reference documentation from docstrings in the code. 
      Please use the [NumPy Docstring Standard](https://numpydoc.readthedocs.io/en/latest/format.html) for your docstrings:
