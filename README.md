@@ -9,7 +9,9 @@
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/propulate)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![](https://img.shields.io/badge/Python-3.6+-blue.svg)](https://www.python.org/downloads/)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/7785/badge)](https://www.bestpractices.dev/projects/7785)
 [![](https://img.shields.io/badge/Contact-marie.weiel%40kit.edu-orange)](mailto:marie.weiel@kit.edu)
+[![Documentation Status](https://readthedocs.org/projects/propulate/badge/?version=latest)](https://propulate.readthedocs.io/en/latest/?badge=latest)
 
 # **Click [here](https://www.scc.kit.edu/en/aboutus/16956.php) to watch our 3 min introduction video!** 
 
@@ -44,16 +46,20 @@ You can find the corresponding publication [here](https://doi.org/10.1007/978-3-
 
 ## Documentation
 
-For usage example, see scripts. We plan to provide a full readthedocs.io documentation soon!
+Check out the full documentation at [https://propulate.readthedocs.io/](https://propulate.readthedocs.io/) :rocket:! Here you can 
+find installation instructions, tutorials, theoretical background, and API references.
 
 ## Installation
 
-From PyPI: ``pip install propulate``  
-Alternatively, pull and run ``pip install -e .`` or ``python setup.py develop``.  
-Requires an MPI implementation (currently only tested with OpenMPI) and ``mpi4py``.
+You can install the latest stable release from PyPI: ``pip install propulate``  
+If you need the latest updates, you can also install ``Propulate`` directly from the master branch at you own risk.
+Pull and run ``pip install -e .`` or ``python setup.py develop``.  
+``Propulate`` depends on ``mpi4py`` and requires an MPI implementation under the hood. Currently, it is only tested with 
+OpenMPI.
 
 ## Acknowledgments
 *This work is supported by the Helmholtz AI platform grant.*
-<div align="center"; style="position:absolute;top:50%;left:50%;">
-  <a href="http://www.kit.edu/english/index.php"><img src=./.figs/logo_KIT.svg height="50px" hspace="5%" vspace="0px"></a><a href="https://www.helmholtz.ai"><img src=./.figs/logo_HelmholtzAI.svg height="25px" hspace="5%" vspace="0px"></a>
-</div>
+![](./.figs/hai_kit_logos.svg)
+
+
+

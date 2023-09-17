@@ -6,12 +6,21 @@ try:
     dist_name = __name__
     __version__ = get_distribution(dist_name).version
 except DistributionNotFound:
-    __version__ = 'unknown'
+    __version__ = "unknown"
 finally:
     del get_distribution, DistributionNotFound
 
 from .islands import Islands
 from .propulator import Propulator
+from .migrator import Migrator
 from .pollinator import Pollinator
+from .utils import get_default_propagator, set_logger_config
 
-__all__ = ['Islands', 'Propulator', 'Pollinator']
+__all__ = [
+    "Islands",
+    "Propulator",
+    "Migrator",
+    "Pollinator",
+    "get_default_propagator",
+    "set_logger_config",
+]
