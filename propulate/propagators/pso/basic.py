@@ -39,7 +39,7 @@ class Basic(Propagator):
     ):
         """
         Class constructor.
-        :param w_k: The learning rate ... somehow
+        :param w_k: The inertia weight.
         :param c_cognitive: constant cognitive factor to scale p_best with
         :param c_social: constant social factor to scale g_best with
         :param rank: the rank of the worker the propagator is living on in MPI.COMM_WORLD
