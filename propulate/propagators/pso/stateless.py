@@ -9,7 +9,7 @@ from propulate.population import Individual
 from propulate.propagators import Propagator
 
 
-class StatelessPSO(Propagator):
+class Stateless(Propagator):
     """
     The first draft of a pso propagator. It uses the infrastructure brought to you by vanilla Propulate and nothing more.
 

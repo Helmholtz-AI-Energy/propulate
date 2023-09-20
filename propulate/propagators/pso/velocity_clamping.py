@@ -7,10 +7,10 @@ from typing import Dict, Tuple, Union, List
 import numpy as np
 
 from propulate.particle import Particle
-from basic_pso import BasicPSO
+from basic import Basic
 
 
-class VelocityClamping(BasicPSO):
+class VelocityClamping(Basic):
     """
     This propagator implements the Velocity Clamping pso variant.
 

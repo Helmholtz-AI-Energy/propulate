@@ -2,10 +2,10 @@ from typing import List
 
 from propulate.particle import Particle
 from propulate.population import Individual
-from propulate.propagators import Compose
+from propulate import propagators
 
 
-class PSOCompose(Compose):
+class Compose(propagators.Compose):
     """
     This class is the  Particle-using counterpart to the Compose propagator.
     It does basically exact the same things. For further reference, please refer to the standard Compose propagator.

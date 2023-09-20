@@ -5,14 +5,14 @@ import sys
 from mpi4py import MPI
 
 from propulate import Islands
-from propulate.propagators import Conditional, StatelessPSO
+from propulate.propagators import Conditional, Stateless
 from function_benchmark import get_function_search_space
 from propulate.propagators.pso import (
-    BasicPSO,
+    Basic,
     VelocityClamping,
     Constriction,
     Canonical,
-    PSOInitUniform,
+    InitUniform,
 )
 
 ############
@@ -34,8 +34,8 @@ if __name__ == "__main__":
     rng = random.Random(MPI.COMM_WORLD.rank)
 
     pso_propagator = [
-        StatelessPSO(0, 1.49618, 1.49618, MPI.COMM_WORLD.rank, limits, rng),
-        BasicPSO(0.7298, 0.5, 0.5, MPI.COMM_WORLD.rank, limits, rng),
+        Stateless(0, 1.49618, 1.49618, MPI.COMM_WORLD.rank, limits, rng),
+        Basic(0.7298, 0.5, 0.5, MPI.COMM_WORLD.rank, limits, rng),
         VelocityClamping(
             0.7298, 1.49618, 1.49618, MPI.COMM_WORLD.rank, limits, rng, 0.6
         ),
@@ -45,7 +45,7 @@ if __name__ == "__main__":
         1
     ]  # Please choose with this index, which Propagator to use in the optimisation process.
 
-    init = PSOInitUniform(limits, rng=rng, rank=MPI.COMM_WORLD.rank)
+    init = InitUniform(limits, rng=rng, rank=MPI.COMM_WORLD.rank)
     propagator = Conditional(POP_SIZE, pso_propagator, init)
 
     islands = Islands(

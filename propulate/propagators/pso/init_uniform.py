@@ -12,7 +12,7 @@ from propulate.propagators import Stochastic
 from propulate.utils import make_particle
 
 
-class PSOInitUniform(Stochastic):
+class InitUniform(Stochastic):
     """
     Initialize individuals by uniformly sampling specified limits for each trait.
 
@@ -31,7 +31,7 @@ class PSOInitUniform(Stochastic):
         rank: int
     ):
         """
-        Constructor of PSOInitUniform class.
+        Constructor of InitUniform class.
 
         In case of parents > 0 and probability < 1., call returns input individual without change.
 
@@ -94,8 +94,8 @@ class PSOInitUniform(Stochastic):
             for index, limit in enumerate(self.limits):
                 # Since Py 3.7, iterating over dicts is stable, so we can do the following.
 
-                if (
-                    type(self.limits[limit][0]) != float
+                if not isinstance(
+                    self.limits[limit][0], float
                 ):  # Check search space for validity
                     raise TypeError("PSO only works on continuous search spaces!")
 

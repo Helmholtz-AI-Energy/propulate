@@ -11,7 +11,7 @@ from propulate.propagators import Propagator
 from propulate.utils import make_particle
 
 
-class BasicPSO(Propagator):
+class Basic(Propagator):
     """
     This propagator implements the most basic PSO variant one possibly could think of.
 

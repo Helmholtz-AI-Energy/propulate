@@ -6,11 +6,11 @@ from typing import List, Dict, Tuple
 
 import numpy as np
 
-from basic_pso import BasicPSO
+from basic import Basic
 from propulate.particle import Particle
 
 
-class Constriction(BasicPSO):
+class Constriction(Basic):
     """
     This propagator subclass features Constriction PSO as proposed by Clerc and Kennedy in 2002.
 
