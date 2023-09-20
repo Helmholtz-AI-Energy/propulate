@@ -12,12 +12,14 @@ from ...population import Individual, Particle
 
 class VelocityClamping(Basic):
     """
-    This propagator implements the Velocity Clamping pso variant.
+    This propagator implements velocity clamping PSO.
 
-    In addition to the parameters known from the basic PSO propagator, it features a parameter,
-    via which relative values (best between 0 and 1) are passed to the propagator.
+    In addition to the parameters known from the basic PSO
+    propagator, it features a clamping factor within [0, 1] used to determine each parameter's maximum velocity value
+    relative to its search-space limits.
 
-    Based on these values, the velocities of the particles are cut down to a reasonable value.
+    Based on these values, the velocities of the particles are cut down to a
+    reasonable value.
     """
 
     def __init__(
