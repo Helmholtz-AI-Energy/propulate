@@ -30,7 +30,7 @@ class InitUniform(Stochastic):
         rank: int
     ):
         """
-        Constructor of InitUniform class.
+        Constructor of InitUniform pso propagator class.
 
         In case of parents > 0 and probability < 1., call returns input individual without change.
 
