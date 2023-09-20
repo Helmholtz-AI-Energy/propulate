@@ -52,8 +52,8 @@ class Stateless(Propagator):
         for y in own_p:
             if y.generation > old_p.generation:
                 old_p = y
-        g_best = sorted(particles, key=lambda p: p.loss)[0]
-        p_best = sorted(own_p, key=lambda p: p.loss)[0]
+        g_best = min(particles, key=lambda p: p.loss)
+        p_best = min(own_p, key=lambda p: p.loss)
         new_p = Individual(generation=old_p.generation + 1)
         for k in self.limits:
             new_p[k] = (

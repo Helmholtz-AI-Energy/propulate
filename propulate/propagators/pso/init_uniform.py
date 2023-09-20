@@ -43,7 +43,7 @@ class InitUniform(Stochastic):
         parents : int
                   number of input individuals (-1 for any)
         probability : float
-                    the probability with which a completely new individual is created
+                      the probability with which a completely new individual is created
         rng : random.Random
               random number generator
         v_init_limit: float | np.ndarray
