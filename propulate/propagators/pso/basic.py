@@ -1,5 +1,5 @@
 """
-This file contains the first stateful PSO propagator for Propulate.
+This file contains the original (stateful) PSO propagator for Propulate.
 """
 from random import Random
 from typing import Dict, Tuple, List
@@ -23,6 +23,9 @@ class Basic(Propagator):
     This basic PSO propagator can only explore real-valued search spaces, i.e., continuous parameters.
     It works on ``Particle`` objects and serves as the foundation of all other PSO propagators.
     Further PSO propagators should be derived from this propagator or from one that is derived from this.
+
+    TODO: Decode refcode.
+    Reference: Shi1998
     """
 
     def __init__(
