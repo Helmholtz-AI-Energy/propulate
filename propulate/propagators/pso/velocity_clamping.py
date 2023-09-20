@@ -6,8 +6,8 @@ from typing import Dict, Tuple, Union, List
 
 import numpy as np
 
-from propulate.particle import Particle
 from basic import Basic
+from ...population import Individual, Particle
 
 
 class VelocityClamping(Basic):
@@ -48,8 +48,8 @@ class VelocityClamping(Basic):
             v_limits *= -1
         self.v_cap: np.ndarray = np.array([-v_limits * x_range, v_limits * x_range])
 
-    def __call__(self, particles: List[Particle]) -> Particle:
-        old_p, p_best, g_best = self._prepare_data(particles)
+    def __call__(self, individuals: List[Individual]) -> Particle:
+        old_p, p_best, g_best = self._prepare_data(individuals)
 
         new_velocity: np.ndarray = (
             self.w_k * old_p.velocity

@@ -5,11 +5,10 @@ from random import Random
 from typing import Union, Dict, Tuple, List
 
 import numpy as np
-from propulate.individual import Individual
-from propulate.particle import Particle
 
-from propulate.propagators import Stochastic
-from propulate.utils import make_particle
+from ..propagators import Stochastic
+from ...population import Individual, Particle
+from ...utils import make_particle
 
 
 class InitUniform(Stochastic):
@@ -60,13 +59,13 @@ class InitUniform(Stochastic):
         self.v_limits = v_init_limit
         self.rank = rank
 
-    def __call__(self, particles: List[Individual]) -> Particle:
+    def __call__(self, individuals: List[Individual]) -> Particle:
         """
         Apply uniform-initialization propagator.
 
         Parameters
         ----------
-        particles : list of propulate.population.Individual objects
+        individuals : list of propulate.population.Individual objects
                individuals the propagator is applied to
 
         Returns
@@ -75,7 +74,7 @@ class InitUniform(Stochastic):
               one particle object
         """
         if (
-            len(particles) == 0 or self.rng.random() < self.probability
+            len(individuals) == 0 or self.rng.random() < self.probability
         ):  # Apply only with specified `probability`.
             position = np.array(
                 [self.rng.uniform(*self.laa[..., i]) for i in range(self.laa.shape[-1])]
@@ -103,7 +102,7 @@ class InitUniform(Stochastic):
                 particle[limit] = particle.position[index]
             return particle
         else:
-            particle = particles[0]
+            particle = individuals[0]
             if isinstance(particle, Particle):
                 return particle  # Return 1st input individual w/o changes.
             else:

@@ -2,8 +2,8 @@ from typing import List
 
 import numpy as np
 
-from propulate.particle import Particle
 from constriction import Constriction
+from ...population import Individual, Particle
 
 
 class Canonical(Constriction):
@@ -20,9 +20,9 @@ class Canonical(Constriction):
         x_range = np.abs(x_max - x_min)
         self.v_cap: np.ndarray = np.array([-x_range, x_range])
 
-    def __call__(self, particles: List[Particle]):
-        # Abuse Constriction's update rule so I don't have to rewrite it.
-        victim = super().__call__(particles)
+    def __call__(self, individuals: List[Individual]) -> Particle:
+        # Abuse Constriction's update rule, so I don't have to rewrite it.
+        victim = super().__call__(individuals)
 
         # Set new position and speed.
         v = victim.velocity.clip(*self.v_cap)

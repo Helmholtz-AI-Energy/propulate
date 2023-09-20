@@ -6,9 +6,9 @@ from typing import Dict, Tuple, List
 
 import numpy as np
 
-from propulate.particle import Particle
-from propulate.propagators import Propagator
-from propulate.utils import make_particle
+from ..propagators import Propagator
+from ...population import Particle, Individual
+from ...utils import make_particle
 
 
 class Basic(Propagator):
@@ -54,8 +54,8 @@ class Basic(Propagator):
             list(limits.values())
         ).T  # laa - "limits as array"
 
-    def __call__(self, particles: List[Particle]) -> Particle:
-        old_p, p_best, g_best = self._prepare_data(particles)
+    def __call__(self, individuals: List[Individual]) -> Particle:
+        old_p, p_best, g_best = self._prepare_data(individuals)
 
         new_velocity: np.ndarray = (
             self.w_k * old_p.velocity
@@ -67,7 +67,7 @@ class Basic(Propagator):
         return self._make_new_particle(new_position, new_velocity, old_p.generation + 1)
 
     def _prepare_data(
-        self, particles: List[Particle]
+        self, individuals: List[Individual]
     ) -> Tuple[Particle, Particle, Particle]:
         """
         Returns the following particles in this very order:
@@ -75,8 +75,15 @@ class Basic(Propagator):
         2.  p_best: the personal best value of this particle
         3.  g_best: the global best value currently known
         """
-        if len(particles) < self.offspring:
+        if len(individuals) < self.offspring:
             raise ValueError("Not enough Particles")
+
+        particles = []
+        for individual in individuals:
+            if isinstance(individual, Particle):
+                particles.append(individual)
+            else:
+                particles.append(make_particle(individual))
 
         own_p = [
             x
@@ -85,18 +92,17 @@ class Basic(Propagator):
             or x.rank == self.rank
         ]
         if len(own_p) > 0:
-            old_p = max(own_p, key=lambda p: p.generation)
+            old_p: Individual = max(own_p, key=lambda p: p.generation)
+            if not isinstance(old_p, Particle):
+                old_p = make_particle(old_p)
+                print(
+                    f"R{self.rank}, Iteration#{old_p.generation}: Type Error. "
+                    f"Converted Individual to Particle. Continuing."
+                )
         else:
             victim = max(particles, key=lambda p: p.generation)
             old_p = self._make_new_particle(
                 victim.position, victim.velocity, victim.generation
-            )
-
-        if not isinstance(old_p, Particle):
-            old_p = make_particle(old_p)
-            print(
-                f"R{self.rank}, Iteration#{old_p.generation}: Type Error. "
-                f"Converted Individual to Particle. Continuing."
             )
 
         g_best = min(particles, key=lambda p: p.loss)

@@ -7,7 +7,7 @@ from typing import List, Dict, Tuple
 import numpy as np
 
 from basic import Basic
-from propulate.particle import Particle
+from ...population import Individual, Particle
 
 
 class Constriction(Basic):
@@ -42,8 +42,8 @@ class Constriction(Basic):
         chi: float = 2.0 / (phi - 2.0 + np.sqrt(phi * (phi - 4.0)))
         super().__init__(chi, c_cognitive, c_social, rank, limits, rng)
 
-    def __call__(self, particles: List[Particle]) -> Particle:
-        old_p, p_best, g_best = self._prepare_data(particles)
+    def __call__(self, individuals: List[Individual]) -> Particle:
+        old_p, p_best, g_best = self._prepare_data(individuals)
 
         new_velocity = self.w_k * (
             old_p.velocity

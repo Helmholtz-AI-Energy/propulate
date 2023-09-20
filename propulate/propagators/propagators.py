@@ -5,7 +5,7 @@ from typing import List, Dict, Union, Tuple
 import numpy as np
 from abc import ABC, abstractmethod
 
-from ..individual import Individual
+from ..population import Individual
 
 
 def _check_compatible(out1: int, in2: int) -> bool:
@@ -201,6 +201,10 @@ class Compose(Propagator):
         ValueError
             If propagators to stack are incompatible in terms of number of input and output individuals.
         """
+        if len(propagators) < 1:
+            raise ValueError(
+                f"Not enough Propagators given ({len(propagators)}). At least 1 is required."
+            )
         super(Compose, self).__init__(propagators[0].parents, propagators[-1].offspring)
         for i in range(len(propagators) - 1):
             # Check compatibility of consecutive propagators in terms of number of parents + offsprings.

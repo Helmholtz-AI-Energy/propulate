@@ -5,9 +5,8 @@ This file contains the first prototype of a propagator that runs PSO on Propulat
 from random import Random
 from typing import Dict, Tuple, List
 
-from propulate.individual import Individual
-
-from propulate.propagators import Propagator
+from ..propagators import Propagator
+from ...population import Individual
 
 
 class Stateless(Propagator):
@@ -49,7 +48,7 @@ class Stateless(Propagator):
         if len(particles) < self.offspring:
             raise ValueError("Not enough Particles")
         own_p = [x for x in particles if x.rank == self.rank]
-        old_p = Individual(generation=-1)
+        old_p = Individual()
         for y in own_p:
             if y.generation > old_p.generation:
                 old_p = y
