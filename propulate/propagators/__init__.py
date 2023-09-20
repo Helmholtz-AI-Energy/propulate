@@ -20,6 +20,20 @@ __all__ = [
     "pso",
 ]
 
-from propagators import Propagator, Stochastic, Conditional, Compose, PointMutation, RandomPointMutation, \
-    IntervalMutationNormal, MateUniform, MateMultiple, MateSigmoid, SelectMin, SelectMax, SelectUniform, InitUniform
-import pso
+from . import pso
+from .propagators import (
+    Propagator,
+    Stochastic,
+    Conditional,
+    Compose,
+    PointMutation,
+    RandomPointMutation,
+    IntervalMutationNormal,
+    MateUniform,
+    MateMultiple,
+    MateSigmoid,
+    SelectMin,
+    SelectMax,
+    SelectUniform,
+    InitUniform,
+)
