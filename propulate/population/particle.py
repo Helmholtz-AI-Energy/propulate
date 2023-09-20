@@ -3,7 +3,7 @@ This file contains the Particle class, an extension of Propulate's Individual cl
 """
 import numpy as np
 
-from propulate.individual import Individual
+from .individual import Individual
 
 
 class Particle(Individual):
@@ -17,13 +17,15 @@ class Particle(Individual):
         self,
         position: np.ndarray = None,
         velocity: np.ndarray = None,
-        iteration: int = 0,
-        rank: int = None,
+        generation: int = -1,
+        rank: int = -1,
     ):
-        super().__init__(generation=iteration, rank=rank)
+        super().__init__(generation=generation, rank=rank)
         if position is not None and velocity is not None:
             assert position.shape == velocity.shape
         self.velocity = velocity
         self.position = position
-        self.g_rank = rank  # necessary as Propulate splits up the COMM_WORLD communicator which leads to errors with
-        # rank.
+        self.g_rank = (
+            rank  # necessary as Propulate splits up the COMM_WORLD communicator
+        )
+        # which leads to errors with normal rank in multi-island case.
