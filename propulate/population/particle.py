@@ -3,7 +3,7 @@ This file contains the Particle class, an extension of Propulate's Individual cl
 """
 import numpy as np
 
-from propulate.population import Individual
+from propulate.individual import Individual
 
 
 class Particle(Individual):
