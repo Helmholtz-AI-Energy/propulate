@@ -48,10 +48,13 @@ class Stateless(Propagator):
         if len(particles) < self.offspring:
             raise ValueError("Not enough Particles")
         own_p = [x for x in particles if x.rank == self.rank]
-        old_p = Individual()
-        for y in own_p:
-            if y.generation > old_p.generation:
-                old_p = y
+        if len(own_p) > 0:
+            old_p = max(own_p, key=lambda p: p.generation)
+        else:  # No own particle found in given parameters, thus creating new one.
+            old_p = Individual(0, self.rank)
+            for k in self.limits:
+                old_p[k] = self.rng.uniform(*self.limits[k])
+            return old_p
         g_best = min(particles, key=lambda p: p.loss)
         p_best = min(own_p, key=lambda p: p.loss)
         new_p = Individual(generation=old_p.generation + 1)
