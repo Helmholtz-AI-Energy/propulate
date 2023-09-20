@@ -6,8 +6,8 @@ __all__ = [
     "Canonical",
 ]
 
-from init_uniform import InitUniform
-from basic import Basic
-from velocity_clamping import VelocityClamping
-from constriction import Constriction
-from canonical import Canonical
+from .basic import Basic
+from .canonical import Canonical
+from .constriction import Constriction
+from .init_uniform import InitUniform
+from .velocity_clamping import VelocityClamping
