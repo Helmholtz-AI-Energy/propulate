@@ -1,7 +1,8 @@
 from typing import List
 
+from propulate.individual import Individual
 from propulate.particle import Particle
-from propulate.population import Individual
+
 from propulate import propagators
 
 

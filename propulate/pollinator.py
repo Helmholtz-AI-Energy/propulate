@@ -2,17 +2,16 @@ import copy
 import logging
 import random
 import time
-from typing import Callable, Union, Tuple, List, Type
 from pathlib import Path
+from typing import Callable, Union, Tuple, List, Type
 
 import numpy as np
 from mpi4py import MPI
 
 from ._globals import MIGRATION_TAG, SYNCHRONIZATION_TAG
+from .individual import Individual
 from .propagators import Propagator, SelectMin, SelectMax
-from .population import Individual
 from .propulator import Propulator
-
 
 log = logging.getLogger(__name__)
 
@@ -327,9 +326,9 @@ class Pollinator(Propulator):
 
         Returns
         -------
-        list[list[propulate.population.Individual | int]]
+        list[list[propulate.individual.Individual | int]]
             individuals and their occurrences
-        list[propulate.population.Individual]
+        list[propulate.individual.Individual]
             unique individuals in population
         """
         if active:

@@ -12,10 +12,9 @@ import deepdiff
 import numpy as np
 from mpi4py import MPI
 
-from .propagators import Propagator, SelectMin
-from .population import Individual
 from ._globals import DUMP_TAG, INDIVIDUAL_TAG
-
+from .individual import Individual
+from .propagators import Propagator, SelectMin
 
 log = logging.getLogger(__name__)  # Get logger instance.
 
@@ -159,7 +158,7 @@ class Propulator:
 
         Returns
         -------
-        list[propulate.population.Individual]
+        list[propulate.individual.Individual]
             currently active individuals in population
         int
             number of currently active individuals
@@ -174,7 +173,7 @@ class Propulator:
 
         Returns
         -------
-        propulate.population.Individual
+        propulate.individual.Individual
             newly bred individual
         """
         active_pop, _ = self._get_active_individuals()
@@ -278,7 +277,7 @@ class Propulator:
 
         Returns
         -------
-        list[propulate.population.Individual]
+        list[propulate.individual.Individual]
             unique individuals
         """
         unique_inds = []
@@ -302,7 +301,7 @@ class Propulator:
 
         Parameters
         ----------
-        populations: list[list[propulate.population.Individual]]
+        populations: list[list[propulate.individual.Individual]]
                      list of islands' sorted population lists
 
         Returns
@@ -459,9 +458,9 @@ class Propulator:
 
         Returns
         -------
-        list[list[propulate.population.Individual | int]]
+        list[list[propulate.individual.Individual | int]]
             individuals and their occurrences
-        list[propulate.population.Individual]
+        list[propulate.individual.Individual]
             unique individuals in population
         """
         if active:

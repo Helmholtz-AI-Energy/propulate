@@ -1,17 +1,16 @@
 # -*- coding: utf-8 -*-
 import logging
-from pathlib import Path
-
-import colorlog
 import random
 import sys
-
-import numpy as np
-from mpi4py import MPI
+from pathlib import Path
 from typing import Dict, Union, Tuple
 
+import colorlog
+import numpy as np
+from mpi4py import MPI
+
+from .individual import Individual
 from .particle import Particle
-from .population import Individual
 from .propagators import (
     Compose,
     Conditional,

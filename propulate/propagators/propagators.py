@@ -5,7 +5,7 @@ from typing import List, Dict, Union, Tuple
 import numpy as np
 from abc import ABC, abstractmethod
 
-from ..population import Individual
+from ..individual import Individual
 
 
 def _check_compatible(out1: int, in2: int) -> bool:
@@ -66,7 +66,7 @@ class Propagator:
 
         Parameters
         ----------
-        inds: list[propulate.population.Individual]
+        inds: list[propulate.individual.Individual]
               input individuals the propagator is applied to
 
         Returns
@@ -166,12 +166,12 @@ class Conditional(Propagator):
 
         Parameters
         ----------
-        inds: list[propulate.population.Individual]
+        inds: list[propulate.individual.Individual]
               input individuals the propagator is applied to
 
         Returns
         -------
-        list[propulate.population.Individual]
+        list[propulate.individual.Individual]
             output individuals returned by the conditional propagator
         """
         if (
@@ -224,12 +224,12 @@ class Compose(Propagator):
 
         Parameters
         ----------
-        inds: list[propulate.population.Individual]
+        inds: list[propulate.individual.Individual]
               input individuals the propagator is applied to
 
         Returns
         -------
-        list[propulate.population.Individual]
+        list[propulate.individual.Individual]
             output individuals after application of propagator
         """
         for p in self.propagators:
@@ -286,12 +286,12 @@ class PointMutation(Stochastic):
 
         Parameters
         ----------
-        ind: propulate.population.Individual
+        ind: propulate.individual.Individual
              individual the propagator is applied to
 
         Returns
         -------
-        propulate.population.Individual
+        propulate.individual.Individual
             possibly point-mutated individual after application of propagator
         """
         if (
@@ -384,12 +384,12 @@ class RandomPointMutation(Stochastic):
 
         Parameters
         ----------
-        ind: propulate.population.Individual
+        ind: propulate.individual.Individual
              individual the propagator is applied to
 
         Returns
         -------
-        propulate.population.Individual
+        propulate.individual.Individual
             possibly point-mutated individual after application of propagator
         """
         if (
@@ -471,12 +471,12 @@ class IntervalMutationNormal(Stochastic):
 
         Parameters
         ----------
-        ind: propulate.population.Individual
+        ind: propulate.individual.Individual
              input individual the propagator is applied to
 
         Returns
         -------
-        propulate.population.Individual
+        propulate.individual.Individual
             possibly interval-mutated output individual after application of propagator
         """
         if (
@@ -549,12 +549,12 @@ class MateUniform(Stochastic):  # uniform crossover
 
         Parameters
         ----------
-        inds: List[propulate.population.Individual]
+        inds: List[propulate.individual.Individual]
               individuals the propagator is applied to
 
         Returns
         -------
-        propulate.population.Individual
+        propulate.individual.Individual
             possibly cross-bred individual after application of propagator
         """
         ind = copy.deepcopy(inds[0])  # Consider 1st parent.
@@ -599,12 +599,12 @@ class MateMultiple(Stochastic):  # uniform crossover
 
         Parameters
         ----------
-        inds: list[propulate.population.Individual]
+        inds: list[propulate.individual.Individual]
               individuals the propagator is applied to
 
         Returns
         -------
-        propulate.population.Individual
+        propulate.individual.Individual
             possibly cross-bred individual after application of propagator
         """
         ind = copy.deepcopy(inds[0])  # Consider 1st parent.
@@ -655,12 +655,12 @@ class MateSigmoid(Stochastic):
 
         Parameters
         ----------
-        inds: list[propulate.population.Individual]
+        inds: list[propulate.individual.Individual]
               individuals the propagator is applied to
 
         Returns
         -------
-        propulate.population.Individual
+        propulate.individual.Individual
             possibly cross-bred individual after application of propagator
         """
         ind = copy.deepcopy(inds[0])  # Consider 1st parent.
@@ -708,12 +708,12 @@ class SelectMin(Propagator):
 
         Parameters
         ----------
-        inds: list[propulate.population.Individual]
+        inds: list[propulate.individual.Individual]
               input individuals the propagator is applied to
 
         Returns
         -------
-        list[propulate.population.Individual]
+        list[propulate.individual.Individual]
             selected output individuals after application of the propagator
 
         Raises
@@ -757,12 +757,12 @@ class SelectMax(Propagator):
 
         Parameters
         ----------
-        inds: list[propulate.population.Individual]
+        inds: list[propulate.individual.Individual]
               individuals the propagator is applied to
 
         Returns
         -------
-        list[propulate.population.Individual]
+        list[propulate.individual.Individual]
             selected individuals after application of the propagator
 
         Raises
@@ -803,12 +803,12 @@ class SelectUniform(Propagator):
 
         Parameters
         ----------
-        inds: list[propulate.population.Individual]
+        inds: list[propulate.individual.Individual]
               individuals the propagator is applied to
 
         Returns
         -------
-        list[propulate.population.Individual]
+        list[propulate.individual.Individual]
             selected individuals after application of propagator
 
         Raises
@@ -864,12 +864,12 @@ class InitUniform(Stochastic):
 
         Parameters
         ----------
-        inds: propulate.population.Individual
+        inds: propulate.individual.Individual
               individuals the propagator is applied to
 
         Returns
         -------
-        propulate.population.Individual
+        propulate.individual.Individual
             output individual after application of propagator
 
         Raises

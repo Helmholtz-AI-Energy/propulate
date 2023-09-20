@@ -5,7 +5,8 @@ This file contains the first prototype of a propagator that runs PSO on Propulat
 from random import Random
 from typing import Dict, Tuple, List
 
-from propulate.population import Individual
+from propulate.individual import Individual
+
 from propulate.propagators import Propagator
 
 

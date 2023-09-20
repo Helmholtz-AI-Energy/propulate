@@ -5,9 +5,9 @@ from random import Random
 from typing import Union, Dict, Tuple, List
 
 import numpy as np
-
+from propulate.individual import Individual
 from propulate.particle import Particle
-from propulate.population import Individual
+
 from propulate.propagators import Stochastic
 from propulate.utils import make_particle
 
