@@ -9,8 +9,7 @@ import colorlog
 import numpy as np
 from mpi4py import MPI
 
-from .individual import Individual
-from .particle import Particle
+from .population import Individual, Particle
 from .propagators import (
     Compose,
     Conditional,
@@ -169,7 +168,7 @@ def make_particle(individual: Individual) -> Particle:
     ----------
     individual : An Individual that needs to be a particle
     """
-    p = Particle(iteration=individual.generation)
+    p = Particle(generation=individual.generation)
     p.position = np.zeros(len(individual))
     p.velocity = np.zeros(len(individual))
     for i, k in enumerate(individual):
