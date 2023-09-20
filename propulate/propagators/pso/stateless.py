@@ -56,9 +56,9 @@ class Stateless(Propagator):
         p_best = sorted(own_p, key=lambda p: p.loss)[0]
         new_p = Individual(generation=old_p.generation + 1)
         for k in self.limits:
-            new_p[k] = self.c_cognitive * self.rng.uniform(*self.limits[k]) * (
-                p_best[k] - old_p[k]
-            ) + self.c_social * self.rng.uniform(*self.limits[k]) * (
-                g_best[k] - old_p[k]
+            new_p[k] = (
+                old_p[k]
+                + self.rng.uniform(0, self.c_cognitive) * (p_best[k] - old_p[k])
+                + self.rng.uniform(0, self.c_social) * (g_best[k] - old_p[k])
             )
         return new_p
