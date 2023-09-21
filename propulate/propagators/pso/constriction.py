@@ -43,6 +43,25 @@ class Constriction(Basic):
         super().__init__(chi, c_cognitive, c_social, rank, limits, rng)
 
     def __call__(self, individuals: List[Individual]) -> Particle:
+        """
+        Applies the constriction PSO update rule.
+
+        Returns a Particle object that contains the updated values of the youngest passed Particle or Individual that
+        belongs to the worker the propagator is living on.
+
+        Parameters
+        ----------
+        individuals: List[Individual]
+                     A list of individuals that must at least contain one individual that belongs to the propagator.
+                     This list is used to calculate personal and global best of the particle and the swarm and to
+                     then update the particle based on the retrieved results.
+                     Individuals that cannot be used as Particle class objects are copied to particles before going on.
+
+        Returns
+        -------
+        propulate.population.Particle
+            An updated Particle.
+        """
         old_p, p_best, g_best = self._prepare_data(individuals)
 
         new_velocity = self.inertia * (
