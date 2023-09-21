@@ -19,12 +19,11 @@ class InitUniform(Stochastic):
     def __init__(
         self,
         limits: Dict[str, Tuple[float, float]],
+        rank: int,
         parents=0,
         probability=1.0,
         rng: Random = None,
-        *,
         v_init_limit: Union[float, np.ndarray] = 0.1,
-        rank: int
     ):
         """
         Constructor of InitUniform pso propagator class.
@@ -37,6 +36,8 @@ class InitUniform(Stochastic):
                  a named list of tuples representing the limits in which the search space resides and where
                  solutions can be expected to be found.
                  Limits of (hyper-)parameters to be optimized
+        rank : int
+               The rank of the worker in MPI.COMM_WORLD
         parents : int
                   number of input individuals (-1 for any)
         probability : float
@@ -45,8 +46,6 @@ class InitUniform(Stochastic):
               random number generator
         v_init_limit: float | np.ndarray
                       some multiplicative constant to reduce initial random velocity values.
-        rank : int
-               The rank of the worker in MPI.COMM_WORLD
         """
         super().__init__(parents, 1, probability, rng)
         self.limits = limits
