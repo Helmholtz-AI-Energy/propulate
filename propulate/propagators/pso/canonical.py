@@ -8,14 +8,15 @@ from ...population import Individual, Particle
 
 class Canonical(Constriction):
     """
-    This propagator subclass features a combination of constriction and velocity clamping.
+    This propagator subclass features a combination of constriction PSO and velocity clamping.
 
-    The velocity clamping uses a clamping factor of 1,
-    the constriction is done as in the parental constriction propagator.
+    The velocity clamping uses with a clamping factor of 1, the constriction is done as in the parental ``Constriction``
+    propagator.
 
-    This variant of PSO is to be found here:
-    Riccardo Poli, James Kennedy, and Tim Blackwell: “Particle swarm optimization”, 2007,
-    https://doi.org/10.1007/s11721-007-0002-0
+    For information on the method parameters, please refer to the ``Constriction`` propagator.
+
+    Original publications: Poli, R., Kennedy, J. & Blackwell, T. Particle swarm optimization. Swarm Intell 1, 33–57 (2007). https://doi.org/10.1007/s11721-007-0002-0
+    R. C. Eberhart and Y. Shi, "Comparing inertia weights and constriction factors in particle swarm optimization," Proceedings of the 2000 Congress on Evolutionary Computation. CEC00 (Cat. No.00TH8512), La Jolla, CA, USA, 2000, pp. 84-88 vol.1, doi: 10.1109/CEC.2000.870279.
     """
 
     def __init__(self, c_cognitive, c_social, rank, limits, rng):
