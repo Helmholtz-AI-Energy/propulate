@@ -162,11 +162,17 @@ def set_logger_config(
 
 def make_particle(individual: Individual) -> Particle:
     """
-    Makes particles out of individuals.
+    Convert individuals to particles.
 
     Parameters
     ----------
-    individual : An Individual that needs to be a particle
+    individual: Individual
+                Individual to be converted to a particle
+                      
+    Returns
+    --------
+    Particle
+        Converted individual
     """
     p = Particle(generation=individual.generation)
     p.position = np.zeros(len(individual))
