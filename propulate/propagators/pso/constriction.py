@@ -45,7 +45,7 @@ class Constriction(Basic):
     def __call__(self, individuals: List[Individual]) -> Particle:
         old_p, p_best, g_best = self._prepare_data(individuals)
 
-        new_velocity = self.w_k * (
+        new_velocity = self.inertia * (
             old_p.velocity
             + self.rng.uniform(0, self.c_cognitive) * (p_best.position - old_p.position)
             + self.rng.uniform(0, self.c_social) * (g_best.position - old_p.position)

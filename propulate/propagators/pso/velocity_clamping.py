@@ -24,7 +24,7 @@ class VelocityClamping(Basic):
 
     def __init__(
         self,
-        w_k: float,
+        inertia: float,
         c_cognitive: float,
         c_social: float,
         rank: int,
@@ -34,7 +34,7 @@ class VelocityClamping(Basic):
     ):
         """
         Class constructor.
-        :param w_k: The particle's inertia factor
+        :param inertia: The particle's inertia factor
         :param c_cognitive: constant cognitive factor to scale p_best with
         :param c_social: constant social factor to scale g_best with
         :param rank: the rank of the worker the propagator is living on in MPI.COMM_WORLD
@@ -43,8 +43,8 @@ class VelocityClamping(Basic):
                     for their corresponding search space dimensions.
                     If this is a float instead, it does its job for all axes.
         """
-        super().__init__(w_k, c_cognitive, c_social, rank, limits, rng)
-        x_min, x_max = self.laa
+        super().__init__(inertia, c_cognitive, c_social, rank, limits, rng)
+        x_min, x_max = self.limits_as_array
         x_range = np.abs(x_max - x_min)
         if v_limits < 0:
             v_limits *= -1
@@ -54,7 +54,7 @@ class VelocityClamping(Basic):
         old_p, p_best, g_best = self._prepare_data(individuals)
 
         new_velocity: np.ndarray = (
-            self.w_k * old_p.velocity
+            self.inertia * old_p.velocity
             + self.rng.uniform(0, self.c_cognitive) * (p_best.position - old_p.position)
             + self.rng.uniform(0, self.c_social) * (g_best.position - old_p.position)
         ).clip(*self.v_cap)

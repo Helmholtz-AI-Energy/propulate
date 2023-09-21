@@ -8,9 +8,18 @@ from .individual import Individual
 
 class Particle(Individual):
     """
-    Child class of ``Individual`` with additional properties required for PSO, i.e., an array-type velocity field and a (redundant) array-type position field.
+    Child class of ``Individual`` with additional properties required for PSO, i.e., an array-type velocity field and
+    a (redundant) array-type position field.
+
     Note that Propulate relies on ``Individual``s being ``dict``s.
-    When defining new propagators, users of the ``Particle`` class thus need to ensure that a ``Particle``'s position always matches its dict contents and vice versa.
+
+    When defining new propagators, users of the ``Particle`` class thus need to ensure that a ``Particle``'s position
+    always matches its dict contents and vice versa.
+
+    This class also contains an attribute field called ``global_rank``. It contains the global rank of the propagator
+    that
+    created it.
+    This is for purposes of better (or at all) retrieval in multi swarm case.
     """
 
     def __init__(
@@ -25,7 +34,4 @@ class Particle(Individual):
             assert position.shape == velocity.shape
         self.velocity = velocity
         self.position = position
-        self.g_rank = (
-            rank  # necessary as Propulate splits up the COMM_WORLD communicator
-        )
-        # which leads to errors with normal rank in multi-island case.
+        self.global_rank = rank  # The global rank of the creating propagator for later retrieval upon update.

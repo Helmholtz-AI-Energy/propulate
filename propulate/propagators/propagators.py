@@ -388,12 +388,12 @@ class RandomPointMutation(Stochastic):
 
         Parameters
         ----------
-        ind: propulate.individual.Individual
+        ind: propulate.population.Individual
              individual the propagator is applied to
 
         Returns
         -------
-        propulate.individual.Individual
+        propulate.population.Individual
             possibly point-mutated individual after application of propagator
         """
         if (
