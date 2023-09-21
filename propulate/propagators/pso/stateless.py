@@ -64,6 +64,11 @@ class Stateless(Propagator):
         -------
         propulate.population.Individual
             An updated Individual
+
+        Raises
+        ------
+        ValueError
+            If the individuals list passed is empty and the propagator thus has no data to work on.
         """
         if len(individuals) < self.offspring:
             raise ValueError("Not enough Particles")
