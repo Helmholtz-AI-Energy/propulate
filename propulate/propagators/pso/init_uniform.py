@@ -1,5 +1,5 @@
 """
-This file contains propagators, that can be used to initialize a population of either Individuals or Particles.
+This file contains a propagator to initialize a population of either ``Individuals`` or ``Particles``.
 """
 from random import Random
 from typing import Union, Dict, Tuple, List
