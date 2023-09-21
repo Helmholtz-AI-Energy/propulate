@@ -12,7 +12,9 @@ from ...population import Individual, Particle
 
 class Constriction(Basic):
     """
-    This propagator subclass features Constriction PSO as proposed by Clerc and Kennedy in 2002.
+    This propagator subclass features constriction PSO as proposed by Clerc and Kennedy in 2002.
+    
+    Original publication: Poli, R., Kennedy, J. & Blackwell, T. Particle swarm optimization. Swarm Intell 1, 33–57 (2007). https://doi.org/10.1007/s11721-007-0002-0
 
     Instead of an inertia factor that affects the old velocity value within the velocity update,
     there is a constriction factor, that is applied on the new velocity `after' the update.
