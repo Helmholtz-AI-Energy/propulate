@@ -13,10 +13,7 @@ from ...utils import make_particle
 
 class InitUniform(Stochastic):
     """
-    Initialize individuals by uniformly sampling specified limits for each trait.
-
-    This propagator is the Particle-using counterpart to the InitUniform propagator.
-    For more information, please have a look there.
+    Initialize ``Particles`` by uniformly sampling specified limits for each trait.
     """
 
     def __init__(
@@ -65,13 +62,13 @@ class InitUniform(Stochastic):
 
         Parameters
         ----------
-        individuals : list of propulate.population.Individual objects
+        individuals : List[Individual]
                individuals the propagator is applied to
 
         Returns
         -------
-        ind : propulate.ap_pso.Particle
-              one particle object
+        propulate.population.Particle
+              One particle object
         """
         if (
             len(individuals) == 0 or self.rng.random() < self.probability
