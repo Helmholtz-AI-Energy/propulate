@@ -20,8 +20,7 @@ __all__ = [
     "pso",
 ]
 
-from . import pso
-from .propagators import (
+from propulate.propagators.propagators import (
     Propagator,
     Stochastic,
     Conditional,
@@ -37,3 +36,4 @@ from .propagators import (
     SelectUniform,
     InitUniform,
 )
+from . import pso

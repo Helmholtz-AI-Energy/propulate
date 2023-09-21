@@ -6,7 +6,7 @@ from typing import List, Dict, Tuple
 
 import numpy as np
 
-from basic import Basic
+from .basic import Basic
 from ...population import Individual, Particle
 
 

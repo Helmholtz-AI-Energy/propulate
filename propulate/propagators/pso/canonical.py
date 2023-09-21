@@ -2,7 +2,7 @@ from typing import List
 
 import numpy as np
 
-from constriction import Constriction
+from .constriction import Constriction
 from ...population import Individual, Particle
 
 

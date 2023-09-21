@@ -13,7 +13,7 @@ import numpy as np
 from mpi4py import MPI
 
 from ._globals import DUMP_TAG, INDIVIDUAL_TAG
-from .individual import Individual
+from .population import Individual
 from .propagators import Propagator, SelectMin
 
 log = logging.getLogger(__name__)  # Get logger instance.

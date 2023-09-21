@@ -7,9 +7,9 @@ from typing import Callable, Union, List, Type
 import numpy as np
 from mpi4py import MPI
 
-from .individual import Individual
 from .migrator import Migrator
 from .pollinator import Pollinator
+from .population import Individual
 from .propagators import Propagator, SelectMin, SelectMax
 
 log = logging.getLogger(__name__)  # Get logger instance.

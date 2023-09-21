@@ -11,7 +11,7 @@ from typing import Dict
 from mpi4py import MPI
 
 from propulate import set_logger_config, Propulator
-from propulate.propagators import Conditional
+from propulate.propagators import Conditional, Propagator
 from propulate.propagators.pso import (
     Basic,
     VelocityClamping,
@@ -130,16 +130,19 @@ if __name__ == "__main__":
             config.cognitive = 2.05
         if not hp_set["social"]:
             config.social = 2.05
-    pso_propagator = {
-        "Basic": Basic(
+
+    pso_propagator: Propagator
+    if config.variant == "Basic":
+        pso_propagator = Basic(
             config.inertia,
             config.cognitive,
             config.social,
             MPI.COMM_WORLD.rank,
             limits,
             rng,
-        ),
-        "VelocityClamping": VelocityClamping(
+        )
+    elif config.variant == "VelocityClamping":
+        pso_propagator = VelocityClamping(
             config.inertia,
             config.cognitive,
             config.social,
@@ -147,14 +150,17 @@ if __name__ == "__main__":
             limits,
             rng,
             config.clamping_factor,
-        ),
-        "Constriction": Constriction(
+        )
+    elif config.variant == "Constriction":
+        pso_propagator = Constriction(
             config.cognitive, config.social, MPI.COMM_WORLD.rank, limits, rng
-        ),
-        "Canonical": Canonical(
+        )
+    elif config.variant == "Canonical":
+        pso_propagator = Canonical(
             config.cognitive, config.social, MPI.COMM_WORLD.rank, limits, rng
-        ),
-    }[config.variant]
+        )
+    else:
+        raise ValueError("Invalid PSO propagator name given.")
     init = InitUniform(limits, rng=rng, rank=MPI.COMM_WORLD.rank)
     propagator = Conditional(config.pop_size, pso_propagator, init)
 
