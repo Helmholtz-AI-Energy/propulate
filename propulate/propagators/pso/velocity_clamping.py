@@ -58,9 +58,8 @@ class VelocityClamping(Basic):
         """
         super().__init__(inertia, c_cognitive, c_social, rank, limits, rng)
         x_min, x_max = self.limits_as_array
-        x_range = np.abs(x_max - x_min)
-        if v_limits < 0:
-            v_limits *= -1
+        x_range = abs(x_max - x_min)
+        v_limits = abs(v_limits)
         self.v_cap: np.ndarray = np.array([-v_limits * x_range, v_limits * x_range])
 
     def __call__(self, individuals: List[Individual]) -> Particle:
