@@ -13,13 +13,16 @@ from ...population import Individual, Particle
 class Constriction(Basic):
     """
     This propagator subclass features constriction PSO as proposed by Clerc and Kennedy in 2002.
-    
-    Original publication: Poli, R., Kennedy, J. & Blackwell, T. Particle swarm optimization. Swarm Intell 1, 33–57 (2007). https://doi.org/10.1007/s11721-007-0002-0
 
-    Instead of an inertia factor that affects the old velocity value within the velocity update,
-    there is a constriction factor, that is applied on the new velocity `after' the update.
+    Reference publication: Poli, R., Kennedy, J. & Blackwell, T. Particle swarm optimization. Swarm Intell 1,
+    33–57 (2007). https://doi.org/10.1007/s11721-007-0002-0
 
-    This propagator runs on Particle-class objects.
+    Instead of an inertia factor that affects the old velocity value within the velocity update, a constriction factor
+    is applied to the new velocity *after* the update.
+
+    The constriction factor is calculated from cognitive and social factors and thus no hyperparameter.
+
+    This propagator runs on ``Particle`` objects.
     """
 
     def __init__(
@@ -31,13 +34,24 @@ class Constriction(Basic):
         rng: Random,
     ):
         """
-        Class constructor.
-        Important note: `c_cognitive` and `c_social` have to sum up to something greater than 4!
-        :param c_cognitive: constant cognitive factor to scale p_best with
-        :param c_social: constant social factor to scale g_best with
-        :param rank: the rank of the worker the propagator is living on in MPI.COMM_WORLD
-        :param limits: a dict with str keys and 2-tuples of floats associated to each of them
-        :param rng: random number generator
+        The class constructor.
+        *Important note:* `c_cognitive` and `c_social` have to sum up to something greater than 4!
+
+        Parameters
+        ----------
+        c_cognitive : float
+                      Constant cognitive factor to scale the distance to the particle's personal best value with.
+                      *Has to sum up with `c_social` to more than 4!*
+        c_social : float
+                   Constant social factor to scale the distance to the swarm's global best value with.
+                   *Has to sum up with `c_cognitive` to more than 4!*
+        rank : int
+               The global rank of the worker the propagator is living on
+        limits : Dict[str, Tuple[float, float]]
+                 A dict with str keys and 2-tuples of floats associated to each of them. It describes the borders of
+                 the search domain.
+        rng : random.Random
+              Random number generator for said non-linearity
         """
         assert c_cognitive + c_social > 4, "c_cognitive + c_social < 4!"
         phi: float = c_cognitive + c_social
