@@ -33,10 +33,10 @@ By participating, you can help improve the project and make it even better.
      Parameters
      ----------
      param1 : type
-     Description of param1.
+         Description of param1.
 
      param2 : type, optional
-     Description of param2. (if it's an optional argument)
+         Description of param2. (if it's an optional argument)
 
      Returns
      -------
