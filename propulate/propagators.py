@@ -1526,18 +1526,17 @@ class CMAPropagator(Propagator):
             else:
                 worst = self.select_worst(inds)
 
-            inds_filtered = [ind for ind in inds_pooled if ind not in best and ind not in worst]
-            arx = self._transform_individuals_to_matrix(best + self.select_from_pool(inds_filtered) + worst)
+            inds_filtered = [
+                ind for ind in inds_pooled if ind not in best and ind not in worst
+            ]
+            arx = self._transform_individuals_to_matrix(
+                best + self.select_from_pool(inds_filtered) + worst
+            )
 
             # Update mean
-            self.adapter.update_mean(
-                self.par, arx[:, :self.par.mu]
-            )
+            self.adapter.update_mean(self.par, arx[:, : self.par.mu])
             # Update Covariance Matrix
-            self.adapter.update_covariance_matrix(
-                self.par,
-                arx
-            )
+            self.adapter.update_covariance_matrix(self.par, arx)
             # Update step_size
             self.adapter.update_step_size(self.par)
         return new_ind
@@ -1574,7 +1573,9 @@ class CMAPropagator(Propagator):
                 self.par.d_matrix * random_vector
             )
         except (RuntimeWarning, Exception) as _:
-            raise ValueError("Failed to generate new offsprings, probably due to not well defined target function.")
+            raise ValueError(
+                "Failed to generate new offsprings, probably due to not well defined target function."
+            )
         self.par.count_eval += 1
         # Remove problem_dim
         new_ind = Individual()
