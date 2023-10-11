@@ -84,7 +84,7 @@ if __name__ == "__main__":
     elif config.adapter == "active":
         adapter = ActiveCMA()
     else:
-        raise ValueError("Adapter can be either 'basic' or 'active'")
+        raise ValueError("Adapter can be either 'basic' or 'active'.")
 
     propagator = CMAPropagator(adapter, limits, rng=rng)
 

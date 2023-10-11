@@ -12,10 +12,9 @@ import deepdiff
 import numpy as np
 from mpi4py import MPI
 
-from .propagators import Propagator, SelectMin
-from .population import Individual
 from ._globals import DUMP_TAG, INDIVIDUAL_TAG
-
+from .population import Individual
+from .propagators import Propagator, SelectMin
 
 log = logging.getLogger(__name__)  # Get logger instance.
 
@@ -104,7 +103,7 @@ class Propulator:
         self.rng = rng
 
         # Load initial population of evaluated individuals from checkpoint if exists.
-        load_ckpt_file = self.checkpoint_path / f"island_{self.island_idx}_ckpt.pkl"
+        load_ckpt_file = self.checkpoint_path / f"island_{self.island_idx}_ckpt.pickle"
         if not os.path.isfile(load_ckpt_file):  # If not exists, check for backup file.
             load_ckpt_file = load_ckpt_file.with_suffix(".bkp")
 
@@ -159,7 +158,7 @@ class Propulator:
 
         Returns
         -------
-        list[propulate.population.Individual]
+        list[propulate.individual.Individual]
             currently active individuals in population
         int
             number of currently active individuals
@@ -174,7 +173,7 @@ class Propulator:
 
         Returns
         -------
-        propulate.population.Individual
+        propulate.individual.Individual
             newly bred individual
         """
         active_pop, _ = self._get_active_individuals()
@@ -278,7 +277,7 @@ class Propulator:
 
         Returns
         -------
-        list[propulate.population.Individual]
+        list[propulate.individual.Individual]
             unique individuals
         """
         unique_inds = []
@@ -302,7 +301,7 @@ class Propulator:
 
         Parameters
         ----------
-        populations: list[list[propulate.population.Individual]]
+        populations: list[list[propulate.individual.Individual]]
                      list of islands' sorted population lists
 
         Returns
@@ -401,7 +400,7 @@ class Propulator:
             f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
             f"Dumping checkpoint..."
         )
-        save_ckpt_file = self.checkpoint_path / f"island_{self.island_idx}_ckpt.pkl"
+        save_ckpt_file = self.checkpoint_path / f"island_{self.island_idx}_ckpt.pickle"
         if os.path.isfile(save_ckpt_file):
             try:
                 os.replace(save_ckpt_file, save_ckpt_file.with_suffix(".bkp"))
@@ -432,7 +431,7 @@ class Propulator:
         """
         Dump final checkpoint.
         """
-        save_ckpt_file = self.checkpoint_path / f"island_{self.island_idx}_ckpt.pkl"
+        save_ckpt_file = self.checkpoint_path / f"island_{self.island_idx}_ckpt.pickle"
         if os.path.isfile(save_ckpt_file):
             try:
                 os.replace(save_ckpt_file, save_ckpt_file.with_suffix(".bkp"))
@@ -459,9 +458,9 @@ class Propulator:
 
         Returns
         -------
-        list[list[propulate.population.Individual | int]]
+        list[list[propulate.individual.Individual | int]]
             individuals and their occurrences
-        list[propulate.population.Individual]
+        list[propulate.individual.Individual]
             unique individuals in population
         """
         if active:
