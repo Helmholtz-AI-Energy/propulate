@@ -1,9 +1,5 @@
-import copy
 import random
 from typing import List, Dict, Union, Tuple
-
-import numpy as np
-from abc import ABC, abstractmethod
 
 from ..population import Individual
 
