@@ -49,15 +49,6 @@ MANIFEST
 # Per-project virtualenvs
 .venv*/
 
-*.pkl
-
+*.pickle
 MNIST
-*cpt.p
-*cpt.p.bkp
-scripts/*.png
-
-voucher_propulate.txt
-
-.gitignore
-checkpoints/
-images/
+*.bkp
