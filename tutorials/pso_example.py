@@ -13,11 +13,11 @@ from mpi4py import MPI
 from propulate import set_logger_config, Propulator
 from propulate.propagators import Conditional, Propagator
 from propulate.propagators.pso import (
-    Basic,
-    VelocityClamping,
-    Constriction,
-    Canonical,
-    InitUniform,
+    BasicPSO,
+    VelocityClampingPSO,
+    ConstrictionPSO,
+    CanonicalPSO,
+    InitUniformPSO,
 )
 from tutorials.function_benchmark import get_function_search_space
 
@@ -109,12 +109,12 @@ if __name__ == "__main__":
         "--clamping_factor", type=float, default=0.6
     )  # Clamping factor for velocity clamping
     parser.add_argument("-t", "--top_n", type=int, default=1)
-    parser.add_argument("-l", "--logging_int", type=int, default=10)
+    parser.add_argument("-l", "--logging_int", type=int, default=20)
     config = parser.parse_args()
 
     # Set up separate logger for Propulate optimization.
     set_logger_config(
-        level=10 * config.verbosity,  # logging level
+        level=config.logging_int,  # logging level
         log_file=f"{config.checkpoint}/propulator.log",  # logging path
     )
 
@@ -133,7 +133,7 @@ if __name__ == "__main__":
 
     pso_propagator: Propagator
     if config.variant == "Basic":
-        pso_propagator = Basic(
+        pso_propagator = BasicPSO(
             config.inertia,
             config.cognitive,
             config.social,
@@ -142,7 +142,7 @@ if __name__ == "__main__":
             rng,
         )
     elif config.variant == "VelocityClamping":
-        pso_propagator = VelocityClamping(
+        pso_propagator = VelocityClampingPSO(
             config.inertia,
             config.cognitive,
             config.social,
@@ -152,16 +152,16 @@ if __name__ == "__main__":
             config.clamping_factor,
         )
     elif config.variant == "Constriction":
-        pso_propagator = Constriction(
+        pso_propagator = ConstrictionPSO(
             config.cognitive, config.social, MPI.COMM_WORLD.rank, limits, rng
         )
     elif config.variant == "Canonical":
-        pso_propagator = Canonical(
+        pso_propagator = CanonicalPSO(
             config.cognitive, config.social, MPI.COMM_WORLD.rank, limits, rng
         )
     else:
         raise ValueError("Invalid PSO propagator name given.")
-    init = InitUniform(limits, rng=rng, rank=MPI.COMM_WORLD.rank)
+    init = InitUniformPSO(limits, rng=rng, rank=MPI.COMM_WORLD.rank)
     propagator = Conditional(config.pop_size, pso_propagator, init)
 
     propulator = Propulator(
