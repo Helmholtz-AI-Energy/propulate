@@ -103,7 +103,7 @@ class Propulator:
         self.rng = rng
 
         # Load initial population of evaluated individuals from checkpoint if exists.
-        load_ckpt_file = self.checkpoint_path / f"island_{self.island_idx}_ckpt.pkl"
+        load_ckpt_file = self.checkpoint_path / f"island_{self.island_idx}_ckpt.pickle"
         if not os.path.isfile(load_ckpt_file):  # If not exists, check for backup file.
             load_ckpt_file = load_ckpt_file.with_suffix(".bkp")
 
@@ -400,7 +400,7 @@ class Propulator:
             f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
             f"Dumping checkpoint..."
         )
-        save_ckpt_file = self.checkpoint_path / f"island_{self.island_idx}_ckpt.pkl"
+        save_ckpt_file = self.checkpoint_path / f"island_{self.island_idx}_ckpt.pickle"
         if os.path.isfile(save_ckpt_file):
             try:
                 os.replace(save_ckpt_file, save_ckpt_file.with_suffix(".bkp"))
@@ -431,7 +431,7 @@ class Propulator:
         """
         Dump final checkpoint.
         """
-        save_ckpt_file = self.checkpoint_path / f"island_{self.island_idx}_ckpt.pkl"
+        save_ckpt_file = self.checkpoint_path / f"island_{self.island_idx}_ckpt.pickle"
         if os.path.isfile(save_ckpt_file):
             try:
                 os.replace(save_ckpt_file, save_ckpt_file.with_suffix(".bkp"))
