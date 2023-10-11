@@ -168,7 +168,7 @@ def make_particle(individual: Individual) -> Particle:
     ----------
     individual: Individual
                 Individual to be converted to a particle
-                      
+
     Returns
     --------
     Particle
