@@ -9,7 +9,7 @@ from ..population import Particle, Individual
 from ..utils import make_particle
 
 
-class Basic(Propagator):
+class BasicPSO(Propagator):
     """
     This propagator implements the most basic PSO variant one possibly could think of.
 
@@ -179,7 +179,7 @@ class Basic(Propagator):
         return new_p
 
 
-class VelocityClamping(Basic):
+class VelocityClampingPSO(BasicPSO):
     """
     This propagator implements velocity clamping PSO.
 
@@ -259,7 +259,7 @@ class VelocityClamping(Basic):
         return self._make_new_particle(new_position, new_velocity, old_p.generation + 1)
 
 
-class Constriction(Basic):
+class ConstrictionPSO(BasicPSO):
     """
     This propagator subclass features constriction PSO as proposed by Clerc and Kennedy in 2002.
 
@@ -347,7 +347,7 @@ class Constriction(Basic):
         return self._make_new_particle(new_position, new_velocity, old_p.generation + 1)
 
 
-class Canonical(Constriction):
+class CanonicalPSO(ConstrictionPSO):
     """
     This propagator subclass features a combination of constriction PSO and velocity clamping.
 
@@ -425,7 +425,7 @@ class Canonical(Constriction):
         return self._make_new_particle(p, v, victim.generation)
 
 
-class InitUniform(Stochastic):
+class InitUniformPSO(Stochastic):
     """
     Initialize ``Particle`` by uniformly sampling specified limits for each trait.
     """
@@ -517,7 +517,7 @@ class InitUniform(Stochastic):
                 return make_particle(particle)
 
 
-class Stateless(Propagator):
+class StatelessPSO(Propagator):
     """
     This propagator performs PSO without the need of Particles, but as a consequence, also without velocity.
     Thus, it is called stateless.
