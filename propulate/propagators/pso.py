@@ -365,7 +365,7 @@ class CanonicalPSO(ConstrictionPSO):
 
     See Also
     --------
-    :class:`ParentClassName` : Parent class
+    :class:`ConstrictionPSO` : Parent class
     """
 
     def __init__(self, c_cognitive, c_social, rank, limits, rng):
