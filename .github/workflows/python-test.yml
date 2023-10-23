@@ -19,6 +19,10 @@ jobs:
                   pip install ruff pytest pytest-cov
                   pip install -r requirements.txt
                   pip install .
+            - name: Set up MPI
+              uses mpi4py/setup-mpi@v1
+              with:
+                mpi: 'openmpi'
             - name: Lint with ruff
               run: |
                   # stop the build if there are Python syntax errors or undefined names
@@ -27,4 +31,4 @@ jobs:
                   ruff --output-format=github --target-version=py39 .
             - name: Test with pytest
               run: |
-                  pytest
+                  mpirun -n 1 pytest
