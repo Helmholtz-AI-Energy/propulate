@@ -40,7 +40,7 @@ def test_Propulator():
     }
     with tempfile.TemporaryDirectory() as checkpoint_path:
         set_logger_config(
-            level=logging.INFO,
+            level=logging.DEBUG,
             log_file=checkpoint_path + "/propulate.log",
             log_to_stdout=True,
             log_rank=False,
