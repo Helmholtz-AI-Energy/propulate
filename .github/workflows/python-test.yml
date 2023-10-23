@@ -20,7 +20,7 @@ jobs:
                   pip install -r requirements.txt
                   pip install .
             - name: Set up MPI
-              uses mpi4py/setup-mpi@v1
+              uses: mpi4py/setup-mpi@v1
               with:
                 mpi: 'openmpi'
             - name: Lint with ruff
