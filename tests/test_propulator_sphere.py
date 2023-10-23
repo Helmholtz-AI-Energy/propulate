@@ -32,22 +32,19 @@ def test_Propulator():
     """
     Test single worker using Propulator to optimize sphere.
     """
-    rng = random.Random(
-        42
-    )  # Separate random number generator for optimization.
+    rng = random.Random(42)  # Separate random number generator for optimization.
     limits = {
         "a": (-5.12, 5.12),
         "b": (-5.12, 5.12),
     }
     with tempfile.TemporaryDirectory() as checkpoint_path:
-
         # Set up evolutionary operator.
         propagator = get_default_propagator(  # Get default evolutionary operator.
             pop_size=4,  # Breeding pool size
             limits=limits,  # Search-space limits
-            mate_prob=.7,  # Crossover probability
-            mut_prob=9.,  # Mutation probability
-            random_prob=.1,  # Random-initialization probability
+            mate_prob=0.7,  # Crossover probability
+            mut_prob=9.0,  # Mutation probability
+            random_prob=0.1,  # Random-initialization probability
             rng=rng,  # Random number generator
         )
 
@@ -59,7 +56,6 @@ def test_Propulator():
             checkpoint_path=checkpoint_path,
             rng=rng,
         )
-        return
 
         # Run optimization and print summary of results.
         propulator.propulate()
