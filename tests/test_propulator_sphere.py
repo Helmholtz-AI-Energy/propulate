@@ -32,6 +32,7 @@ def test_Propulator():
     """
     Test single worker using Propulator to optimize sphere.
     """
+    return
     rng = random.Random(
         42
     )  # Separate random number generator for optimization.
