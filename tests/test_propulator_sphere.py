@@ -32,7 +32,6 @@ def test_Propulator():
     """
     Test single worker using Propulator to optimize sphere.
     """
-    return
     rng = random.Random(
         42
     )  # Separate random number generator for optimization.
@@ -60,6 +59,7 @@ def test_Propulator():
             checkpoint_path=checkpoint_path,
             rng=rng,
         )
+        return
 
         # Run optimization and print summary of results.
         propulator.propulate()
