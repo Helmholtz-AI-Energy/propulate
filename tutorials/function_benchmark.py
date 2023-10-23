@@ -20,7 +20,7 @@ def rosenbrock(params: Dict[str, float]) -> float:
         function value
     """
     params = np.array(list(params.values()))
-    return 100 * (params[0]**2 - params[1])**2 + (1 - params[0])**2
+    return 100 * (params[0] ** 2 - params[1]) ** 2 + (1 - params[0]) ** 2
 
 
 def step(params: Dict[str, float]) -> float:
@@ -71,7 +71,7 @@ def quartic(params: Dict[str, float]) -> float:
         function value
     """
     params = np.array(list(params.values()))
-    idx = np.arange(1, len(params)+1)
+    idx = np.arange(1, len(params) + 1)
     gauss = np.random.normal(size=len(params))
     return abs(np.sum(idx * params**4 + gauss))
 
@@ -98,9 +98,9 @@ def rastrigin(params: Dict[str, float]) -> float:
     float
         function value
     """
-    a = 10.
+    a = 10.0
     params = np.array(list(params.values()))
-    return a * len(params) + np.sum(params ** 2 - a * np.cos(2 * np.pi * params))
+    return a * len(params) + np.sum(params**2 - a * np.cos(2 * np.pi * params))
 
 
 def griewank(params: Dict[str, float]) -> float:
@@ -127,7 +127,7 @@ def griewank(params: Dict[str, float]) -> float:
     """
     params = np.array(list(params.values()))
     idx = np.arange(1, len(params) + 1)
-    return 1 + 1.0 / 4000 * np.sum(params ** 2) - np.prod(np.cos(params / np.sqrt(idx)))
+    return 1 + 1.0 / 4000 * np.sum(params**2) - np.prod(np.cos(params / np.sqrt(idx)))
 
 
 def schwefel(params: Dict[str, float]) -> float:
@@ -188,7 +188,7 @@ def bisphere(params: Dict[str, float]) -> float:
     d = 1
     s = 1 - np.sqrt(1 / (2 * np.sqrt(n + 20) - 8.2))
     mu1 = 2.5
-    mu2 = - np.sqrt((mu1**2 - d) / s)
+    mu2 = -np.sqrt((mu1**2 - d) / s)
     return min(np.sum((params - mu1) ** 2), d * n + s * np.sum((params - mu2) ** 2))
 
 
@@ -223,9 +223,10 @@ def birastrigin(params: Dict[str, float]) -> float:
     d = 1
     s = 1 - np.sqrt(1 / (2 * np.sqrt(n + 20) - 8.2))
     mu1 = 2.5
-    mu2 = - np.sqrt((mu1**2 - d) / s)
-    return min(np.sum((params - mu1) ** 2), d * n + s * np.sum((params - mu2) ** 2)) + \
-        10 * np.sum(1 - np.cos(2 * np.pi * (params - mu1)))
+    mu2 = -np.sqrt((mu1**2 - d) / s)
+    return min(
+        np.sum((params - mu1) ** 2), d * n + s * np.sum((params - mu2) ** 2)
+    ) + 10 * np.sum(1 - np.cos(2 * np.pi * (params - mu1)))
 
 
 def bukin_n6(params: Dict[str, float]) -> float:
@@ -246,7 +247,9 @@ def bukin_n6(params: Dict[str, float]) -> float:
         function value
     """
     params = np.array(list(params.values()))
-    return 100 * np.sqrt(np.abs(params[1] - 0.01 * params[0] ** 2)) + 0.01 * np.abs(params[0] + 10)
+    return 100 * np.sqrt(np.abs(params[1] - 0.01 * params[0] ** 2)) + 0.01 * np.abs(
+        params[0] + 10
+    )
 
 
 def egg_crate(params: Dict[str, float]) -> float:
@@ -267,7 +270,11 @@ def egg_crate(params: Dict[str, float]) -> float:
         function value
     """
     params = np.array(list(params.values()))
-    return params[0] ** 2 + params[1] ** 2 + 25 * (np.sin(params[0]) ** 2 + np.sin(params[1]) ** 2)
+    return (
+        params[0] ** 2
+        + params[1] ** 2
+        + 25 * (np.sin(params[0]) ** 2 + np.sin(params[1]) ** 2)
+    )
 
 
 def himmelblau(params: Dict[str, float]) -> float:
@@ -288,7 +295,9 @@ def himmelblau(params: Dict[str, float]) -> float:
         function value
     """
     params = np.array(list(params.values()))
-    return (params[0] ** 2 + params[1] - 11) ** 2 + (params[0] + params[1] ** 2 - 7) ** 2
+    return (params[0] ** 2 + params[1] - 11) ** 2 + (
+        params[0] + params[1] ** 2 - 7
+    ) ** 2
 
 
 def keane(params: Dict[str, float]) -> float:
@@ -309,8 +318,11 @@ def keane(params: Dict[str, float]) -> float:
         function value
     """
     params = np.array(list(params.values()))
-    return -np.sin(params[0] - params[1]) ** 2 * np.sin(params[0] + params[1]) ** 2 / \
-        np.sqrt(params[0] ** 2 + params[1] ** 2)
+    return (
+        -np.sin(params[0] - params[1]) ** 2
+        * np.sin(params[0] + params[1]) ** 2
+        / np.sqrt(params[0] ** 2 + params[1] ** 2)
+    )
 
 
 def leon(params: Dict[str, float]) -> float:
@@ -353,7 +365,9 @@ def sphere(params: Dict[str, float]) -> float:
     return np.sum(np.array(list(params.values())) ** 2)
 
 
-def get_function_search_space(fname: str) -> Tuple[Callable, Dict[str, Tuple[float, float]]]:
+def get_function_search_space(
+    fname: str,
+) -> Tuple[Callable, Dict[str, Tuple[float, float]]]:
     """
     Get search space limits and function from function name.
 
@@ -418,7 +432,7 @@ def get_function_search_space(fname: str) -> Tuple[Callable, Dict[str, Tuple[flo
             "b": (-5.12, 5.12),
             "c": (-5.12, 5.12),
             "d": (-5.12, 5.12),
-            "e": (-5.12, 5.12)
+            "e": (-5.12, 5.12),
         }
     elif fname == "quartic":
         function = quartic
@@ -452,7 +466,7 @@ def get_function_search_space(fname: str) -> Tuple[Callable, Dict[str, Tuple[flo
             "A1": (-1.28, 1.28),
             "B1": (-1.28, 1.28),
             "C1": (-1.28, 1.28),
-            "D1": (-1.28, 1.28)
+            "D1": (-1.28, 1.28),
         }
     elif fname == "bisphere":
         function = bisphere
@@ -486,7 +500,7 @@ def get_function_search_space(fname: str) -> Tuple[Callable, Dict[str, Tuple[flo
             "A1": (-5.12, 5.12),
             "B1": (-5.12, 5.12),
             "C1": (-5.12, 5.12),
-            "D1": (-5.12, 5.12)
+            "D1": (-5.12, 5.12),
         }
     elif fname == "birastrigin":
         function = birastrigin
@@ -520,7 +534,7 @@ def get_function_search_space(fname: str) -> Tuple[Callable, Dict[str, Tuple[flo
             "A1": (-5.12, 5.12),
             "B1": (-5.12, 5.12),
             "C1": (-5.12, 5.12),
-            "D1": (-5.12, 5.12)
+            "D1": (-5.12, 5.12),
         }
     elif fname == "rastrigin":
         function = rastrigin
@@ -544,36 +558,36 @@ def get_function_search_space(fname: str) -> Tuple[Callable, Dict[str, Tuple[flo
             "q": (-5.12, 5.12),
             "r": (-5.12, 5.12),
             "s": (-5.12, 5.12),
-            "t": (-5.12, 5.12)
+            "t": (-5.12, 5.12),
         }
 
     elif fname == "griewank":
         function = griewank
         limits = {
-            "a": (-600., 600.),
-            "b": (-600., 600.),
-            "c": (-600., 600.),
-            "d": (-600., 600.),
-            "e": (-600., 600.),
-            "f": (-600., 600.),
-            "g": (-600., 600.),
-            "h": (-600., 600.),
-            "i": (-600., 600.),
-            "j": (-600., 600.)
+            "a": (-600.0, 600.0),
+            "b": (-600.0, 600.0),
+            "c": (-600.0, 600.0),
+            "d": (-600.0, 600.0),
+            "e": (-600.0, 600.0),
+            "f": (-600.0, 600.0),
+            "g": (-600.0, 600.0),
+            "h": (-600.0, 600.0),
+            "i": (-600.0, 600.0),
+            "j": (-600.0, 600.0),
         }
     elif fname == "schwefel":
         function = schwefel
         limits = {
-            "a": (-500., 500.),
-            "b": (-500., 500.),
-            "c": (-500., 500.),
-            "d": (-500., 500.),
-            "e": (-500., 500.),
-            "f": (-500., 500.),
-            "g": (-500., 500.),
-            "h": (-500., 500.),
-            "i": (-500., 500.),
-            "j": (-500., 500.)
+            "a": (-500.0, 500.0),
+            "b": (-500.0, 500.0),
+            "c": (-500.0, 500.0),
+            "d": (-500.0, 500.0),
+            "e": (-500.0, 500.0),
+            "f": (-500.0, 500.0),
+            "g": (-500.0, 500.0),
+            "h": (-500.0, 500.0),
+            "i": (-500.0, 500.0),
+            "j": (-500.0, 500.0),
         }
     else:
         ValueError(f"Function {fname} undefined...exiting")
