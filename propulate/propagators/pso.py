@@ -127,8 +127,8 @@ class BasicPSO(Propagator):
             else:
                 particles.append(make_particle(individual))
                 logging.warning(
-                    f"Got Individual instead of Particle. If this is on purpose, you can ignore this warning. "
-                    f"Converted the Individual to Particle. Continuing."
+                    "Got Individual instead of Particle. If this is on purpose, you can ignore this warning. "
+                    "Converted the Individual to Particle. Continuing."
                 )
 
         own_p = [
