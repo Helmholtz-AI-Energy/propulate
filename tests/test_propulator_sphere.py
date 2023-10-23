@@ -40,7 +40,7 @@ def test_Propulator():
     }
     with tempfile.TemporaryDirectory() as checkpoint_path:
         set_logger_config(
-            level=logging.DEBUG,
+            level=logging.INFO,
             log_file=checkpoint_path + "/propulate.log",
             log_to_stdout=True,
             log_rank=False,
@@ -66,7 +66,7 @@ def test_Propulator():
         )
 
         # Run optimization and print summary of results.
-        propulator.propulate(debug=2)
+        propulator.propulate()
         propulator.summarize()
         best = min(propulator.population, key=attrgetter("loss"))
 

@@ -32,7 +32,6 @@ def test_PSO():
     """
     Test single worker using Propulator to optimize sphere using a PSO propagator.
     """
-    return
     rng = random.Random(42)  # Separate random number generator for optimization.
     limits = {
         "a": (-5.12, 5.12),
