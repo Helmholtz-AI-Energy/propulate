@@ -31,4 +31,4 @@ jobs:
                   ruff --output-format=github --target-version=py39 .
             - name: Test with pytest
               run: |
-                  mpirun -n 1 pytest
+                  pytest -s

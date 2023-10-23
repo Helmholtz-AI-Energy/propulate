@@ -2,11 +2,12 @@ import random
 import tempfile
 from typing import Dict
 from operator import attrgetter
+import logging
 
 import numpy as np
 
 from propulate import Propulator
-from propulate.utils import get_default_propagator
+from propulate.utils import get_default_propagator, set_logger_config
 
 
 def sphere(params: Dict[str, float]) -> float:
@@ -38,6 +39,13 @@ def test_Propulator():
         "b": (-5.12, 5.12),
     }
     with tempfile.TemporaryDirectory() as checkpoint_path:
+        set_logger_config(
+            level=logging.INFO,
+            log_file=checkpoint_path + "/propulate.log",
+            log_to_stdout=True,
+            log_rank=False,
+            colors=True,
+        )
         # Set up evolutionary operator.
         propagator = get_default_propagator(  # Get default evolutionary operator.
             pop_size=4,  # Breeding pool size
@@ -58,7 +66,7 @@ def test_Propulator():
         )
 
         # Run optimization and print summary of results.
-        propulator.propulate()
+        propulator.propulate(debug=2)
         propulator.summarize()
         best = min(propulator.population, key=attrgetter("loss"))
 
