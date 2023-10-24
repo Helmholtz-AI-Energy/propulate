@@ -31,7 +31,7 @@ jobs:
             - name: Test with pytest
               run: |
                 pytest --cov=propulate
-                coverage-badge -o coverage.svg
+                coverage-badge -of coverage.svg
 
             - name: Verify Changed files
               uses: tj-actions/verify-changed-files@v16
