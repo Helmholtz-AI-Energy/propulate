@@ -56,6 +56,7 @@ If you need the latest updates, you can also install ``Propulate`` directly from
 Pull and run ``pip install -e .`` or ``python setup.py develop``.  
 ``Propulate`` depends on ``mpi4py`` and requires an MPI implementation under the hood. Currently, it is only tested with 
 OpenMPI.
+Writing checkpoints requires a parallel [https://docs.h5py.org/en/stable/mpi.html](HDF5) installation.
 
 ## Acknowledgments
 *This work is supported by the Helmholtz AI platform grant.*
