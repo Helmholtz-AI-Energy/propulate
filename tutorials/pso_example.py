@@ -19,7 +19,7 @@ from propulate.propagators.pso import (
     CanonicalPSO,
     InitUniformPSO,
 )
-from tutorials.function_benchmark import get_function_search_space
+from propulate.utils import get_function_search_space
 
 if __name__ == "__main__":
     comm = MPI.COMM_WORLD

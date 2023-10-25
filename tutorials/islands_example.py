@@ -8,8 +8,7 @@ from mpi4py import MPI
 
 from propulate import Islands
 from propulate.propagators import SelectMin, SelectMax
-from propulate.utils import get_default_propagator, set_logger_config
-from function_benchmark import get_function_search_space
+from propulate.utils import get_default_propagator, set_logger_config, get_function_search_space
 
 if __name__ == "__main__":
     comm = MPI.COMM_WORLD
