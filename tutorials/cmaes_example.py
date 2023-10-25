@@ -8,7 +8,7 @@ from mpi4py import MPI
 from propulate import Propulator
 from propulate.propagators import BasicCMA, ActiveCMA, CMAPropagator
 from propulate.utils import set_logger_config
-from function_benchmark import *
+from function_benchmark import get_function_search_space
 
 
 if __name__ == "__main__":
