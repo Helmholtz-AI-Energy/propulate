@@ -299,7 +299,7 @@ if __name__ == "__main__":
         rng=rng,  # Random number generator
         generations=num_generations,  # Number of generations per worker
         num_islands=1,  # Number of islands
-        checkpoint_path=log_path,
+        checkpoint_directory=log_path,
     )
     islands.evolve(  # Run evolutionary optimization.
         top_n=1,  # Print top-n best individuals on each island in summary.

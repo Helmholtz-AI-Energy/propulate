@@ -33,7 +33,7 @@ class Pollinator(Propulator):
         island_idx: int = 0,
         comm: MPI.Comm = MPI.COMM_WORLD,
         generations: int = 0,
-        checkpoint_path: Union[Path, str] = Path("./"),
+        checkpoint_directory: Union[Path, str] = Path("./"),
         migration_topology: np.ndarray = None,
         migration_prob: float = 0.0,
         emigration_propagator: Type[Propagator] = SelectMin,
@@ -57,7 +57,7 @@ class Pollinator(Propulator):
               intra-island communicator
         generations: int
                      number of generations to run
-        checkpoint_path: Path
+        checkpoint_directory: Path
                          path where checkpoints are loaded from and stored.
         migration_topology: numpy.ndarray
                             2D matrix where entry (i,j) specifies how many
@@ -87,7 +87,7 @@ class Pollinator(Propulator):
             island_idx,
             comm,
             generations,
-            checkpoint_path,
+            checkpoint_directory,
             migration_topology,
             migration_prob,
             emigration_propagator,

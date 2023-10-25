@@ -1,32 +1,10 @@
 import random
 import tempfile
-from typing import Dict
 from operator import attrgetter
 import logging
 
-import numpy as np
-
 from propulate import Propulator
-from propulate.utils import get_default_propagator, set_logger_config
-
-
-def sphere(params: Dict[str, float]) -> float:
-    """
-    Sphere function: continuous, convex, separable, differentiable, unimodal
-
-    Input domain: -5.12 <= x, y <= 5.12
-    Global minimum 0 at (x, y) = (0, 0)
-
-    Parameters
-    ----------
-    params: dict[str, float]
-            function parameters
-    Returns
-    -------
-    float
-        function value
-    """
-    return np.sum(np.array(list(params.values())) ** 2)
+from propulate.utils import get_default_propagator, set_logger_config, sphere
 
 
 def test_Propulator():
@@ -38,10 +16,10 @@ def test_Propulator():
         "a": (-5.12, 5.12),
         "b": (-5.12, 5.12),
     }
-    with tempfile.TemporaryDirectory() as checkpoint_path:
+    with tempfile.TemporaryDirectory() as checkpoint_directory:
         set_logger_config(
             level=logging.INFO,
-            log_file=checkpoint_path + "/propulate.log",
+            log_file=checkpoint_directory + "/propulate.log",
             log_to_stdout=True,
             log_rank=False,
             colors=True,
@@ -61,7 +39,7 @@ def test_Propulator():
             loss_fn=sphere,
             propagator=propagator,
             generations=10,
-            checkpoint_path=checkpoint_path,
+            checkpoint_directory=checkpoint_directory,
             rng=rng,
         )
 

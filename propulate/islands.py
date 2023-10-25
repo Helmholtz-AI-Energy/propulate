@@ -39,7 +39,7 @@ class Islands:
         emigration_propagator: Type[Propagator] = SelectMin,
         immigration_propagator: Type[Propagator] = SelectMax,
         pollination: bool = True,
-        checkpoint_path: Union[str, Path] = Path("./"),
+        checkpoint_directory: Union[str, Path] = Path("./"),
     ) -> None:
         """
         Initialize island model with given parameters.
@@ -76,7 +76,7 @@ class Islands:
         pollination: bool
                      If True, copies of emigrants are sent, otherwise, emigrants are removed from
                      original island.
-        checkpoint_path: Union[Path, str]
+        checkpoint_directory: Union[Path, str]
                          Path where checkpoints are loaded from and stored.
 
         Raises
@@ -206,7 +206,7 @@ class Islands:
                 island_idx=island_idx,
                 comm=comm_intra,
                 generations=generations,
-                checkpoint_path=checkpoint_path,
+                checkpoint_directory=checkpoint_directory,
                 migration_topology=migration_topology,
                 migration_prob=migration_prob_rank,
                 emigration_propagator=emigration_propagator,
@@ -223,7 +223,7 @@ class Islands:
                 island_idx=island_idx,
                 comm=comm_intra,
                 generations=generations,
-                checkpoint_path=checkpoint_path,
+                checkpoint_directory=checkpoint_directory,
                 migration_topology=migration_topology,
                 migration_prob=migration_prob_rank,
                 emigration_propagator=emigration_propagator,

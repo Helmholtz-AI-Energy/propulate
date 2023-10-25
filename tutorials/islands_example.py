@@ -122,7 +122,7 @@ if __name__ == "__main__":
         emigration_propagator=SelectMin,
         immigration_propagator=SelectMax,
         pollination=config.pollination,
-        checkpoint_path=config.checkpoint,
+        checkpoint_directory=config.checkpoint,
     )
 
     # Run actual optimization.

@@ -100,7 +100,7 @@ if __name__ == "__main__":
         propagator=propagator,
         comm=comm,
         generations=config.generations,
-        checkpoint_path=config.checkpoint,
+        checkpoint_directory=config.checkpoint,
         rng=rng,
     )
 

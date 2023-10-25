@@ -1,32 +1,11 @@
 import random
 import tempfile
-from typing import Dict
 from operator import attrgetter
-
-import numpy as np
 
 from propulate import Propulator
 from propulate.propagators import Conditional
 from propulate.propagators.pso import BasicPSO, InitUniformPSO
-
-
-def sphere(params: Dict[str, float]) -> float:
-    """
-    Sphere function: continuous, convex, separable, differentiable, unimodal
-
-    Input domain: -5.12 <= x, y <= 5.12
-    Global minimum 0 at (x, y) = (0, 0)
-
-    Parameters
-    ----------
-    params: dict[str, float]
-            function parameters
-    Returns
-    -------
-    float
-        function value
-    """
-    return np.sum(np.array(list(params.values())) ** 2)
+from propulate.utils import sphere
 
 
 def test_PSO():
@@ -38,7 +17,7 @@ def test_PSO():
         "a": (-5.12, 5.12),
         "b": (-5.12, 5.12),
     }
-    with tempfile.TemporaryDirectory() as checkpoint_path:
+    with tempfile.TemporaryDirectory() as checkpoint_directory:
         # Set up evolutionary operator.
 
         pso_propagator = BasicPSO(
@@ -57,7 +36,7 @@ def test_PSO():
             loss_fn=sphere,
             propagator=propagator,
             generations=10,
-            checkpoint_path=checkpoint_path,
+            checkpoint_directory=checkpoint_directory,
             rng=rng,
         )
 

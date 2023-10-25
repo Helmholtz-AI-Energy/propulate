@@ -119,7 +119,7 @@ parallel asynchronous optimization process for us:
         propagator=propagator,  # Evolutionary operator
         comm=MPI.COMM_WORLD,  # Communicator
         generations=config.generations,  # Number of generations
-        checkpoint_path=config.checkpoint,  # Checkpoint path
+        checkpoint_directory=config.checkpoint,  # Checkpoint path
         rng=rng)  # Random number generator for optimization process
 
 Now it's time to run the actual optimization. Overall, ``generations * MPI.COMM_WORLD.size`` evaluations will be performed:
@@ -198,7 +198,7 @@ Or just copy and paste:
 Checkpointing
 -------------
 ``Propulate`` automatically creates checkpoints of your population in regular intervals during the optimization. You can
-pass the ``Propulator`` a path via its ``checkpoint_path`` argument where it should write those checkpoints to. This
+pass the ``Propulator`` a path via its ``checkpoint_directory`` argument where it should write those checkpoints to. This
 also is the path where it will look for existing checkpoint files to start an optimization run from. As a default, it
 will use your current working directory.
 

@@ -51,7 +51,7 @@ to configure the islands and the migration between them:
         emigration_propagator=SelectMin,  # How to choose emigrants
         immigration_propagator=SelectMax,  # How to choose individuals to be replaced by migrants in case of pollination
         pollination=config.pollination,  # Whether to perform actual migration or pollination
-        checkpoint_path=config.checkpoint)  # Checkpoint path
+        checkpoint_directory=config.checkpoint)  # Checkpoint path
 
 This will instantiate an island model with ``num_island`` islands and distribute the available compute resources as equally
 as possible over all islands. For example, consider a parallel computing environment with overall 40 processing elements.
