@@ -3,12 +3,18 @@ from decimal import Decimal
 import numpy as np
 
 
-class Individual(dict):
+class Individual:
     """
     An individual represents a candidate solution to the considered optimization problem.
     """
 
-    def __init__(self, generation: int = -1, rank: int = -1) -> None:
+    def __init__(
+        self,
+        position: np.ndarray = None,
+        velocity: np.ndarray = None,
+        generation: int = -1,
+        rank: int = -1,
+    ) -> None:
         """
         Initialize an individual with given parameters.
 
@@ -30,6 +36,9 @@ class Individual(dict):
         self.migration_history = None  # migration history
         self.evaltime = None  # evaluation time
         self.evalperiod = None  # evaluation duration
+        if velocity is not None:
+            if not position.shape == velocity.shape:
+                raise ValueError()
 
     def __repr__(self) -> str:
         """
@@ -47,12 +56,7 @@ class Individual(dict):
             loss_str = f"{self.loss}"
         else:
             loss_str = f"{Decimal(float(self.loss)):.2E}"
-        return (
-            f"[{rep}, loss "
-            + loss_str
-            + f", island {self.island}, worker {self.rank}, "
-            f"generation {self.generation}]"
-        )
+        return f"[{rep}, loss {loss_str}, island {self.island}, worker {self.rank}, generation {self.generation}]"
 
     def __eq__(self, other) -> bool:
         """
