@@ -105,19 +105,21 @@ class Propulator:
         # Load initial population of individuals from checkpoint if exists.
         self.checkpoint_path = self.checkpoint_path / "ckpt.hdf5"
 
+        self.population = []
         if os.path.isfile(self.checkpoint_path):
-            self.population, self.generation = self.load_checkpoint(self.checkpoint_path)
+            self.load_checkpoint(self.checkpoint_path)
             if self.comm.rank == 0:
                 log.info(
                     "Valid checkpoint file found. "
                     f"Resuming from generation {self.generation} of loaded population..."
                 )
         else:
-            self.population = []
             if self.comm.rank == 0:
                 log.info(
                     "No valid checkpoint file given. Initializing population randomly..."
                 )
+        # consistency check and ensure enough space is allocated
+        self.set_up_checkpoint(self.checkpoint_path)
 
     def load_checkpoint(self, ckpt_file):
         """
@@ -130,8 +132,27 @@ class Propulator:
         ckpt_file: str
                    Path to the file to load
         """
-        with h5py.File(self.checkpoint_path, 'r') as f:
-            pass
+        # TODO make sure this works correctly with islands
+        # TODO what happens if the compute setup is different when loading the checkpoint i.e. different number of workers?
+        # TODO load the migrated individuals from the other islands checkpoints
+        # NOTE each individual is only stored once at the position given by its origin island and worker, the modifications have to be put in the checkpoint file during migration  TODO test if this works as intended reliably
+        with h5py.File(self.checkpoint_path, "r", driver=None) as f:
+            # check limit consistency
+            for rank in range(self.comm.size):
+                for ckpt_idx in f[self.island_idx][rank].attrs["num_individuals"]:
+                    # TODO check to only load already done generations
+                    ind = Individual(f[self.island_idx][rank]["x"][ckpt_idx][0])
+                    if len(f[self.island_idx][rank].shape) > 1:
+                        ind.velocity = f[self.island_idx][rank]["x"][ckpt_idx][1]
+                    ind.loss = f[self.island_idx][rank]["loss"][ckpt_idx]
+                    ind.evaltime = None
+                    ind.evalperiod = None
+                    ind.generation = f[self.island_idx][rank]["generation"][ckpt_idx]
+                    if ind.current == self.island_idx:
+                        self.population.append(ind)
+
+    def set_up_checkpoint(self, checkpoint_path):
+        pass
 
     def propulate(self, logging_interval: int = 10, debug: int = 1) -> None:
         """
@@ -144,8 +165,7 @@ class Propulator:
         debug: int
                verbosity/debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode)
         """
-        with h5py.File(self.checkpoint_path, '') as f:
-            self._work(f, logging_interval, debug)
+        self._work(logging_interval, debug)
 
     def _get_active_individuals(self) -> Tuple[List[Individual], int]:
         """
@@ -185,12 +205,22 @@ class Propulator:
 
         return ind  # Return new individual.
 
-    def _evaluate_individual(self) -> None:
+    def _evaluate_individual(self, hdf5_checkpoint) -> None:
         """
         Breed and evaluate individual.
         """
         ind = self._breed()  # Breed new individual.
         start_time = time.time()  # Start evaluation timer.
+        # save candidate
+        hdf5_checkpoint[self.island_idx][self.rank]["x"][ckpt_idx, 0, :] = ind.position[
+            :
+        ]
+        if ind.velocity is not None:
+            hdf5_checkpoint[self.island_idx][self.rank]["x"][
+                ckpt_idx, 1, :
+            ] = ind.velocity[:]
+        hdf5_checkpoint[self.island_idx][self.rank]["start"][ckpt_idx] = start_time
+
         ind.loss = self.loss_fn(ind)  # Evaluate its loss.
         ind.evaltime = time.time()  # Stop evaluation timer.
         ind.evalperiod = ind.evaltime - start_time  # Calculate evaluation duration.
@@ -201,6 +231,7 @@ class Propulator:
             f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: BREEDING\n"
             f"Bred and evaluated individual {ind}.\n"
         )
+        # save result
 
         # Tell other workers in own island about results to synchronize their populations.
         for r in range(self.comm.size):  # Loop over ranks in intra-island communicator.
@@ -342,20 +373,21 @@ class Propulator:
         MPI.COMM_WORLD.barrier()
 
         # Loop over generations.
-        while self.generation < self.generations:
-            if self.generation % int(logging_interval) == 0:
-                log.info(
-                    f"Island {self.island_idx} Worker {self.comm.rank}: In generation {self.generation}..."
-                )
+        with h5py.File(self.checkpoint_path, "", driver="mpio", comm=self.comm) as f:
+            while self.generation < self.generations:
+                if self.generation % int(logging_interval) == 0:
+                    log.info(
+                        f"Island {self.island_idx} Worker {self.comm.rank}: In generation {self.generation}..."
+                    )
 
-            # Breed and evaluate individual.
-            self._evaluate_individual()
+                # Breed and evaluate individual.
+                self._evaluate_individual(f)
 
-            # Check for and possibly receive incoming individuals from other intra-island workers.
-            self._receive_intra_island_individuals()
+                # Check for and possibly receive incoming individuals from other intra-island workers.
+                self._receive_intra_island_individuals()
 
-            # Go to next generation.
-            self.generation += 1
+                # Go to next generation.
+                self.generation += 1
 
         # Having completed all generations, the workers have to wait for each other.
         # Once all workers are done, they should check for incoming messages once again
