@@ -2,12 +2,15 @@ import random
 import tempfile
 from operator import attrgetter
 
+import pytest
+
 from propulate import Propulator
 from propulate.propagators import Conditional
 from propulate.propagators.pso import BasicPSO, InitUniformPSO
 from propulate.utils import sphere
 
 
+@pytest.mark.mpi
 def test_PSO():
     """
     Test single worker using Propulator to optimize sphere using a PSO propagator.
