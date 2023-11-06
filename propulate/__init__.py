@@ -11,7 +11,7 @@ finally:
     del get_distribution, DistributionNotFound
 
 from .islands import Islands
-from .population import Individual, Particle
+from .population import Individual
 from .propulator import Propulator
 from .migrator import Migrator
 from .pollinator import Pollinator
@@ -22,7 +22,6 @@ from . import propagators
 __all__ = [
     "Islands",
     "Individual",
-    "Particle",
     "Propulator",
     "Migrator",
     "Pollinator",
