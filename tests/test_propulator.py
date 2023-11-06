@@ -4,10 +4,13 @@ from operator import attrgetter
 import logging
 from copy import deepcopy
 
+import pytest
+
 from propulate import Propulator
 from propulate.utils import get_default_propagator, set_logger_config, sphere
 
 
+@pytest.mark.mpi_skip
 def test_Propulator():
     """
     Test single worker using Propulator to optimize sphere.
@@ -52,6 +55,7 @@ def test_Propulator():
         assert best.loss < 0.8
 
 
+@pytest.mark.mpi_skip
 def test_checkpointing_propulator():
     rng = random.Random(42)  # Separate random number generator for optimization.
     limits = {

@@ -2,11 +2,14 @@ import random
 import tempfile
 from operator import attrgetter
 
+import pytest
+
 from propulate import Propulator
 from propulate.propagators import CMAPropagator, BasicCMA
 from propulate.utils import sphere
 
 
+@pytest.mark.mpi_skip
 def test_PSO():
     """
     Test single worker using Propulator to optimize sphere using a PSO propagator.

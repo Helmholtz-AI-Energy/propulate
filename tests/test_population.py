@@ -1,6 +1,9 @@
 from propulate.population import Individual
 
+import pytest
 
+
+@pytest.mark.mpi_skip
 def test_individual():
     ind_map = {
         "float1": 0.1,
@@ -15,5 +18,6 @@ def test_individual():
     print(ind)
 
 
+@pytest.mark.mpi_skip
 def test_limits():
     raise
