@@ -10,7 +10,6 @@ import numpy as np
 from mpi4py import MPI
 
 
-from .population import Individual, Particle
 from .propagators import (
     Compose,
     Conditional,
@@ -159,29 +158,6 @@ def set_logger_config(
         base_logger.addHandler(file_handler)
     base_logger.setLevel(level)
     return
-
-
-def make_particle(individual: Individual) -> Particle:
-    """
-    Convert individuals to particles.
-
-    Parameters
-    ----------
-    individual: Individual
-                Individual to be converted to a particle
-
-    Returns
-    --------
-    Particle
-        Converted individual
-    """
-    p = Particle(generation=individual.generation)
-    p.position = np.zeros(len(individual))
-    p.velocity = np.zeros(len(individual))
-    for i, k in enumerate(individual):
-        p.position[i] = individual[k]
-        p[k] = individual[k]
-    return p
 
 
 def rosenbrock(params: Dict[str, float]) -> float:
