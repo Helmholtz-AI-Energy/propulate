@@ -33,8 +33,3 @@ def test_individual():
 
     ind["cat1"] = "b"
     assert ind.position[5] == 1.
-
-
-@pytest.mark.mpi_skip
-def test_limits():
-    raise
