@@ -5,6 +5,14 @@ import pytest
 
 @pytest.mark.mpi_skip
 def test_individual():
+    limits = {
+        "float1": (0.0, 1.0),
+        "float2": (-1.0, 1.0),
+        "int1": (0, 5),
+        "int2": (1, 8),
+        "cat1": ("a", "b", "c", "d", "e"),
+        "cat2": ("f", "g", "h"),
+    }
     ind_map = {
         "float1": 0.1,
         "float2": 0.2,
@@ -14,8 +22,17 @@ def test_individual():
         "cat2": "f",
     }
 
-    ind = Individual(ind_map)
-    print(ind)
+    ind = Individual(ind_map, limits=limits)
+    assert len(ind) == 6
+    assert ind.position.shape[0] == 12
+
+    for key in ind:
+        print(ind[key])
+    assert ind["cat1"] == "e"
+    assert ind["cat2"] == "f"
+
+    ind["cat1"] = "b"
+    assert ind.position[5] == 1.
 
 
 @pytest.mark.mpi_skip
