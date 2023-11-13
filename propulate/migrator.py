@@ -9,6 +9,7 @@ from mpi4py import MPI
 
 from .propagators import Propagator, SelectMin
 from .propulator import Propulator
+from .surrogate import Surrogate
 from ._globals import MIGRATION_TAG, SYNCHRONIZATION_TAG
 
 
@@ -37,6 +38,8 @@ class Migrator(Propulator):
         island_displs: np.ndarray = None,
         island_counts: np.ndarray = None,
         rng: random.Random = None,
+        surrogate_factory: Callable[[], Surrogate] = None,
+        train_callback: Callable = None,
     ) -> None:
         """
         Initialize ``Migrator`` with given parameters.
@@ -86,6 +89,8 @@ class Migrator(Propulator):
             island_displs,
             island_counts,
             rng,
+            surrogate_factory,
+            train_callback,
         )
         # Set class attributes.
         self.emigrated = []  # emigrated individuals to be deactivated on sending island

@@ -12,6 +12,7 @@ from ._globals import MIGRATION_TAG, SYNCHRONIZATION_TAG
 from .population import Individual
 from .propagators import Propagator, SelectMin, SelectMax
 from .propulator import Propulator
+from .surrogate import Surrogate
 
 log = logging.getLogger(__name__)
 
@@ -41,6 +42,8 @@ class Pollinator(Propulator):
         island_displs: np.ndarray = None,
         island_counts: np.ndarray = None,
         rng: random.Random = None,
+        surrogate_factory: Callable[[], Surrogate] = None,
+        train_callback: Callable = None,
     ) -> None:
         """
         Initialize ``Pollinator`` with given parameters.
@@ -94,6 +97,8 @@ class Pollinator(Propulator):
             island_displs,
             island_counts,
             rng,
+            surrogate_factory,
+            train_callback,
         )
         # Set class attributes.
         self.immigration_propagator = immigration_propagator  # immigration propagator

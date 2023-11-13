@@ -7,6 +7,7 @@ import time
 from operator import attrgetter
 from pathlib import Path
 from typing import Callable, Union, List, Tuple, Type
+from functools import partial
 
 import deepdiff
 import numpy as np
@@ -15,6 +16,7 @@ from mpi4py import MPI
 from ._globals import DUMP_TAG, INDIVIDUAL_TAG
 from .population import Individual
 from .propagators import Propagator, SelectMin
+from .surrogate import Surrogate
 
 log = logging.getLogger(__name__)  # Get logger instance.
 
@@ -42,6 +44,8 @@ class Propulator:
         island_displs: np.ndarray = None,
         island_counts: np.ndarray = None,
         rng: random.Random = None,
+        surrogate_factory: Callable[[], Surrogate] = None,
+        train_callback: Callable = None,
     ) -> None:
         """
         Initialize Propulator with given parameters.
@@ -101,6 +105,16 @@ class Propulator:
         self.island_counts = island_counts  # number of workers on each island
         self.emigration_propagator = emigration_propagator  # emigration propagator
         self.rng = rng
+
+        # always initialize Surrogate and train_callback
+        # as the class attr has to be set for None checks later
+        self.surrogate = None if surrogate_factory is None else surrogate_factory()
+        if train_callback is not None:
+            self.train_callback = train_callback  # set logging callback
+            # bind callback to propulator so self.surrogate can be accessed from within callback
+            self.train_callback = partial(train_callback, self)
+        else:
+            self.train_callback = None
 
         # Load initial population of evaluated individuals from checkpoint if exists.
         load_ckpt_file = self.checkpoint_path / f"island_{self.island_idx}_ckpt.pickle"
@@ -194,9 +208,17 @@ class Propulator:
         """
         Breed and evaluate individual.
         """
+
         ind = self._breed()  # Breed new individual.
         start_time = time.time()  # Start evaluation timer.
-        ind.loss = self.loss_fn(ind)  # Evaluate its loss.
+
+        # Evaluate loss either with or without callback
+        # this if ensures Propulate can be used without a surrogate model
+        if self.train_callback is not None:
+            ind.loss = self.loss_fn(ind, callback=self.train_callback)
+        else:
+            ind.loss = self.loss_fn(ind)  # Evaluate its loss
+
         ind.evaltime = time.time()  # Stop evaluation timer.
         ind.evalperiod = ind.evaltime - start_time  # Calculate evaluation duration.
         self.population.append(
@@ -206,6 +228,9 @@ class Propulator:
             f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: BREEDING\n"
             f"Bred and evaluated individual {ind}.\n"
         )
+
+        if self.surrogate is not None:
+            ind['s'] = self.surrogate  # add Surrogate model to individual for sending and synchronization
 
         # Tell other workers in own island about results to synchronize their populations.
         for r in range(self.comm.size):  # Loop over ranks in intra-island communicator.
@@ -240,6 +265,11 @@ class Propulator:
                 self.population.append(
                     ind_temp
                 )  # Add received individual to own worker-local population.
+
+                # only merge if Surrogate model is used
+                if 's' in ind_temp:
+                    self.surrogate.merge(ind_temp['s'])  # merge Surrogate models
+
                 log_string += f"Added individual {ind_temp} from W{stat.Get_source()} to own population.\n"
         _, n_active = self._get_active_individuals()
         log_string += (

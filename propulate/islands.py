@@ -11,6 +11,7 @@ from .migrator import Migrator
 from .pollinator import Pollinator
 from .population import Individual
 from .propagators import Propagator, SelectMin, SelectMax
+from .surrogate import Surrogate
 
 log = logging.getLogger(__name__)  # Get logger instance.
 
@@ -40,6 +41,8 @@ class Islands:
         immigration_propagator: Type[Propagator] = SelectMax,
         pollination: bool = True,
         checkpoint_path: Union[str, Path] = Path("./"),
+        surrogate_factory: Callable[[], Surrogate] = None,
+        train_callback: Callable = None,
     ) -> None:
         """
         Initialize island model with given parameters.
@@ -213,6 +216,8 @@ class Islands:
                 island_displs=island_displs,
                 island_counts=island_sizes,
                 rng=rng,
+                surrogate_factory=surrogate_factory,
+                train_callback=train_callback,
             )
         else:
             if rank == 0:
@@ -231,6 +236,8 @@ class Islands:
                 island_displs=island_displs,
                 island_counts=island_sizes,
                 rng=rng,
+                surrogate_factory=surrogate_factory,
+                train_callback=train_callback,
             )
 
     def _run(

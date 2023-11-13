@@ -15,6 +15,7 @@ from .population import Individual, Particle
 from .propulator import Propulator
 from .migrator import Migrator
 from .pollinator import Pollinator
+from .surrogate import Surrogate
 from .utils import get_default_propagator, set_logger_config
 
 from . import propagators
@@ -24,6 +25,7 @@ __all__ = [
     "Individual",
     "Particle",
     "Propulator",
+    "Surrogate",
     "Migrator",
     "Pollinator",
     "get_default_propagator",
