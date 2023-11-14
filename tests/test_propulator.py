@@ -64,7 +64,14 @@ def test_checkpointing_propulator():
     }
 
     with tempfile.TemporaryDirectory() as checkpoint_directory:
-        propagator = get_default_propagator(limits=limits, rng=rng)
+        propagator = get_default_propagator(  # Get default evolutionary operator.
+            pop_size=4,  # Breeding pool size
+            limits=limits,  # Search-space limits
+            mate_prob=0.7,  # Crossover probability
+            mut_prob=9.0,  # Mutation probability
+            random_prob=0.1,  # Random-initialization probability
+            rng=rng,  # Random number generator
+        )
         propulator = Propulator(
             loss_fn=sphere,
             propagator=propagator,
