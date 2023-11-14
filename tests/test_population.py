@@ -22,7 +22,7 @@ def test_individual():
         "cat2": "f",
     }
 
-    ind = Individual(ind_map, limits=limits)
+    ind = Individual(ind_map, limits)
     assert len(ind) == 6
     assert ind.position.shape[0] == 12
 

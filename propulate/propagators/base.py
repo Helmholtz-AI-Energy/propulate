@@ -31,7 +31,7 @@ class Propagator:
     """
 
     def __init__(
-        self, parents: int = 0, offspring: int = 0, rng: random.Random = None
+        self, limits, parents: int = 0, offspring: int = 0, rng: random.Random = None
     ) -> None:
         """
         Initialize a propagator with given parameters.
@@ -55,6 +55,7 @@ class Propagator:
         self.offspring = offspring  # Number of offspring individuals to breed
         self.parents = parents  # Number of parent individuals
         self.rng = rng  # Random number generator
+        self.limits = limits
 
     def __call__(self, inds: List[Individual]) -> Union[List[Individual], Individual]:
         """
@@ -89,6 +90,7 @@ class Stochastic(Propagator):
 
     def __init__(
         self,
+        limits,
         parents: int = 0,
         offspring: int = 0,
         probability: float = 1.0,
@@ -113,7 +115,7 @@ class Stochastic(Propagator):
         ValueError
             If the number of offspring to breed is zero.
         """
-        super(Stochastic, self).__init__(parents, offspring, rng)
+        super(Stochastic, self).__init__(limits, parents, offspring, rng)
         self.probability = probability
         if offspring == 0:
             raise ValueError("Propagator has to sire more than 0 offspring.")
@@ -129,6 +131,7 @@ class Conditional(Propagator):
 
     def __init__(
         self,
+        limits,
         pop_size: int,
         true_prop: Propagator,
         false_prop: Propagator,
@@ -151,7 +154,7 @@ class Conditional(Propagator):
         offspring: int
             number of output individuals
         """
-        super(Conditional, self).__init__(parents, offspring)
+        super(Conditional, self).__init__(limits, parents, offspring)
         self.pop_size = pop_size
         self.true_prop = true_prop
         self.false_prop = false_prop
@@ -183,7 +186,7 @@ class Compose(Propagator):
     Stack propagators together sequentially for successive application.
     """
 
-    def __init__(self, propagators: List[Propagator]) -> None:
+    def __init__(self, limits, propagators: List[Propagator]) -> None:
         """
         Initialize composed propagator.
 
@@ -201,7 +204,9 @@ class Compose(Propagator):
             raise ValueError(
                 f"Not enough propagators given ({len(propagators)}). At least 1 is required."
             )
-        super(Compose, self).__init__(propagators[0].parents, propagators[-1].offspring)
+        super(Compose, self).__init__(
+            limits, propagators[0].parents, propagators[-1].offspring
+        )
         for i in range(len(propagators) - 1):
             # Check compatibility of consecutive propagators in terms of number of parents + offsprings.
             if not _check_compatible(
@@ -245,6 +250,7 @@ class SelectMin(Propagator):
 
     def __init__(
         self,
+        limits,
         offspring: int,
     ) -> None:
         """
@@ -255,7 +261,7 @@ class SelectMin(Propagator):
         offspring: int
             number of offsprings (individuals to be selected)
         """
-        super(SelectMin, self).__init__(-1, offspring)
+        super(SelectMin, self).__init__(limits, -1, offspring)
 
     def __call__(self, inds: List[Individual]) -> List[Individual]:
         """
@@ -294,6 +300,7 @@ class SelectMax(Propagator):
 
     def __init__(
         self,
+        limits,
         offspring: int,
     ) -> None:
         """
@@ -304,7 +311,7 @@ class SelectMax(Propagator):
         offspring: int
             number of offspring (individuals to be selected)
         """
-        super(SelectMax, self).__init__(-1, offspring)
+        super(SelectMax, self).__init__(limits, -1, offspring)
 
     def __call__(self, inds: List[Individual]) -> List[Individual]:
         """
@@ -340,7 +347,7 @@ class SelectUniform(Propagator):
     Select specified number of individuals randomly.
     """
 
-    def __init__(self, offspring: int, rng: random.Random = None) -> None:
+    def __init__(self, limits, offspring: int, rng: random.Random = None) -> None:
         """
         Initialize random-selection propagator.
 
@@ -351,7 +358,7 @@ class SelectUniform(Propagator):
         rng: random.Random
             random number generator
         """
-        super(SelectUniform, self).__init__(-1, offspring, rng)
+        super(SelectUniform, self).__init__(limits, -1, offspring, rng)
 
     def __call__(self, inds: List[Individual]) -> List[Individual]:
         """
@@ -412,7 +419,7 @@ class InitUniform(Stochastic):
         rng: random.Random
             random number generator
         """
-        super(InitUniform, self).__init__(parents, 1, probability, rng)
+        super(InitUniform, self).__init__(limits, parents, 1, probability, rng)
         self.limits = limits
 
     def __call__(self, *inds: Individual) -> Individual:
@@ -437,7 +444,7 @@ class InitUniform(Stochastic):
         if (
             self.rng.random() < self.probability
         ):  # Apply only with specified probability.
-            ind = Individual()  # Instantiate new individual.
+            ind = dict()
             for (
                 limit
             ) in self.limits:  # Randomly sample from specified limits for each trait.
@@ -458,6 +465,7 @@ class InitUniform(Stochastic):
                         "Unknown type of limits. Has to be float for interval, "
                         "int for ordinal, or string for categorical."
                     )
+            ind = Individual(ind, self.limits)  # Instantiate new individual.
         else:  # Return first input individual w/o changes otherwise.
             ind = inds[0]
         return ind

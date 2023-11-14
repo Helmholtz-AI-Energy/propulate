@@ -65,31 +65,33 @@ def get_default_propagator(
         isinstance(limits[x][0], float) for x in limits
     ):  # Check for existence of at least one continuous trait.
         propagator = Compose(
+            limits,
             [  # Compose propagator out of basic evolutionary operators with Compose(...).
-                SelectMin(pop_size),
-                SelectUniform(offspring=2, rng=rng),
-                MateUniform(mate_prob, rng=rng),
+                SelectMin(limits, pop_size),
+                SelectUniform(limits, offspring=2, rng=rng),
+                MateUniform(limits, mate_prob, rng=rng),
                 PointMutation(limits, probability=mut_prob, rng=rng),
                 IntervalMutationNormal(
                     limits, sigma_factor=sigma_factor, probability=1.0, rng=rng
                 ),
                 InitUniform(limits, parents=1, probability=random_prob, rng=rng),
-            ]
+            ],
         )
     else:
         propagator = Compose(
+            limits,
             [  # Compose propagator out of basic evolutionary operators with Compose(...).
-                SelectMin(pop_size),
-                SelectUniform(offspring=2, rng=rng),
-                MateUniform(mate_prob, rng=rng),
+                SelectMin(limits, pop_size),
+                SelectUniform(limits, offspring=2, rng=rng),
+                MateUniform(limits, mate_prob, rng=rng),
                 PointMutation(limits, probability=mut_prob, rng=rng),
                 InitUniform(limits, parents=1, probability=random_prob, rng=rng),
-            ]
+            ],
         )
 
     init = InitUniform(limits, rng=rng)
     propagator = Conditional(
-        pop_size, propagator, init
+        limits, pop_size, propagator, init
     )  # Initialize random if population size < specified `pop_size`.
 
     return propagator
@@ -341,7 +343,7 @@ def bisphere(params: Dict[str, float]) -> float:
     float
         function value
     """
-    params = np.array(list(params.values()))
+    params = np.array([params[key] for key in params])
     n = len(params)
     d = 1
     s = 1 - np.sqrt(1 / (2 * np.sqrt(n + 20) - 8.2))
@@ -520,7 +522,7 @@ def sphere(params: Dict[str, float]) -> float:
     float
         function value
     """
-    return np.sum(np.array(list(params.values())) ** 2)
+    return np.sum(np.array([params[k] for k in params]) ** 2)
 
 
 def get_function_search_space(

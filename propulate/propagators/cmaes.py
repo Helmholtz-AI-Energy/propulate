@@ -207,7 +207,8 @@ class CMAParameter:
             if any(self.d_matrix <= 0):
                 # Covariance matrix eigen decomposition failed, consider reformulating objective function.
                 raise ValueError("Covariance matrix not positive definite.")
-        except Exception as _:
+        except Exception as e:
+            print(e)
             # Add min(eigenvalues(self.co_matrix_old)) to diag(self.co_matrix) and try again
             min_eig_old = min(d_matrix_old) ** 2
             for i in range(self.problem_dimension):
@@ -647,16 +648,17 @@ class CMAPropagator(Propagator):
             size of the pool of individuals preselected before selecting the best of this pool
         """
         self.adapter = adapter
+        self.limits = limits
         problem_dimension = len(limits)
         # Number of individuals considered for each generation
         lamb = (
             pop_size if pop_size else 4 + int(np.floor(3 * np.log(problem_dimension)))
         )
-        super(CMAPropagator, self).__init__(lamb, 1)
+        super(CMAPropagator, self).__init__(limits, lamb, 1)
 
         # Number of positive recombination weights
         mu = lamb // 2
-        self.select_worst = SelectMax(lamb - mu)
+        self.select_worst = SelectMax(limits, lamb - mu)
         self.select_worst_all_time = select_worst_all_time
 
         # CMA-ES variant specific weights and learning rates
@@ -677,9 +679,9 @@ class CMAPropagator(Propagator):
             decompose_in_each_generation,
         )
         self.pool_size = int(pool_size) if int(pool_size) >= 1 else 3
-        self.select_pool = SelectMin(self.pool_size * lamb)
-        self.select_from_pool = SelectUniform(mu - 1, rng=rng)
-        self.select_best_1 = SelectMin(1)
+        self.select_pool = SelectMin(limits, self.pool_size * lamb)
+        self.select_from_pool = SelectUniform(limits, mu - 1, rng=rng)
+        self.select_best_1 = SelectMin(limits, 1)
 
     def __call__(self, inds: List[Individual]) -> Individual:
         """
@@ -763,16 +765,18 @@ class CMAPropagator(Propagator):
             new_x = self.par.mean + self.par.sigma * self.par.b_matrix @ (
                 self.par.d_matrix * random_vector
             )
-        except (RuntimeWarning, Exception) as _:
+        except (RuntimeWarning, Exception) as e:
+            print(e)
             raise ValueError(
                 "Failed to generate new offsprings, probably due to not well defined target function."
             )
         self.par.count_eval += 1
         # Remove problem_dim.
-        new_ind = Individual()
 
+        new_ind = dict()
         for i, (dim, _) in enumerate(self.par.limits.items()):
             new_ind[dim] = new_x[i, 0]
+        new_ind = Individual(new_ind, self.par.limits)
         return new_ind
 
     def get_mean(self) -> np.ndarray:

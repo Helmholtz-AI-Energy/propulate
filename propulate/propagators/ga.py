@@ -43,7 +43,7 @@ class PointMutation(Stochastic):
         ValueError
             If the requested number of points to mutate is greater than the number of traits.
         """
-        super(PointMutation, self).__init__(1, 1, probability, rng)
+        super(PointMutation, self).__init__(limits, 1, 1, probability, rng)
         self.points = points
         self.limits = limits
         if len(limits) < points:
@@ -131,7 +131,7 @@ class RandomPointMutation(Stochastic):
         ValueError
             If the requested minimum number of points to mutate is greater than the requested maximum number.
         """
-        super(RandomPointMutation, self).__init__(1, 1, probability, rng)
+        super(RandomPointMutation, self).__init__(limits, 1, 1, probability, rng)
         if min_points <= 0:
             raise ValueError(
                 f"Minimum number of points to mutate must be > 0 but was {min_points}."
@@ -226,7 +226,7 @@ class IntervalMutationNormal(Stochastic):
         ValueError
             If the individuals has fewer continuous traits than the requested number of points to mutate.
         """
-        super(IntervalMutationNormal, self).__init__(1, 1, probability, rng)
+        super(IntervalMutationNormal, self).__init__(limits, 1, 1, probability, rng)
         self.points = points  # number of traits to point-mutate
         self.limits = limits
         self.sigma_factor = sigma_factor
@@ -284,6 +284,7 @@ class MateUniform(Stochastic):  # uniform crossover
 
     def __init__(
         self,
+        limits,
         rel_parent_contrib: float = 0.5,
         probability: float = 1.0,
         rng: random.Random = None,
@@ -306,7 +307,7 @@ class MateUniform(Stochastic):  # uniform crossover
             If the relative parent contribution is not within [0, 1].
         """
         super(MateUniform, self).__init__(
-            2, 1, probability, rng
+            limits, 2, 1, probability, rng
         )  # Breed 1 offspring from 2 parents.
         if rel_parent_contrib <= 0 or rel_parent_contrib >= 1:
             raise ValueError(

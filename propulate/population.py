@@ -11,9 +11,9 @@ class Individual:
 
     def __init__(
         self,
-        position: Union[dict, np.ndarray] = None,
+        position: Union[dict, np.ndarray],
+        limits: dict,
         velocity: np.ndarray = None,
-        limits: dict = None,
         generation: int = -1,
         rank: int = -1,
     ) -> None:
@@ -56,6 +56,7 @@ class Individual:
         self.current = -1  # current responsible worker
         self.migration_steps = -1  # number of migration steps performed
         self.migration_history = None  # migration history
+        self.starttime = None
         self.evaltime = None  # evaluation time
         self.evalperiod = None  # evaluation duration
         if velocity is not None:
@@ -89,6 +90,9 @@ class Individual:
             self.position[offset + self.limits[key].index(newvalue)] = 1.0
         else:
             raise ValueError("Unknown type")
+
+    def keys(self):
+        return self.limits.keys()
 
     def __len__(self):
         return len(self.limits)
