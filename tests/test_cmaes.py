@@ -10,9 +10,9 @@ from propulate.utils import sphere
 
 
 @pytest.mark.mpi_skip
-def test_PSO():
+def test_CMAES():
     """
-    Test single worker using Propulator to optimize sphere using a PSO propagator.
+    Test single worker using Propulator to optimize sphere using a CMA ES propagator.
     """
     rng = random.Random(42)  # Separate random number generator for optimization.
     limits = {
@@ -40,3 +40,8 @@ def test_PSO():
         best = min(propulator.population, key=attrgetter("loss"))
 
         assert best.loss < 10.0
+
+
+@pytest.mark.mpi
+def test_CMAES_migration():
+    pass
