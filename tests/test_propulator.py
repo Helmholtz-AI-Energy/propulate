@@ -96,3 +96,11 @@ def test_checkpointing_propulator():
 
         # TODO properly check the loaded from checkpoint  population is the same as the one retained from the first run
         assert population == propulator.population
+
+
+@pytest.mark.mpi_skip
+def test_checkpointing_propulator_midevaluation():
+    # TODO test if loading a checkpoint with an unfinished evaluation works correctly
+    # i.e. the not yet evaluated individual should be present but without result
+    # not sure how yet, would have to send a signal to kill the process without destroying the temp files and the restarting
+    raise
