@@ -135,20 +135,23 @@ class Propulator:
         # NOTE each individual is only stored once at the position given by its origin island and worker, the modifications have to be put in the checkpoint file during migration  TODO test if this works as intended reliably
         # TODO get the started but not yet completed ones from the difference in start time and evaltime
         with h5py.File(self.checkpoint_path, "r", driver=None) as f:
-            # TODO check limits consistency
+            group = f[f"{self.island_idx}"]
             for rank in range(self.comm.size):
-                for ckpt_idx in f[self.island_idx][rank].attrs["num_individuals"]:
-                    ind = Individual(
-                        f[self.island_idx][rank]["x"][ckpt_idx][0],
-                        self.propagator.limits,
-                    )
-                    if len(f[self.island_idx][rank].shape) > 1:
-                        ind.velocity = f[self.island_idx][rank]["x"][ckpt_idx][1]
-                    ind.loss = f[self.island_idx][rank]["loss"][ckpt_idx]
-                    ind.evaltime = None
-                    ind.evalperiod = None
-                    ind.generation = f[self.island_idx][rank]["generation"][ckpt_idx]
-                    if ind.current == self.island_idx:
+                for ckpt_idx in range(len(group[f"{rank}"])):
+                    if group[f"{rank}"]["current"][ckpt_idx] == self.island_idx:
+                        ind = Individual(
+                            group[f"{rank}"]["x"][ckpt_idx, 0],
+                            self.propagator.limits,
+                        )
+                        ind.current = group[f"{rank}"]["current"][ckpt_idx]
+                        # TODO velocity loading
+                        # if len(group[f"{rank}"].shape) > 1:
+                        #     ind.velocity = group[f"{rank}"]["x"][ckpt_idx, 1]
+                        ind.loss = group[f"{rank}"]["loss"][ckpt_idx]
+                        ind.startime = group[f"{rank}"]["starttime"][ckpt_idx]
+                        ind.evaltime = group[f"{rank}"]["evaltime"][ckpt_idx]
+                        ind.evalperiod = group[f"{rank}"]["evalperiod"][ckpt_idx]
+                        ind.generation = ckpt_idx
                         self.population.append(ind)
 
     def set_up_checkpoint(self, checkpoint_path):
@@ -174,11 +177,14 @@ class Propulator:
                     if not str(self.propagator.limits[key]) == f.attrs[key]:
                         raise RuntimeError("Limits inconsistent with checkpoint")
 
+            # TODO resize dataset if necessary
+
             # population
             for i in range(num_islands):
                 f.require_group(f"{i}")
                 for worker_idx in range(self.comm.Get_size()):
                     f[f"{i}"].require_group(f"{worker_idx}")
+                    # TODO conditional space for velocity
                     f[f"{i}"][f"{worker_idx}"].require_dataset(
                         "x", (self.generations, 2, limit_dim), dtype=np.float32
                     )
@@ -186,13 +192,13 @@ class Propulator:
                         "loss", (self.generations,), np.float32
                     )
                     f[f"{i}"][f"{worker_idx}"].require_dataset(
-                        "active", (self.generations,), np.float32
+                        "active", (self.generations,), np.bool_
                     )
                     f[f"{i}"][f"{worker_idx}"].require_dataset(
-                        "current", (self.generations,), np.float32
+                        "current", (self.generations,), np.int16
                     )
                     f[f"{i}"][f"{worker_idx}"].require_dataset(
-                        "migration_steps", (self.generations,), np.float32
+                        "migration_steps", (self.generations,), np.int32
                     )
                     f[f"{i}"][f"{worker_idx}"].require_dataset(
                         "starttime", (self.generations,), np.float32
