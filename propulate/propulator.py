@@ -14,7 +14,7 @@ import h5py
 
 from ._globals import INDIVIDUAL_TAG
 from .population import Individual
-from .propagators import Propagator, SelectMin
+from .propagators import Propagator, SelectMin, BasicPSO
 
 log = logging.getLogger(__name__)  # Get logger instance.
 
@@ -170,44 +170,64 @@ class Propulator:
             self.checkpoint_path, "a", driver="mpio", comm=MPI.COMM_WORLD
         ) as f:
             # limits
+            limitsgroup = f.require_group("limits")
             for key in self.propagator.limits:
                 if key not in f.attrs:
-                    f.attrs[key] = str(self.propagator.limits[key])
+                    limitsgroup.attrs[key] = str(self.propagator.limits[key])
                 else:
-                    if not str(self.propagator.limits[key]) == f.attrs[key]:
+                    if not str(self.propagator.limits[key]) == limitsgroup.attrs[key]:
                         raise RuntimeError("Limits inconsistent with checkpoint")
 
-            # TODO resize dataset if necessary
+            xdim = 1
+            if isinstance(self.propagator, BasicPSO):
+                xdim = 2
+
+            oldgenerations = self.generations
+            if "0" in f:
+                oldgenerations = f["0"]["0"]["x"].shape[0]
 
             # population
             for i in range(num_islands):
                 f.require_group(f"{i}")
                 for worker_idx in range(self.comm.Get_size()):
-                    f[f"{i}"].require_group(f"{worker_idx}")
-                    # TODO conditional space for velocity
-                    f[f"{i}"][f"{worker_idx}"].require_dataset(
-                        "x", (self.generations, 2, limit_dim), dtype=np.float32
+                    group = f[f"{i}"].require_group(f"{worker_idx}")
+                    if oldgenerations < self.generations:
+                        group["x"].resize(self.generations, axis=0)
+                        group["loss"].resize(self.generations, axis=0)
+                        group["active"].resize(self.generations, axis=0)
+                        group["current"].resize(self.generations, axis=0)
+                        group["migration_steps"].resize(self.generations, axis=0)
+                        group["starttime"].resize(self.generations, axis=0)
+                        group["evaltime"].resize(self.generations, axis=0)
+                        group["evalperiod"].resize(self.generations, axis=0)
+
+                    group.require_dataset(
+                        "x",
+                        (self.generations, xdim, limit_dim),
+                        dtype=np.float32,
+                        chunks=True,
+                        maxshape=(None, xdim, limit_dim),
                     )
-                    f[f"{i}"][f"{worker_idx}"].require_dataset(
-                        "loss", (self.generations,), np.float32
+                    group.require_dataset(
+                        "loss", (self.generations,), np.float32, chunks=True, maxshape=(None,)
                     )
-                    f[f"{i}"][f"{worker_idx}"].require_dataset(
-                        "active", (self.generations,), np.bool_
+                    group.require_dataset(
+                        "active", (self.generations,), np.bool_, chunks=True, maxshape=(None,)
                     )
-                    f[f"{i}"][f"{worker_idx}"].require_dataset(
-                        "current", (self.generations,), np.int16
+                    group.require_dataset(
+                        "current", (self.generations,), np.int16, chunks=True, maxshape=(None,)
                     )
-                    f[f"{i}"][f"{worker_idx}"].require_dataset(
-                        "migration_steps", (self.generations,), np.int32
+                    group.require_dataset(
+                        "migration_steps", (self.generations,), np.int32, chunks=True, maxshape=(None,)
                     )
-                    f[f"{i}"][f"{worker_idx}"].require_dataset(
-                        "starttime", (self.generations,), np.float32
+                    group.require_dataset(
+                        "starttime", (self.generations,), np.float32, chunks=True, maxshape=(None,)
                     )
-                    f[f"{i}"][f"{worker_idx}"].require_dataset(
-                        "evaltime", (self.generations,), np.float32
+                    group.require_dataset(
+                        "evaltime", (self.generations,), np.float32, chunks=True, maxshape=(None,)
                     )
-                    f[f"{i}"][f"{worker_idx}"].require_dataset(
-                        "evalperiod", (self.generations,), np.float32
+                    group.require_dataset(
+                        "evalperiod", (self.generations,), np.float32, chunks=True, maxshape=(None,)
                     )
 
     def propulate(self, logging_interval: int = 10, debug: int = 1) -> None:
