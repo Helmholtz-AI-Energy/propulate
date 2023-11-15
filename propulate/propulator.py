@@ -111,6 +111,8 @@ class Propulator:
                     "Valid checkpoint file found. "
                     f"Resuming from generation {self.generation} of loaded population..."
                 )
+                # TODO it says resuming from generation 0, so something is not right
+                # TODO also each worker might be on a different generation so this message probably does not make all of the sense
         else:
             if self.comm.rank == 0:
                 log.info(
@@ -136,22 +138,26 @@ class Propulator:
         # TODO get the started but not yet completed ones from the difference in start time and evaltime
         with h5py.File(self.checkpoint_path, "r", driver=None) as f:
             group = f[f"{self.island_idx}"]
+            self.generation = group[f"{self.comm.Get_rank()}"].attrs["generation"]
             for rank in range(self.comm.size):
-                for ckpt_idx in range(len(group[f"{rank}"])):
-                    if group[f"{rank}"]["current"][ckpt_idx] == self.island_idx:
+                # for generation in range(len(group[f"{rank}"])):
+                for generation in range(self.generation):
+                    if group[f"{rank}"]["current"][generation] == self.island_idx:
                         ind = Individual(
-                            group[f"{rank}"]["x"][ckpt_idx, 0],
+                            group[f"{rank}"]["x"][generation, 0],
                             self.propagator.limits,
                         )
-                        ind.current = group[f"{rank}"]["current"][ckpt_idx]
+                        ind.rank = rank
+                        ind.island = self.island_idx
+                        ind.current = group[f"{rank}"]["current"][generation]
                         # TODO velocity loading
                         # if len(group[f"{rank}"].shape) > 1:
-                        #     ind.velocity = group[f"{rank}"]["x"][ckpt_idx, 1]
-                        ind.loss = group[f"{rank}"]["loss"][ckpt_idx]
-                        ind.startime = group[f"{rank}"]["starttime"][ckpt_idx]
-                        ind.evaltime = group[f"{rank}"]["evaltime"][ckpt_idx]
-                        ind.evalperiod = group[f"{rank}"]["evalperiod"][ckpt_idx]
-                        ind.generation = ckpt_idx
+                        #     ind.velocity = group[f"{rank}"]["x"][generation, 1]
+                        ind.loss = group[f"{rank}"]["loss"][generation]
+                        ind.startime = group[f"{rank}"]["starttime"][generation]
+                        ind.evaltime = group[f"{rank}"]["evaltime"][generation]
+                        ind.evalperiod = group[f"{rank}"]["evalperiod"][generation]
+                        ind.generation = generation
                         self.population.append(ind)
 
     def set_up_checkpoint(self, checkpoint_path):
@@ -172,7 +178,7 @@ class Propulator:
             # limits
             limitsgroup = f.require_group("limits")
             for key in self.propagator.limits:
-                if key not in f.attrs:
+                if key not in limitsgroup.attrs:
                     limitsgroup.attrs[key] = str(self.propagator.limits[key])
                 else:
                     if not str(self.propagator.limits[key]) == limitsgroup.attrs[key]:
@@ -209,25 +215,53 @@ class Propulator:
                         maxshape=(None, xdim, limit_dim),
                     )
                     group.require_dataset(
-                        "loss", (self.generations,), np.float32, chunks=True, maxshape=(None,)
+                        "loss",
+                        (self.generations,),
+                        np.float32,
+                        chunks=True,
+                        maxshape=(None,),
                     )
                     group.require_dataset(
-                        "active", (self.generations,), np.bool_, chunks=True, maxshape=(None,)
+                        "active",
+                        (self.generations,),
+                        np.bool_,
+                        chunks=True,
+                        maxshape=(None,),
                     )
                     group.require_dataset(
-                        "current", (self.generations,), np.int16, chunks=True, maxshape=(None,)
+                        "current",
+                        (self.generations,),
+                        np.int16,
+                        chunks=True,
+                        maxshape=(None,),
                     )
                     group.require_dataset(
-                        "migration_steps", (self.generations,), np.int32, chunks=True, maxshape=(None,)
+                        "migration_steps",
+                        (self.generations,),
+                        np.int32,
+                        chunks=True,
+                        maxshape=(None,),
                     )
                     group.require_dataset(
-                        "starttime", (self.generations,), np.float32, chunks=True, maxshape=(None,)
+                        "starttime",
+                        (self.generations,),
+                        np.float32,
+                        chunks=True,
+                        maxshape=(None,),
                     )
                     group.require_dataset(
-                        "evaltime", (self.generations,), np.float32, chunks=True, maxshape=(None,)
+                        "evaltime",
+                        (self.generations,),
+                        np.float32,
+                        chunks=True,
+                        maxshape=(None,),
                     )
                     group.require_dataset(
-                        "evalperiod", (self.generations,), np.float32, chunks=True, maxshape=(None,)
+                        "evalperiod",
+                        (self.generations,),
+                        np.float32,
+                        chunks=True,
+                        maxshape=(None,),
                     )
 
     def propulate(self, logging_interval: int = 10, debug: int = 1) -> None:
@@ -291,6 +325,7 @@ class Propulator:
         ckpt_idx = ind.generation
 
         group = hdf5_checkpoint[f"{self.island_idx}"][f"{self.comm.Get_rank()}"]
+        group.attrs["generation"] = ckpt_idx+1
         # save candidate
         group["x"][ckpt_idx, 0, :] = ind.position[:]
         if ind.velocity is not None:

@@ -83,6 +83,11 @@ def test_checkpointing_propulator():
         propulator.propulate()
 
         population = deepcopy(propulator.population)
+        generations = propulator.generations
+        poplist = [None] * generations
+        assert len(population) == generations
+        for ind in population:
+            poplist[ind.generation] = ind
 
         del propulator
 
@@ -94,13 +99,24 @@ def test_checkpointing_propulator():
             rng=rng,
         )
 
-        # TODO properly check the loaded from checkpoint  population is the same as the one retained from the first run
-        assert population == propulator.population
+        assert len(propulator.population) == generations
+        newpoplist = [None] * generations
+        for ind in propulator.population:
+            newpoplist[ind.generation] = ind
+
+        for ind1, ind2 in zip(poplist, newpoplist):
+            for key in ind1:
+                assert ind1[key] == pytest.approx(ind2[key])
+            assert ind1.loss == pytest.approx(ind2.loss)
+            assert ind1.generation == ind2.generation
+            assert ind1.rank == ind2.rank
+            assert ind1.island == ind2.island
+            assert ind1.active == ind2.active
 
 
-@pytest.mark.mpi_skip
-def test_checkpointing_propulator_midevaluation():
-    # TODO test if loading a checkpoint with an unfinished evaluation works correctly
-    # i.e. the not yet evaluated individual should be present but without result
-    # not sure how yet, would have to send a signal to kill the process without destroying the temp files and the restarting
-    raise
+# @pytest.mark.mpi_skip
+# def test_checkpointing_propulator_midevaluation():
+#     # TODO test if loading a checkpoint with an unfinished evaluation works correctly
+#     # i.e. the not yet evaluated individual should be present but without result
+#     # not sure how yet, would have to send a signal to kill the process without destroying the temp files and the restarting
+#     raise
