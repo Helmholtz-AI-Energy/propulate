@@ -325,7 +325,7 @@ class Propulator:
         ckpt_idx = ind.generation
 
         group = hdf5_checkpoint[f"{self.island_idx}"][f"{self.comm.Get_rank()}"]
-        group.attrs["generation"] = ckpt_idx+1
+        group.attrs["generation"] = ckpt_idx + 1
         # save candidate
         group["x"][ckpt_idx, 0, :] = ind.position[:]
         if ind.velocity is not None:
