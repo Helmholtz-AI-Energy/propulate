@@ -649,6 +649,7 @@ class CMAPropagator(Propagator):
         """
         self.adapter = adapter
         self.limits = limits
+        # TODO this is only true when all parameters are continuous
         problem_dimension = len(limits)
         # Number of individuals considered for each generation
         lamb = (
