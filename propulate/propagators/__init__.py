@@ -38,6 +38,11 @@ from .cmaes import (
     ActiveCMA,
 )
 
+
+from .nm import (
+    ReferenceNM
+)
+
 __all__ = [
     "Propagator",
     "Stochastic",
@@ -63,4 +68,5 @@ __all__ = [
     "CMAPropagator",
     "BasicCMA",
     "ActiveCMA",
+    "ReferenceNM",
 ]
