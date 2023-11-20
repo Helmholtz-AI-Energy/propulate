@@ -45,3 +45,8 @@ def test_CMAES():
 @pytest.mark.mpi
 def test_CMAES_migration():
     pass
+
+
+@pytest.mark.mpi
+def test_CMAES_categorical():
+    pass
