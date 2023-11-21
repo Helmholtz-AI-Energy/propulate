@@ -11,6 +11,7 @@ from .base import (
     SelectMax,
     SelectUniform,
     InitUniform,
+    Gaussian,
 )
 
 from .ga import (
@@ -52,6 +53,7 @@ __all__ = [
     "SelectMax",
     "SelectUniform",
     "InitUniform",
+    "Gaussian",
     "PointMutation",
     "RandomPointMutation",
     "IntervalMutationNormal",

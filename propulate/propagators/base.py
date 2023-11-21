@@ -1,5 +1,6 @@
 import random
 from typing import List, Dict, Union, Tuple
+import numpy as np
 
 from ..population import Individual
 
@@ -469,3 +470,17 @@ class InitUniform(Stochastic):
         else:  # Return first input individual w/o changes otherwise.
             ind = inds[0]
         return ind
+
+
+class Gaussian(Propagator):
+    def __init__(
+        self, limits: Dict[str, Tuple[float, float]], scale, rng: np.random.Generator
+    ):
+        super().__init__(limits, 1, 1)
+        self.rng = rng
+        self.scale = scale
+
+    def __call__(self, inds: List[Individual]) -> Individual:
+        position = np.array(inds[0].position)
+        position += self.rng.normal(scale=self.scale, size=position.shape)
+        return Individual(position, self.limits)
