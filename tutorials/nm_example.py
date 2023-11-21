@@ -2,12 +2,14 @@
 import random
 import argparse
 import logging
+from pathlib import Path
 
+import numpy as np
 from mpi4py import MPI
 
 from propulate import Propulator
 from propulate.utils import set_logger_config, get_function_search_space
-from propulate.propagators.nm import ReferenceNM
+from propulate.propagators.nm import AdaptedNM
 
 if __name__ == "__main__":
     comm = MPI.COMM_WORLD
@@ -55,20 +57,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "-ckpt", "--checkpoint", type=str, default="./"
     )  # Path for loading and writing checkpoints.
-    parser.add_argument(
-        "-p", "--pop_size", type=int, default=2 * comm.size
-    )  # Breeding pool size
-    parser.add_argument(
-        "-cp", "--crossover_probability", type=float, default=0.7
-    )  # Crossover probability
-    parser.add_argument(
-        "-mp", "--mutation_probability", type=float, default=0.4
-    )  # Mutation probability
-    parser.add_argument("-rp", "--random_init_probability", type=float, default=0.1)
     parser.add_argument("-t", "--top_n", type=int, default=1)
     parser.add_argument("-l", "--logging_int", type=int, default=10)
     config = parser.parse_args()
 
+    Path(config.checkpoint).mkdir(parents=True, exist_ok=True)
     # Set up separate logger for Propulate optimization.
     set_logger_config(
         level=logging.INFO,  # logging level
@@ -85,8 +78,13 @@ if __name__ == "__main__":
         config.function
     )  # Get callable function + search-space limits.
 
-    # Set up evolutionary operator.
-    propagator = ReferenceNM(limits, rng=rng)
+    # TODO fix this for categorical
+    low = np.array([v[0] for v in limits.values()])
+    high = np.array([v[1] for v in limits.values()])
+    start_point = np.random.default_rng(seed=config.seed + 235231).uniform(
+        low=low, high=high
+    )
+    propagator = AdaptedNM(limits, rng=rng, start=start_point)
     # Set up propulator performing actual optimization.
     propulator = Propulator(
         loss_fn=function,
