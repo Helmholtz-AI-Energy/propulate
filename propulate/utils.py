@@ -179,7 +179,7 @@ def rosenbrock(params: Dict[str, float]) -> float:
     float
         function value
     """
-    params = np.array(list(params.values()))
+    params = np.array(params[k] for k in params)
     return 100 * (params[0] ** 2 - params[1]) ** 2 + (1 - params[0]) ** 2
 
 
@@ -205,7 +205,7 @@ def step(params: Dict[str, float]) -> float:
     float
         function value
     """
-    params = np.array(list(params.values()))
+    params = np.array(list(params[k] for k in params))
     return np.sum(params.astype(int), dtype=float)
 
 
@@ -230,7 +230,7 @@ def quartic(params: Dict[str, float]) -> float:
     float
         function value
     """
-    params = np.array(list(params.values()))
+    params = np.array(list([params[k] for k in params]))
     idx = np.arange(1, len(params) + 1)
     gauss = np.random.normal(size=len(params))
     return abs(np.sum(idx * params**4 + gauss))
@@ -259,7 +259,7 @@ def rastrigin(params: Dict[str, float]) -> float:
         function value
     """
     a = 10.0
-    params = np.array(list(params.values()))
+    params = np.array(list([params[k] for k in params]))
     return a * len(params) + np.sum(params**2 - a * np.cos(2 * np.pi * params))
 
 
@@ -285,7 +285,7 @@ def griewank(params: Dict[str, float]) -> float:
     float
         function value
     """
-    params = np.array(list(params.values()))
+    params = np.array(list([params[k] for k in params]))
     idx = np.arange(1, len(params) + 1)
     return 1 + 1.0 / 4000 * np.sum(params**2) - np.prod(np.cos(params / np.sqrt(idx)))
 
@@ -311,7 +311,7 @@ def schwefel(params: Dict[str, float]) -> float:
         function value
     """
     v = 418.982887
-    params = np.array(list(params.values()))
+    params = np.array(list([params[k] for k in params]))
     return v * len(params) - np.sum(params * np.sin(np.sqrt(np.abs(params))))
 
 
@@ -378,7 +378,7 @@ def birastrigin(params: Dict[str, float]) -> float:
     float
         function value
     """
-    params = np.array(list(params.values()))
+    params = np.array(list([params[k] for k in params]))
     n = len(params)
     d = 1
     s = 1 - np.sqrt(1 / (2 * np.sqrt(n + 20) - 8.2))
@@ -406,7 +406,7 @@ def bukin_n6(params: Dict[str, float]) -> float:
     float
         function value
     """
-    params = np.array(list(params.values()))
+    params = np.array(list([params[k] for k in params]))
     return 100 * np.sqrt(np.abs(params[1] - 0.01 * params[0] ** 2)) + 0.01 * np.abs(
         params[0] + 10
     )
@@ -429,7 +429,7 @@ def egg_crate(params: Dict[str, float]) -> float:
     float
         function value
     """
-    params = np.array(list(params.values()))
+    params = np.array(list([params[k] for k in params]))
     return (
         params[0] ** 2
         + params[1] ** 2
@@ -454,7 +454,7 @@ def himmelblau(params: Dict[str, float]) -> float:
     float
         function value
     """
-    params = np.array(list(params.values()))
+    params = np.array(list([params[k] for k in params]))
     return (params[0] ** 2 + params[1] - 11) ** 2 + (
         params[0] + params[1] ** 2 - 7
     ) ** 2
@@ -477,7 +477,7 @@ def keane(params: Dict[str, float]) -> float:
     float
         function value
     """
-    params = np.array(list(params.values()))
+    params = np.array(list([params[k] for k in params]))
     return (
         -np.sin(params[0] - params[1]) ** 2
         * np.sin(params[0] + params[1]) ** 2
@@ -502,7 +502,7 @@ def leon(params: Dict[str, float]) -> float:
     float
         function value
     """
-    params = np.array(list(params.values()))
+    params = np.array(list([params[k] for k in params]))
     return 100 * (params[1] - params[0] ** 3) ** 2 + (1 - params[0]) ** 2
 
 
