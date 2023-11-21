@@ -201,7 +201,7 @@ class AdaptedNM(Propagator):
                 ind = self.expand()
                 self.step = "expand"
             elif self.simplex[-1].generation == self.generation:
-                ind = self.contract()
+                ind = self.outercontract()
                 self.step = "outercontract"
             elif self.generation not in set([x.generation for x in self.simplex]):
                 if self.step == "expand":
