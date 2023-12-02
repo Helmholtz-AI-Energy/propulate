@@ -2,7 +2,7 @@ import logging
 import platform
 import random
 from pathlib import Path
-from typing import Callable, Union, List, Type
+from typing import Callable, Union, List, Type, Generator
 
 import numpy as np
 from mpi4py import MPI
@@ -29,7 +29,7 @@ class Islands:
 
     def __init__(
         self,
-        loss_fn: Callable,
+        loss_fn: Union[Callable, Generator[float, None, None]],
         propagator: Propagator,
         rng: random.Random,
         generations: int = 0,
@@ -42,14 +42,13 @@ class Islands:
         pollination: bool = True,
         checkpoint_path: Union[str, Path] = Path("./"),
         surrogate_factory: Callable[[], Surrogate] = None,
-        train_callback: Callable = None,
     ) -> None:
         """
         Initialize island model with given parameters.
 
         Parameters
         ----------
-        loss_fn: Callable
+        loss_fn: Union[Callable, Generator[float, None, None]]
                  loss function to be minimized
         propagator: propulate.propagators.Propagator
                     propagator to apply for breeding
@@ -81,6 +80,9 @@ class Islands:
                      original island.
         checkpoint_path: Union[Path, str]
                          Path where checkpoints are loaded from and stored.
+        surrogate_factory: Callable[[], Surrogate]
+                           Function that returns a new instance of a Surrogate model.
+                           Only used when loss_fn is a generator function.
 
         Raises
         ------
@@ -217,7 +219,6 @@ class Islands:
                 island_counts=island_sizes,
                 rng=rng,
                 surrogate_factory=surrogate_factory,
-                train_callback=train_callback,
             )
         else:
             if rank == 0:
@@ -237,7 +238,6 @@ class Islands:
                 island_counts=island_sizes,
                 rng=rng,
                 surrogate_factory=surrogate_factory,
-                train_callback=train_callback,
             )
 
     def _run(

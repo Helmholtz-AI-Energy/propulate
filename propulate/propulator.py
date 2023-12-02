@@ -4,10 +4,10 @@ import os
 import pickle
 import random
 import time
+import inspect
 from operator import attrgetter
 from pathlib import Path
-from typing import Callable, Union, List, Tuple, Type
-from functools import partial
+from typing import Callable, Union, List, Tuple, Type, Generator
 
 import deepdiff
 import numpy as np
@@ -32,7 +32,7 @@ class Propulator:
 
     def __init__(
         self,
-        loss_fn: Callable,
+        loss_fn: Union[Callable, Generator[float, None, None]],
         propagator: Propagator,
         island_idx: int = 0,
         comm: MPI.Comm = MPI.COMM_WORLD,
@@ -45,14 +45,13 @@ class Propulator:
         island_counts: np.ndarray = None,
         rng: random.Random = None,
         surrogate_factory: Callable[[], Surrogate] = None,
-        train_callback: Callable = None,
     ) -> None:
         """
         Initialize Propulator with given parameters.
 
         Parameters
         ----------
-        loss_fn: Callable
+        loss_fn: Union[Callable, Generator[float, None, None]]
                  loss function to be minimized
         propagator: propulate.propagators.Propagator
                     propagator to apply for breeding
@@ -81,6 +80,9 @@ class Propulator:
                        Element i specifies number of workers on island with index i.
         rng: random.Random
              random number generator
+        surrogate_factory: Callable[[], Surrogate]
+                           Function that returns a new instance of a Surrogate model.
+                           Only used when loss_fn is a generator function.
         """
         # Set class attributes.
         self.loss_fn = loss_fn  # callable loss function
@@ -106,15 +108,9 @@ class Propulator:
         self.emigration_propagator = emigration_propagator  # emigration propagator
         self.rng = rng
 
-        # always initialize Surrogate and train_callback
+        # always initialize Surrogate
         # as the class attr has to be set for None checks later
         self.surrogate = None if surrogate_factory is None else surrogate_factory()
-        if train_callback is not None:
-            self.train_callback = train_callback  # set logging callback
-            # bind callback to propulator so self.surrogate can be accessed from within callback
-            self.train_callback = partial(train_callback, self)
-        else:
-            self.train_callback = None
 
         # Load initial population of evaluated individuals from checkpoint if exists.
         load_ckpt_file = self.checkpoint_path / f"island_{self.island_idx}_ckpt.pickle"
@@ -212,12 +208,20 @@ class Propulator:
         ind = self._breed()  # Breed new individual.
         start_time = time.time()  # Start evaluation timer.
 
-        # Evaluate loss either with or without callback
-        # this if ensures Propulate can be used without a surrogate model
-        if self.train_callback is not None:
-            ind.loss = self.loss_fn(ind, callback=self.train_callback)
+        # check if loss_fn is Generator or not
+        if inspect.isgeneratorfunction(self.loss_fn):
+            last: float = 0.0
+            for last in self.loss_fn(ind):
+                if self.surrogate is not None:
+                    if self.surrogate.cancel(last):  # check cancel for each yield
+                        break
+            ind.loss = last  # set final loss as individual's loss
         else:
             ind.loss = self.loss_fn(ind)  # Evaluate its loss
+
+        # lastly add final value to surrogate
+        if self.surrogate is not None:
+            self.surrogate.update(ind.loss)
 
         ind.evaltime = time.time()  # Stop evaluation timer.
         ind.evalperiod = ind.evaltime - start_time  # Calculate evaluation duration.
@@ -230,7 +234,8 @@ class Propulator:
         )
 
         if self.surrogate is not None:
-            ind['s'] = self.surrogate  # add Surrogate model to individual for sending and synchronization
+            # add Surrogate model data to individual for synchronization
+            ind['s'] = self.surrogate.data()
 
         # Tell other workers in own island about results to synchronize their populations.
         for r in range(self.comm.size):  # Loop over ranks in intra-island communicator.
@@ -267,8 +272,8 @@ class Propulator:
                 )  # Add received individual to own worker-local population.
 
                 # only merge if Surrogate model is used
-                if 's' in ind_temp:
-                    self.surrogate.merge(ind_temp['s'])  # merge Surrogate models
+                if 's' in ind_temp and self.surrogate is not None:
+                    self.surrogate.merge(ind_temp['s'])
 
                 log_string += f"Added individual {ind_temp} from W{stat.Get_source()} to own population.\n"
         _, n_active = self._get_active_individuals()

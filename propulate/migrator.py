@@ -2,7 +2,7 @@ import copy
 import random
 import logging
 from pathlib import Path
-from typing import Callable, Union, Type
+from typing import Callable, Union, Type, Generator
 
 import numpy as np
 from mpi4py import MPI
@@ -26,7 +26,7 @@ class Migrator(Propulator):
 
     def __init__(
         self,
-        loss_fn: Callable,
+        loss_fn: Union[Callable, Generator[float, None, None]],
         propagator: Propagator,
         island_idx: int = 0,
         comm: MPI.Comm = MPI.COMM_WORLD,
@@ -39,14 +39,13 @@ class Migrator(Propulator):
         island_counts: np.ndarray = None,
         rng: random.Random = None,
         surrogate_factory: Callable[[], Surrogate] = None,
-        train_callback: Callable = None,
     ) -> None:
         """
         Initialize ``Migrator`` with given parameters.
 
         Parameters
         ----------
-        loss_fn: Callable
+        loss_fn: Union[Callable, Generator[float, None, None]]
                  loss function to be minimized
         propagator: propulate.propagators.Propagator
                     propagator to apply for breeding
@@ -75,6 +74,9 @@ class Migrator(Propulator):
                        Element i specifies number of workers on island with index i.
         rng: random.Random
              random number generator
+        surrogate_factory: Callable[[], Surrogate]
+                           Function that returns a new instance of a Surrogate model.
+                           Only used when loss_fn is a generator function.
         """
         super().__init__(
             loss_fn,
@@ -90,7 +92,6 @@ class Migrator(Propulator):
             island_counts,
             rng,
             surrogate_factory,
-            train_callback,
         )
         # Set class attributes.
         self.emigrated = []  # emigrated individuals to be deactivated on sending island

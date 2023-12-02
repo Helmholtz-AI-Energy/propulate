@@ -3,7 +3,7 @@ import logging
 import random
 import time
 from pathlib import Path
-from typing import Callable, Union, Tuple, List, Type
+from typing import Callable, Union, Tuple, List, Type, Generator
 
 import numpy as np
 from mpi4py import MPI
@@ -29,7 +29,7 @@ class Pollinator(Propulator):
 
     def __init__(
         self,
-        loss_fn: Callable,
+        loss_fn: Union[Callable, Generator[float, None, None]],
         propagator: Propagator,
         island_idx: int = 0,
         comm: MPI.Comm = MPI.COMM_WORLD,
@@ -43,14 +43,13 @@ class Pollinator(Propulator):
         island_counts: np.ndarray = None,
         rng: random.Random = None,
         surrogate_factory: Callable[[], Surrogate] = None,
-        train_callback: Callable = None,
     ) -> None:
         """
         Initialize ``Pollinator`` with given parameters.
 
         Parameters
         ----------
-        loss_fn: Callable
+        loss_fn: Union[Callable, Generator[float, None, None]]
                  loss function to be minimized
         propagator: propulate.propagators.Propagator
                     propagator to apply for breeding
@@ -83,6 +82,9 @@ class Pollinator(Propulator):
                        Element i specifies number of workers on island with index i.
         rng: random.Random
              random number generator
+        surrogate_factory: Callable[[], Surrogate]
+                           Function that returns a new instance of a Surrogate model.
+                           Only used when loss_fn is a generator function.
         """
         super().__init__(
             loss_fn,
@@ -98,7 +100,6 @@ class Pollinator(Propulator):
             island_counts,
             rng,
             surrogate_factory,
-            train_callback,
         )
         # Set class attributes.
         self.immigration_propagator = immigration_propagator  # immigration propagator
