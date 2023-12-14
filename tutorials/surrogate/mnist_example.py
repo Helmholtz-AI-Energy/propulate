@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import random
-from typing import Union, Dict, Tuple
+from typing import Union, Dict, Tuple, Generator
 
 import torch
 from torch import nn
@@ -14,8 +14,16 @@ from torchmetrics import Accuracy
 from mpi4py import MPI
 
 from propulate import Islands
-from propulate import Surrogate, Propulator
 from propulate.utils import get_default_propagator
+
+import os
+import sys
+sys.path.append(os.path.abspath('../../'))
+from tutorials.surrogate.default_surrogate import DefaultSurrogate
+# from tutorials.surrogate.log_surrogate import LogSurrogate
+# from tutorials.surrogate.static_surrogate import StaticSurrogate
+# from tutorials.surrogate.dynamic_surrogate import DynamicSurrogate
+
 
 GPUS_PER_NODE: int = 1
 
@@ -208,8 +216,7 @@ def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
 
 def ind_loss(
         params: Dict[str, Union[int, float, str]],
-        callback=None
-    ) -> float:
+) -> Generator[float, None, None]:
     """
     Loss function for evolutionary optimization with Propulate. Minimize the model's negative validation accuracy.
 
@@ -219,8 +226,8 @@ def ind_loss(
 
     Returns
     -------
-    float
-        The trained model's negative validation accuracy
+    Generator[float, None, None]
+        yields the negative validation accuracy of the trained model
     """
     # Extract hyperparameter combination to test from input dictionary.
     conv_layers = int(params["conv_layers"])  # Number of convolutional layers
@@ -228,6 +235,16 @@ def ind_loss(
     lr = float(params["lr"])  # Learning rate
 
     epochs: int = 2  # Number of epochs to train
+
+    rank: int = MPI.COMM_WORLD.Get_rank()  # Get rank of current worker
+
+    num_gpus = torch.cuda.device_count()  # Number of GPUs available
+    device_index = rank % num_gpus
+    device = torch.device(f'cuda:{device_index}'
+                          if torch.cuda.is_available()
+                          else 'cpu')
+
+    print(f"Rank: {rank}, Using device: {device}")
 
     activations = {
         "relu": nn.ReLU,
@@ -241,7 +258,7 @@ def ind_loss(
 
     model = Net(
         conv_layers, activation, lr, loss_fn
-    )  # Set up neural network with specified hyperparameters.
+    ).to(device)  # Set up neural network with specified hyperparameters.
     model.best_accuracy = 0.0  # Initialize the model's best validation accuracy.
 
     train_loader, val_loader = get_data_loaders(
@@ -260,6 +277,7 @@ def ind_loss(
         total_train_loss = 0
         # Training loop
         for batch_idx, (data, target) in enumerate(train_loader):
+            data, target = data.to(device), target.to(device)
             # zero parameter gradients
             optimizer.zero_grad()
             # forward + backward + optimize
@@ -271,9 +289,7 @@ def ind_loss(
 
             # send loss
             if batch_idx % 100 == 0:
-                if callback:
-                    if callback(epoch, batch_idx, total_train_loss / (batch_idx + 1)):
-                        return total_train_loss / (batch_idx + 1)
+                yield -(total_train_loss / (batch_idx + 1))
 
         avg_train_loss = total_train_loss / len(train_loader)
         print(f"Epoch {epoch+1}: Avg Training Loss: {avg_train_loss}")
@@ -283,6 +299,7 @@ def ind_loss(
         total_val_loss = 0
         with torch.no_grad():
             for batch_idx, (data, target) in enumerate(val_loader):
+                data, target = data.to(device), target.to(device)
                 # forward
                 loss = model.validation_step((data, target), batch_idx)
                 # update loss
@@ -290,46 +307,12 @@ def ind_loss(
 
                 # send loss
                 if batch_idx % 100 == 0:
-                    if callback:
-                        if callback(epoch, batch_idx, total_val_loss / (batch_idx + 1)):
-                            return total_val_loss / (batch_idx + 1)
+                    yield -(total_val_loss / (batch_idx + 1))
 
         avg_val_loss = total_val_loss / len(val_loader)
         print(f"Epoch {epoch+1}: Avg Validation Loss: {avg_val_loss}")
 
-        if callback:
-            if callback(epoch, avg_train_loss, avg_val_loss):
-                break
-
-    return -avg_val_loss
-
-
-def train_callback(instance: Propulator, epoch, train_loss, val_loss) -> bool:
-    print(f"Epoch {epoch}: batch index / Training Loss: {train_loss}, Validation Loss: {val_loss}")
-
-    assert instance.surrogate is not None
-
-    instance.surrogate.update(val_loss)
-
-    return instance.surrogate.cancel(val_loss)
-
-
-class TestSurrogate(Surrogate):
-    def __init__(self):
-        super().__init__()
-
-    def update(self, loss: float):
-        print(f"Updated with loss: {loss}")
-
-    def cancel(self, loss: float) -> bool:
-        # always return false as default
-        return False
-
-    def merge(self, new: 'Surrogate'):
-        pass
-
-    def data(self) -> dict:
-        return {}
+        yield -avg_val_loss
 
 
 if __name__ == "__main__":
@@ -358,37 +341,10 @@ if __name__ == "__main__":
         generations=num_generations,  # Number of generations per worker
         num_islands=1,  # Number of islands
         checkpoint_path=log_path,
-        surrogate_factory=lambda: TestSurrogate(),
-        train_callback=train_callback,
+        surrogate_factory=lambda: DefaultSurrogate(),
     )
     islands.evolve(  # Run evolutionary optimization.
         top_n=1,  # Print top-n best individuals on each island in summary.
         logging_interval=1,  # Logging interval
         debug=2,  # Verbosity level
     )
-
-
-class NoSurrogate(Surrogate):
-    """
-    Acts like there is no surrogate at all
-    always returns False for cancel and does nothing for merge
-    """
-
-    def __init__(self):
-        super().__init__()
-
-
-class StaticSurrogate(Surrogate):
-    """
-    """
-
-    def __init__(self):
-        super().__init__()
-
-
-class BayesianSurrogate(Surrogate):
-    """
-    """
-
-    def __init__(self):
-        super().__init__()
