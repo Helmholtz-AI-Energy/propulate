@@ -1,6 +1,8 @@
 from typing import TypeVar, Generic
 from abc import ABC, abstractmethod
 
+from propulate.population import Individual
+
 T = TypeVar("T")
 
 
@@ -12,12 +14,36 @@ class Surrogate(ABC, Generic[T]):
     periodically checking the yield of the loss function during its evaluation.
     If the surrogate model determines that the current run will not result
     in an improvement, Propulator will cancel the run.
+
+    Implementation Checklist:
+    * Yield from loss_fn is called periodically without any randomness.
+    * Merge has to be commutative!
     """
 
     @abstractmethod
     def __init__(self) -> None:
         """
         Initialize a new surrogate model.
+        """
+        pass
+
+    @abstractmethod
+    def start_run(
+        self,
+        ind: Individual
+    ) -> None:
+        """
+        Signalizes that a new run is about to start.
+        This is called before the first yield from the loss_fn.
+        Assume that the individual is freshly created.
+        Keep in mind that there might be (private) keys
+        that are not related to limits, like the surrogate_key '_s'.
+        Key names (limits) could be given in Surrogate constructor if needed.
+
+        Parameters
+        ----------
+        ind: Individual
+             The to be evaluated individual
         """
         pass
 

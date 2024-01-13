@@ -209,6 +209,10 @@ class Propulator:
         ind = self._breed()  # Breed new individual.
         start_time = time.time()  # Start evaluation timer.
 
+        # signal start of run to surrogate model
+        if self.surrogate is not None:
+            self.surrogate.start_run(ind)
+
         # check if loss_fn is Generator or not
         if inspect.isgeneratorfunction(self.loss_fn):
             last: float = 0.0
