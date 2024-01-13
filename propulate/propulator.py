@@ -7,7 +7,7 @@ import time
 import inspect
 from operator import attrgetter
 from pathlib import Path
-from typing import Callable, Union, List, Tuple, Type, Generator
+from typing import Callable, Union, List, Tuple, Type, Generator, Final
 
 import deepdiff
 import numpy as np
@@ -19,6 +19,7 @@ from .propagators import Propagator, SelectMin
 from .surrogate import Surrogate
 
 log = logging.getLogger(__name__)  # Get logger instance.
+SURROGATE_KEY: Final[str] = "_s"  # key for Surrogate data in Individual
 
 
 class Propulator:
@@ -235,7 +236,7 @@ class Propulator:
 
         if self.surrogate is not None:
             # add Surrogate model data to individual for synchronization
-            ind['s'] = self.surrogate.data()
+            ind[SURROGATE_KEY] = self.surrogate.data()
 
         # Tell other workers in own island about results to synchronize their populations.
         for r in range(self.comm.size):  # Loop over ranks in intra-island communicator.
@@ -272,8 +273,8 @@ class Propulator:
                 )  # Add received individual to own worker-local population.
 
                 # only merge if Surrogate model is used
-                if 's' in ind_temp and self.surrogate is not None:
-                    self.surrogate.merge(ind_temp['s'])
+                if SURROGATE_KEY in ind_temp and self.surrogate is not None:
+                    self.surrogate.merge(ind_temp[SURROGATE_KEY])
 
                 log_string += f"Added individual {ind_temp} from W{stat.Get_source()} to own population.\n"
         _, n_active = self._get_active_individuals()
