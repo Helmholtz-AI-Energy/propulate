@@ -248,6 +248,10 @@ class Propulator:
                 continue  # No self-talk.
             self.comm.send(copy.deepcopy(ind), dest=r, tag=INDIVIDUAL_TAG)
 
+        if self.surrogate is not None:
+            # remove data from individual again as __eq__ fails otherwise
+            del ind[SURROGATE_KEY]
+
     def _receive_intra_island_individuals(self) -> None:
         """
         Check for and possibly receive incoming individuals
@@ -272,13 +276,17 @@ class Propulator:
             if probe_ind:
                 # Receive individual and add it to own population.
                 ind_temp = self.comm.recv(source=stat.Get_source(), tag=INDIVIDUAL_TAG)
-                self.population.append(
-                    ind_temp
-                )  # Add received individual to own worker-local population.
 
                 # only merge if Surrogate model is used
                 if SURROGATE_KEY in ind_temp and self.surrogate is not None:
                     self.surrogate.merge(ind_temp[SURROGATE_KEY])
+                # remove data from individual again as __eq__ fails otherwise
+                if SURROGATE_KEY in ind_temp:
+                    del ind_temp[SURROGATE_KEY]
+
+                self.population.append(
+                    ind_temp
+                )  # Add received individual to own worker-local population.
 
                 log_string += f"Added individual {ind_temp} from W{stat.Get_source()} to own population.\n"
         _, n_active = self._get_active_individuals()
