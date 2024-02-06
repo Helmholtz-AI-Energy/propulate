@@ -368,7 +368,14 @@ class CanonicalPSO(ConstrictionPSO):
     :class: ``ConstrictionPSO`` : Parent class
     """
 
-    def __init__(self, c_cognitive, c_social, rank, limits, rng):
+    def __init__(
+        self,
+        c_cognitive: float,
+        c_social: float,
+        rank: int,
+        limits: Dict[str, Tuple[float, float]],
+        rng: Random,
+    ):
         """
         Initialize a canonical PSO propagator.
 
