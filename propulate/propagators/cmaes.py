@@ -1,6 +1,5 @@
-import copy
 import random
-from typing import List, Dict, Union, Tuple
+from typing import List, Dict, Tuple
 
 import numpy as np
 

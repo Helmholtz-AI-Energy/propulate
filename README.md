@@ -12,6 +12,7 @@
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/7785/badge)](https://www.bestpractices.dev/projects/7785)
 [![](https://img.shields.io/badge/Contact-marie.weiel%40kit.edu-orange)](mailto:marie.weiel@kit.edu)
 [![Documentation Status](https://readthedocs.org/projects/propulate/badge/?version=latest)](https://propulate.readthedocs.io/en/latest/?badge=latest)
+![](./coverage.svg)
 
 # **Click [here](https://www.scc.kit.edu/en/aboutus/16956.php) to watch our 3 min introduction video!** 
 
