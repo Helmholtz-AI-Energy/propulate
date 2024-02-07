@@ -16,7 +16,6 @@ from propulate.utils import get_default_propagator, set_logger_config
 
 
 GPUS_PER_NODE: int = 4
-
 log_path = "torch_ckpts"
 
 
@@ -36,13 +35,13 @@ class Net(LightningModule):
         Parameters
         ----------
         conv_layers: int
-                     number of convolutional layers
+            The number of convolutional layers.
         activation: torch.nn.modules.activation
-                    activation function to use
+            The activation function to use.
         lr: float
             learning rate
         loss_fn: torch.nn.modules.loss
-                 loss function
+            The loss function.
         """
         super(Net, self).__init__()
 
@@ -78,12 +77,12 @@ class Net(LightningModule):
         Parameters
         ----------
         x: torch.Tensor
-           data sample
+           The data sample.
 
         Returns
         -------
         torch.Tensor
-            The model's predictions for input data sample
+            The model's predictions for input data sample.
         """
         b, c, w, h = x.size()
         x = self.conv_layers(x)
@@ -100,14 +99,14 @@ class Net(LightningModule):
         Parameters
         ----------
         batch: Tuple[torch.Tensor, torch.Tensor]
-               input batch
+            The input batch.
         batch_idx: int
-                   batch index
+            Its batch index.
 
         Returns
         -------
         torch.Tensor
-            training loss for input batch
+            The training loss for this input batch.
         """
         x, y = batch
         pred = self(x)
@@ -126,14 +125,14 @@ class Net(LightningModule):
         Parameters
         ----------
         batch: Tuple[torch.Tensor, torch.Tensor]
-               current batch
+            The current batch
         batch_idx: int
-                   batch index
+            The batch index.
 
         Returns
         -------
         torch.Tensor
-            validation loss for input batch
+            The validation loss for the input batch.
         """
         x, y = batch
         pred = self(x)
@@ -150,7 +149,7 @@ class Net(LightningModule):
         Returns
         -------
         torch.optim.sgd.SGD
-            stochastic gradient descent optimizer
+            A stochastic gradient descent optimizer.
         """
         return torch.optim.SGD(self.parameters(), lr=self.lr)
 
@@ -171,14 +170,14 @@ def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
     Parameters
     ----------
     batch_size: int
-                batch size
+        The batch size.
 
     Returns
     -------
     DataLoader
-        training dataloader
+        The training dataloader.
     DataLoader
-        validation dataloader
+        The validation dataloader.
     """
     data_transform = Compose([ToTensor(), Normalize((0.1307,), (0.3081,))])
     num_workers = 2
