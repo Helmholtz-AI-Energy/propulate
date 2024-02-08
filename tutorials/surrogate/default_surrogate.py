@@ -1,4 +1,5 @@
 from propulate import Surrogate
+from propulate.population import Individual
 
 
 class DefaultSurrogate(Surrogate):
@@ -10,6 +11,9 @@ class DefaultSurrogate(Surrogate):
 
     def __init__(self):
         super().__init__()
+
+    def start_run(self, ind: Individual):
+        pass
 
     def update(self, loss: float):
         pass
