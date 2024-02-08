@@ -1,0 +1,5 @@
+torch
+torchvision
+torchmetrics
+GPy
+mpi4py==3.0.3
