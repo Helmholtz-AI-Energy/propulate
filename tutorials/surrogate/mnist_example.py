@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import random
+import os
+import sys
 from typing import Union, Dict, Tuple, Generator
 
 import torch
@@ -16,18 +18,16 @@ from mpi4py import MPI
 from propulate import Islands
 from propulate.utils import get_default_propagator
 
-import os
-import sys
-sys.path.append(os.path.abspath('../../'))
 from tutorials.surrogate.default_surrogate import DefaultSurrogate
 # from tutorials.surrogate.log_surrogate import LogSurrogate
 # from tutorials.surrogate.static_surrogate import StaticSurrogate
 # from tutorials.surrogate.dynamic_surrogate import DynamicSurrogate
 
-
 GPUS_PER_NODE: int = 1
 
 log_path = "torch_ckpts"
+
+sys.path.append(os.path.abspath('../../'))
 
 
 class Net(nn.Module):
@@ -239,10 +239,13 @@ def ind_loss(
     rank: int = MPI.COMM_WORLD.Get_rank()  # Get rank of current worker
 
     num_gpus = torch.cuda.device_count()  # Number of GPUs available
-    device_index = rank % num_gpus
-    device = torch.device(f'cuda:{device_index}'
-                          if torch.cuda.is_available()
-                          else 'cpu')
+    if num_gpus == 0:
+        device = torch.device('cpu')
+    else:
+        device_index = rank % num_gpus
+        device = torch.device(f'cuda:{device_index}'
+                              if torch.cuda.is_available()
+                              else 'cpu')
 
     print(f"Rank: {rank}, Using device: {device}")
 
@@ -272,7 +275,6 @@ def ind_loss(
     avg_val_loss: float = 0.0
 
     for epoch in range(epochs):
-        print(f"Epoch {epoch+1}:")
         model.train()
         total_train_loss = 0
         # Training loop
@@ -286,10 +288,6 @@ def ind_loss(
             optimizer.step()
             # update loss
             total_train_loss += loss.item()
-
-            # send loss
-            if batch_idx % 100 == 0:
-                yield -(total_train_loss / (batch_idx + 1))
 
         avg_train_loss = total_train_loss / len(train_loader)
         print(f"Epoch {epoch+1}: Avg Training Loss: {avg_train_loss}")
@@ -305,14 +303,23 @@ def ind_loss(
                 # update loss
                 total_val_loss += loss.item()
 
-                # send loss
-                if batch_idx % 100 == 0:
-                    yield -(total_val_loss / (batch_idx + 1))
-
         avg_val_loss = total_val_loss / len(val_loader)
         print(f"Epoch {epoch+1}: Avg Validation Loss: {avg_val_loss}")
 
-        yield -avg_val_loss
+        yield avg_val_loss
+
+
+def set_seeds(seed_value=42):
+    """
+    Set seed for reproducibility.
+    """
+    random.seed(seed_value)  # Python random module
+    torch.manual_seed(seed_value)  # pytorch random number generator for CPU
+    torch.cuda.manual_seed(seed_value)  # pytorch random number generator for all GPUs
+    torch.cuda.manual_seed_all(seed_value)  # for multi-GPU.
+    torch.backends.cudnn.deterministic = True  # use deterministic algorithms.
+    torch.backends.cudnn.benchmark = False  # disable to be deterministic.
+    os.environ['PYTHONHASHSEED'] = str(seed_value)  # python hash seed.
 
 
 if __name__ == "__main__":
@@ -326,6 +333,7 @@ if __name__ == "__main__":
     rng = random.Random(
         MPI.COMM_WORLD.rank
     )  # Set up separate random number generator for evolutionary optimizer.
+    set_seeds(42 * MPI.COMM_WORLD.Get_rank())  # set seed for torch
     propagator = get_default_propagator(  # Get default evolutionary operator.
         pop_size=pop_size,  # Breeding population size
         limits=limits,  # Search space
@@ -342,6 +350,9 @@ if __name__ == "__main__":
         num_islands=1,  # Number of islands
         checkpoint_path=log_path,
         surrogate_factory=lambda: DefaultSurrogate(),
+        # surrogate_factory=lambda: LogSurrogate(),
+        # surrogate_factory=lambda: StaticSurrogate(),
+        # surrogate_factory=lambda: DynamicSurrogate(limits),
     )
     islands.evolve(  # Run evolutionary optimization.
         top_n=1,  # Print top-n best individuals on each island in summary.
