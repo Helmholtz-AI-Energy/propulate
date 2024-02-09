@@ -354,10 +354,6 @@ def ind_loss(
             # update loss
             total_train_loss += loss.item()
 
-            # send loss
-            if batch_idx % 100 == 0:
-                yield (total_train_loss / (batch_idx + 1))
-
         avg_train_loss = total_train_loss / len(train_loader)
         print(f"Epoch {epoch+1}: Avg Training Loss: {avg_train_loss}")
 
@@ -371,10 +367,6 @@ def ind_loss(
                 loss = model.validation_step((data, target), batch_idx)
                 # update loss
                 total_val_loss += loss.item()
-
-                # send loss
-                if batch_idx % 100 == 0:
-                    yield (total_val_loss / (batch_idx + 1))
 
         avg_val_loss = total_val_loss / len(val_loader)
         print(f"Epoch {epoch+1}: Avg Validation Loss: {avg_val_loss}")
