@@ -131,7 +131,7 @@ if __name__ == "__main__":
     islands = Islands(
         loss_fn=function,  # Loss function to be minimized
         propagator=propagator,  # Propagator, i.e., evolutionary operator to be used
-        rng=rng,  # Separate random number generator
+        rng=rng,  # Separate random number generator for Propulate optimization
         generations=config.generations,  # Overall number of generations
         num_islands=config.num_islands,  # Number of islands
         migration_topology=migration_topology,  # Migration topology
