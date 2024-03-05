@@ -1,3 +1,4 @@
+"""Benchmark function module."""
 from typing import Callable, Dict, Tuple
 import numpy as np
 
@@ -11,13 +12,13 @@ def rosenbrock(params: Dict[str, float]) -> float:
 
     Parameters
     ----------
-    params: dict[str, float]
-            function parameters
+    params : Dict[str, float]
+        The function parameters.
 
     Returns
     -------
     float
-        function value
+        The function value.
     """
     params = np.array(list(params.values()))
     return 100 * (params[0] ** 2 - params[1]) ** 2 + (1 - params[0]) ** 2
@@ -37,13 +38,13 @@ def step(params: Dict[str, float]) -> float:
 
     Parameters
     ----------
-    params: dict[str, float]
-            function parameters
+    params : Dict[str, float]
+        The function parameters.
 
     Returns
     -------
     float
-        function value
+        The function value.
     """
     params = np.array(list(params.values()))
     return np.sum(params.astype(int), dtype=float)
@@ -62,13 +63,13 @@ def quartic(params: Dict[str, float]) -> float:
 
     Parameters
     ----------
-    params: dict[str, float]
-            function parameters
+    params : Dict[str, float]
+        The function parameters.
 
     Returns
     -------
     float
-        function value
+        The function value.
     """
     params = np.array(list(params.values()))
     idx = np.arange(1, len(params) + 1)
@@ -90,13 +91,13 @@ def rastrigin(params: Dict[str, float]) -> float:
 
     Parameters
     ----------
-    params: dict[str, float]
-            function parameters
+    params : Dict[str, float]
+        The function parameters.
 
     Returns
     -------
     float
-        function value
+        The function value.
     """
     a = 10.0
     params = np.array(list(params.values()))
@@ -117,13 +118,13 @@ def griewank(params: Dict[str, float]) -> float:
 
     Parameters
     ----------
-    params: dict[str, float]
-            function parameters
+    params : Dict[str, float]
+        The function parameters.
 
     Returns
     -------
     float
-        function value
+        The function value.
     """
     params = np.array(list(params.values()))
     idx = np.arange(1, len(params) + 1)
@@ -142,13 +143,13 @@ def schwefel(params: Dict[str, float]) -> float:
 
     Parameters
     ----------
-    params: dict[str, float]
-            function parameters
+    params : Dict[str, float]
+        The function parameters.
 
     Returns
     -------
     float
-        function value
+        The function value.
     """
     v = 418.982887
     params = np.array(list(params.values()))
@@ -175,13 +176,13 @@ def bisphere(params: Dict[str, float]) -> float:
 
     Parameters
     ----------
-    params: dict[str, float]
-            function parameters
+    params : Dict[str, float]
+        The function parameters.
 
     Returns
     -------
     float
-        function value
+        The function value.
     """
     params = np.array(list(params.values()))
     n = len(params)
@@ -210,13 +211,13 @@ def birastrigin(params: Dict[str, float]) -> float:
 
     Parameters
     ----------
-    params: dict[str, float]
-            function parameters
+    params : Dict[str, float]
+        The function parameters.
 
     Returns
     -------
     float
-        function value
+        The function value.
     """
     params = np.array(list(params.values()))
     n = len(params)
@@ -238,13 +239,13 @@ def bukin_n6(params: Dict[str, float]) -> float:
 
     Parameters
     ----------
-    params: dict[str, float]
-            function parameters
+    params : Dict[str, float]
+        The function parameters.
 
     Returns
     -------
     float
-        function value
+        The function value.
     """
     params = np.array(list(params.values()))
     return 100 * np.sqrt(np.abs(params[1] - 0.01 * params[0] ** 2)) + 0.01 * np.abs(
@@ -261,13 +262,13 @@ def egg_crate(params: Dict[str, float]) -> float:
 
     Parameters
     ----------
-    params: dict[str, float]
-            function parameters
+    params : Dict[str, float]
+        The function parameters.
 
     Returns
     -------
     float
-        function value
+        The function value.
     """
     params = np.array(list(params.values()))
     return (
@@ -286,13 +287,13 @@ def himmelblau(params: Dict[str, float]) -> float:
 
     Parameters
     ----------
-    params: dict[str, float]
-            function parameters
+    params : Dict[str, float]
+        The function parameters.
 
     Returns
     -------
     float
-        function value
+        The function value.
     """
     params = np.array(list(params.values()))
     return (params[0] ** 2 + params[1] - 11) ** 2 + (
@@ -309,13 +310,13 @@ def keane(params: Dict[str, float]) -> float:
 
     Parameters
     ------
-    params: dict[str, float]
-            function parameters
+    params : Dict[str, float]
+        The function parameters.
 
     Returns
     -------
     float
-        function value
+        The function value.
     """
     params = np.array(list(params.values()))
     return (
@@ -334,13 +335,13 @@ def leon(params: Dict[str, float]) -> float:
 
     Parameters
     ----------
-    params: dict[str, float]
-            function parameters
+    params : Dict[str, float]
+        The function parameters.
 
     Returns
     -------
     float
-        function value
+        The function value.
     """
     params = np.array(list(params.values()))
     return 100 * (params[1] - params[0] ** 3) ** 2 + (1 - params[0]) ** 2
@@ -355,12 +356,13 @@ def sphere(params: Dict[str, float]) -> float:
 
     Parameters
     ----------
-    params: dict[str, float]
-            function parameters
+    params : Dict[str, float]
+        The function parameters.
+
     Returns
     -------
     float
-        function value
+        The function value.
     """
     return np.sum(np.array(list(params.values())) ** 2)
 
@@ -374,14 +376,14 @@ def get_function_search_space(
     Parameters
     ----------
     fname: str
-           function name
+        The function name.
 
     Returns
     -------
     Callable
-        function
-    dict[str, tuple[float, float]]
-        search space
+        The callable function.
+    Dict[str, tuple[float, float]]
+        The search space.
     """
     if fname == "bukin":
         function = bukin_n6
