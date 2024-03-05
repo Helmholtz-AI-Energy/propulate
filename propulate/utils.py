@@ -33,7 +33,7 @@ def get_default_propagator(
     mate_prob: float,
     mut_prob: float,
     random_prob: float,
-    sigma_factor: Optional[float] = 0.05,
+    sigma_factor: float = 0.05,
     rng: Optional[random.Random] = None,
 ) -> Propagator:
     """
@@ -98,9 +98,9 @@ def get_default_propagator(
 def set_logger_config(
     level: int = logging.INFO,
     log_file: Optional[Union[str, Path]] = None,
-    log_to_stdout: Optional[bool] = True,
-    log_rank: Optional[bool] = False,
-    colors: Optional[bool] = True,
+    log_to_stdout: bool = True,
+    log_rank: bool = False,
+    colors: bool = True,
 ) -> None:
     """
     Set up the logger. Should only need to be done once.
