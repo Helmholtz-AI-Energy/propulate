@@ -1,7 +1,8 @@
-#!/usr/bin/env python3
+"""Simple Propulator example script."""
 import random
 import argparse
 import logging
+import pathlib
 
 from mpi4py import MPI
 
@@ -24,7 +25,6 @@ if __name__ == "__main__":
         description="Set up and run a basic Propulator optimization of mathematical functions.",
     )
     parser.add_argument(  # Function to optimize
-        "-f",
         "--function",
         type=str,
         choices=[
@@ -46,33 +46,33 @@ if __name__ == "__main__":
         default="sphere",
     )
     parser.add_argument(
-        "-g", "--generations", type=int, default=1000
+        "--generations", type=int, default=1000
     )  # Number of generations
     parser.add_argument(
-        "-s", "--seed", type=int, default=0
+        "--seed", type=int, default=0
     )  # Seed for Propulate random number generator
-    parser.add_argument("-v", "--verbosity", type=int, default=1)  # Verbosity level
+    parser.add_argument("--verbosity", type=int, default=1)  # Verbosity level
     parser.add_argument(
-        "-ckpt", "--checkpoint", type=str, default="./"
+        "--checkpoint", type=str, default="./"
     )  # Path for loading and writing checkpoints.
     parser.add_argument(
-        "-p", "--pop_size", type=int, default=2 * comm.size
+        "--pop_size", type=int, default=2 * comm.size
     )  # Breeding pool size
     parser.add_argument(
-        "-cp", "--crossover_probability", type=float, default=0.7
+        "--crossover_probability", type=float, default=0.7
     )  # Crossover probability
     parser.add_argument(
-        "-mp", "--mutation_probability", type=float, default=0.4
+        "--mutation_probability", type=float, default=0.4
     )  # Mutation probability
-    parser.add_argument("-rp", "--random_init_probability", type=float, default=0.1)
-    parser.add_argument("-t", "--top_n", type=int, default=1)
-    parser.add_argument("-l", "--logging_int", type=int, default=10)
+    parser.add_argument("--random_init_probability", type=float, default=0.1)
+    parser.add_argument("--top_n", type=int, default=1)
+    parser.add_argument("--logging_int", type=int, default=10)
     config = parser.parse_args()
 
     # Set up separate logger for Propulate optimization.
     set_logger_config(
-        level=logging.INFO,  # logging level
-        log_file=f"{config.checkpoint}/propulator.log",  # logging path
+        level=logging.INFO,  # Logging level
+        log_file=f"{config.checkpoint}/{pathlib.Path(__file__).stem}.log",  # Logging path
         log_to_stdout=True,  # Print log on stdout.
         log_rank=False,  # Do not prepend MPI rank to logging messages.
         colors=True,  # Use colors.
@@ -97,14 +97,20 @@ if __name__ == "__main__":
 
     # Set up propulator performing actual optimization.
     propulator = Propulator(
-        loss_fn=function,
-        propagator=propagator,
-        comm=comm,
-        generations=config.generations,
-        checkpoint_path=config.checkpoint,
-        rng=rng,
+        loss_fn=function,  # Loss function to be minimized
+        propagator=propagator,  # Propagator, i.e., evolutionary operator to be used
+        island_comm=comm,  # Communicator to be used
+        generations=config.generations,  # Number of generations
+        checkpoint_path=config.checkpoint,  # Checkpoint path
+        rng=rng,  # Separate random number generator for Propulate optimization
     )
 
     # Run optimization and print summary of results.
-    propulator.propulate(logging_interval=config.logging_int, debug=config.verbosity)
-    propulator.summarize(top_n=config.top_n, debug=config.verbosity)
+    propulator.propulate(
+        logging_interval=config.logging_int,  # Logging interval
+        debug=config.verbosity,  # Verbosity level
+    )
+    propulator.summarize(
+        top_n=config.top_n,  # Print top-n best individuals on each island in summary.
+        debug=config.verbosity,  # Verbosity level
+    )
