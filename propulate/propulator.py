@@ -33,7 +33,9 @@ class Propulator:
         loss_fn: Callable,
         propagator: Propagator,
         island_idx: int = 0,
-        comm: MPI.Comm = MPI.COMM_WORLD,
+        island_comm: MPI.Comm = MPI.COMM_WORLD,
+        propulate_comm: MPI.Comm = MPI.COMM_WORLD,
+        worker_sub_comm: MPI.Comm = MPI.COMM_SELF,
         generations: int = -1,
         checkpoint_path: Union[str, Path] = Path("./"),
         migration_topology: np.ndarray = None,
@@ -49,15 +51,19 @@ class Propulator:
         Parameters
         ----------
         loss_fn: Callable
-                 loss function to be minimized
+            The loss function to be minimized.
         propagator: propulate.propagators.Propagator
                     propagator to apply for breeding
         island_idx: int
                     index of island
-        comm: MPI.Comm
+        island_comm: MPI.Comm
               intra-island communicator
+        propulate_comm : MPI.Comm
+            The Propulate world communicator, consisting of rank 0 of each worker's sub communicator.
+        worker_sub_comm : MPI.Comm
+            The sub communicator for each (multi rank) worker.
         generations: int
-                     number of generations to run
+            The number of generations to run
         checkpoint_path: Union[Path, str]
                          Path where checkpoints are loaded from and stored.
         migration_topology: numpy.ndarray
@@ -90,13 +96,20 @@ class Propulator:
         )
         self.generation = 0  # current generation not yet evaluated
         self.island_idx = island_idx  # island index
-        self.comm = comm  # intra-island communicator
+        self.island_comm = island_comm  # intra-island communicator
+        self.propulate_comm = propulate_comm  # Propulate world communicator
+        self.worker_sub_comm = (
+            worker_sub_comm  # Sub communicator for each (multi rank) worker
+        )
+        if self.propulate_comm is None:  # exit early for sub-worker only ranks
+            # these ranks are not used for anything aside from the calculation of the user-defined loss function
+            return
         self.checkpoint_path = Path(checkpoint_path)  # checkpoint path
         self.checkpoint_path.mkdir(parents=True, exist_ok=True)
         self.migration_prob = migration_prob  # per-rank migration probability
         self.migration_topology = migration_topology  # migration topology
         self.island_displs = (
-            island_displs  # MPI.COMM_WORLD rank of each island's worker 0
+            island_displs  # Propulate world rank of each island's worker
         )
         self.island_counts = island_counts  # number of workers on each island
         self.emigration_propagator = emigration_propagator  # emigration propagator
@@ -111,30 +124,32 @@ class Propulator:
             with open(load_ckpt_file, "rb") as f:
                 try:
                     self.population = pickle.load(f)
+                    # print([x.rank for x in self.population])
+                    # print(self.island_comm.rank)
                     self.generation = (
                         max(
                             [
                                 x.generation
                                 for x in self.population
-                                if x.rank == self.comm.rank
+                                if x.rank == self.island_comm.rank
                             ]
                         )
                         + 1
                     )
-                    if self.comm.rank == 0:
+                    if self.island_comm.rank == 0:
                         log.info(
                             "Valid checkpoint file found. "
                             f"Resuming from generation {self.generation} of loaded population..."
                         )
                 except OSError:
                     self.population = []
-                    if self.comm.rank == 0:
+                    if self.island_comm.rank == 0:
                         log.info(
                             "No valid checkpoint file. Initializing population randomly..."
                         )
         else:
             self.population = []
-            if self.comm.rank == 0:
+            if self.island_comm.rank == 0:
                 log.info(
                     "No valid checkpoint file given. Initializing population randomly..."
                 )
@@ -176,17 +191,23 @@ class Propulator:
         propulate.individual.Individual
             newly bred individual
         """
-        active_pop, _ = self._get_active_individuals()
-        ind = self.propagator(
-            active_pop
-        )  # Breed new individual from active population.
-        ind.generation = self.generation  # Set generation.
-        ind.rank = self.comm.rank  # Set worker rank.
-        ind.active = True  # If True, individual is active for breeding.
-        ind.island = self.island_idx  # Set birth island.
-        ind.current = self.comm.rank  # Set worker responsible for migration.
-        ind.migration_steps = 0  # Set number of migration steps performed.
-        ind.migration_history = str(self.island_idx)
+        if self.propulate_comm is not None:
+            active_pop, _ = self._get_active_individuals()
+            ind = self.propagator(
+                active_pop
+            )  # Breed new individual from active population.
+            ind.generation = self.generation  # Set generation.
+            ind.rank = self.island_comm.rank  # Set worker rank.
+            ind.active = True  # If True, individual is active for breeding.
+            ind.island = self.island_idx  # Set birth island.
+            ind.current = self.island_comm.rank  # Set worker responsible for migration.
+            ind.migration_steps = 0  # Set number of migration steps performed.
+            ind.migration_history = str(self.island_idx)
+        else:
+            ind = None
+
+        if self.worker_sub_comm != MPI.COMM_SELF:
+            ind = self.worker_sub_comm.bcast(obj=ind, root=0)
 
         return ind  # Return new individual.
 
@@ -196,22 +217,29 @@ class Propulator:
         """
         ind = self._breed()  # Breed new individual.
         start_time = time.time()  # Start evaluation timer.
-        ind.loss = self.loss_fn(ind)  # Evaluate its loss.
+        if self.worker_sub_comm != MPI.COMM_SELF:
+            ind.loss = self.loss_fn(ind, self.worker_sub_comm)  # Evaluate its loss.
+        else:
+            ind.loss = self.loss_fn(ind)
+        if self.propulate_comm is None:
+            return
         ind.evaltime = time.time()  # Stop evaluation timer.
         ind.evalperiod = ind.evaltime - start_time  # Calculate evaluation duration.
         self.population.append(
             ind
         )  # Add evaluated individual to worker-local population.
         log.debug(
-            f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: BREEDING\n"
+            f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: BREEDING\n"
             f"Bred and evaluated individual {ind}.\n"
         )
 
         # Tell other workers in own island about results to synchronize their populations.
-        for r in range(self.comm.size):  # Loop over ranks in intra-island communicator.
-            if r == self.comm.rank:
+        for r in range(
+            self.island_comm.size
+        ):  # Loop over ranks in intra-island communicator.
+            if r == self.island_comm.rank:
                 continue  # No self-talk.
-            self.comm.send(copy.deepcopy(ind), dest=r, tag=INDIVIDUAL_TAG)
+            self.island_comm.send(copy.deepcopy(ind), dest=r, tag=INDIVIDUAL_TAG)
 
     def _receive_intra_island_individuals(self) -> None:
         """
@@ -219,7 +247,7 @@ class Propulator:
         evaluated by other workers within own island.
         """
         log_string = (
-            f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
+            f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: "
             f"INTRA-ISLAND SYNCHRONIZATION\n"
         )
         probe_ind = True
@@ -227,7 +255,7 @@ class Propulator:
             stat = (
                 MPI.Status()
             )  # Retrieve status of reception operation, including source and tag.
-            probe_ind = self.comm.iprobe(
+            probe_ind = self.island_comm.iprobe(
                 source=MPI.ANY_SOURCE, tag=INDIVIDUAL_TAG, status=stat
             )
             # If True, continue checking for incoming messages. Tells whether message corresponding
@@ -236,7 +264,9 @@ class Propulator:
             log_string += f"Incoming individual to receive?...{probe_ind}\n"
             if probe_ind:
                 # Receive individual and add it to own population.
-                ind_temp = self.comm.recv(source=stat.Get_source(), tag=INDIVIDUAL_TAG)
+                ind_temp = self.island_comm.recv(
+                    source=stat.Get_source(), tag=INDIVIDUAL_TAG
+                )
                 self.population.append(
                     ind_temp
                 )  # Add received individual to own worker-local population.
@@ -317,7 +347,7 @@ class Propulator:
             if len(difference) == 0:
                 continue
             log.info(
-                f"Island {self.island_idx} Worker {self.comm.rank}: Population not synchronized:\n"
+                f"Island {self.island_idx} Worker {self.island_comm.rank}: Population not synchronized:\n"
                 f"{difference}\n"
             )
             synchronized = False
@@ -340,18 +370,26 @@ class Propulator:
             If any individuals are left that should have been deactivated before (only for debug > 0).
 
         """
+        if self.worker_sub_comm != MPI.COMM_SELF:
+            self.generation = self.worker_sub_comm.bcast(self.generation, root=0)
+        if self.propulate_comm is None:
+            while self.generations <= -1 or self.generation < self.generations:
+                # Breed and evaluate individual.
+                self._evaluate_individual()
+                self.generation += 1
+            return
 
-        if self.comm.rank == 0:
-            log.info(f"Island {self.island_idx} has {self.comm.size} workers.")
+        if self.island_comm.rank == 0:
+            log.info(f"Island {self.island_idx} has {self.island_comm.size} workers.")
 
-        dump = True if self.comm.rank == 0 else False
-        MPI.COMM_WORLD.barrier()
+        dump = True if self.island_comm.rank == 0 else False
+        self.propulate_comm.barrier()
 
         # Loop over generations.
         while self.generations <= -1 or self.generation < self.generations:
             if self.generation % int(logging_interval) == 0:
                 log.info(
-                    f"Island {self.island_idx} Worker {self.comm.rank}: In generation {self.generation}..."
+                    f"Island {self.island_idx} Worker {self.island_comm.rank}: In generation {self.generation}..."
                 )
 
             # Breed and evaluate individual.
@@ -375,29 +413,29 @@ class Propulator:
         # so that each of them holds the complete final population and the found optimum
         # irrespective of the order they finished.
 
-        MPI.COMM_WORLD.barrier()
-        if MPI.COMM_WORLD.rank == 0:
+        self.propulate_comm.barrier()
+        if self.propulate_comm.rank == 0:
             log.info("OPTIMIZATION DONE.")
             log.info("NEXT: Final checks for incoming messages...")
-        MPI.COMM_WORLD.barrier()
+        self.propulate_comm.barrier()
 
         # Final check for incoming individuals evaluated by other intra-island workers.
         self._receive_intra_island_individuals()
-        MPI.COMM_WORLD.barrier()
+        self.propulate_comm.barrier()
 
         # Final checkpointing on rank 0.
-        if self.comm.rank == 0:
+        if self.island_comm.rank == 0:
             self._dump_final_checkpoint()  # Dump checkpoint.
-        MPI.COMM_WORLD.barrier()
+        self.propulate_comm.barrier()
         _ = self._determine_worker_dumping_next()
-        MPI.COMM_WORLD.barrier()
+        self.propulate_comm.barrier()
 
     def _dump_checkpoint(self):
         """
         Dump checkpoint to file.
         """
         log.debug(
-            f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
+            f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: "
             f"Dumping checkpoint..."
         )
         save_ckpt_file = self.checkpoint_path / f"island_{self.island_idx}_ckpt.pickle"
@@ -409,8 +447,12 @@ class Propulator:
         with open(save_ckpt_file, "wb") as f:
             pickle.dump(self.population, f)
 
-        dest = self.comm.rank + 1 if self.comm.rank + 1 < self.comm.size else 0
-        self.comm.send(True, dest=dest, tag=DUMP_TAG)
+        dest = (
+            self.island_comm.rank + 1
+            if self.island_comm.rank + 1 < self.island_comm.size
+            else 0
+        )
+        self.island_comm.send(True, dest=dest, tag=DUMP_TAG)
 
     def _determine_worker_dumping_next(self):
         """
@@ -418,11 +460,13 @@ class Propulator:
         """
         dump = False
         stat = MPI.Status()
-        probe_dump = self.comm.iprobe(source=MPI.ANY_SOURCE, tag=DUMP_TAG, status=stat)
+        probe_dump = self.island_comm.iprobe(
+            source=MPI.ANY_SOURCE, tag=DUMP_TAG, status=stat
+        )
         if probe_dump:
-            dump = self.comm.recv(source=stat.Get_source(), tag=DUMP_TAG)
+            dump = self.island_comm.recv(source=stat.Get_source(), tag=DUMP_TAG)
             log.debug(
-                f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
+                f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: "
                 f"Going to dump next: {dump}. Before: Worker {stat.Get_source()}"
             )
         return dump
@@ -478,7 +522,7 @@ class Propulator:
             if not considered:
                 num_copies = population.count(individual)
                 log.debug(
-                    f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
+                    f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: "
                     f"{individual} occurs {num_copies} time(s)."
                 )
                 unique_inds.append(individual)
@@ -487,7 +531,7 @@ class Propulator:
 
     def summarize(
         self, top_n: int = 1, debug: int = 1
-    ) -> List[Union[List[Individual], Individual]]:
+    ) -> Union[List[Union[List[Individual], Individual]], None]:
         """
         Get top-n results from propulate optimization.
 
@@ -503,31 +547,33 @@ class Propulator:
         list[list[Individual] | Individual]
             top-n best individuals on each island
         """
+        if self.propulate_comm is None:
+            return
         active_pop, num_active = self._get_active_individuals()
         assert np.all(
-            np.array(self.comm.allgather(num_active), dtype=int) == num_active
+            np.array(self.island_comm.allgather(num_active), dtype=int) == num_active
         )
         if self.island_counts is not None:
             num_active = int(
-                MPI.COMM_WORLD.allreduce(
+                self.propulate_comm.allreduce(
                     num_active / self.island_counts[self.island_idx]
                 )
             )
 
-        MPI.COMM_WORLD.barrier()
-        if MPI.COMM_WORLD.rank == 0:
+        self.propulate_comm.barrier()
+        if self.propulate_comm.rank == 0:
             log.info("###########")
             log.info("# SUMMARY #")
             log.info("###########")
             log.info(f"Number of currently active individuals is {num_active}. ")
             log.info(
-                f"Expected overall number of evaluations is {self.generations*MPI.COMM_WORLD.size}."
+                f"Expected overall number of evaluations is {self.generations*self.propulate_comm.size}."
             )
         # Only double-check number of occurrences of each individual for DEBUG level 2.
         if debug == 2:
-            populations = self.comm.gather(self.population, root=0)
+            populations = self.island_comm.gather(self.population, root=0)
             occurrences, _ = self._check_for_duplicates(True, debug)
-            if self.comm.rank == 0:
+            if self.island_comm.rank == 0:
                 if self._check_intra_island_synchronization(populations):
                     log.info(
                         f"Island {self.island_idx}: Populations among workers synchronized."
@@ -540,18 +586,18 @@ class Propulator:
                     f"Island {self.island_idx}: {len(active_pop)}/{len(self.population)} "
                     f"individuals active ({len(occurrences)} unique)"
                 )
-        MPI.COMM_WORLD.barrier()
+        self.propulate_comm.barrier()
         if debug == 0:
             best = min(self.population, key=attrgetter("loss"))
-            if self.comm.rank == 0:
+            if self.island_comm.rank == 0:
                 log.info(f"Top result on island {self.island_idx}: {best}\n")
         else:
             unique_pop = self._get_unique_individuals()
             unique_pop.sort(key=lambda x: x.loss)
             best = unique_pop[:top_n]
-            if self.comm.rank == 0:
+            if self.island_comm.rank == 0:
                 res_str = f"Top {top_n} result(s) on island {self.island_idx}:\n"
                 for i in range(top_n):
                     res_str += f"({i+1}): {unique_pop[i]}\n"
                 log.info(res_str)
-        return MPI.COMM_WORLD.allgather(best)
+        return self.propulate_comm.allgather(best)

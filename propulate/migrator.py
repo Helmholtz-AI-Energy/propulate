@@ -28,7 +28,9 @@ class Migrator(Propulator):
         loss_fn: Callable,
         propagator: Propagator,
         island_idx: int = 0,
-        comm: MPI.Comm = MPI.COMM_WORLD,
+        island_comm: MPI.Comm = MPI.COMM_WORLD,
+        propulate_comm: MPI.Comm = MPI.COMM_WORLD,
+        worker_sub_comm: MPI.Comm = MPI.COMM_SELF,
         generations: int = -1,
         checkpoint_path: Union[str, Path] = Path("./"),
         migration_topology: np.ndarray = None,
@@ -49,8 +51,12 @@ class Migrator(Propulator):
                     propagator to apply for breeding
         island_idx: int
                     index of island
-        comm: MPI.Comm
+        island_comm: MPI.Comm
               intra-island communicator
+        propulate_comm : MPI.Comm
+            The Propulate world communicator, consisting of rank 0 of each worker's sub communicator.
+        worker_sub_comm : MPI.Comm
+            The sub communicator for each (multi rank) worker.
         generations: int
                      number of generations to run
         checkpoint_path: Union[Path, str]
@@ -65,8 +71,8 @@ class Migrator(Propulator):
                                for emigration that are sent to destination island.
                                Should be some kind of selection operator.
         island_displs: numpy.ndarray
-                    array with MPI.COMM_WORLD rank of each island's worker 0
-                    Element i specifies MPI.COMM_WORLD rank of worker 0 on island with index i.
+                    array with self.propulate_comm rank of each island's worker 0
+                    Element i specifies self.propulate_comm rank of worker 0 on island with index i.
         island_counts: numpy.ndarray
                        array with number of workers per island
                        Element i specifies number of workers on island with index i.
@@ -77,7 +83,9 @@ class Migrator(Propulator):
             loss_fn,
             propagator,
             island_idx,
-            comm,
+            island_comm,
+            propulate_comm,
+            worker_sub_comm,
             generations,
             checkpoint_path,
             migration_topology,
@@ -94,7 +102,7 @@ class Migrator(Propulator):
         """
         Perform migration, i.e. island sends individuals out to other islands.
         """
-        log_string = f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: EMIGRATION\n"
+        log_string = f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: EMIGRATION\n"
         # Determine relevant line of migration topology.
         to_migrate = self.migration_topology[self.island_idx, :]
         num_emigrants = np.sum(
@@ -103,7 +111,7 @@ class Migrator(Propulator):
         eligible_emigrants = [
             ind
             for ind in self.population
-            if ind.active and ind.current == self.comm.rank
+            if ind.active and ind.current == self.island_comm.rank
         ]
 
         # Only perform migration if overall number of emigrants to be sent
@@ -122,7 +130,7 @@ class Migrator(Propulator):
             for target_island, offspring in enumerate(to_migrate):
                 if offspring == 0:
                     continue
-                # Determine MPI.COMM_WORLD ranks of workers on target island.
+                # Determine self.propulate_comm ranks of workers on target island.
                 displ = self.island_displs[target_island]
                 count = self.island_counts[target_island]
                 dest_island = np.arange(displ, displ + count)
@@ -136,11 +144,11 @@ class Migrator(Propulator):
 
                 # Deactivate emigrants on sending island (true migration).
                 for r in range(
-                    self.comm.size
+                    self.island_comm.size
                 ):  # Send emigrants to other intra-island workers for deactivation.
-                    if r == self.comm.rank:
+                    if r == self.island_comm.rank:
                         continue  # No self-talk.
-                    self.comm.send(
+                    self.island_comm.send(
                         copy.deepcopy(emigrants), dest=r, tag=SYNCHRONIZATION_TAG
                     )
                     log_string += (
@@ -153,8 +161,10 @@ class Migrator(Propulator):
                 # Determine new responsible worker on target island.
                 for ind in departing:
                     ind.current = self.rng.randrange(0, count)
-                for r in dest_island:  # Loop over MPI.COMM_WORLD destination ranks.
-                    MPI.COMM_WORLD.send(
+                for (
+                    r
+                ) in dest_island:  # Loop over self.propulate_comm destination ranks.
+                    self.propulate_comm.send(
                         copy.deepcopy(departing), dest=r, tag=MIGRATION_TAG
                     )
                     log_string += (
@@ -190,7 +200,7 @@ class Migrator(Propulator):
 
         else:
             log.debug(
-                f"Island {self.island_idx} worker {self.comm.rank} generation {self.generation}: \n"
+                f"Island {self.island_idx} worker {self.island_comm.rank} generation {self.generation}: \n"
                 f"Population size {len(eligible_emigrants)} too small "
                 f"to select {num_emigrants} migrants."
             )
@@ -204,16 +214,16 @@ class Migrator(Propulator):
         RuntimeError
             If identical immigrant is already active on target island for real migration.
         """
-        log_string = f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: IMMIGRATION\n"
+        log_string = f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: IMMIGRATION\n"
         probe_migrants = True
         while probe_migrants:
             stat = MPI.Status()
-            probe_migrants = MPI.COMM_WORLD.iprobe(
+            probe_migrants = self.propulate_comm.iprobe(
                 source=MPI.ANY_SOURCE, tag=MIGRATION_TAG, status=stat
             )
             log_string += f"Immigrant(s) to receive?...{probe_migrants}\n"
             if probe_migrants:
-                immigrants = MPI.COMM_WORLD.recv(
+                immigrants = self.propulate_comm.recv(
                     source=stat.Get_source(), tag=MIGRATION_TAG
                 )
                 log_string += (
@@ -282,9 +292,9 @@ class Migrator(Propulator):
                         break
 
                 log.info(
-                    f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}:\n"
+                    f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}:\n"
                     f"Currently in emigrated: {emigrant}\n"
-                    f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
+                    f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: "
                     f"Currently in population: {existing_ind}\nEquivalence check: {existing_ind[0] == emigrant} "
                     f"{compare_traits} {existing_ind[0].loss == self.emigrated[idx].loss} "
                     f"{existing_ind[0].active == emigrant.active} {existing_ind[0].current == emigrant.current} "
@@ -299,17 +309,17 @@ class Migrator(Propulator):
         """
         Check for and possibly receive emigrants from other intra-island workers to be deactivated.
         """
-        log_string = f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: DEACTIVATION\n"
+        log_string = f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: DEACTIVATION\n"
         probe_sync = True
         while probe_sync:
             stat = MPI.Status()
-            probe_sync = self.comm.iprobe(
+            probe_sync = self.island_comm.iprobe(
                 source=MPI.ANY_SOURCE, tag=SYNCHRONIZATION_TAG, status=stat
             )
             log_string += f"Emigrants from others to be deactivated to be received?...{probe_sync}\n"
             if probe_sync:
                 # Receive new emigrants.
-                new_emigrants = self.comm.recv(
+                new_emigrants = self.island_comm.recv(
                     source=stat.Get_source(), tag=SYNCHRONIZATION_TAG
                 )
                 # Add new emigrants to list of emigrants to be deactivated.
@@ -372,19 +382,29 @@ class Migrator(Propulator):
         ValueError
             If any individuals are left that should have been deactivated before (only for debug > 0).
         """
+        if self.worker_sub_comm != MPI.COMM_SELF:
+            self.generation = self.worker_sub_comm.bcast(self.generation, root=0)
+        if self.propulate_comm is None:
+            while self.generations <= -1 or self.generation < self.generations:
+                # Breed and evaluate individual.
+                # print(self.generation)
 
-        if self.comm.rank == 0:
-            log.info(f"Island {self.island_idx} has {self.comm.size} workers.")
+                self._evaluate_individual()
+                self.generation += 1
+            return
 
-        dump = True if self.comm.rank == 0 else False
+        if self.island_comm.rank == 0:
+            log.info(f"Island {self.island_idx} has {self.island_comm.size} workers.")
+
+        dump = True if self.island_comm.rank == 0 else False
         migration = True if self.migration_prob > 0 else False
-        MPI.COMM_WORLD.barrier()
+        self.propulate_comm.barrier()
 
         # Loop over generations.
         while self.generations <= -1 or self.generation < self.generations:
             if self.generation % int(logging_interval) == 0:
                 log.info(
-                    f"Island {self.island_idx} Worker {self.comm.rank}: In generation {self.generation}..."
+                    f"Island {self.island_idx} Worker {self.island_comm.rank}: In generation {self.generation}..."
                 )
 
             # Breed and evaluate individual.
@@ -422,20 +442,20 @@ class Migrator(Propulator):
         # so that each of them holds the complete final population and the found optimum
         # irrespective of the order they finished.
 
-        MPI.COMM_WORLD.barrier()
-        if MPI.COMM_WORLD.rank == 0:
+        self.propulate_comm.barrier()
+        if self.propulate_comm.rank == 0:
             log.info("OPTIMIZATION DONE.")
             log.info("NEXT: Final checks for incoming messages...")
-        MPI.COMM_WORLD.barrier()
+        self.propulate_comm.barrier()
 
         # Final check for incoming individuals evaluated by other intra-island workers.
         self._receive_intra_island_individuals()
-        MPI.COMM_WORLD.barrier()
+        self.propulate_comm.barrier()
 
         if migration:
             # Final check for incoming individuals from other islands.
             self._receive_immigrants()
-            MPI.COMM_WORLD.barrier()
+            self.propulate_comm.barrier()
 
             # Emigration: Final check for emigrants from other intra-island workers to be deactivated.
             self._deactivate_emigrants()
@@ -443,10 +463,10 @@ class Migrator(Propulator):
             if debug > 0:
                 check = self._check_emigrants_to_deactivate()
                 assert check is False
-                MPI.COMM_WORLD.barrier()
+                self.propulate_comm.barrier()
                 if len(self.emigrated) > 0:
                     log.info(
-                        f"Island {self.island_idx} Worker {self.comm.rank} Generation {self.generation}: "
+                        f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: "
                         f"Finally {len(self.emigrated)} individual(s) in emigrated: {self.emigrated}:\n"
                         f"{self.population}"
                     )
@@ -456,11 +476,11 @@ class Migrator(Propulator):
                             "There should not be any individuals left that need to be deactivated."
                         )
 
-            MPI.COMM_WORLD.barrier()
+            self.propulate_comm.barrier()
 
         # Final checkpointing on rank 0.
-        if self.comm.rank == 0:
+        if self.island_comm.rank == 0:
             self._dump_final_checkpoint()  # Dump checkpoint.
-        MPI.COMM_WORLD.barrier()
+        self.propulate_comm.barrier()
         _ = self._determine_worker_dumping_next()
-        MPI.COMM_WORLD.barrier()
+        self.propulate_comm.barrier()
