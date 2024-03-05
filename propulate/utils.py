@@ -51,7 +51,7 @@ def get_default_propagator(
         The point-mutation probability.
     random_prob : float
         The random-initialization probability.
-    sigma_factor : float, optional
+    sigma_factor : float
         The scaling factor for obtaining the standard deviation from the search-space boundaries for interval mutation.
         Default is 0.05.
     rng : random.Random, optional
@@ -112,11 +112,11 @@ def set_logger_config(
         The default level for logging. Default is ``logging.INFO``.
     log_file : str | Path, optional
         The file to save the log to.
-    log_to_stdout : bool, optional
+    log_to_stdout : bool
         A flag indicating if the log should be printed on stdout. Default is True.
-    log_rank : bool, optional
+    log_rank : bool
         A flag for prepending the MPI rank to the logging message. Default is False.
-    colors : bool, optional
+    colors : bool
         A flag for using colored logs. Default is True.
     """
     rank = f"{MPI.COMM_WORLD.Get_rank()}:" if log_rank else ""
