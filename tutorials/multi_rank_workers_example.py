@@ -39,8 +39,13 @@ def parallel_sphere(params: Dict[str, float], comm: MPI.Comm = MPI.COMM_SELF) ->
     float
         The function value.
     """
-    term = list(params.values())[comm.rank] ** 2  # Each rank squares one of the inputs.
-    return comm.allreduce(term)  # Return the sum over all squared inputs.
+    if comm != MPI.COMM_SELF:
+        term = (
+            list(params.values())[comm.rank] ** 2
+        )  # Each rank squares one of the inputs.
+        return comm.allreduce(term)  # Return the sum over all squared inputs.
+    else:
+        return np.sum(np.array(list(params.values())) ** 2)
 
 
 if __name__ == "__main__":
