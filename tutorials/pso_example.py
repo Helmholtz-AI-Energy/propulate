@@ -1,10 +1,9 @@
 """
 This files contains an example use case for the PSO propagators. Here, you can choose between benchmark functions and
-optimize them.
-
-The example shows, how to set up Propulate in order to use it with PSO.
+optimize them. The example shows how to set up Propulate in order to use it with PSO.
 """
 import argparse
+import pathlib
 import random
 from typing import Dict
 
@@ -36,7 +35,6 @@ if __name__ == "__main__":
         description="Set up and run a basic particle swarm optimization of mathematical functions.",
     )
     parser.add_argument(  # Function to optimize
-        "-f",
         "--function",
         type=str,
         choices=[
@@ -58,22 +56,21 @@ if __name__ == "__main__":
         default="sphere",
     )
     parser.add_argument(
-        "-g", "--generations", type=int, default=1000
+        "--generations", type=int, default=1000
     )  # Number of generations
     parser.add_argument(
-        "-s", "--seed", type=int, default=0
+        "--seed", type=int, default=0
     )  # Seed for Propulate random number generator
     parser.add_argument(
-        "-v", "--verbosity", type=int, default=1, choices=range(6)
+        "--verbosity", type=int, default=1, choices=range(6)
     )  # Verbosity level
     parser.add_argument(
-        "-ckpt", "--checkpoint", type=str, default="./"
+        "--checkpoint", type=str, default="./"
     )  # Path for loading and writing checkpoints.
     parser.add_argument(
-        "-p", "--pop_size", type=int, default=2 * comm.size
+        "--pop_size", type=int, default=2 * comm.size
     )  # Breeding pool size
     parser.add_argument(
-        "-var",
         "--variant",
         type=str,
         choices=["Basic", "VelocityClamping", "Constriction", "Canonical"],
@@ -88,8 +85,8 @@ if __name__ == "__main__":
 
     class ParamSettingCatcher(argparse.Action):
         """
-        This class extends argparse's Action class in order to allow for an action, that logs, if one of the PSO HP
-        was actually set.
+        This class extends ``argparse``'s ``Action`` class in order to allow for an action that logs if one of the PSO
+        hyperparameters was actually set.
         """
 
         def __call__(self, parser, namespace, values, option_string=None):
@@ -108,14 +105,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "--clamping_factor", type=float, default=0.6
     )  # Clamping factor for velocity clamping
-    parser.add_argument("-t", "--top_n", type=int, default=1)
-    parser.add_argument("-l", "--logging_int", type=int, default=20)
+    parser.add_argument("--top_n", type=int, default=1)
+    parser.add_argument("--logging_int", type=int, default=20)
     config = parser.parse_args()
 
     # Set up separate logger for Propulate optimization.
     set_logger_config(
-        level=config.logging_int,  # logging level
-        log_file=f"{config.checkpoint}/propulator.log",  # logging path
+        level=config.logging_int,  # Logging level
+        log_file=f"{config.checkpoint}/{pathlib.Path(__file__).stem}.log",  # Logging path
     )
 
     rng = random.Random(
@@ -167,7 +164,7 @@ if __name__ == "__main__":
     propulator = Propulator(
         function,
         propagator,
-        comm=comm,
+        island_comm=comm,
         generations=config.generations,
         checkpoint_path=config.checkpoint,
         rng=rng,
