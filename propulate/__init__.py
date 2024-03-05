@@ -9,3 +9,24 @@ except DistributionNotFound:
     __version__ = "unknown"
 finally:
     del get_distribution, DistributionNotFound
+
+from .islands import Islands
+from .population import Individual, Particle
+from .propulator import Propulator
+from .migrator import Migrator
+from .pollinator import Pollinator
+from .utils import get_default_propagator, set_logger_config
+
+from . import propagators
+
+__all__ = [
+    "Islands",
+    "Individual",
+    "Particle",
+    "Propulator",
+    "Migrator",
+    "Pollinator",
+    "get_default_propagator",
+    "set_logger_config",
+    "propagators",
+]
