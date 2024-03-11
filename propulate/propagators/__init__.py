@@ -1,6 +1,4 @@
-"""
-This package bundles all classes that are used as propagators in Propulate's optimization routine.
-"""
+"""This package bundles all classes that are used as propagators in Propulate's optimization routine."""
 
 from .base import (
     Propagator,
