@@ -57,48 +57,44 @@ class Islands:
 
         Parameters
         ----------
-        loss_fn: Callable
+        loss_fn : Callable
             The loss function to be minimized.
         propagator : propulate.propagators.Propagator
             The propagator, i.e., evolutionary operator, to apply for breeding.
         rng : random.Random
              The separate random number generator for the Propulate optimization.
-        generations : int
+        generations : int, optional
             The number of generations. Default is 0.
-        num_islands : int
+        num_islands : int, optional
             The number of separate equally sized evolutionary islands. Ignored if ``island_sizes`` is not ``None``.
             Differences of +-1 are possible due to load balancing. Default is 1.
         island_sizes : numpy.ndarray[int], optional
             An array with numbers of workers for each island (heterogeneous case).
         migration_topology : numpy.ndarray[int], optional
             A two-dimensional matrix where entry (i,j) specifies how many individuals are sent by island i to island j
-        migration_probability : float
+        migration_probability : float, optional
             The probability of migration after each generation.
-        emigration_propagator : Type[propulate.propagators.Propagator]
+        emigration_propagator : Type[propulate.propagators.Propagator], optional
             The emigration propagator, i.e., how to choose individuals for emigration that are sent to the destination
             island. Should be some kind of selection operator. Default is ``SelectMin``.
-        immigration_propagator : Type[propulate.propagators.Propagator]
+        immigration_propagator : Type[propulate.propagators.Propagator], optional
             The immigration propagator, i.e., how to choose individuals on the target island to be replaced by the
             immigrants. Should be some kind of selection operator. Default is ``SelectMax``.
-        pollination : bool
+        pollination : bool, optional
             If True, copies of emigrants are sent; otherwise, emigrants are removed from the original island.
             Default is True.
-        checkpoint_path : Union[Path, str]
+        checkpoint_path : pathlib.Path | str, optional
             The path where checkpoints are loaded from and stored to. Default is the current working directory.
-        ranks_per_worker : int
+        ranks_per_worker : int, optional
             The number of ranks per worker. Default is 1.
 
         Raises
         ------
         ValueError
-            If the overall number of ranks is not evenly divisble by the requested number of ranks per worker.
-        ValueError
+            If the overall number of ranks is not evenly divisible by the requested number of ranks per worker.
             If the specified number of islands is smaller than 1.
-        ValueError
             If the number of workers in the custom worker distribution does not equal overall number of ranks.
-        ValueError
             If a custom migration topology has the wrong shape.
-        ValueError
             If the migration probability is not within [0, 1].
         """
         # Set up full world communicator.
@@ -263,6 +259,7 @@ class Islands:
             self.propulator = Migrator(
                 loss_fn=loss_fn,
                 propagator=propagator,
+                rng=rng,
                 island_idx=island_idx,
                 island_comm=island_comm,
                 propulate_comm=propulate_world_comm,
@@ -274,7 +271,6 @@ class Islands:
                 emigration_propagator=emigration_propagator,
                 island_displs=island_displs,
                 island_counts=island_sizes,
-                rng=rng,
             )
         else:
             if full_world_rank == 0:
@@ -282,6 +278,7 @@ class Islands:
             self.propulator = Pollinator(
                 loss_fn=loss_fn,
                 propagator=propagator,
+                rng=rng,
                 island_idx=island_idx,
                 island_comm=island_comm,
                 propulate_comm=propulate_world_comm,
@@ -294,7 +291,6 @@ class Islands:
                 immigration_propagator=immigration_propagator,
                 island_displs=island_displs,
                 island_counts=island_sizes,
-                rng=rng,
             )
 
     def _run(
@@ -307,9 +303,9 @@ class Islands:
         ----------
         top_n : int
             The number of best results to report.
-        logging_interval: int
+        logging_interval : int
             The logging interval.
-        debug: int
+        debug : int
             The verbosity/debug level.
 
         Returns
@@ -328,12 +324,12 @@ class Islands:
 
         Parameters
         ----------
-        top_n : int
-            The number of best results to report.
-        logging_interval: int
-                          logging interval
+        top_n : int, optional
+            The number of best results to report. Default is 3.
+        logging_interval : int, optional
+            The logging interval. Default is 10.
         debug : int
-            The verbosity/debug level.
+            The debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode). Default is 1.
 
         Returns
         -------

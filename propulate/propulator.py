@@ -6,7 +6,7 @@ import random
 import time
 from operator import attrgetter
 from pathlib import Path
-from typing import Callable, Union, List, Tuple, Type
+from typing import Callable, List, Optional, Tuple, Type, Union
 
 import deepdiff
 import numpy as np
@@ -29,7 +29,7 @@ class Propulator:
 
     Attributes
     ----------
-    checkpoint_path : str | Path
+    checkpoint_path : str | pathlib.Path
         The path where checkpoints are loaded from and stored to.
     emigration_propagator : Type[propulate.Propagator]
         The emigration propagator, i.e., how to choose individuals for emigration that are sent to the destination
@@ -66,7 +66,7 @@ class Propulator:
     Methods
     -------
     propulate()
-        Run asynchronous evolutionary optimization routine.
+        Run asynchronous evolutionary optimization routine without migration or pollination.
     summarize()
         Get top-n results from Propulate optimization.
     """
@@ -75,86 +75,87 @@ class Propulator:
         self,
         loss_fn: Callable,
         propagator: Propagator,
+        rng: random.Random,
         island_idx: int = 0,
         island_comm: MPI.Comm = MPI.COMM_WORLD,
         propulate_comm: MPI.Comm = MPI.COMM_WORLD,
         worker_sub_comm: MPI.Comm = MPI.COMM_SELF,
         generations: int = -1,
         checkpoint_path: Union[str, Path] = Path("./"),
-        migration_topology: np.ndarray = None,
+        migration_topology: Optional[np.ndarray] = None,
         migration_prob: float = 0.0,
         emigration_propagator: Type[Propagator] = SelectMin,
-        island_displs: np.ndarray = None,
-        island_counts: np.ndarray = None,
-        rng: random.Random = None,
+        island_displs: Optional[np.ndarray] = None,
+        island_counts: Optional[np.ndarray] = None,
     ) -> None:
         """
         Initialize Propulator with given parameters.
 
         Parameters
         ----------
-        loss_fn: Callable
+        loss_fn : Callable
             The loss function to be minimized.
-        propagator: propulate.propagators.Propagator
+        propagator : propulate.propagators.Propagator
             The propagator to apply for breeding.
-        island_idx: int
-            The island's index.
-        island_comm: MPI.Comm
-            The intra-island communicator.
-        propulate_comm : MPI.Comm
+        rng : random.Random
+            The separate random number generator for the Propulate optimization.
+        island_idx : int, optional
+            The island's index. Default is 0.
+        island_comm : MPI.Comm, optional
+            The intra-island communicator. Default is ``MPI.COMM_WORLD``.
+        propulate_comm : MPI.Comm, optional
             The Propulate world communicator, consisting of rank 0 of each worker's sub communicator.
-        worker_sub_comm : MPI.Comm
-            The sub communicator for each (multi rank) worker.
-        generations: int
-            The number of generations to run
-        checkpoint_path: Path | str
-            The path where checkpoints are loaded from and stored.
-        migration_topology: numpy.ndarray
+            Default is ``MPI.COMM_WORLD``.
+        worker_sub_comm : MPI.Comm, optional
+            The sub communicator for each (multi rank) worker. Default is ``MPI.COMM_SELF``.
+        generations : int, optional
+            The number of generations to run. Default is -1, i.e., run into wall-clock time limit.
+        checkpoint_path : pathlib.Path | str, optional
+            The path where checkpoints are loaded from and stored. Default is current working directory.
+        migration_topology : numpy.ndarray, optional
             The migration topology, i.e., a 2D matrix where entry (i,j) specifies how many individuals are sent by
             island i to island j.
-        migration_prob: float
-            The per-worker migration probability.
-        emigration_propagator: Type[propulate.propagators.Propagator]
+        migration_prob : float, optional
+            The per-worker migration probability. Default is 0.0.
+        emigration_propagator : Type[propulate.propagators.Propagator], optional
             The emigration propagator, i.e., how to choose individuals for emigration that are sent to destination
-            island. Should be some kind of selection operator.
-        island_displs: numpy.ndarray
-            An array with ``propulate_comm`` rank of each island's worker 0. Element i specifies propulate_comm rank of
-            worker 0 on island with index i.
-        island_counts: numpy.ndarray
+            island. Should be some kind of selection operator. Default is ``SelectMin``.
+        island_displs : numpy.ndarray, optional
+            An array with ``propulate_comm`` rank of each island's worker 0. Element i specifies the rank of worker 0 on
+            island with index i in the Propulate communicator.
+        island_counts : numpy.ndarray, optional
             An array with the number of workers per island. Element i specifies the number of workers on island with
             index i.
-        rng: random.Random
-            The separate random number generator for the Propulate optimization.
         """
         # Set class attributes.
         self.loss_fn = loss_fn  # Callable loss function
-        self.propagator = propagator  # evolutionary propagator
+        self.propagator = propagator  # Evolutionary propagator
         if generations == 0:  # If number of iterations requested == 0.
             if MPI.COMM_WORLD.rank == 0:
                 log.info("Requested number of generations is zero...[RETURN]")
             return
         self.generations = (
-            generations  # number of generations (evaluations per individual)
+            generations  # Number of generations (evaluations per individual)
         )
-        self.generation = 0  # current generation not yet evaluated
-        self.island_idx = island_idx  # island index
-        self.island_comm = island_comm  # intra-island communicator
+        self.generation = 0  # Current generation not yet evaluated
+        self.island_idx = island_idx  # Island index
+        self.island_comm = island_comm  # Intra-island communicator
         self.propulate_comm = propulate_comm  # Propulate world communicator
         self.worker_sub_comm = (
             worker_sub_comm  # Sub communicator for each (multi rank) worker
         )
-        if self.propulate_comm is None:  # exit early for sub-worker only ranks
-            # these ranks are not used for anything aside from the calculation of the user-defined loss function
+        if self.propulate_comm is None:  # Exit early for sub-worker only ranks.
+            # These ranks are not used for anything aside from the calculation of the user-defined loss function.
             return
-        self.checkpoint_path = Path(checkpoint_path)  # checkpoint path
+        self.checkpoint_path = Path(checkpoint_path)  # Checkpoint path
         self.checkpoint_path.mkdir(parents=True, exist_ok=True)
-        self.migration_prob = migration_prob  # per-rank migration probability
-        self.migration_topology = migration_topology  # migration topology
+        self.migration_prob = migration_prob  # Per-rank migration probability
+        self.migration_topology = migration_topology  # Migration topology
         self.island_displs = (
             island_displs  # Propulate world rank of each island's worker
         )
-        self.island_counts = island_counts  # number of workers on each island
-        self.emigration_propagator = emigration_propagator  # emigration propagator
+        self.island_counts = island_counts  # Number of workers on each island
+        self.emigration_propagator = emigration_propagator  # Emigration propagator
         self.rng = rng
 
         # Load initial population of evaluated individuals from checkpoint if exists.
@@ -175,7 +176,7 @@ class Propulator:
                             ]
                         )
                         + 1
-                    )
+                    )  # Determine generation to be evaluated next from population checkpoint.
                     if self.island_comm.rank == 0:
                         log.info(
                             "Valid checkpoint file found. "
@@ -200,10 +201,10 @@ class Propulator:
 
         Parameters
         ----------
-        logging_interval: int
-            Print each worker's progress every ``logging_interval`` th generation.
-        debug: int
-            The debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode).
+        logging_interval : int, optional
+            Print each worker's progress every ``logging_interval``-th generation. Default is 10.
+        debug : int, optional
+            The debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode). Default is 1.
         """
         self._work(logging_interval, debug)
 
@@ -257,9 +258,7 @@ class Propulator:
         return ind  # Return new individual.
 
     def _evaluate_individual(self) -> None:
-        """
-        Breed and evaluate individual.
-        """
+        """Breed and evaluate individual."""
         ind = self._breed()  # Breed new individual.
         start_time = time.time()  # Start evaluation timer.
         if self.worker_sub_comm != MPI.COMM_SELF:
@@ -277,7 +276,6 @@ class Propulator:
             f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: BREEDING\n"
             f"Bred and evaluated individual {ind}."
         )
-
         # Tell other workers in own island about results to synchronize their populations.
         for r in range(
             self.island_comm.size
@@ -287,9 +285,7 @@ class Propulator:
             self.island_comm.send(copy.deepcopy(ind), dest=r, tag=INDIVIDUAL_TAG)
 
     def _receive_intra_island_individuals(self) -> None:
-        """
-        Check for and possibly receive incoming individuals evaluated by other workers within own island.
-        """
+        """Check for and possibly receive incoming individuals evaluated by other workers within own island."""
         log_string = (
             f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: "
             f"INTRA-ISLAND SYNCHRONIZATION\n"
@@ -375,7 +371,7 @@ class Propulator:
 
         Parameters
         ----------
-        populations: List[List[propulate.individual.Individual]]
+        populations : List[List[propulate.individual.Individual]]
             A list of all islands' sorted population lists.
 
         Returns
@@ -397,16 +393,16 @@ class Propulator:
             synchronized = False
         return synchronized
 
-    def _work(self, logging_interval: int, debug: int):
+    def _work(self, logging_interval: int = 10, debug: int = -1):
         """
         Execute evolutionary algorithm in parallel.
 
         Parameters
         ----------
-        logging_interval: int
-            The logging interval.
-        debug: int
-            The debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode).
+        logging_interval : int, optional
+            The logging interval. Default is 10.
+        debug : int, optional
+            The debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode). Default is 1.
 
         Raises
         ------
@@ -474,9 +470,7 @@ class Propulator:
         self.propulate_comm.barrier()
 
     def _dump_checkpoint(self):
-        """
-        Dump checkpoint to file.
-        """
+        """Dump checkpoint to file."""
         log.debug(
             f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: "
             f"Dumping checkpoint..."
@@ -498,9 +492,7 @@ class Propulator:
         self.island_comm.send(True, dest=dest, tag=DUMP_TAG)
 
     def _determine_worker_dumping_next(self):
-        """
-        Determine the worker who dumps the checkpoint in the next generation.
-        """
+        """Determine the worker who dumps the checkpoint in the next generation."""
         dump = False
         stat = MPI.Status()
         probe_dump = self.island_comm.iprobe(
@@ -515,9 +507,7 @@ class Propulator:
         return dump
 
     def _dump_final_checkpoint(self):
-        """
-        Dump final checkpoint.
-        """
+        """Dump final checkpoint."""
         save_ckpt_file = self.checkpoint_path / f"island_{self.island_idx}_ckpt.pickle"
         if os.path.isfile(save_ckpt_file):
             try:
@@ -528,7 +518,7 @@ class Propulator:
                 pickle.dump(self.population, f)
 
     def _check_for_duplicates(
-        self, active: bool, debug: int
+        self, active: bool, debug: int = 1
     ) -> Tuple[List[List[Union[Individual, int]]], List[Individual]]:
         """
         Check for duplicates in current population.
@@ -538,16 +528,16 @@ class Propulator:
 
         Parameters
         ----------
-        active: bool
+        active : bool
             Whether to consider active individuals (True) or all individuals (False).
-        debug: int
-            The debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode).
+        debug : int, optional
+            The debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode). Default is 1.
 
         Returns
         -------
         List[List[propulate.individual.Individual | int]]
             The individuals and their occurrences.
-        list[propulate.individual.Individual]
+        List[propulate.individual.Individual]
             The unique individuals in the population.
         """
         if active:
@@ -580,10 +570,10 @@ class Propulator:
 
         Parameters
         ----------
-        top_n: int
-            The number of best results to report.
-        debug: int
-            The debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode).
+        top_n : int, optional
+            The number of best results to report. Default is 1.
+        debug : int, optional
+            The debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode). Default is 1.
 
         Returns
         -------

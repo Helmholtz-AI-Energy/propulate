@@ -2,7 +2,7 @@ import copy
 import random
 import logging
 from pathlib import Path
-from typing import Callable, Union, Type
+from typing import Callable, Optional, Type, Union
 
 import numpy as np
 from mpi4py import MPI
@@ -21,67 +21,85 @@ class Migrator(Propulator):
 
     Individuals can only exist on one evolutionary island at a time, i.e., they are removed
     (i.e. deactivated for breeding) from the sending island upon emigration.
+
+    Attributes
+    ----------
+    emigrated : List[propulate.population.Individual]
+        A list of emigrated individuals to be deactivated on the sending island.
+
+    Methods
+    -------
+    propulate()
+        Run asynchronous evolutionary optimization routine with actual migration.
+
+    Notes
+    -----
+    The ``Migrator`` class inherits all methods and attributes from the ``Propulator`` class.
+
+    See Also
+    --------
+    :class:`Propulator` : The parent class.
     """
 
     def __init__(
         self,
         loss_fn: Callable,
         propagator: Propagator,
+        rng: random.Random,
         island_idx: int = 0,
         island_comm: MPI.Comm = MPI.COMM_WORLD,
         propulate_comm: MPI.Comm = MPI.COMM_WORLD,
         worker_sub_comm: MPI.Comm = MPI.COMM_SELF,
         generations: int = -1,
         checkpoint_path: Union[str, Path] = Path("./"),
-        migration_topology: np.ndarray = None,
+        migration_topology: Optional[np.ndarray] = None,
         migration_prob: float = 0.0,
         emigration_propagator: Type[Propagator] = SelectMin,
-        island_displs: np.ndarray = None,
-        island_counts: np.ndarray = None,
-        rng: random.Random = None,
+        island_displs: Optional[np.ndarray] = None,
+        island_counts: Optional[np.ndarray] = None,
     ) -> None:
         """
         Initialize ``Migrator`` with given parameters.
 
         Parameters
         ----------
-        loss_fn: Callable
-                 loss function to be minimized
+        loss_fn : Callable
+            The loss function to be minimized.
         propagator: propulate.propagators.Propagator
-                    propagator to apply for breeding
-        island_idx: int
-                    index of island
-        island_comm: MPI.Comm
-              intra-island communicator
-        propulate_comm : MPI.Comm
+            The propagator to apply for breeding.
+        rng : random.Random
+            The separate random number generator for the Propulate optimization.
+        island_idx: int, optional
+            The island's index. Default is 0.
+        island_comm: MPI.Comm, optional
+            The intra-island communicator for communication within that island. Default is ``MPI.COMM_WORLD``.
+        propulate_comm : MPI.Comm, optional
             The Propulate world communicator, consisting of rank 0 of each worker's sub communicator.
-        worker_sub_comm : MPI.Comm
-            The sub communicator for each (multi rank) worker.
-        generations: int
-                     number of generations to run
-        checkpoint_path: Union[Path, str]
-                         Path where checkpoints are loaded from and stored.
-        migration_topology: numpy.ndarray
-                            2D matrix where entry (i,j) specifies how many
-                            individuals are sent by island i to island j
-        migration_prob: float
-                        per-worker migration probability
-        emigration_propagator: type[propulate.propagators.Propagator]
-                               emigration propagator, i.e., how to choose individuals
-                               for emigration that are sent to destination island.
-                               Should be some kind of selection operator.
-        island_displs: numpy.ndarray
-                    array with self.propulate_comm rank of each island's worker 0
-                    Element i specifies self.propulate_comm rank of worker 0 on island with index i.
-        island_counts: numpy.ndarray
-                       array with number of workers per island
-                       Element i specifies number of workers on island with index i.
-        rng: random.Random
-             random number generator
+            Default is ``MPI.COMM_WORLD``.
+        worker_sub_comm : MPI.Comm, optional
+            The sub communicator for each (multi rank) worker. Default is ``MPI.COMM_SELF``.
+        generations : int, optional
+            The number of generations to run. Default is -1, i.e., run into wall-clock time limit.
+        checkpoint_path : pathlib.Path | str, optional
+            The path where the checkpoints are loaded from and stored. Default is current working directory.
+        migration_topology : numpy.ndarray, optional
+            The migration topology, i.e., a 2D matrix where entry (i,j) specifies how many individuals are sent by
+            island i to island j.
+        migration_prob : float, optional
+            The per-worker migration probability. Default is 0.0.
+        emigration_propagator : Type[propulate.propagators.Propagator]
+            The emigration propagator, i.e., how to choose individuals for emigration that are sent to the destination
+            island. Should be some kind of selection operator. Default is ``SelectMin``.
+        island_displs : numpy.ndarray, optional
+            An array with ``propulate_comm`` rank of each island's worker 0. Element i specifies the rank of worker 0 on
+            island with index i in the Propulate communicator.
+        island_counts : numpy.ndarray, optional
+            An array with the number of workers per island. Element i specifies the number of workers on island i.
         """
         super().__init__(
             loss_fn,
             propagator,
+            rng,
             island_idx,
             island_comm,
             propulate_comm,
@@ -93,16 +111,16 @@ class Migrator(Propulator):
             emigration_propagator,
             island_displs,
             island_counts,
-            rng,
         )
         # Set class attributes.
-        self.emigrated = []  # emigrated individuals to be deactivated on sending island
+        self.emigrated = []  # Emigrated individuals to be deactivated on sending island
 
     def _send_emigrants(self) -> None:
-        """
-        Perform migration, i.e. island sends individuals out to other islands.
-        """
-        log_string = f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: EMIGRATION\n"
+        """Perform migration, i.e. island sends individuals out to other islands."""
+        log_string = (
+            f"Island {self.island_idx} Worker {self.island_comm.rank} "
+            f"Generation {self.generation}: EMIGRATION\n"
+        )
         # Determine relevant line of migration topology.
         to_migrate = self.migration_topology[self.island_idx, :]
         num_emigrants = np.sum(
@@ -214,7 +232,10 @@ class Migrator(Propulator):
         RuntimeError
             If identical immigrant is already active on target island for real migration.
         """
-        log_string = f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: IMMIGRATION\n"
+        log_string = (
+            f"Island {self.island_idx} Worker {self.island_comm.rank} "
+            f"Generation {self.generation}: IMMIGRATION\n"
+        )
         probe_migrants = True
         while probe_migrants:
             stat = MPI.Status()
@@ -306,10 +327,11 @@ class Migrator(Propulator):
         return check
 
     def _deactivate_emigrants(self) -> None:
-        """
-        Check for and possibly receive emigrants from other intra-island workers to be deactivated.
-        """
-        log_string = f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: DEACTIVATION\n"
+        """Check for and possibly receive emigrants from other intra-island workers to be deactivated."""
+        log_string = (
+            f"Island {self.island_idx} Worker {self.island_comm.rank} "
+            f"Generation {self.generation}: DEACTIVATION\n"
+        )
         probe_sync = True
         while probe_sync:
             stat = MPI.Status()
@@ -366,16 +388,16 @@ class Migrator(Propulator):
         )
         log.debug(log_string)
 
-    def _work(self, logging_interval: int, debug: int):
+    def _work(self, logging_interval: int = 10, debug: int = 1):
         """
         Execute evolutionary algorithm using island model with real migration in parallel.
 
         Parameters
         ----------
-        logging_interval: int
-                          logging interval
-        debug: int
-               verbosity/debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode)
+        logging_interval : int, optional
+            The logging interval. Default is 10.
+        debug : int
+            The debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode). Default is 1.
 
         Raises
         ------

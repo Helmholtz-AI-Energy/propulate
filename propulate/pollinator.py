@@ -3,7 +3,7 @@ import logging
 import random
 import time
 from pathlib import Path
-from typing import Callable, Union, Tuple, List, Type
+from typing import Callable, List, Optional, Tuple, Type, Union
 
 import numpy as np
 from mpi4py import MPI
@@ -20,76 +20,93 @@ class Pollinator(Propulator):
     """
     Parallel propagator of populations with pollination.
 
-    Individuals can actively exist on multiple evolutionary islands at a time, i.e.,
-    copies of emigrants are sent out and emigrating individuals are not deactivated on
-    sending island for breeding. Instead, immigrants replace individuals on the target
-    island according to an immigration policy set by the immigration propagator.
+    Individuals can actively exist on multiple evolutionary islands at a time, i.e., copies of emigrants are sent out
+    and emigrating individuals are not deactivated on sending island for breeding. Instead, immigrants replace
+    individuals on the target island according to an immigration policy set by the immigration propagator.
+
+    Attributes
+    ----------
+    immigration_propagator : Type[propulate.propagators.Propagator]
+        The immigration propagator, i.e., how to choose individuals to be replaced by immigrants on target island.
+    replaced : List[propulate.population.Individual]
+        The individuals to be replaced by the immigrants.
+
+    Methods
+    -------
+    propulate()
+        Run asynchronous evolutionary optimization routine with pollination.
+
+    Notes
+    -----
+    The ``Pollinator`` class inherits all methods and attributes from the ``Propulator`` class.
+
+    See Also
+    --------
+    :class:`Propulator` : The parent class.
     """
 
     def __init__(
         self,
         loss_fn: Callable,
         propagator: Propagator,
+        rng: random.Random,
         island_idx: int = 0,
         island_comm: MPI.Comm = MPI.COMM_WORLD,
         propulate_comm: MPI.Comm = MPI.COMM_WORLD,
         worker_sub_comm: MPI.Comm = MPI.COMM_SELF,
         generations: int = 0,
         checkpoint_path: Union[Path, str] = Path("./"),
-        migration_topology: np.ndarray = None,
+        migration_topology: Optional[np.ndarray] = None,
         migration_prob: float = 0.0,
         emigration_propagator: Type[Propagator] = SelectMin,
         immigration_propagator: Type[Propagator] = SelectMax,
-        island_displs: np.ndarray = None,
-        island_counts: np.ndarray = None,
-        rng: random.Random = None,
+        island_displs: Optional[np.ndarray] = None,
+        island_counts: Optional[np.ndarray] = None,
     ) -> None:
         """
         Initialize ``Pollinator`` with given parameters.
 
         Parameters
         ----------
-        loss_fn: Callable
-                 loss function to be minimized
-        propagator: propulate.propagators.Propagator
-                    propagator to apply for breeding
-        island_idx: int
-                    index of island
-        island_comm: MPI.Comm
-              intra-island communicator
-        propulate_comm : MPI.Comm
+        loss_fn : Callable
+            The loss function to be minimized.
+        propagator : propulate.propagators.Propagator
+            The propagator to apply for breeding.
+        rng : random.Random
+            The separate random number generator for the Propulate optimization.
+        island_idx : int, optional
+            The island index. Default is 0.
+        island_comm : MPI.Comm, optional
+            The intra-island communicator for communication within this island. Default is ``MPI.COMM_WORLD``.
+        propulate_comm : MPI.Comm, optional
             The Propulate world communicator, consisting of rank 0 of each worker's sub communicator.
-        worker_sub_comm : MPI.Comm
-            The sub communicator for each (multi rank) worker.
-        generations: int
-                     number of generations to run
-        checkpoint_path: Path
-                         path where checkpoints are loaded from and stored.
-        migration_topology: numpy.ndarray
-                            2D matrix where entry (i,j) specifies how many
-                            individuals are sent by island i to island j
-        migration_prob: float
-                        per-worker migration probability
-        emigration_propagator: type[propulate.propagators.Propagator]
-                               emigration propagator, i.e., how to choose individuals
-                               for emigration that are sent to destination island.
-                               Should be some kind of selection operator.
-        immigration_propagator: type[propulate.propagators.Propagator]
-                                immigration propagator, i.e., how to choose individuals
-                                to be replaced by immigrants on target island.
-                                Should be some kind of selection operator.
-        island_displs: numpy.ndarray
-                    array with MPI.COMM_WORLD rank of each island's worker 0
-                    Element i specifies MPI.COMM_WORLD rank of worker 0 on island with index i.
-        island_counts: numpy.ndarray
-                       array with number of workers per island
-                       Element i specifies number of workers on island with index i.
-        rng: random.Random
-             random number generator
+            Default is ``MPI.COMM_WORLD``.
+        worker_sub_comm : MPI.Comm, optional
+            The sub communicator for each (multi rank) worker. Default is ``MPI.COMM_SELF``.
+        generations : int, optional
+            The number of generations to run. Default is -1, i.e., run into wall-clock time limit.
+        checkpoint_path : pathlib.Path, optional
+            The path where checkpoints are loaded from and stored. Default is current working directory.
+        migration_topology : numpy.ndarray, optional
+            The 2D matrix where entry (i,j) specifies how many individuals are sent by island i to island j.
+        migration_prob : float, optional
+            The per-worker migration probability. Default is 0.0.
+        emigration_propagator : Type[propulate.propagators.Propagator], optional
+            The emigration propagator, i.e., how to choose individuals for emigration that are sent to the destination
+            island. Should be some kind of selection operator. Default is ``SelectMin``.
+        immigration_propagator : Type[propulate.propagators.Propagator], optional
+            The immigration propagator, i.e., how to choose individuals to be replaced by immigrants on a target island.
+            Should be some kind of selection operator. Default is ``SelectMax``.
+        island_displs : numpy.ndarray, optional
+            An array with ``propulate_comm`` rank of each island's worker 0. Element i specifies the rank of worker 0 on
+            island with index i in the Propulate communicator.
+        island_counts : numpy.ndarray, optional
+            An array with the number of workers per island. Element i specifies the number of workers on island i.
         """
         super().__init__(
             loss_fn,
             propagator,
+            rng,
             island_idx,
             island_comm,
             propulate_comm,
@@ -101,29 +118,29 @@ class Pollinator(Propulator):
             emigration_propagator,
             island_displs,
             island_counts,
-            rng,
         )
         # Set class attributes.
-        self.immigration_propagator = immigration_propagator  # immigration propagator
-        self.replaced = []  # individuals to be replaced by immigrants
+        self.immigration_propagator = immigration_propagator  # Immigration propagator
+        self.replaced = []  # Individuals to be replaced by immigrants
 
     def _send_emigrants(self) -> None:
-        """
-        Perform migration, i.e. island sends individuals out to other islands.
-        """
-        log_string = f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: EMIGRATION\n"
+        """Perform migration, i.e. island sends individuals out to other islands."""
+        log_string = (
+            f"Island {self.island_idx} Worker {self.island_comm.rank} "
+            f"Generation {self.generation}: EMIGRATION\n"
+        )
         # Determine relevant line of migration topology.
         to_migrate = self.migration_topology[self.island_idx, :]
         num_emigrants = np.amax(
             to_migrate
         )  # Determine maximum number of emigrants to be sent out at once.
-        # NOTE For pollination, emigration-responsible worker not necessary as emigrating individuals are
-        # not deactivated and copies are allowed.
+        # For pollination, an emigration-responsible worker is not necessary as emigrating individuals are not
+        # deactivated and copies are allowed.
         # All active individuals are eligible emigrants.
         eligible_emigrants, _ = self._get_active_individuals()
 
-        # Only perform migration if maximum number of emigrants to be sent
-        # out at once is smaller than current number of eligible emigrants.
+        # Only perform migration if maximum number of emigrants to be sent out at once is smaller than current number
+        # of eligible emigrants.
         if num_emigrants <= len(eligible_emigrants):
             # Loop through relevant part of migration topology.
             for target_island, offspring in enumerate(to_migrate):
@@ -180,11 +197,12 @@ class Pollinator(Propulator):
             )
 
     def _receive_immigrants(self) -> None:
-        """
-        Check for and possibly receive immigrants send by other islands.
-        """
+        """Check for and possibly receive immigrants send by other islands."""
         replace_num = 0
-        log_string = f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: IMMIGRATION\n"
+        log_string = (
+            f"Island {self.island_idx} Worker {self.island_comm.rank} "
+            f"Generation {self.generation}: IMMIGRATION\n"
+        )
         probe_migrants = True
         while probe_migrants:
             stat = MPI.Status()
@@ -221,7 +239,6 @@ class Pollinator(Propulator):
                 # cannot choose the same individual independently for replacement and thus deactivation.
                 if replace_num > 0:
                     # From current population, choose `replace_num` individuals to be replaced.
-                    # eligible_for_replacement = [ind for ind in self.population[:-len(immigrants)] if ind.active \
                     eligible_for_replacement = [
                         ind
                         for ind in self.population
@@ -253,17 +270,15 @@ class Pollinator(Propulator):
                         individual.active = False
 
         _, num_active = self._get_active_individuals()
-        log_string += (
-            f"After immigration: {num_active}/{len(self.population)} active.\n"
-        )
+        log_string += f"After immigration: {num_active}/{len(self.population)} active."
         log.debug(log_string)
 
     def _deactivate_replaced_individuals(self) -> None:
-        """
-        Check for and possibly receive individuals from other intra-island workers to be deactivated
-        because of immigration.
-        """
-        log_string = f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: REPLACEMENT\n"
+        """Check for and receive individuals from other intra-island workers to be deactivated due to immigration."""
+        log_string = (
+            f"Island {self.island_idx} Worker {self.island_comm.rank} "
+            f"Generation {self.generation}: REPLACEMENT\n"
+        )
         probe_sync = True
         while probe_sync:
             stat = MPI.Status()
@@ -317,27 +332,26 @@ class Pollinator(Propulator):
         log.debug(log_string)
 
     def _check_for_duplicates(
-        self, active: bool, debug: int
+        self, active: bool, debug: int = 1
     ) -> Tuple[List[List[Union[Individual, int]]], List[Individual]]:
         """
         Check for duplicates in current population.
 
-        For pollination, duplicates are allowed as emigrants are sent as copies
-        and not deactivated on sending island.
+        For pollination, duplicates are allowed as emigrants are sent as copies and not deactivated on sending island.
 
         Parameters
         ----------
-        active: bool
-                Whether to consider active individuals (True) or all individuals (False)
-        debug: int
-               verbosity/debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode)
+        active : bool
+            Whether to consider active individuals (True) or all individuals (False).
+        debug : int, optional
+            The debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode). Default is 1.
 
         Returns
         -------
-        list[list[propulate.individual.Individual | int]]
-            individuals and their occurrences
-        list[propulate.individual.Individual]
-            unique individuals in population
+        List[List[propulate.individual.Individual | int]]
+            The individuals and their occurrences.
+        List[propulate.individual.Individual]
+            All unique individuals in the population.
         """
         if active:
             population, _ = self._get_active_individuals()
@@ -366,16 +380,16 @@ class Pollinator(Propulator):
                 occurrences.append([individual, num_copies])
         return occurrences, unique_inds
 
-    def _work(self, logging_interval: int, debug: int):
+    def _work(self, logging_interval: int = 10, debug: int = 1):
         """
         Execute evolutionary algorithm using island model with pollination in parallel.
 
         Parameters
         ----------
-        logging_interval: int
-                          logging interval
-        debug: int
-               verbosity/debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode)
+        logging_interval : int, optional
+            The logging interval. Default is 10.
+        debug : int, optional
+            The debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode). Default is 1.
         """
         if self.worker_sub_comm != MPI.COMM_SELF:
             self.generation = self.worker_sub_comm.bcast(self.generation, root=0)
@@ -432,8 +446,7 @@ class Pollinator(Propulator):
 
         self.propulate_comm.barrier()
         if self.propulate_comm.rank == 0:
-            log.info("OPTIMIZATION DONE.")
-            log.info("NEXT: Final checks for incoming messages...")
+            log.info("OPTIMIZATION DONE.\nNEXT: Final checks for incoming messages...")
         self.propulate_comm.barrier()
 
         # Final check for incoming individuals evaluated by other intra-island workers.
@@ -452,8 +465,7 @@ class Pollinator(Propulator):
             if len(self.replaced) > 0:
                 log.info(
                     f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: "
-                    f"Finally {len(self.replaced)} individual(s) in replaced: {self.replaced}:\n"
-                    f"{self.population}"
+                    f"Finally {len(self.replaced)} individual(s) in replaced: {self.replaced}:\n{self.population}"
                 )
                 self._deactivate_replaced_individuals()
             self.propulate_comm.barrier()
