@@ -91,10 +91,10 @@ if __name__ == "__main__":
     propulator = Propulator(
         loss_fn=function,
         propagator=propagator,
+        rng=rng,
         island_comm=comm,
         generations=config.generations,
         checkpoint_path=config.checkpoint,
-        rng=rng,
     )
 
     # Run optimization and print summary of results.

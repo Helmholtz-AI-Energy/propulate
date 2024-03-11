@@ -60,9 +60,9 @@ def test_Propulator():
         propulator = Propulator(
             loss_fn=sphere,
             propagator=propagator,
+            rng=rng,
             generations=10,
             checkpoint_path=checkpoint_path,
-            rng=rng,
         )
 
         # Run optimization and print summary of results.

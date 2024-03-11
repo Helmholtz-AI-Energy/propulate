@@ -164,10 +164,10 @@ if __name__ == "__main__":
     propulator = Propulator(
         function,
         propagator,
+        rng=rng,
         island_comm=comm,
         generations=config.generations,
         checkpoint_path=config.checkpoint,
-        rng=rng,
     )
     propulator.propulate(config.logging_int, config.verbosity)
     propulator.summarize(top_n=config.top_n, debug=config.verbosity)

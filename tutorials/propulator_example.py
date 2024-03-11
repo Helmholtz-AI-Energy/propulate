@@ -97,12 +97,12 @@ if __name__ == "__main__":
 
     # Set up propulator performing actual optimization.
     propulator = Propulator(
-        loss_fn=function,  # Loss function to be minimized
-        propagator=propagator,  # Propagator, i.e., evolutionary operator to be used
-        island_comm=comm,  # Communicator to be used
-        generations=config.generations,  # Number of generations
-        checkpoint_path=config.checkpoint,  # Checkpoint path
-        rng=rng,  # Separate random number generator for Propulate optimization
+        loss_fn=function,
+        propagator=propagator,
+        rng=rng,
+        island_comm=comm,
+        generations=config.generations,
+        checkpoint_path=config.checkpoint,
     )
 
     # Run optimization and print summary of results.
