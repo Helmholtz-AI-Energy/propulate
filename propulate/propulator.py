@@ -26,6 +26,49 @@ class Propulator:
     This class provides Propulate's basic asynchronous population-based optimization routine (without an island model).
     At the same time, it serves as a base class of ``Migrator`` and ``Pollinator``, which implement an asynchronous
     island model on top of the asynchronous base optimizer with real migration and pollination, respectively.
+
+    Attributes
+    ----------
+    checkpoint_path : str | Path
+        The path where checkpoints are loaded from and stored to.
+    emigration_propagator : Type[propulate.Propagator]
+        The emigration propagator, i.e., how to choose individuals for emigration that are sent to the destination
+        island. Should be some kind of selection operator.
+    generation : int
+        The current generation.
+    generations : int
+        The overall number of generations.
+    island_comm : MPI.Comm
+        The intra-island communicator for communication within the island.
+    island_counts : numpy.ndarray
+        The numbers of workers for each island.
+    island_displs : numpy.ndarray
+        The island displacements.
+    island_idx : int
+        The island's index.
+    loss_fn : Callable
+        The loss function to be minimized.
+    migration_prob : float
+        The migration probability.
+    migration_topology : np.ndarray
+        The migration topology.
+    population : List[propulate.Individual]
+        The population list of individuals on that island.
+    propagator : propulate.Propagator
+        The evolutionary operator.
+    propulate_comm : MPI.Comm
+        The Propulate world communicator, consisting of rank 0 of each worker's sub communicator.
+    rng : random.Random
+        The separate random number generator for the Propulate optimization.
+    worker_sub_comm : MPI.Comm
+        The worker's internal communicator for parallelized evaluation of single individuals.
+
+    Methods
+    -------
+    propulate()
+        Run asynchronous evolutionary optimization routine.
+    summarize()
+        Get top-n results from Propulate optimization.
     """
 
     def __init__(
@@ -53,39 +96,38 @@ class Propulator:
         loss_fn: Callable
             The loss function to be minimized.
         propagator: propulate.propagators.Propagator
-                    propagator to apply for breeding
+            The propagator to apply for breeding.
         island_idx: int
-                    index of island
+            The island's index.
         island_comm: MPI.Comm
-              intra-island communicator
+            The intra-island communicator.
         propulate_comm : MPI.Comm
             The Propulate world communicator, consisting of rank 0 of each worker's sub communicator.
         worker_sub_comm : MPI.Comm
             The sub communicator for each (multi rank) worker.
         generations: int
             The number of generations to run
-        checkpoint_path: Union[Path, str]
-                         Path where checkpoints are loaded from and stored.
+        checkpoint_path: Path | str
+            The path where checkpoints are loaded from and stored.
         migration_topology: numpy.ndarray
-                            2D matrix where entry (i,j) specifies how many
-                            individuals are sent by island i to island j
+            The migration topology, i.e., a 2D matrix where entry (i,j) specifies how many individuals are sent by
+            island i to island j.
         migration_prob: float
-                        per-worker migration probability
-        emigration_propagator: type[propulate.propagators.Propagator]
-                               emigration propagator, i.e., how to choose individuals
-                               for emigration that are sent to destination island.
-                               Should be some kind of selection operator.
+            The per-worker migration probability.
+        emigration_propagator: Type[propulate.propagators.Propagator]
+            The emigration propagator, i.e., how to choose individuals for emigration that are sent to destination
+            island. Should be some kind of selection operator.
         island_displs: numpy.ndarray
-                    array with MPI.COMM_WORLD rank of each island's worker 0
-                    Element i specifies MPI.COMM_WORLD rank of worker 0 on island with index i.
+            An array with ``propulate_comm`` rank of each island's worker 0. Element i specifies propulate_comm rank of
+            worker 0 on island with index i.
         island_counts: numpy.ndarray
-                       array with number of workers per island
-                       Element i specifies number of workers on island with index i.
+            An array with the number of workers per island. Element i specifies the number of workers on island with
+            index i.
         rng: random.Random
-             random number generator
+            The separate random number generator for the Propulate optimization.
         """
         # Set class attributes.
-        self.loss_fn = loss_fn  # callable loss function
+        self.loss_fn = loss_fn  # Callable loss function
         self.propagator = propagator  # evolutionary propagator
         if generations == 0:  # If number of iterations requested == 0.
             if MPI.COMM_WORLD.rank == 0:
@@ -124,8 +166,6 @@ class Propulator:
             with open(load_ckpt_file, "rb") as f:
                 try:
                     self.population = pickle.load(f)
-                    # print([x.rank for x in self.population])
-                    # print(self.island_comm.rank)
                     self.generation = (
                         max(
                             [
@@ -161,9 +201,9 @@ class Propulator:
         Parameters
         ----------
         logging_interval: int
-                          Print each worker's progress every ``logging_interval`` th generation.
+            Print each worker's progress every ``logging_interval`` th generation.
         debug: int
-               verbosity/debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode)
+            The debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode).
         """
         self._work(logging_interval, debug)
 
@@ -173,13 +213,12 @@ class Propulator:
 
         Returns
         -------
-        list[propulate.individual.Individual]
-            currently active individuals in population
+        List[propulate.individual.Individual]
+            All active individuals in the current population.
         int
-            number of currently active individuals
+            The number of currently active individuals.
         """
         active_pop = [ind for ind in self.population if ind.active]
-
         return active_pop, len(active_pop)
 
     def _breed(self) -> Individual:
@@ -189,9 +228,12 @@ class Propulator:
         Returns
         -------
         propulate.individual.Individual
-            newly bred individual
+            The newly bred individual.
         """
-        if self.propulate_comm is not None:
+        if (
+            self.propulate_comm is not None
+        ):  # Only processes in the Propulate world communicator, consisting of rank 0 of each worker's sub
+            # communicator, are involved in the actual optimization routine.
             active_pop, _ = self._get_active_individuals()
             ind = self.propagator(
                 active_pop
@@ -203,10 +245,13 @@ class Propulator:
             ind.current = self.island_comm.rank  # Set worker responsible for migration.
             ind.migration_steps = 0  # Set number of migration steps performed.
             ind.migration_history = str(self.island_idx)
-        else:
+        else:  # The other processes do not breed themselves.
             ind = None
 
-        if self.worker_sub_comm != MPI.COMM_SELF:
+        if (
+            self.worker_sub_comm != MPI.COMM_SELF
+        ):  # Broadcast newly bred individual to all internal ranks of a worker from rank 0,
+            # which is also part of the Propulate comm.
             ind = self.worker_sub_comm.bcast(obj=ind, root=0)
 
         return ind  # Return new individual.
@@ -230,7 +275,7 @@ class Propulator:
         )  # Add evaluated individual to worker-local population.
         log.debug(
             f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: BREEDING\n"
-            f"Bred and evaluated individual {ind}.\n"
+            f"Bred and evaluated individual {ind}."
         )
 
         # Tell other workers in own island about results to synchronize their populations.
@@ -243,8 +288,7 @@ class Propulator:
 
     def _receive_intra_island_individuals(self) -> None:
         """
-        Check for and possibly receive incoming individuals
-        evaluated by other workers within own island.
+        Check for and possibly receive incoming individuals evaluated by other workers within own island.
         """
         log_string = (
             f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: "
@@ -273,13 +317,13 @@ class Propulator:
                 log_string += f"Added individual {ind_temp} from W{stat.Get_source()} to own population.\n"
         _, n_active = self._get_active_individuals()
         log_string += (
-            f"After probing within island: {n_active}/{len(self.population)} active.\n"
+            f"After probing within island: {n_active}/{len(self.population)} active."
         )
         log.debug(log_string)
 
     def _send_emigrants(self) -> None:
         """
-        Perform migration, i.e. island sends individuals out to other islands.
+        Perform migration, i.e., island sends individuals out to other islands.
 
         Raises
         ------
@@ -307,8 +351,8 @@ class Propulator:
 
         Returns
         -------
-        list[propulate.individual.Individual]
-            unique individuals
+        List[propulate.individual.Individual]
+            All unique individuals in the current population.
         """
         unique_inds = []
         for individual in self.population:
@@ -331,8 +375,8 @@ class Propulator:
 
         Parameters
         ----------
-        populations: list[list[propulate.individual.Individual]]
-                     list of islands' sorted population lists
+        populations: List[List[propulate.individual.Individual]]
+            A list of all islands' sorted population lists.
 
         Returns
         -------
@@ -348,7 +392,7 @@ class Propulator:
                 continue
             log.info(
                 f"Island {self.island_idx} Worker {self.island_comm.rank}: Population not synchronized:\n"
-                f"{difference}\n"
+                f"{difference}"
             )
             synchronized = False
         return synchronized
@@ -360,9 +404,9 @@ class Propulator:
         Parameters
         ----------
         logging_interval: int
-                          logging interval
+            The logging interval.
         debug: int
-               verbosity/debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode)
+            The debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode).
 
         Raises
         ------
@@ -415,8 +459,7 @@ class Propulator:
 
         self.propulate_comm.barrier()
         if self.propulate_comm.rank == 0:
-            log.info("OPTIMIZATION DONE.")
-            log.info("NEXT: Final checks for incoming messages...")
+            log.info("OPTIMIZATION DONE.\nNEXT: Final checks for incoming messages...")
         self.propulate_comm.barrier()
 
         # Final check for incoming individuals evaluated by other intra-island workers.
@@ -496,16 +539,16 @@ class Propulator:
         Parameters
         ----------
         active: bool
-                Whether to consider active individuals (True) or all individuals (False)
+            Whether to consider active individuals (True) or all individuals (False).
         debug: int
-               verbosity/debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode)
+            The debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode).
 
         Returns
         -------
-        list[list[propulate.individual.Individual | int]]
-            individuals and their occurrences
+        List[List[propulate.individual.Individual | int]]
+            The individuals and their occurrences.
         list[propulate.individual.Individual]
-            unique individuals in population
+            The unique individuals in the population.
         """
         if active:
             population, _ = self._get_active_individuals()
@@ -533,19 +576,19 @@ class Propulator:
         self, top_n: int = 1, debug: int = 1
     ) -> Union[List[Union[List[Individual], Individual]], None]:
         """
-        Get top-n results from propulate optimization.
+        Get top-n results from Propulate optimization.
 
         Parameters
         ----------
         top_n: int
-               number of best results to report
+            The number of best results to report.
         debug: int
-               verbosity/debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode)
+            The debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode).
 
         Returns
         -------
-        list[list[Individual] | Individual]
-            top-n best individuals on each island
+        List[List[Individual] | Individual]
+            The top-n best individuals on each island.
         """
         if self.propulate_comm is None:
             return
@@ -562,11 +605,9 @@ class Propulator:
 
         self.propulate_comm.barrier()
         if self.propulate_comm.rank == 0:
-            log.info("###########")
-            log.info("# SUMMARY #")
-            log.info("###########")
-            log.info(f"Number of currently active individuals is {num_active}. ")
             log.info(
+                "###########\n# SUMMARY #\n###########\n"
+                f"Number of currently active individuals is {num_active}.\n"
                 f"Expected overall number of evaluations is {self.generations*self.propulate_comm.size}."
             )
         # Only double-check number of occurrences of each individual for DEBUG level 2.
@@ -590,7 +631,7 @@ class Propulator:
         if debug == 0:
             best = min(self.population, key=attrgetter("loss"))
             if self.island_comm.rank == 0:
-                log.info(f"Top result on island {self.island_idx}: {best}\n")
+                log.info(f"Top result on island {self.island_idx}: {best}")
         else:
             unique_pop = self._get_unique_individuals()
             unique_pop.sort(key=lambda x: x.loss)
