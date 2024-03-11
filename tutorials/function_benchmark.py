@@ -47,7 +47,7 @@ def step(params: Dict[str, float]) -> float:
         The function value.
     """
     params = np.array(list(params.values()))
-    return np.sum(params.astype(int), dtype=float)
+    return np.sum(params.astype(int), dtype=float).item()
 
 
 def quartic(params: Dict[str, float]) -> float:
@@ -108,7 +108,7 @@ def griewank(params: Dict[str, float]) -> float:
     """
     Griewank function.
 
-    Griewank's product creates sub-populations strongly codependent to parallel GAs, while the summation produces a
+    Griewank's product creates subpopulations strongly codependent to parallel GAs, while the summation produces a
     parabola. Its local optima lie above parabola level but decrease with increasing dimensions, i.e., the larger the
     search range, the flatter the function.
 
@@ -190,7 +190,9 @@ def bisphere(params: Dict[str, float]) -> float:
     s = 1 - np.sqrt(1 / (2 * np.sqrt(n + 20) - 8.2))
     mu1 = 2.5
     mu2 = -np.sqrt((mu1**2 - d) / s)
-    return min(np.sum((params - mu1) ** 2), d * n + s * np.sum((params - mu2) ** 2))
+    return min(
+        np.sum((params - mu1) ** 2), d * n + s * np.sum((params - mu2) ** 2)
+    ).item()
 
 
 def birastrigin(params: Dict[str, float]) -> float:
@@ -364,7 +366,7 @@ def sphere(params: Dict[str, float]) -> float:
     float
         The function value.
     """
-    return np.sum(np.array(list(params.values())) ** 2)
+    return np.sum(np.array(list(params.values())) ** 2).item()
 
 
 def get_function_search_space(
