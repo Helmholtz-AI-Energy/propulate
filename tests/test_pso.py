@@ -1,7 +1,6 @@
 import random
 import tempfile
 from typing import Dict
-from operator import attrgetter
 
 from mpi4py import MPI
 import numpy as np

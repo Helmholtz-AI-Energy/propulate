@@ -1,7 +1,6 @@
 import random
 import tempfile
 from typing import Dict
-from operator import attrgetter
 
 import numpy as np
 
