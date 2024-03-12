@@ -51,4 +51,4 @@ def test_cmaes():
         # Run optimization and print summary of results.
         propulator.propulate()
         best = propulator.summarize(top_n=1, debug=2)
-        assert best[0][0].loss < 1
+        assert best[0][0].loss < 10**-1

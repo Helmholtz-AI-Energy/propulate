@@ -1,5 +1,5 @@
 import random
-from typing import List, Dict, Tuple
+from typing import List, Dict, Optional, Tuple
 
 import numpy as np
 
@@ -45,7 +45,7 @@ class CMAParameter:
         If True decompose covariance matrix for each generation (worse runtime, less exploitation, more
         ``decompose_in_each_generation``); else decompose covariance matrix only after a certain number of
         individuals evaluated (better runtime, more exploitation, less ``decompose_in_each_generation``).
-    lamb : int
+    lambd : int
         The number of individuals considered for each generation.
     limits : Dict[str, float]
         The limits of the search space.
@@ -80,7 +80,7 @@ class CMAParameter:
 
     def __init__(
         self,
-        lamb: int,
+        lambd: int,
         mu: int,
         problem_dimension: int,
         weights: np.ndarray,
@@ -89,6 +89,7 @@ class CMAParameter:
         c_1: float,
         c_mu: float,
         limits: Dict,
+        initial_mean: np.ndarray,
         exploration: bool,
     ) -> None:
         """
@@ -96,7 +97,7 @@ class CMAParameter:
 
         Parameters
         ----------
-        lamb : int
+        lambd : int
             The number of individuals considered for each generation.
         mu : int
             The number of positive recombination weights.
@@ -107,13 +108,15 @@ class CMAParameter:
         mu_eff : float
             The variance effective selection mass.
         c_c : float
-            The decay rate for evolution path for the rank-one update of the covariance matrix.
+            The decay rate for the evolution path for the rank-one update of the covariance matrix.
         c_1 : float
             The learning rate for the rank-one update of the covariance matrix update.
         c_mu : float
             The learning rate for the rank-mu update of the covariance matrix update.
         limits : dict
             The limits of the search space.
+        initial_mean : np.ndarray
+            The initial mean of the distribution.
         exploration : bool
             If True decompose covariance matrix for each generation (worse runtime, less exploitation, more
             ``decompose_in_each_generation``); else decompose covariance matrix only after a certain number of
@@ -121,7 +124,7 @@ class CMAParameter:
         """
         self.problem_dimension = problem_dimension
         self.limits = limits
-        self.lamb = lamb
+        self.lambd = lambd
         self.mu = mu
         self.weights = weights
         self.mu_eff = mu_eff
@@ -165,9 +168,7 @@ class CMAParameter:
         self.constant_trace = False
 
         # Use this initial mean when using multiple islands.
-        self.mean = np.array(
-            [[np.random.uniform(*limits[limit]) for limit in limits]]
-        ).reshape((problem_dimension, 1))
+        self.mean = initial_mean
         # 0.3 instead of 0.2 is also often used for greater initial step size
         self.sigma = 0.2 * (
             (max(max(limits[i]) for i in limits)) - min(min(limits[i]) for i in limits)
@@ -215,7 +216,7 @@ class CMAParameter:
         # Also, trade-off decompose_in_each_generation or not.
         if self.exploration or (
             self.count_eval - self.eigen_eval
-            > self.lamb / (self.c_1 + self.c_mu) / self.problem_dimension / 10
+            > self.lambd / (self.c_1 + self.c_mu) / self.problem_dimension / 10
         ):
             self.eigen_eval = self.count_eval
             self._decompose_co_matrix(new_co_matrix)
@@ -528,7 +529,7 @@ class BasicCMA(CMAAdapter):
         """
         # Turn off rank-one accumulation when sigma increases quickly.
         h_sig = np.sum(par.p_sigma**2) / (
-            1 - (1 - par.c_sigma) ** (2 * (par.count_eval / par.lamb))
+            1 - (1 - par.c_sigma) ** (2 * (par.count_eval / par.lambd))
         ) / par.problem_dimension < 2 + 4.0 / (par.problem_dimension + 1)
         # Update evolution path.
         par.p_c = (1 - par.c_c) * par.p_c + h_sig * np.sqrt(
@@ -645,14 +646,14 @@ class ActiveCMA(CMAAdapter):
         """
         # Turn off rank-one accumulation when sigma increases quickly.
         h_sig = np.sum(par.p_sigma**2) / (
-            1 - (1 - par.c_sigma) ** (2 * (par.count_eval / par.lamb))
+            1 - (1 - par.c_sigma) ** (2 * (par.count_eval / par.lambd))
         ) / par.problem_dimension < 2 + 4.0 / (par.problem_dimension + 1)
         # Update evolution path.
         par.p_c = (1 - par.c_c) * par.p_c + h_sig * np.sqrt(
             par.c_c * (2 - par.c_c) * par.mu_eff
         ) * (par.mean - par.old_mean) / par.sigma
 
-        weights_circle = np.zeros((par.lamb,))
+        weights_circle = np.zeros((par.lambd,))
         for i, w_i in enumerate(par.weights):
             # Guarantee positive definiteness.
             weights_circle[i] = w_i
@@ -666,7 +667,7 @@ class ActiveCMA(CMAAdapter):
                     ** 2
                 )
         # Use ``h_sig`` to the power of two (unlike in paper) for the variance loss from ``h_sig``.
-        ar_tmp = (1 / par.sigma) * (arx - np.tile(par.old_mean, (1, par.lamb)))
+        ar_tmp = (1 / par.sigma) * (arx - np.tile(par.old_mean, (1, par.lambd)))
         new_co_matrix = (
             (1 - par.c_1 - par.c_mu) * par.covariance_matrix
             + par.c_1
@@ -692,7 +693,7 @@ class CMAPropagator(Propagator):
         The adaptation strategy of CMA-ES.    par
     pool_size : int
         The size of the pool of individuals pre-selected before selecting the best from this pool.
-    select_best_1 : SelectMin
+    select_single_best : SelectMin
         Selection operator to select the best individual.
     select_from_pool : SelectUniform
         Select randomly from breeding pool.
@@ -703,6 +704,8 @@ class CMAPropagator(Propagator):
     select_worst_all_time : bool
         If True, use the worst individuals for negative recombination weights in active CMA-ES, else use the worst
         (lambda - mu) individuals of the best lambda individuals.
+    rng : random.Random
+        The separate random number generator for the Propulate optimization.
 
     Notes
     -----
@@ -717,11 +720,11 @@ class CMAPropagator(Propagator):
         self,
         adapter: CMAAdapter,
         limits: Dict,
-        rng: random.Random,
         decompose_in_each_generation: bool = False,
         select_worst_all_time: bool = False,
-        pop_size: int = None,
+        pop_size: Optional[int] = None,
         pool_size: int = 3,
+        rng: Optional[random.Random] = None,
     ) -> None:
         """
         Instantiate a CMA-ES propagator.
@@ -731,42 +734,49 @@ class CMAPropagator(Propagator):
         adapter : CMAAdapter
             The adaptation strategy of CMA-ES.
         limits : Dict[str, float]
-            The limits of the search space
-        rng: random.Random
-            The separate random number generator for the Propulate optimization.
-        decompose_in_each_generation : bool
+            The limits of the search space.
+        decompose_in_each_generation : bool, optional
             If True, decompose covariance matrix for each generation (worse runtime, less exploitation, more
             exploration); else decompose covariance matrix only after a certain number of individuals evaluated
-            (better runtime, more exploitation, less exploration)
-        select_worst_all_time : bool
+            (better runtime, more exploitation, less exploration). Default is False.
+        select_worst_all_time : bool, optional
             If True, use the worst individuals for negative recombination weights in active CMA-ES, else use the worst
-            (lambda - mu) individuals of the best lambda individuals. If BasicCMA is used, the given value is irrelevant
-            regarding functionality.
-        pop_size : int
+            (lambda - mu) individuals of the best lambda individuals. If ``BasicCMA`` is used, the given value is
+            irrelevant regarding functionality. Default is False.
+        pop_size : int, optional
             The number of individuals to be considered in each generation.
-        pool_size : int
-            The size of the pool of individuals pre-selected before selecting the best from this pool.
+        pool_size : int, optional
+            The size of the pool of individuals pre-selected before selecting the best from this pool. Default is 3.
+        rng: random.Random, optional
+            The separate random number generator for the Propulate optimization.
         """
         self.adapter = adapter
         problem_dimension = len(limits)
         # Number of individuals considered for each generation
-        lamb = (
+        lambd = (
             pop_size if pop_size else 4 + int(np.floor(3 * np.log(problem_dimension)))
         )
-        super(CMAPropagator, self).__init__(lamb, 1)
-
+        super().__init__(lambd, 1, rng=rng)
+        self.numpy_rng = np.random.default_rng(
+            seed=self.rng.randint(a=0, b=np.iinfo(np.int32).max)
+        )
         # Number of positive recombination weights
-        mu = lamb // 2
-        self.select_worst = SelectMax(lamb - mu)
+        mu = lambd // 2
+        self.select_worst = SelectMax(lambd - mu)
         self.select_worst_all_time = select_worst_all_time
 
         # CMA-ES variant specific weights and learning rates
         weights, mu_eff, c_c, c_1, c_mu = adapter.compute_weights(
-            mu, lamb, problem_dimension
+            mu, lambd, problem_dimension
         )
 
+        initial_mean = np.array(
+            [[self.numpy_rng.uniform(*limits[limit]) for limit in limits]]
+        ).reshape((problem_dimension, 1))
+        # 0.3 instead of 0.2 is also often used for greater initial step size
+
         self.par = CMAParameter(
-            lamb,
+            lambd,
             mu,
             problem_dimension,
             weights,
@@ -775,12 +785,13 @@ class CMAPropagator(Propagator):
             c_1,
             c_mu,
             limits,
+            initial_mean,
             decompose_in_each_generation,
         )
         self.pool_size = int(pool_size) if int(pool_size) >= 1 else 3
-        self.select_pool = SelectMin(self.pool_size * lamb)
+        self.select_pool = SelectMin(self.pool_size * lambd)
         self.select_from_pool = SelectUniform(mu - 1, rng=rng)
-        self.select_best_1 = SelectMin(1)
+        self.select_single_best = SelectMin(1)
 
     def __call__(self, inds: List[Individual]) -> Individual:
         """
@@ -805,9 +816,9 @@ class CMAPropagator(Propagator):
         # Sample new individual.
         new_ind = self._sample_cma()
         # Check if ``len(inds)`` >= or < ``pool_size * lambda`` and make sample or sample + update.
-        if num_inds >= self.pool_size * self.par.lamb:
+        if num_inds >= self.pool_size * self.par.lambd:
             inds_pooled = self.select_pool(inds)
-            best = self.select_best_1(inds_pooled)
+            best = self.select_single_best(inds_pooled)
             if not self.select_worst_all_time:
                 worst = self.select_worst(inds_pooled)
             else:
@@ -858,7 +869,7 @@ class CMAPropagator(Propagator):
             The newly sampled individual.
         """
         # Generate new offspring
-        random_vector = np.random.randn(self.par.problem_dimension, 1)
+        random_vector = self.numpy_rng.standard_normal((self.par.problem_dimension, 1))
         try:
             new_x = self.par.mean + self.par.sigma * self.par.b_matrix @ (
                 self.par.d_matrix * random_vector
