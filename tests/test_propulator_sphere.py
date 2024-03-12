@@ -47,13 +47,13 @@ def test_Propulator():
             colors=True,
         )
         # Set up evolutionary operator.
-        propagator = get_default_propagator(  # Get default evolutionary operator.
-            pop_size=4,  # Breeding pool size
-            limits=limits,  # Search-space limits
-            mate_prob=0.7,  # Crossover probability
-            mut_prob=9.0,  # Mutation probability
-            random_prob=0.1,  # Random-initialization probability
-            rng=rng,  # Random number generator
+        propagator = get_default_propagator(
+            pop_size=4,
+            limits=limits,
+            crossover_prob=0.7,
+            mutation_prob=9.0,
+            random_init_prob=0.1,
+            rng=rng,
         )
 
         # Set up propulator performing actual optimization.

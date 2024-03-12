@@ -323,7 +323,7 @@ class IntervalMutationNormal(Stochastic):
         return ind  # Return point-mutated individual.
 
 
-class MateUniform(Stochastic):  # uniform crossover
+class CrossoverUniform(Stochastic):  # uniform crossover
     """
     Generate new individual by uniform crossover of two parents with specified relative parent contribution.
 
@@ -334,7 +334,7 @@ class MateUniform(Stochastic):  # uniform crossover
 
     Notes
     -----
-    The ``MateUniform`` class inherits all methods and attributes from the ``Stochastic`` class.
+    The ``CrossoverUniform`` class inherits all methods and attributes from the ``Stochastic`` class.
 
     See Also
     --------
@@ -343,7 +343,7 @@ class MateUniform(Stochastic):  # uniform crossover
 
     def __init__(
         self,
-        rel_parent_contrib: float = 0.5,
+        relative_parent_contribution: float = 0.5,
         probability: float = 1.0,
         rng: Optional[random.Random] = None,
     ) -> None:
@@ -352,7 +352,7 @@ class MateUniform(Stochastic):  # uniform crossover
 
         Parameters
         ----------
-        rel_parent_contrib : float, optional
+        relative_parent_contribution : float, optional
             The relative parent contribution with respect to the first parent. Default is 0.5.
         probability: float, optional
             The probability of application. Default is 1.0.
@@ -365,11 +365,11 @@ class MateUniform(Stochastic):  # uniform crossover
             If the relative parent contribution is not within [0, 1].
         """
         super().__init__(2, 1, probability, rng)  # Breed 1 offspring from 2 parents.
-        if rel_parent_contrib <= 0 or rel_parent_contrib >= 1:
+        if relative_parent_contribution <= 0 or relative_parent_contribution >= 1:
             raise ValueError(
-                f"Relative parent contribution must be within (0, 1) but was {rel_parent_contrib}."
+                f"Relative parent contribution must be within (0, 1) but was {relative_parent_contribution}."
             )
-        self.rel_parent_contrib = rel_parent_contrib
+        self.rel_parent_contrib = relative_parent_contribution
 
     def __call__(self, inds: List[Individual]) -> Individual:
         """
@@ -397,13 +397,13 @@ class MateUniform(Stochastic):  # uniform crossover
         return ind  # Return offspring.
 
 
-class MateMultiple(Stochastic):  # uniform crossover
+class CrossoverMultiple(Stochastic):  # uniform crossover
     """
     Breed new individual by uniform crossover of multiple parents.
 
     Notes
     -----
-    The ``MateMultiple`` class inherits all methods and attributes from the ``Stochastic`` class.
+    The ``CrossoverMultiple`` class inherits all methods and attributes from the ``Stochastic`` class.
 
     See Also
     --------
@@ -457,7 +457,7 @@ class MateMultiple(Stochastic):  # uniform crossover
         return ind  # Return offspring.
 
 
-class MateSigmoid(Stochastic):
+class CrossoverSigmoid(Stochastic):
     """
     Generate new individual by crossover of two parents according to Boltzmann sigmoid probability.
 
@@ -471,7 +471,7 @@ class MateSigmoid(Stochastic):
 
     Notes
     -----
-    The ``MateSigmoid`` class inherits all methods and attributes from the ``Stochastic`` class.
+    The ``CrossoverSigmoid`` class inherits all methods and attributes from the ``Stochastic`` class.
 
     See Also
     --------
@@ -496,7 +496,7 @@ class MateSigmoid(Stochastic):
         rng : random.Random, optional
             The separate random number generator for the Propulate optimization.
         """
-        super(MateSigmoid, self).__init__(
+        super(CrossoverSigmoid, self).__init__(
             2, 1, probability, rng
         )  # Breed 1 offspring from 2 parents.
         self.temperature = temperature

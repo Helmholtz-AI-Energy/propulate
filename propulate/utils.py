@@ -15,7 +15,7 @@ from .propagators import (
     Conditional,
     InitUniform,
     IntervalMutationNormal,
-    MateUniform,
+    CrossoverUniform,
     PointMutation,
     Propagator,
     SelectMin,
@@ -30,9 +30,9 @@ def get_default_propagator(
         Dict[str, Tuple[int, int]],
         Dict[str, Tuple[str, ...]],
     ],
-    mate_prob: float,
-    mut_prob: float,
-    random_prob: float,
+    crossover_prob: float = 0.7,
+    mutation_prob: float = 0.4,
+    random_init_prob: float = 0.1,
     sigma_factor: float = 0.05,
     rng: Optional[random.Random] = None,
 ) -> Propagator:
@@ -45,12 +45,12 @@ def get_default_propagator(
         The number of individuals in the breeding population.
     limits : Dict[str, Tuple[float, float]] | Dict[str, Tuple[int, int]] | Dict[str, Tuple[str, ...]]
         The (hyper-)parameters to be optimized, i.e., the search space.
-    mate_prob : float
-        The uniform-crossover probability.
-    mut_prob : float
-        The point-mutation probability.
-    random_prob : float
-        The random-initialization probability.
+    crossover_prob : float, optional
+        The uniform-crossover probability. Default is 0.7.
+    mutation_prob : float, optional
+        The point-mutation probability. Default is 0.4.
+    random_init_prob : float, optional
+        The random-initialization probability. Default is 0.1.
     sigma_factor : float
         The scaling factor for obtaining the standard deviation from the search-space boundaries for interval mutation.
         Default is 0.05.
@@ -69,12 +69,12 @@ def get_default_propagator(
             [  # Compose propagator out of basic evolutionary operators with Compose(...).
                 SelectMin(pop_size),
                 SelectUniform(offspring=2, rng=rng),
-                MateUniform(mate_prob, rng=rng),
-                PointMutation(limits, probability=mut_prob, rng=rng),
+                CrossoverUniform(crossover_prob, rng=rng),
+                PointMutation(limits, probability=mutation_prob, rng=rng),
                 IntervalMutationNormal(
                     limits, sigma_factor=sigma_factor, probability=1.0, rng=rng
                 ),
-                InitUniform(limits, parents=1, probability=random_prob, rng=rng),
+                InitUniform(limits, parents=1, probability=random_init_prob, rng=rng),
             ]
         )
     else:
@@ -82,9 +82,9 @@ def get_default_propagator(
             [  # Compose propagator out of basic evolutionary operators with Compose(...).
                 SelectMin(pop_size),
                 SelectUniform(offspring=2, rng=rng),
-                MateUniform(mate_prob, rng=rng),
-                PointMutation(limits, probability=mut_prob, rng=rng),
-                InitUniform(limits, parents=1, probability=random_prob, rng=rng),
+                CrossoverUniform(crossover_prob, rng=rng),
+                PointMutation(limits, probability=mutation_prob, rng=rng),
+                InitUniform(limits, parents=1, probability=random_init_prob, rng=rng),
             ]
         )
 

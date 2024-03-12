@@ -89,10 +89,10 @@ if __name__ == "__main__":
     propagator = get_default_propagator(  # Get default evolutionary operator.
         pop_size=config.pop_size,  # Breeding pool size
         limits=limits,  # Search-space limits
-        mate_prob=config.crossover_probability,  # Crossover probability
-        mut_prob=config.mutation_probability,  # Mutation probability
-        random_prob=config.random_init_probability,  # Random-initialization probability
-        rng=rng,  # Random number generator
+        crossover_prob=config.crossover_probability,  # Crossover probability
+        mutation_prob=config.mutation_probability,  # Mutation probability
+        random_init_prob=config.random_init_probability,  # Random-initialization probability
+        rng=rng,  # Separate random number generator for Propulate optimization
     )
 
     # Set up propulator performing actual optimization.
@@ -112,5 +112,5 @@ if __name__ == "__main__":
     )
     propulator.summarize(
         top_n=config.top_n,  # Print top-n best individuals on each island in summary.
-        debug=config.verbosity,  # Verbosity level
+        debug=config.verbosity,  # Debug level
     )

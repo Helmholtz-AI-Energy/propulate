@@ -15,9 +15,9 @@ from .ga import (
     PointMutation,
     RandomPointMutation,
     IntervalMutationNormal,
-    MateUniform,
-    MateMultiple,
-    MateSigmoid,
+    CrossoverUniform,
+    CrossoverMultiple,
+    CrossoverSigmoid,
 )
 
 from .pso import (
@@ -48,9 +48,9 @@ __all__ = [
     "PointMutation",
     "RandomPointMutation",
     "IntervalMutationNormal",
-    "MateUniform",
-    "MateMultiple",
-    "MateSigmoid",
+    "CrossoverUniform",
+    "CrossoverMultiple",
+    "CrossoverSigmoid",
     "BasicPSO",
     "VelocityClampingPSO",
     "ConstrictionPSO",
