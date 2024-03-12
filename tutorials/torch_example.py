@@ -191,9 +191,6 @@ def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
     """
     data_transform = Compose([ToTensor(), Normalize((0.1307,), (0.3081,))])
     num_workers = NUM_WORKERS
-    # num_workers = int(int(os.getenv("SLURM_CPUS_ON_NODE")) / MPI.COMM_WORLD.size)
-    # Alternatively, use "SLURM_CPUS_PER_GPU".
-    # Only set if the --cpus-per-gpu option is specified.
     log.info(f"Use {num_workers} workers in dataloader.")
 
     if MPI.COMM_WORLD.rank == 0:  # Only root downloads data.
