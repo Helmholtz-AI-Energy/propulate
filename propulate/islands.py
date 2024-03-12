@@ -132,7 +132,7 @@ class Islands:
             )
         worker_idx = (
             full_world_rank // ranks_per_worker
-        )  # This is the same for full word ranks belonging to the same worker.
+        )  # This is the same for full world ranks belonging to the same worker.
         if ranks_per_worker > 1:
             # Create new communicators by splitting MPI.COMM_WORLD into group of sub-communicators based on
             # input values `color` and `key`. `color` determines to which new communicator each processes will belong.
