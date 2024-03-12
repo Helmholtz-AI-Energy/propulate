@@ -347,7 +347,7 @@ if __name__ == "__main__":
     # Set up separate logger for Propulate optimization.
     set_logger_config(
         level=logging.INFO,  # Logging level
-        log_file=f"./{pathlib.Path(__file__).stem}.log",  # Logging path
+        log_file=f"{log_path}/{pathlib.Path(__file__).stem}.log",  # Logging path
         log_to_stdout=True,  # Print log on stdout.
         log_rank=False,  # Do not prepend MPI rank to logging messages.
         colors=True,  # Use colors.
