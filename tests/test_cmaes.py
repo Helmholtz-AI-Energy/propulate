@@ -46,10 +46,10 @@ def test_cmaes():
             loss_fn=sphere,
             propagator=propagator,
             rng=rng,
-            generations=1000,
+            generations=100,
             checkpoint_path=checkpoint_path,
         )
         # Run optimization and print summary of results.
         propulator.propulate()
         best = propulator.summarize(top_n=1, debug=2)
-        assert best[0][0].loss < 10.0
+        assert best[0][0].loss < 1

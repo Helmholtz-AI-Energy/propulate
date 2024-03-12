@@ -3,6 +3,7 @@ import tempfile
 from typing import Dict
 from operator import attrgetter
 
+from mpi4py import MPI
 import numpy as np
 
 from propulate import Propulator
@@ -19,20 +20,18 @@ def sphere(params: Dict[str, float]) -> float:
 
     Parameters
     ----------
-    params: dict[str, float]
-            function parameters
+    params : Dict[str, float]
+        The function parameters.
     Returns
     -------
     float
-        function value
+        The function value.
     """
-    return np.sum(np.array(list(params.values())) ** 2)
+    return np.sum(np.array(list(params.values())) ** 2).item()
 
 
-def test_PSO():
-    """
-    Test single worker using Propulator to optimize sphere using a PSO propagator.
-    """
+def test_pso():
+    """Test single worker using Propulator to optimize sphere using a PSO propagator."""
     rng = random.Random(42)  # Separate random number generator for optimization.
     limits = {
         "a": (-5.12, 5.12),
@@ -40,16 +39,15 @@ def test_PSO():
     }
     with tempfile.TemporaryDirectory() as checkpoint_path:
         # Set up evolutionary operator.
-
         pso_propagator = BasicPSO(
-            0.729,
-            1.49334,
-            1.49445,
-            0,  # MPI rank TODO fix when implemented proper MPI parallel tests
-            limits,
-            rng,
+            inertia=0.729,
+            c_cognitive=1.49334,
+            c_social=1.49445,
+            rank=MPI.COMM_WORLD.rank,  # MPI rank TODO fix when implemented proper MPI parallel tests
+            limits=limits,
+            rng=rng,
         )
-        init = InitUniformPSO(limits, rng=rng, rank=0)
+        init = InitUniformPSO(limits, rng=rng, rank=MPI.COMM_WORLD.rank)
         propagator = Conditional(1, pso_propagator, init)  # TODO MPIify
 
         # Set up propulator performing actual optimization.
@@ -57,13 +55,11 @@ def test_PSO():
             loss_fn=sphere,
             propagator=propagator,
             rng=rng,
-            generations=10,
+            generations=100,
             checkpoint_path=checkpoint_path,
         )
 
         # Run optimization and print summary of results.
         propulator.propulate()
-        propulator.summarize()
-        best = min(propulator.population, key=attrgetter("loss"))
-
-        assert best.loss < 30.0
+        best = propulator.summarize(top_n=1, debug=2)
+        assert best[0][0].loss < 30.0
