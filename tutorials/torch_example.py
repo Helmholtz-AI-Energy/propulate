@@ -164,9 +164,7 @@ class Net(LightningModule):
         return torch.optim.SGD(self.parameters(), lr=self.lr)
 
     def on_validation_epoch_end(self):
-        """
-        Calculate and store the model's validation accuracy after each epoch.
-        """
+        """Calculate and store the model's validation accuracy after each epoch."""
         val_acc_val = self.val_acc.compute()
         self.val_acc.reset()
         if val_acc_val > self.best_accuracy:
