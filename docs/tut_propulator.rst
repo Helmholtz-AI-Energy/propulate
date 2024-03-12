@@ -83,6 +83,7 @@ As the very first step, we need to define the key ingredients that define the op
         ----------
         params: Dict[str, float]
             The function parameters.
+            
         Returns
         -------
         float
