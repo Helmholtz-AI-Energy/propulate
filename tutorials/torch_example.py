@@ -3,7 +3,6 @@ Toy example for hyperparameter optimization / NAS in Propulate, using a simple c
 MNIST dataset.
 
 This script was tested on a single compute node with 4 GPUs. Note that you need to adapt ``GPUS_PER_NODE`` (see ll. 25).
-and
 """
 import logging
 import random
