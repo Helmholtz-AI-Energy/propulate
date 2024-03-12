@@ -74,22 +74,21 @@ As the very first step, we need to define the key ingredients that define the op
 
     def sphere(params: Dict[str, float]) -> float:
         """
-        Sphere function: continuous, convex, separable, differentiable, unimodal
+        Sphere function: continuous, convex, separable, differentiable, unimodal.
 
         Input domain: -5.12 <= x, y <= 5.12
         Global minimum 0 at (x, y) = (0, 0)
 
         Parameters
         ----------
-        params: dict[str, float]
-                function parameters
+        params: Dict[str, float]
+            The function parameters.
         Returns
         -------
         float
-            function value
+            The function value.
         """
-        return numpy.sum(numpy.array(list(params.values())) ** 2)
-
+        return numpy.sum(numpy.array(list(params.values())) ** 2).item()
 
 Next, we need to define the evolutionary operator or propagator that we want to use to breed new individuals during the
 optimization process. ``Propulate`` provides a reasonable default propagator via a utility function, ``get_default_propagator``,
@@ -100,28 +99,29 @@ generator that is used exclusively in the evolutionary optimization process (and
 
 .. code-block:: python
 
-    rng = random.Random(config.seed+MPI.COMM_WORLD.rank)  # Separate random number generator for optimization.
+    rng = random.Random(
+        config.seed + MPI.COMM_WORLD.rank
+    )  # Separate random number generator for optimization.
     propagator = propulate.utils.get_default_propagator(  # Get default evolutionary operator.
         pop_size=config.pop_size,  # Breeding pool size
         limits=limits,  # Search-space limits
-        mate_prob=config.crossover_probability,  # Crossover probability
-        mut_prob=config.mutation_probability,  # Mutation probability
-        random_prob=config.random_init_probability,  # Random-initialization probability
-        rng=rng)  # Random number generator for the optimization process
+        crossover_prob=config.crossover_probability,  # Crossover probability
+        mutation_prob=config.mutation_probability,  # Mutation probability
+        random_init_prob=config.random_init_probability,  # Random-initialization probability
+        rng=rng  # Random number generator for the optimization process
+    )
 
 We also need to set up the actual evolutionary optimizer, that is a so-called ``Propulator`` instance. This will handle the
 parallel asynchronous optimization process for us:
 
 .. code-block:: python
-
     propulator = Propulator(  # Set up propulator performing actual optimization.
         loss_fn=sphere,  # Loss function to minimize
         propagator=propagator,  # Evolutionary operator
-        comm=MPI.COMM_WORLD,  # Communicator
+        rng=rng,  # Random number generator for optimization process
         generations=config.generations,  # Number of generations
-        checkpoint_path=config.checkpoint,  # Checkpoint path
-        rng=rng)  # Random number generator for optimization process
-
+        checkpoint_path=config.checkpoint  # Checkpoint path
+    )
 Now it's time to run the actual optimization. Overall, ``generations * MPI.COMM_WORLD.size`` evaluations will be performed:
 
 .. code-block:: python
@@ -133,41 +133,36 @@ Now it's time to run the actual optimization. Overall, ``generations * MPI.COMM_
 The output looks like this:
 
 .. code-block:: text
-
     #################################################
     # PROPULATE: Parallel Propagator of Populations #
     #################################################
 
-    NOTE: No valid checkpoint file given. Initializing population randomly...
-    Island 0 has 4 workers.
-    Island 0 Worker 0: In generation 0...
-    Island 0 Worker 2: In generation 0...
-    Island 0 Worker 1: In generation 0...
-    Island 0 Worker 3: In generation 0...
-    Island 0 Worker 0: In generation 10...
-    Island 0 Worker 1: In generation 10...
-    Island 0 Worker 3: In generation 10...
-    Island 0 Worker 2: In generation 10...
-    Island 0 Worker 0: In generation 20...
-    Island 0 Worker 1: In generation 20...
-    Island 0 Worker 2: In generation 20...
-    Island 0 Worker 3: In generation 20...
+    [2024-03-12 14:37:01,374][propulate.propulator][INFO] - No valid checkpoint file given. Initializing population randomly...
+    [2024-03-12 14:37:01,374][propulate.propulator][INFO] - Island 0 has 4 workers.
+    [2024-03-12 14:37:01,374][propulate.propulator][INFO] - Island 0 Worker 0: In generation 0...
+    [2024-03-12 14:37:01,374][propulate.propulator][INFO] - Island 0 Worker 3: In generation 0...
+    [2024-03-12 14:37:01,374][propulate.propulator][INFO] - Island 0 Worker 2: In generation 0...
+    [2024-03-12 14:37:01,374][propulate.propulator][INFO] - Island 0 Worker 1: In generation 0...
+    [2024-03-12 14:37:01,377][propulate.propulator][INFO] - Island 0 Worker 3: In generation 10...
+    [2024-03-12 14:37:01,377][propulate.propulator][INFO] - Island 0 Worker 1: In generation 10...
+    [2024-03-12 14:37:01,378][propulate.propulator][INFO] - Island 0 Worker 0: In generation 10...
+    [2024-03-12 14:37:01,378][propulate.propulator][INFO] - Island 0 Worker 2: In generation 10...
 
     ...
-
-    Island 0 Worker 0: In generation 990...
-    Island 0 Worker 1: In generation 990...
-    OPTIMIZATION DONE.
+    [2024-03-12 14:37:02,197][propulate.propulator][INFO] - Island 0 Worker 1: In generation 960...
+    [2024-03-12 14:37:02,206][propulate.propulator][INFO] - Island 0 Worker 2: In generation 990...
+    [2024-03-12 14:37:02,206][propulate.propulator][INFO] - Island 0 Worker 1: In generation 970...
+    [2024-03-12 14:37:02,215][propulate.propulator][INFO] - Island 0 Worker 1: In generation 980...
+    [2024-03-12 14:37:02,224][propulate.propulator][INFO] - Island 0 Worker 1: In generation 990...
+    [2024-03-12 14:37:02,232][propulate.propulator][INFO] - OPTIMIZATION DONE.
     NEXT: Final checks for incoming messages...
-
-    ###########
+    [2024-03-12 14:37:02,244][propulate.propulator][INFO] - ###########
     # SUMMARY #
     ###########
-
     Number of currently active individuals is 4000.
     Expected overall number of evaluations is 4000.
-    Top 1 result(s) on island 0:
-    (1): [{'a': '3.90E-3', 'b': '1.16E-3'}, loss 1.66E-5, island 0, worker 2, generation 739]
+    [2024-03-12 14:37:03,703][propulate.propulator][INFO] - Top 1 result(s) on island 0:
+    (1): [{'a': '2.91E-3', 'b': '-3.05E-3'}, loss 1.78E-5, island 0, worker 0, generation 956]
 
 Let's Get Your Hands Dirty (At Least a Bit)
 -------------------------------------------
