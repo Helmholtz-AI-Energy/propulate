@@ -30,7 +30,39 @@ log = logging.getLogger(__name__)  # Get logger instance.
 
 
 class Net(LightningModule):
-    """Neural network class."""
+    """
+    Neural network class.
+
+    Attributes
+    ----------
+    best_accuracy : float
+        The model's best validation accuracy.
+    conv_layers : torch.nn.modules.container.Sequential
+        The model's convolutional layers.
+    fc : torch.nn.modules.linear.Linear
+        The model's fully connected layers.
+    loss_fn : torch.nn.modules.loss
+        The loss function used for training the model.
+    lr : float
+        The learning rate.
+    train_acc : torchmetrics.classification.accuracy.Accuracy
+        The accuracy metric used for evaluating model performance on the training dataset.
+    val_acc : torchmetrics.classification.accuracy.Accuracy
+        The accuracy metric used for evaluating model performance on the validation dataset.
+
+    Methods
+    -------
+    forward()
+        The forward pass.
+    training_step()
+        Calculate loss for training step in Lightning train loop.
+    validation_step()
+        Calculate loss for validation step in Lightning validation loop during training.
+    configure_optimizers()
+        Configure the optimizer.
+    on_validation_epoch_end()
+        Calculate and store the model's validation accuracy after each epoch.
+    """
 
     def __init__(
         self,
@@ -44,13 +76,13 @@ class Net(LightningModule):
 
         Parameters
         ----------
-        conv_layers: int
+        conv_layers : int
             The number of convolutional layers.
-        activation: torch.nn.modules.activation
+        activation : torch.nn.modules.activation
             The activation function to use.
-        lr: float
+        lr : float
             The learning rate.
-        loss_fn: torch.nn.modules.loss
+        loss_fn : torch.nn.modules.loss
             The loss function.
         """
         super().__init__()
@@ -86,7 +118,7 @@ class Net(LightningModule):
 
         Parameters
         ----------
-        x: torch.Tensor
+        x : torch.Tensor
            The data sample.
 
         Returns
@@ -108,9 +140,9 @@ class Net(LightningModule):
 
         Parameters
         ----------
-        batch: Tuple[torch.Tensor, torch.Tensor]
+        batch : Tuple[torch.Tensor, torch.Tensor]
             The input batch.
-        batch_idx: int
+        batch_idx : int
             Its batch index.
 
         Returns
@@ -134,9 +166,9 @@ class Net(LightningModule):
 
         Parameters
         ----------
-        batch: Tuple[torch.Tensor, torch.Tensor]
+        batch : Tuple[torch.Tensor, torch.Tensor]
             The current batch
-        batch_idx: int
+        batch_idx : int
             The batch index.
 
         Returns
@@ -154,7 +186,7 @@ class Net(LightningModule):
 
     def configure_optimizers(self) -> torch.optim.SGD:
         """
-        Configure optimizer.
+        Configure the optimizer.
 
         Returns
         -------
@@ -177,14 +209,14 @@ def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
 
     Parameters
     ----------
-    batch_size: int
+    batch_size : int
         The batch size.
 
     Returns
     -------
-    DataLoader
+    torch.utils.data.DataLoader
         The training dataloader.
-    DataLoader
+    torch.utils.data.DataLoader
         The validation dataloader.
     """
     data_transform = Compose([ToTensor(), Normalize((0.1307,), (0.3081,))])
