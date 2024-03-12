@@ -96,6 +96,7 @@ First, we need to define the key ingredients that define our optimization proble
     - A tuple of `float` for a continuous parameter, e.g., `{"learning_rate": (0.0001, 0.01)}`
     - A tuple of `int` for an ordinal parameter, e.g., `{"conv_layers": (2, 10)}`
     - A tuple of `str` for a categorical parameter, e.g., `{"activation": ("relu", "sigmoid", "tanh")}`
+  
   The sphere function has two continuous parameters, $x$ and $y$, and we consider $x,y\in\left[-5.12,5.12\right]$. The 
   search space in our example thus looks like this:
   ```python
@@ -108,6 +109,7 @@ First, we need to define the key ingredients that define our optimization proble
   `Python` function that
   - takes a set of parameters as a `Python` dictionary as an input.
   - returns a scalar loss value that determines how good the tested parameter set is.
+  
   In this example, the loss function whose minimum we want to find is the sphere function:
   ```python
   def sphere(params: Dict[str, float]) -> float:
@@ -161,7 +163,7 @@ propulator.propulate()
 propulator.summarize()
 ```
 The output should look something like this:
-```bash
+```text
 #################################################
 # PROPULATE: Parallel Propagator of Populations #
 #################################################
@@ -193,7 +195,7 @@ Expected overall number of evaluations is 4000.
 [2024-03-12 14:37:03,703][propulate.propulator][INFO] - Top 1 result(s) on island 0:
 (1): [{'a': '2.91E-3', 'b': '-3.05E-3'}, loss 1.78E-5, island 0, worker 0, generation 956]
 ```
-### Let's Get Your Hands Dirty (At Least a Bit)
+### Let's get your hands dirty
 Do the following to run the [example script](https://github.com/Helmholtz-AI-Energy/propulate/blob/master/tutorials/propulator_example.py):
 
 - Make sure you have a working MPI installation on your machine.
