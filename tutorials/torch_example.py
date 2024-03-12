@@ -5,6 +5,7 @@ MNIST dataset.
 This script was tested on a single compute node with 4 GPUs. Note that you need to adapt ``GPUS_PER_NODE`` (see ll. 25).
 """
 import logging
+import pathlib
 import random
 from typing import Union, Dict, Tuple
 
@@ -345,8 +346,8 @@ if __name__ == "__main__":
 
     # Set up separate logger for Propulate optimization.
     set_logger_config(
-        level=logging.INFO,  # logging level
-        log_file="./propulator.log",  # logging path
+        level=logging.INFO,  # Logging level
+        log_file=f"./{pathlib.Path(__file__).stem}.log",  # Logging path
         log_to_stdout=True,  # Print log on stdout.
         log_rank=False,  # Do not prepend MPI rank to logging messages.
         colors=True,  # Use colors.
@@ -356,10 +357,10 @@ if __name__ == "__main__":
     propulator = Propulator(
         loss_fn=ind_loss,  # Loss function to optimize
         propagator=propagator,  # Evolutionary operator
-        comm=comm,  # Communicator
+        rng=rng,  # Random number generator
+        island_comm=comm,  # Communicator
         generations=num_generations,  # Number of generations per worker
         checkpoint_path=log_path,  # Path to save checkpoints to
-        rng=rng,  # Random number generator
     )
 
     # Run optimization and print summary of results.
