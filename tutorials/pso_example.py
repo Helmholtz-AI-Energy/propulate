@@ -2,10 +2,8 @@
 This files contains an example use case for the PSO propagators. Here, you can choose between benchmark functions and
 optimize them. The example shows how to set up Propulate in order to use it with PSO.
 """
-import argparse
 import pathlib
 import random
-from typing import Dict
 
 from mpi4py import MPI
 
