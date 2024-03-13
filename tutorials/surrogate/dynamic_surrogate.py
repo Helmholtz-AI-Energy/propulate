@@ -9,6 +9,18 @@ from propulate.population import Individual
 
 # Gaussian Process Regression with an Exponential Decay Kernel Surrogate
 class DynamicSurrogate(Surrogate):
+    """
+    Surrogate model using a two-step Gaussian Process Regression
+    to predict the final loss of a configuration.
+    The first global model is trained on the configurations with their final losses.
+    The second local model is trained on the interim losses of the current run.
+    The local model uses the global model's prediction as the mean function.
+
+    Loosely based on the paper:
+    Freeze-Thaw Bayesian Optimization
+    https://arxiv.org/abs/1406.3896
+    """
+
     def __init__(
         self,
         limits: Union[
@@ -17,7 +29,6 @@ class DynamicSurrogate(Surrogate):
             Dict[str, Tuple[str, ...]],
         ],
     ) -> None:
-        print("Dynamic Surrogate - init")
         self.limits = limits
         self.encodings = self._create_encoding(limits)
 
@@ -49,9 +60,7 @@ class DynamicSurrogate(Surrogate):
         random.seed(42 * rank)
 
     def start_run(self, ind: Individual):
-        print("Dynamic Surrogate - start run")
         self.current_encoding = self.encode_configuration(ind)
-        print("Dynamic Surrogate - start run - encoding", self.current_encoding)
 
         if self.first_run:
             return
@@ -59,7 +68,7 @@ class DynamicSurrogate(Surrogate):
         # use global model's prediction as the mean function for the local model
         self.mean_function = GPy.mappings.Constant(input_dim=1, output_dim=1)
         mean, variance = self.global_gpr.predict(self.current_encoding)
-        print("Dynamic Surrogate - start run - mean and variance", mean, variance)
+
         self.mean_function.C = mean[0]
 
         # reset the local model and run data
@@ -67,7 +76,6 @@ class DynamicSurrogate(Surrogate):
         self.current_run_data = np.array([[]])
 
     def update(self, loss: float) -> None:
-        print("Dynamic Surrogate - update")
         # append the final loss to the history
         # only if this is the first run
         if self.first_run:
@@ -104,7 +112,6 @@ class DynamicSurrogate(Surrogate):
             return
 
     def cancel(self, loss: float) -> bool:
-        print("Dynamic Surrogate - cancel - loss", loss)
         # the first run is never cancelled and has to run till the end
         if self.first_run:
             # here we also count how often cancel is called for later reference
@@ -135,19 +142,13 @@ class DynamicSurrogate(Surrogate):
 
         # predict the final loss
         final_loss, final_variance = self.local_gpr.predict(np.array([[self.max_idx]]))
-        print("Dynamic Surrogate - cancel - final loss", final_loss, "final variance", final_variance)
         # check if the final loss is lower than the best loss with margin so far
         if ((final_loss - final_variance) * self.allowed_loss_margin) > max(self.history_Y)[0]:
-            print("Dynamic Surrogate - cancel - final loss",
-                  (final_loss - final_variance) * self.allowed_loss_margin,
-                  "is lower than the best loss with margin so far",
-                  max(self.history_Y)[0])
             return True
 
         return False
 
     def merge(self, data: Tuple[np.ndarray, float]) -> None:
-        print("Dynamic Surrogate - merge")
         if len(data) != 2:
             raise ValueError("Data must be a tuple of (configuration, loss)")
         if data[1] == 0:
@@ -174,7 +175,6 @@ class DynamicSurrogate(Surrogate):
         self.global_gpr.optimize()
 
     def data(self) -> Tuple[np.ndarray, float]:
-        print("Dynamic Surrogate - data")
         # return empty array if no data is available
         if self.history_X.size == 0 or self.history_Y.size == 0:
             return (np.array([]), 0)

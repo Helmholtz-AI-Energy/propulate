@@ -4,7 +4,8 @@ from propulate.population import Individual
 
 class LogSurrogate(Surrogate):
     """
-    Just a few debug prints to see what's going on.
+    Surrogate model with just a few debug prints to see what's going on
+    when debugging.
     """
 
     def __init__(self):

@@ -11,11 +11,13 @@ class StaticSurrogate(Surrogate):
 
     This model assumes regular yields between training runs,
     otherwise the indices of the baseline run won't match.
+
+    Loosely based on the paper:
+    Use of Static Surrogates in Hyperparameter Optimization
+    https://link.springer.com/article/10.1007/s43069-022-00128-w
     """
 
     def __init__(self, margin: float = 0.8):
-        print("Static Surrogate - init")
-
         super().__init__()
 
         self.synthetic_id: int = 0
@@ -30,16 +32,12 @@ class StaticSurrogate(Surrogate):
         self.current_run: np.ndarray = np.zeros((0), dtype=float)
 
     def start_run(self, ind: Individual):
-        print("Static Surrogate - start run - ind", ind.keys(), ind.values())
-
         # reset to new run
         self.synthetic_id = 0
         # reset current run with correct size
         self.current_run = np.zeros((self.baseline.size), dtype=float)
 
     def update(self, loss: float):
-        print("Static Surrogate - update - loss", loss)
-
         if self.first_run:
             self.baseline = self.current_run.copy()
             self.first_run = False
@@ -50,8 +48,6 @@ class StaticSurrogate(Surrogate):
             self.baseline = self.current_run.copy()
 
     def cancel(self, loss: float) -> bool:
-        print("Static Surrogate - cancel - loss", loss)
-
         self.synthetic_id += 1
 
         # cancel is only allowed after the first complete run
@@ -62,7 +58,6 @@ class StaticSurrogate(Surrogate):
         # append loss to current run
         self.current_run[self.synthetic_id - 1] = loss
 
-        print("Static Surrogate - cancel - compare with baseline", self.baseline[self.synthetic_id - 1], "and loss", loss * self.margin)
         # cancel if current run is outside margin of baseline
         if self.baseline[self.synthetic_id - 1] < loss * self.margin:
             return True
@@ -70,8 +65,6 @@ class StaticSurrogate(Surrogate):
         return False
 
     def merge(self, data: np.ndarray):
-        print("Static Surrogate - merge")
-
         # no prior data to merge with
         if self.first_run:
             self.baseline = data.copy()
@@ -83,7 +76,5 @@ class StaticSurrogate(Surrogate):
             self.baseline = data.copy()
 
     def data(self) -> np.ndarray:
-        print("Static Surrogate - data")
-
         # return best run so far
         return self.baseline
