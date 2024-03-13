@@ -59,7 +59,7 @@ class Islands:
 
         Parameters
         ----------
-        loss_fn: Union[Callable, Generator[float, None, None]]
+        loss_fn : Union[Callable, Generator[float, None, None]]
             The loss function to be minimized.
         propagator : propulate.propagators.Propagator
             The propagator, i.e., evolutionary operator, to apply for breeding.
@@ -89,7 +89,7 @@ class Islands:
             The path where checkpoints are loaded from and stored to. Default is the current working directory.
         ranks_per_worker : int, optional
             The number of ranks per worker. Default is 1.
-        surrogate_factory: Callable[[], Surrogate], optional
+        surrogate_factory : Callable[[], Surrogate], optional
            Function that returns a new instance of a Surrogate model.
            Only used when loss_fn is a generator function.
 

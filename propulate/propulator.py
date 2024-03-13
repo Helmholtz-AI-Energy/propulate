@@ -99,7 +99,7 @@ class Propulator:
 
         Parameters
         ----------
-        loss_fn: Union[Callable, Generator[float, None, None]]
+        loss_fn : Union[Callable, Generator[float, None, None]]
             The loss function to be minimized.
         propagator : propulate.propagators.Propagator
             The propagator to apply for breeding.
@@ -132,7 +132,7 @@ class Propulator:
         island_counts : numpy.ndarray, optional
             An array with the number of workers per island. Element i specifies the number of workers on island with
             index i.
-        surrogate_factory: Callable[[], Surrogate], optional
+        surrogate_factory : Callable[[], Surrogate], optional
            Function that returns a new instance of a Surrogate model.
            Only used when loss_fn is a generator function.
         """
