@@ -8,22 +8,29 @@ T = TypeVar("T")
 
 class Surrogate(ABC, Generic[T]):
     """
-    Abstract Surrogate model for Propulator.
+    Abstract Surrogate Model for Propulator.
 
-    A surrogate model is used to detect poor performing individuals, by
-    periodically checking the yield of the loss function during its evaluation.
+    A surrogate model is used in Propulator to detect poor performing
+    individuals by periodically checking the yield of the loss function
+    during its evaluation.
     If the surrogate model determines that the current run will not result
     in an improvement, Propulator will cancel the run.
 
     Implementation Checklist:
-    * Yield from loss_fn is called periodically without any randomness.
-    * Merge has to be commutative!
+
+    1. Yield from ``loss_fn`` is called periodically without any randomness.
+    2. Merge is commutative.
+
     """
 
     @abstractmethod
     def __init__(self) -> None:
         """
         Initialize a new surrogate model.
+
+        Propulate passes down a surrogate factory, as defined by the user,
+        to each Propulator instance. That means ``__init__`` can be overwritten
+        to take additional arguments.
         """
         pass
 
@@ -33,12 +40,13 @@ class Surrogate(ABC, Generic[T]):
         ind: Individual
     ) -> None:
         """
-        Signalizes that a new run is about to start.
-        This is called before the first yield from the loss_fn.
-        Assume that the individual is freshly created.
+        Signals that a new run is about to start.
+        This is called before the first yield from the ``loss_fn``.
+        It is assumed that the individual is freshly created.
         Keep in mind that there might be (private) keys
-        that are not related to limits, like the surrogate_key '_s'.
-        Key names (limits) could be given in Surrogate constructor if needed.
+        that are not related to limits, like the surrogate key '_s';
+        key names related to limits could be provided to
+        the Surrogate constructor if necessary.
 
         Parameters
         ----------
@@ -64,7 +72,7 @@ class Surrogate(ABC, Generic[T]):
     def cancel(self, loss: float) -> bool:
         """
         Evaluate Surrogate to check if the current run should be cancelled.
-        This will be called after every yield from the loss_fn.
+        This will be called after every yield from the ``loss_fn``.
 
         Parameters
         ----------
@@ -82,7 +90,7 @@ class Surrogate(ABC, Generic[T]):
     @abstractmethod
     def merge(self, data: T) -> None:
         """
-        Merges the results of another Surrogate model into itself.
+        Merges the results of another surrogate model into itself.
         Used to synchronize surrogate models from different Propulators.
 
         Implementation of merge has to be commutative!
@@ -99,15 +107,16 @@ class Surrogate(ABC, Generic[T]):
     @abstractmethod
     def data(self) -> T:
         """
-        Data returns all relevant information about the surrogate model
-        so it can be used to merge with another surrogate.
+        Returns all relevant information about the surrogate model
+        for merging with another surrogate
 
-        It most likely only needs to return the most recent loss from update()
+        It most likely only needs to return the most recent loss
+        from ``update()``.
 
         Returns
         -------
         T
-            All relevent information to convey the current state
+            All relevant information to convey the current state
             of the surrogate model.
 
         """
