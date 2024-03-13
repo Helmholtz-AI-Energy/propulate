@@ -341,9 +341,9 @@ if __name__ == "__main__":
     propagator = get_default_propagator(  # Get default evolutionary operator.
         pop_size=pop_size,  # Breeding population size
         limits=limits,  # Search space
-        mate_prob=0.7,  # Crossover probability
-        mut_prob=0.4,  # Mutation probability
-        random_prob=0.1,  # Random-initialization probability
+        crossover_prob=0.7,  # Crossover probability
+        mutation_prob=0.4,  # Mutation probability
+        random_init_prob=0.1,  # Random-initialization probability
         rng=rng,  # Random number generator for evolutionary optimizer
     )
     islands = Islands(  # Set up island model.
