@@ -1,3 +1,4 @@
+"""Minimum working example showing how to use Propulate."""
 import propulate
 from mpi4py import MPI
 import random
