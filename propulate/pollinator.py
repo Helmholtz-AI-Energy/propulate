@@ -63,7 +63,7 @@ class Pollinator(Propulator):
         immigration_propagator: Type[Propagator] = SelectMax,
         island_displs: Optional[np.ndarray] = None,
         island_counts: Optional[np.ndarray] = None,
-        surrogate_factory: Callable[[], Surrogate] = None,
+        surrogate_factory: Optional[Callable[[], Surrogate]] = None,
     ) -> None:
         """
         Initialize ``Pollinator`` with given parameters.
@@ -104,7 +104,7 @@ class Pollinator(Propulator):
             island with index i in the Propulate communicator.
         island_counts : numpy.ndarray, optional
             An array with the number of workers per island. Element i specifies the number of workers on island i.
-        surrogate_factory: Callable[[], Surrogate]
+        surrogate_factory: Callable[[], Surrogate], optional
            Function that returns a new instance of a Surrogate model.
            Only used when loss_fn is a generator function.
         """

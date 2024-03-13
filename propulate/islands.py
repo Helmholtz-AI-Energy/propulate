@@ -52,7 +52,7 @@ class Islands:
         pollination: bool = True,
         checkpoint_path: Union[str, Path] = Path("./"),
         ranks_per_worker: int = 1,
-        surrogate_factory: Callable[[], Surrogate] = None,
+        surrogate_factory: Optional[Callable[[], Surrogate]] = None,
     ) -> None:
         """
         Initialize an island model with the given parameters.
@@ -89,7 +89,7 @@ class Islands:
             The path where checkpoints are loaded from and stored to. Default is the current working directory.
         ranks_per_worker : int, optional
             The number of ranks per worker. Default is 1.
-        surrogate_factory: Callable[[], Surrogate]
+        surrogate_factory: Callable[[], Surrogate], optional
            Function that returns a new instance of a Surrogate model.
            Only used when loss_fn is a generator function.
 

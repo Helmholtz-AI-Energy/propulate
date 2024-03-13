@@ -63,6 +63,8 @@ class Propulator:
         The Propulate world communicator, consisting of rank 0 of each worker's sub communicator.
     rng : random.Random
         The separate random number generator for the Propulate optimization.
+    surrogate : propulate.Surrogate, optional
+        The local surrogate model.
     worker_sub_comm : MPI.Comm
         The worker's internal communicator for parallelized evaluation of single individuals.
 
@@ -90,7 +92,7 @@ class Propulator:
         emigration_propagator: Type[Propagator] = SelectMin,
         island_displs: Optional[np.ndarray] = None,
         island_counts: Optional[np.ndarray] = None,
-        surrogate_factory: Callable[[], Surrogate] = None,
+        surrogate_factory: Optional[Callable[[], Surrogate]] = None,
     ) -> None:
         """
         Initialize Propulator with given parameters.
@@ -130,7 +132,7 @@ class Propulator:
         island_counts : numpy.ndarray, optional
             An array with the number of workers per island. Element i specifies the number of workers on island with
             index i.
-        surrogate_factory: Callable[[], Surrogate]
+        surrogate_factory: Callable[[], Surrogate], optional
            Function that returns a new instance of a Surrogate model.
            Only used when loss_fn is a generator function.
         """
