@@ -7,10 +7,11 @@ Evolutionary Optimization of a Mathematical Function
    You can find the corresponding ``Python`` script here:
    https://github.com/Helmholtz-AI-Energy/propulate/blob/master/tutorials/propulator_example.py
 
-The basic optimization mechanism in ``Propulate`` is that of Darwinian evolution, i.e.,
-beneficial traits are selected, recombined, and mutated to breed more fit individuals.
-To show you how ``Propulate`` works, we use its *basic asynchronous evolutionary optimizer* to minimize
-two-dimensional mathematical functions. Let us consider the sphere function:
+The basic optimization mechanism in ``Propulate`` is that of Darwinian evolution, i.e., beneficial traits are selected,
+recombined, and mutated to breed more fit individuals.
+To show you how ``Propulate`` works, we use its *basic asynchronous evolutionary optimizer* to minimize two-dimensional
+mathematical functions.
+Let us consider the sphere function:
 
 .. math::
     f_\mathrm{sphere}\left(x,y\right)=x^2+y^2
@@ -43,17 +44,21 @@ As the very first step, we need to define the key ingredients that define the op
 
   .. code-block:: python
 
-    limits = {"learning_rate": (0.001, 0.01),
-              "conv_layers": (2, 10),
-              "activation": ("relu", "sigmoid", "tanh")}
+    limits = {
+        "learning_rate": (0.001, 0.01),
+        "conv_layers": (2, 10),
+        "activation": ("relu", "sigmoid", "tanh")
+    }
 
   The sphere function has two continuous parameters, :math:`x` and :math:`y`, and we consider
   :math:`x,y \in\left[-5.12, 5.12\right]`. The search space in our example thus looks like this:
 
   .. code-block:: python
 
-    limits = {"x": (-5.12, 5.12),
-              "y": (-5.12, 5.12)}
+    limits = {
+        "x": (-5.12, 5.12),
+        "y": (-5.12, 5.12)
+    }
 
 * The fitness or *loss function* (also known as the objective function). This is the function we want to optimize in order
   to find the best parameters. It can be any ``Python`` function with the following characteristics:
@@ -92,14 +97,25 @@ As the very first step, we need to define the key ingredients that define the op
         return numpy.sum(numpy.array(list(params.values())) ** 2).item()
 
 Next, we need to define the evolutionary operator or propagator that we want to use to breed new individuals during the
-optimization process. ``Propulate`` provides a reasonable default propagator via a utility function, ``get_default_propagator``,
-that serves as a good start for the most optimization problems. You can adapt its hyperparameters, such as crossover and mutation
-probability, as you wish. In the example script, you can pass those hyperparameters as command-line options (this is the
-``config`` in the code snippet below) or just use the default values. You also need to pass a separate random number
-generator that is used exclusively in the evolutionary optimization process (and not in the objective function):
+optimization process. ``Propulate`` provides a reasonable default propagator via a utility function,
+``get_default_propagator``, that serves as a good start for the most optimization problems. You can adapt its
+hyperparameters, such as crossover and mutation probability, as you wish. In the example script, you can pass those
+hyperparameters as command-line options (this is the ``config`` in the code snippet below) or just use the default
+values. You also need to pass a separate random number generator that is used exclusively in the evolutionary
+optimization process (and not in the objective function).
+In addition, you can adapt the separate logger used to track the ``Propulate`` optimization with the utility function
+``set_logger_config`` as shown below:
 
 .. code-block:: python
 
+    # Set up separate logger for Propulate optimization.
+    propulate.set_logger_config(
+        level=config.logging_level,  # Logging level
+        log_file=f"{config.checkpoint}/{pathlib.Path(__file__).stem}.log",  # Logging path
+        log_to_stdout=True,  # Print log on stdout.
+        log_rank=False,  # Do not prepend MPI rank to logging messages.
+        colors=True,  # Use colors.
+    )
     rng = random.Random(
         config.seed + MPI.COMM_WORLD.rank
     )  # Separate random number generator for optimization.
@@ -116,6 +132,7 @@ We also need to set up the actual evolutionary optimizer, that is a so-called ``
 parallel asynchronous optimization process for us:
 
 .. code-block:: python
+
     propulator = Propulator(  # Set up propulator performing actual optimization.
         loss_fn=sphere,  # Loss function to minimize
         propagator=propagator,  # Evolutionary operator
@@ -123,6 +140,7 @@ parallel asynchronous optimization process for us:
         generations=config.generations,  # Number of generations
         checkpoint_path=config.checkpoint  # Checkpoint path
     )
+
 Now it's time to run the actual optimization. Overall, ``generations * MPI.COMM_WORLD.size`` evaluations will be performed:
 
 .. code-block:: python
@@ -134,6 +152,7 @@ Now it's time to run the actual optimization. Overall, ``generations * MPI.COMM_
 The output looks like this:
 
 .. code-block:: text
+
     #################################################
     # PROPULATE: Parallel Propagator of Populations #
     #################################################
