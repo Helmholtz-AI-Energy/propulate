@@ -97,6 +97,15 @@ First, we need to define the key ingredients that define our optimization proble
     - A tuple of `int` for an ordinal parameter, e.g., `{"conv_layers": (2, 10)}`
     - A tuple of `str` for a categorical parameter, e.g., `{"activation": ("relu", "sigmoid", "tanh")}`
   
+  Thus, an exemplary search space might look like this:
+  ```python
+  search_space = {
+      "learning_rate": (0.0001, 0.01),  # Search a continuous space between 0.0001 and 0.01.
+      "num_layers": (2, 10),  # Search the integer space between 2 and 10 (inclusive).
+      "activation": ("relu", "sigmoid", "tanh"),  # Search the categorical space with the specified possibilities.
+  }
+  ```
+
   The sphere function has two continuous parameters, $x$ and $y$, and we consider $x,y\in\left[-5.12,5.12\right]$. The 
   search space in our example thus looks like this:
   ```python
@@ -134,6 +143,9 @@ First, we need to define the key ingredients that define our optimization proble
 Next, we need to define the **evolutionary operator** or propagator that we want to use to breed new individuals during the 
 optimization process. `Propulate` provides a reasonable default propagator via a utility function:
 ```python
+# Set up logger for Propulate optimization.
+propulate.set_logger_config()
+# Set up separate random number generator for Propulate optimization. DO NOT USE SOMEWHERE ELSE!
 rng = random.Random(
     <your-random-seed> + mpi4py.MPI.COMM_WORLD.rank
 )
@@ -141,7 +153,7 @@ rng = random.Random(
 propagator = propulate.get_default_propagator(
     pop_size=config.pop_size,  # The breeding population size
     limits=limits,  # The search-space limits
-    rng=rng,  # Separate random number generator used in the Propulate optimization
+    rng=rng,  # Random number generator
 )
 ```
 We also need to set up the asynchronous parallel evolutionary **optimizer**, that is a so-called ``Propulator`` instance:
