@@ -1,7 +1,6 @@
 import random
 import tempfile
 from typing import Dict
-from operator import attrgetter
 import logging
 
 import numpy as np
@@ -19,20 +18,19 @@ def sphere(params: Dict[str, float]) -> float:
 
     Parameters
     ----------
-    params: dict[str, float]
-            function parameters
+    params : Dict[str, float]
+        The function parameters.
+
     Returns
     -------
     float
-        function value
+        The function value.
     """
-    return np.sum(np.array(list(params.values())) ** 2)
+    return np.sum(np.array(list(params.values())) ** 2).item()
 
 
-def test_Propulator():
-    """
-    Test single worker using Propulator to optimize sphere.
-    """
+def test_propulator():
+    """Test single worker using Propulator to optimize sphere."""
     rng = random.Random(42)  # Separate random number generator for optimization.
     limits = {
         "a": (-5.12, 5.12),
@@ -47,27 +45,26 @@ def test_Propulator():
             colors=True,
         )
         # Set up evolutionary operator.
-        propagator = get_default_propagator(  # Get default evolutionary operator.
-            pop_size=4,  # Breeding pool size
-            limits=limits,  # Search-space limits
-            mate_prob=0.7,  # Crossover probability
-            mut_prob=9.0,  # Mutation probability
-            random_prob=0.1,  # Random-initialization probability
-            rng=rng,  # Random number generator
+        propagator = get_default_propagator(
+            pop_size=4,
+            limits=limits,
+            crossover_prob=0.7,
+            mutation_prob=9.0,
+            random_init_prob=0.1,
+            rng=rng,
         )
 
         # Set up propulator performing actual optimization.
         propulator = Propulator(
             loss_fn=sphere,
             propagator=propagator,
-            generations=10,
-            checkpoint_path=checkpoint_path,
             rng=rng,
+            generations=100,
+            checkpoint_path=checkpoint_path,
         )
 
         # Run optimization and print summary of results.
         propulator.propulate()
-        propulator.summarize()
-        best = min(propulator.population, key=attrgetter("loss"))
+        best = propulator.summarize()
 
-        assert best.loss < 0.8
+        assert best[0][0].loss < 0.8

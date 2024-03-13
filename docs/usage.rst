@@ -12,6 +12,7 @@ If you want to use ``Propulate`` for your own applications, you can use these sc
    tut_propulator
    tut_islands
    tut_hpo
+   tut_multi_rank_worker
 
 .. Links
 .. _Github: https://github.com/Helmholtz-AI-Energy/propulate

@@ -1,7 +1,6 @@
 import random
 import tempfile
 from typing import Dict
-from operator import attrgetter
 
 import numpy as np
 
@@ -18,20 +17,19 @@ def sphere(params: Dict[str, float]) -> float:
 
     Parameters
     ----------
-    params: dict[str, float]
-            function parameters
+    params : Dict[str, float]
+        The function parameters.
+
     Returns
     -------
     float
-        function value
+        The function value.
     """
-    return np.sum(np.array(list(params.values())) ** 2)
+    return np.sum(np.array(list(params.values())) ** 2).item()
 
 
-def test_PSO():
-    """
-    Test single worker using Propulator to optimize sphere using a PSO propagator.
-    """
+def test_cmaes():
+    """Test single worker using Propulator to optimize sphere using a CMA-ES propagator."""
     rng = random.Random(42)  # Separate random number generator for optimization.
     limits = {
         "a": (-5.12, 5.12),
@@ -39,22 +37,18 @@ def test_PSO():
     }
     with tempfile.TemporaryDirectory() as checkpoint_path:
         # Set up evolutionary operator.
-
         adapter = BasicCMA()
         propagator = CMAPropagator(adapter, limits, rng=rng)
 
-        # Set up propulator performing actual optimization.
+        # Set up Propulator performing actual optimization.
         propulator = Propulator(
             loss_fn=sphere,
             propagator=propagator,
-            generations=10,
-            checkpoint_path=checkpoint_path,
             rng=rng,
+            generations=100,
+            checkpoint_path=checkpoint_path,
         )
-
         # Run optimization and print summary of results.
         propulator.propulate()
-        propulator.summarize()
-        best = min(propulator.population, key=attrgetter("loss"))
-
-        assert best.loss < 10.0
+        best = propulator.summarize(top_n=1, debug=2)
+        assert best[0][0].loss < 10**-1

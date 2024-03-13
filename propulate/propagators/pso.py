@@ -24,6 +24,31 @@ class BasicPSO(Propagator):
 
     This variant was first proposed in 1998 by Y. Shi and R. Eberhart, "A modified particle swarm optimizer"
     https://doi.org/10.1109/ICEC.1998.699146.
+
+    Attributes
+    ----------
+    c_cognitive : float
+        The constant cognitive factor for scaling the distance to the particle's personal best value.
+    c_social : float
+        The constant social factor for scaling the distance to the swarm's global best value.
+    inertia : float
+        The inertia weight.
+    limits : Dict[str, Tuple[float, float]]
+        The borders of the continuous search domain.
+    limits_as_array : numpy.ndarray
+        The limits converted to a numpy array.
+    rank : int
+        The global rank of the worker the propagator is living on.
+    rng : random.Random
+        The separate random number generator for introducing non-linearity.
+
+    Notes
+    -----
+    The ``BasicPSO`` class inherits all methods and attributes from the ``Propagator`` class.
+
+    See Also
+    --------
+    :class:`Propagator` : The parent class.
     """
 
     def __init__(
@@ -45,17 +70,17 @@ class BasicPSO(Propagator):
         Parameters
         ----------
         inertia : float
-            inertia weight.
+            The inertia weight.
         c_cognitive : float
-            constant cognitive factor for scaling the distance to the particle's personal best value
+            The constant cognitive factor for scaling the distance to the particle's personal best value.
         c_social : float
-            constant social factor for scaling the distance to the swarm's global best value
+            The constant social factor for scaling the distance to the swarm's global best value.
         rank : int
-            global rank of the worker the propagator is living on
+            The global rank of the worker the propagator is living on.
         limits : Dict[str, Tuple[float, float]]
-            borders of the continuous search domain
+            The borders of the continuous search domain.
         rng : random.Random
-            random number generator for introducing non-linearity
+            The separate random number generator for introducing non-linearity.
         """
         super().__init__(parents=-1, offspring=1)
         self.c_social = c_social
@@ -75,16 +100,16 @@ class BasicPSO(Propagator):
 
         Parameters
         ----------
-        individuals: List[Individual]
-            list of individuals that must at least contain one individual that belongs to the propagator
+        individuals : List[propulate.Individual]
+            A list of individuals that must at least contain one individual that belongs to the propagator.
             This list is used to calculate personal and global best of the particle and the swarm,
             respectively, and then to update the particle based on the retrieved results. Individuals that
             cannot be used as ``Particle`` objects are converted to particles first.
 
         Returns
         -------
-        propulate.population.Particle
-            updated particle
+        propulate.Particle
+            The updated particle.
         """
         old_p, p_best, g_best = self._prepare_data(individuals)
 
@@ -106,12 +131,12 @@ class BasicPSO(Propagator):
 
         Parameters
         ----------
-        individuals : List[Individual]
-            ``Individual`` objects that shall be used as data basis for a PSO update step
+        individuals : List[propulate.Individual]
+            ``Individual`` objects that shall be used as data basis for a PSO update step.
 
         Returns
         -------
-        Tuple[propulate.population.Particle, propulate.population.Particle, propulate.population.Particle]
+        Tuple[propulate.Particle, propulate.Particle, propulate.Particle]
             The following particles in this very order:
             1.  old_p: the current particle to be updated now
             2.  p_best: the personal best value of this particle
@@ -162,16 +187,16 @@ class BasicPSO(Propagator):
         Parameters
         ----------
         position : np.ndarray
-            position of the particle to be created
+            The position of the particle to be created.
         velocity : np.ndarray
-            velocity of the particle to be created
+            The velocity of the particle to be created.
         generation : int
-            generation of the new particle
+            The generation of the new particle.
 
         Returns
         -------
-        propulate.population.Particle
-            new ``Particle`` object resulting from the PSO update step
+        propulate.Particle
+            The new ``Particle`` object resulting from the PSO update step.
         """
         new_p = Particle(position, velocity, generation, self.rank)
         for i, k in enumerate(self.limits):
@@ -187,6 +212,19 @@ class VelocityClampingPSO(BasicPSO):
     to determine each parameter's maximum velocity value relative to its search-space limits.
 
     Based on these values, the velocities of the particles are cut down to a reasonable value.
+
+    Attributes
+    ----------
+    v_cap : numpy.ndarray
+        The clamping velocities for each dimension of the search space.
+
+    Notes
+    -----
+    The ``VelocityClampingPSO`` class inherits all methods and attributes from the ``BasicPSO`` class.
+
+    See Also
+    --------
+    :class:`BasicPSO` : The parent class.
     """
 
     def __init__(
@@ -205,19 +243,19 @@ class VelocityClampingPSO(BasicPSO):
         Parameters
         ----------
         inertia : float
-            inertia factor
+            The inertia factor.
         c_cognitive : float
-            constant cognitive factor for scaling the distance to the particle's personal best value
+            The constant cognitive factor for scaling the distance to the particle's personal best value.
         c_social : float
-            constant social factor for scaling the distance to the swarm's global best value
+            The constant social factor for scaling the distance to the swarm's global best value.
         rank : int
-            global rank of the worker the propagator is living on
+            The global rank of the worker the propagator is living on.
         limits : Dict[str, Tuple[float, float]]
-            borders of the continuous search domain
+            The borders of the continuous search domain.
         rng : random.Random
-            random number generator for introducing non-linearity
+            The separate random number generator for introducing non-linearity.
         v_limits : Union[float, np.ndarray]
-            clamping factor to be multiplied with the clamping limit in order to reduce it further
+            The clamping factor to be multiplied with the clamping limit in order to reduce it further.
             Should be in (0, 1). If this parameter has float type, it is applied to all dimensions of the search
             domain; else, each of its elements is applied to the corresponding dimension of the search domain.
         """
@@ -236,16 +274,16 @@ class VelocityClampingPSO(BasicPSO):
 
         Parameters
         ----------
-        individuals: List[Individual]
-            list of individuals that must at least contain one individual that belongs to the propagator
+        individuals : List[propulate.Individual]
+            The list of individuals that must at least contain one individual that belongs to the propagator.
             This list is used to calculate personal and global best of the particle and the swarm,
             respectively, and then to update the particle based on the retrieved results. Individuals that
             cannot be used as ``Particle`` objects are converted to particles first.
 
         Returns
         -------
-        propulate.population.Particle
-            updated particle
+        propulate.Particle
+            The updated particle.
         """
         old_p, p_best, g_best = self._prepare_data(individuals)
 
@@ -272,6 +310,14 @@ class ConstrictionPSO(BasicPSO):
     The constriction factor is calculated from cognitive and social factors and thus no separate hyperparameter.
 
     This propagator runs on ``Particle`` objects.
+
+    Notes
+    -----
+    The ``ConstrictionPSO`` class inherits all methods and attributes from the ``BasicPSO`` class.
+
+    See Also
+    --------
+    :class:`BasicPSO` : The parent class.
     """
 
     def __init__(
@@ -290,17 +336,17 @@ class ConstrictionPSO(BasicPSO):
         Parameters
         ----------
         c_cognitive : float
-            constant cognitive factor for scaling the distance to the particle's personal best value
+            The constant cognitive factor for scaling the distance to the particle's personal best value.
             *Has to sum up with ``c_social`` to a number greater than 4!*
         c_social : float
-            constant social factor for scaling the distance to the swarm's global best value
+            The constant social factor for scaling the distance to the swarm's global best value.
             *Has to sum up with ``c_cognitive`` to a number greater than 4!*
         rank : int
-            global rank of the worker the propagator is living on
+            The global rank of the worker the propagator is living on.
         limits : Dict[str, Tuple[float, float]]
-            borders of the continuous search domain
+            The borders of the continuous search domain.
         rng : random.Random
-            random number generator for introducing non-linearity
+            The random number generator for introducing non-linearity.
 
         Raises
         ------
@@ -324,16 +370,16 @@ class ConstrictionPSO(BasicPSO):
 
         Parameters
         ----------
-        individuals: List[Individual]
-            list of individuals that must at least contain one individual that belongs to the propagator
+        individuals: List[propulate.Individual]
+            A list of individuals that must at least contain one individual that belongs to the propagator.
             This list is used to calculate personal and global best of the particle and the swarm,
             respectively, and then to update the particle based on the retrieved results. Individuals that
             cannot be used as ``Particle`` objects are converted to particles first.
 
         Returns
         -------
-        propulate.population.Particle
-            updated particle
+        propulate.Particle
+            The updated particle.
         """
         old_p, p_best, g_best = self._prepare_data(individuals)
 
@@ -363,9 +409,13 @@ class CanonicalPSO(ConstrictionPSO):
     Proceedings of the 2000 Congress on Evolutionary Computation. CEC00 (Cat. No.00TH8512), La Jolla, CA, USA, 2000,
     pp. 84-88 vol.1, https://10.1109/CEC.2000.870279.
 
+    Notes
+    -----
+    The ``CanonicalPSO`` class inherits all methods and attributes from the ``ConstrictionPSO`` class.
+
     See Also
     --------
-    :class: ``ConstrictionPSO`` : Parent class
+    :class:`ConstrictionPSO` : The parent class.
     """
 
     def __init__(
@@ -386,15 +436,15 @@ class CanonicalPSO(ConstrictionPSO):
         Parameters
         ----------
         c_cognitive : float
-            constant cognitive factor for scaling the distance to the particle's personal best value
+            The constant cognitive factor for scaling the distance to the particle's personal best value.
         c_social : float
-            constant social factor to scaling the distance to the swarm's global best value
+            The constant social factor to scaling the distance to the swarm's global best value.
         rank : int
-            global rank of the worker the propagator is living on
+            The global rank of the worker the propagator is living on.
         limits : Dict[str, Tuple[float, float]]
-            borders of the continuous search domain
+            The borders of the continuous search domain.
         rng : random.Random
-            random number generator for introducing non-linearity
+            The random number generator for introducing non-linearity.
         """
         super().__init__(c_cognitive, c_social, rank, limits, rng)
         x_min, x_max = self.limits_as_array
@@ -410,16 +460,16 @@ class CanonicalPSO(ConstrictionPSO):
 
         Parameters
         ----------
-        individuals: List[Individual]
-            list of individuals that must at least contain one individual that belongs to the propagator
+        individuals : List[propulate.Individual]
+            The list of individuals that must at least contain one individual that belongs to the propagator.
             This list is used to calculate personal and global best of the particle and the swarm,
             respectively, and then to update the particle based on the retrieved results. Individuals that
             cannot be used as ``Particle`` objects are converted to particles first.
 
         Returns
         -------
-        propulate.population.Particle
-            update particle
+        propulate.Particle
+            The updated particle.
         """
         # Abuse Constriction's update rule, so I don't have to rewrite it.
         victim = super().__call__(individuals)
@@ -435,6 +485,25 @@ class CanonicalPSO(ConstrictionPSO):
 class InitUniformPSO(Stochastic):
     """
     Initialize ``Particle`` by uniformly sampling specified limits for each trait.
+
+    Attributes
+    ----------
+    limits : Dict[str, Tuple[float, float]]
+        The borders of the continuous search domain.
+    limits_as_array : numpy.ndarray
+        The limits converted to a numpy array.
+    v_limits : float | np.ndarray
+        The multiplicative constant to reduce initial random velocity values.
+    rank : int
+        The global rank of the worker the propagator is living on.
+
+    Notes
+    -----
+    The ``InitUniformPSO`` class inherits all methods and attributes from the ``Stochastic`` class.
+
+    See Also
+    --------
+    :class:`Stochastic` : The parent class.
     """
 
     def __init__(
@@ -453,51 +522,54 @@ class InitUniformPSO(Stochastic):
 
         Parameters
         ----------
-        limits : dict[str, tuple[float, float]]
-            limits of the search space, i.e., limits of (hyper-)parameters to be optimized
+        limits : Dict[str, Tuple[float, float]]
+            The limits of the search space, i.e., the limits of (hyper-)parameters to be optimized.
         rank : int
-            rank of the worker in MPI.COMM_WORLD
-        parents : int
-            number of input individuals (-1 for any)
-        probability : float
-            probability of creating a completely new individual
-        rng : random.Random
-            random number generator
-        v_init_limit : float | np.ndarray
-            multiplicative constant to reduce initial random velocity values
+            The rank of the worker in the Propulate communicator
+        parents : int, optional
+            The number of input individuals (-1 for any). Default is 0.
+        probability : float, optional
+            The probability of creating a completely new individual. Default is 1.0.
+        rng : random.Random, optional
+            The separate random number generator for the Propulate optimization.
+        v_init_limit : float | np.ndarray, optional
+            The multiplicative constant to reduce initial random velocity values. Default is 0.1.
         """
         super().__init__(parents, 1, probability, rng)
         self.limits = limits
-        self.laa = np.array(list(limits.values())).T
+        self.limits_as_array = np.array(list(limits.values())).T
         if isinstance(v_init_limit, np.ndarray):
-            assert v_init_limit.shape[-1] == self.laa.shape[-1]
+            assert v_init_limit.shape[-1] == self.limits_as_array.shape[-1]
         self.v_limits = v_init_limit
         self.rank = rank
 
     def __call__(self, individuals: List[Individual]) -> Particle:
         """
-        Apply uniform-initialization propagator.
+        Apply the uniform-initialization propagator.
 
         Parameters
         ----------
-        individuals : list[Individual]
-            individuals the propagator is applied to
+        individuals : List[propulate.Individual]
+            The individuals the propagator is applied to.
 
         Returns
         -------
-        propulate.population.Particle
-            one particle object
+        propulate.Particle
+            A single particle object.
         """
         if (
             len(individuals) == 0 or self.rng.random() < self.probability
         ):  # Apply only with specified `probability`.
             position = np.array(
-                [self.rng.uniform(*self.laa[..., i]) for i in range(self.laa.shape[-1])]
+                [
+                    self.rng.uniform(*self.limits_as_array[..., i])
+                    for i in range(self.limits_as_array.shape[-1])
+                ]
             )
             velocity = np.array(
                 [
-                    self.rng.uniform(*(self.v_limits * self.laa)[..., i])
-                    for i in range(self.laa.shape[-1])
+                    self.rng.uniform(*(self.v_limits * self.limits_as_array)[..., i])
+                    for i in range(self.limits_as_array.shape[-1])
                 ]
             )
 
@@ -532,6 +604,27 @@ class StatelessPSO(Propagator):
     As this propagator works without velocity, there is also no inertia weight used.
 
     It uses only classes provided by vanilla Propulate.
+
+    Attributes
+    ----------
+    c_cognitive : float
+        The constant cognitive factor for scaling the distance to the particle's personal best value.
+    c_social : float
+        The constant social factor for scaling the distance to the swarm's global best value.
+    limits : Dict[str, Tuple[float, float]]
+        The borders of the continuous search domain.
+    rank : int
+        The global rank of the worker the propagator is living on.
+    rng : random.Random
+        The separate random number generator for introducing non-linearity.
+
+    Notes
+    -----
+    The ``StatelessPSO`` class inherits all methods and attributes from the ``Propagator`` class.
+
+    See Also
+    --------
+    :class:`Propagator` : The parent class.
     """
 
     def __init__(
@@ -548,15 +641,15 @@ class StatelessPSO(Propagator):
         Parameters
         ----------
         c_cognitive : float
-            constant cognitive factor for scaling individual's personal best value
+            The constant cognitive factor for scaling the individual's personal best value.
         c_social : float
-            constant social factor for scaling swarm's global best value
+            The constant social factor for scaling the swarm's global best value.
         rank : int
-            global rank of the worker the propagator is living on
-        limits : dict[str, tuple[float, float]
-            borders of the continuous search domain
+            The global rank of the worker the propagator is living on.
+        limits : Dict[str, Tuple[float, float]
+            The borders of the continuous search domain.
         rng : random.Random
-            random number generator required for non-linearity of update
+            The random number generator required for non-linearity of the update.
         """
         super().__init__(parents=-1, offspring=1)
         self.c_social = c_social
@@ -567,17 +660,17 @@ class StatelessPSO(Propagator):
 
     def __call__(self, individuals: List[Individual]) -> Individual:
         """
-        Apply standard PSO update without inertia and old velocity.
+        Apply the standard PSO update without inertia and old velocity.
 
         Parameters
         ----------
-        individuals : list[Individual]
-            individuals are used as data basis for the PSO update
+        individuals : List[propulate.Individual]
+            The individuals used as data basis for the PSO update.
 
         Returns
         -------
-        propulate.population.Individual
-            updated individual
+        propulate.Individual
+            The updated individual.
 
         Raises
         ------

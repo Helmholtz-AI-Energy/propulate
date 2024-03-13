@@ -1,4 +1,9 @@
+"""Benchmark function module."""
+import argparse
+import logging
 from typing import Callable, Dict, Tuple
+
+from mpi4py import MPI
 import numpy as np
 
 
@@ -11,13 +16,13 @@ def rosenbrock(params: Dict[str, float]) -> float:
 
     Parameters
     ----------
-    params: dict[str, float]
-            function parameters
+    params : Dict[str, float]
+        The function parameters.
 
     Returns
     -------
     float
-        function value
+        The function value.
     """
     params = np.array(list(params.values()))
     return 100 * (params[0] ** 2 - params[1]) ** 2 + (1 - params[0]) ** 2
@@ -37,16 +42,16 @@ def step(params: Dict[str, float]) -> float:
 
     Parameters
     ----------
-    params: dict[str, float]
-            function parameters
+    params : Dict[str, float]
+        The function parameters.
 
     Returns
     -------
     float
-        function value
+        The function value.
     """
     params = np.array(list(params.values()))
-    return np.sum(params.astype(int), dtype=float)
+    return np.sum(params.astype(int), dtype=float).item()
 
 
 def quartic(params: Dict[str, float]) -> float:
@@ -62,13 +67,13 @@ def quartic(params: Dict[str, float]) -> float:
 
     Parameters
     ----------
-    params: dict[str, float]
-            function parameters
+    params : Dict[str, float]
+        The function parameters.
 
     Returns
     -------
     float
-        function value
+        The function value.
     """
     params = np.array(list(params.values()))
     idx = np.arange(1, len(params) + 1)
@@ -90,13 +95,13 @@ def rastrigin(params: Dict[str, float]) -> float:
 
     Parameters
     ----------
-    params: dict[str, float]
-            function parameters
+    params : Dict[str, float]
+        The function parameters.
 
     Returns
     -------
     float
-        function value
+        The function value.
     """
     a = 10.0
     params = np.array(list(params.values()))
@@ -107,7 +112,7 @@ def griewank(params: Dict[str, float]) -> float:
     """
     Griewank function.
 
-    Griewank's product creates sub-populations strongly codependent to parallel GAs, while the summation produces a
+    Griewank's product creates subpopulations strongly codependent to parallel GAs, while the summation produces a
     parabola. Its local optima lie above parabola level but decrease with increasing dimensions, i.e., the larger the
     search range, the flatter the function.
 
@@ -117,13 +122,13 @@ def griewank(params: Dict[str, float]) -> float:
 
     Parameters
     ----------
-    params: dict[str, float]
-            function parameters
+    params : Dict[str, float]
+        The function parameters.
 
     Returns
     -------
     float
-        function value
+        The function value.
     """
     params = np.array(list(params.values()))
     idx = np.arange(1, len(params) + 1)
@@ -142,13 +147,13 @@ def schwefel(params: Dict[str, float]) -> float:
 
     Parameters
     ----------
-    params: dict[str, float]
-            function parameters
+    params : Dict[str, float]
+        The function parameters.
 
     Returns
     -------
     float
-        function value
+        The function value.
     """
     v = 418.982887
     params = np.array(list(params.values()))
@@ -175,13 +180,13 @@ def bisphere(params: Dict[str, float]) -> float:
 
     Parameters
     ----------
-    params: dict[str, float]
-            function parameters
+    params : Dict[str, float]
+        The function parameters.
 
     Returns
     -------
     float
-        function value
+        The function value.
     """
     params = np.array(list(params.values()))
     n = len(params)
@@ -189,7 +194,9 @@ def bisphere(params: Dict[str, float]) -> float:
     s = 1 - np.sqrt(1 / (2 * np.sqrt(n + 20) - 8.2))
     mu1 = 2.5
     mu2 = -np.sqrt((mu1**2 - d) / s)
-    return min(np.sum((params - mu1) ** 2), d * n + s * np.sum((params - mu2) ** 2))
+    return min(
+        np.sum((params - mu1) ** 2), d * n + s * np.sum((params - mu2) ** 2)
+    ).item()
 
 
 def birastrigin(params: Dict[str, float]) -> float:
@@ -210,13 +217,13 @@ def birastrigin(params: Dict[str, float]) -> float:
 
     Parameters
     ----------
-    params: dict[str, float]
-            function parameters
+    params : Dict[str, float]
+        The function parameters.
 
     Returns
     -------
     float
-        function value
+        The function value.
     """
     params = np.array(list(params.values()))
     n = len(params)
@@ -238,13 +245,13 @@ def bukin_n6(params: Dict[str, float]) -> float:
 
     Parameters
     ----------
-    params: dict[str, float]
-            function parameters
+    params : Dict[str, float]
+        The function parameters.
 
     Returns
     -------
     float
-        function value
+        The function value.
     """
     params = np.array(list(params.values()))
     return 100 * np.sqrt(np.abs(params[1] - 0.01 * params[0] ** 2)) + 0.01 * np.abs(
@@ -261,13 +268,13 @@ def egg_crate(params: Dict[str, float]) -> float:
 
     Parameters
     ----------
-    params: dict[str, float]
-            function parameters
+    params : Dict[str, float]
+        The function parameters.
 
     Returns
     -------
     float
-        function value
+        The function value.
     """
     params = np.array(list(params.values()))
     return (
@@ -286,13 +293,13 @@ def himmelblau(params: Dict[str, float]) -> float:
 
     Parameters
     ----------
-    params: dict[str, float]
-            function parameters
+    params : Dict[str, float]
+        The function parameters.
 
     Returns
     -------
     float
-        function value
+        The function value.
     """
     params = np.array(list(params.values()))
     return (params[0] ** 2 + params[1] - 11) ** 2 + (
@@ -309,13 +316,13 @@ def keane(params: Dict[str, float]) -> float:
 
     Parameters
     ------
-    params: dict[str, float]
-            function parameters
+    params : Dict[str, float]
+        The function parameters.
 
     Returns
     -------
     float
-        function value
+        The function value.
     """
     params = np.array(list(params.values()))
     return (
@@ -334,13 +341,13 @@ def leon(params: Dict[str, float]) -> float:
 
     Parameters
     ----------
-    params: dict[str, float]
-            function parameters
+    params : Dict[str, float]
+        The function parameters.
 
     Returns
     -------
     float
-        function value
+        The function value.
     """
     params = np.array(list(params.values()))
     return 100 * (params[1] - params[0] ** 3) ** 2 + (1 - params[0]) ** 2
@@ -355,14 +362,15 @@ def sphere(params: Dict[str, float]) -> float:
 
     Parameters
     ----------
-    params: dict[str, float]
-            function parameters
+    params : Dict[str, float]
+        The function parameters.
+
     Returns
     -------
     float
-        function value
+        The function value.
     """
-    return np.sum(np.array(list(params.values())) ** 2)
+    return np.sum(np.array(list(params.values())) ** 2).item()
 
 
 def get_function_search_space(
@@ -374,14 +382,14 @@ def get_function_search_space(
     Parameters
     ----------
     fname: str
-           function name
+        The function name.
 
     Returns
     -------
     Callable
-        function
-    dict[str, tuple[float, float]]
-        search space
+        The callable function.
+    Dict[str, tuple[float, float]]
+        The search space.
     """
     if fname == "bukin":
         function = bukin_n6
@@ -593,3 +601,127 @@ def get_function_search_space(
         ValueError(f"Function {fname} undefined...exiting")
 
     return function, limits
+
+
+def parse_arguments(
+    propulate_comm: MPI.Comm = MPI.COMM_WORLD,
+) -> Tuple[argparse.Namespace, Dict[str, bool]]:
+    """
+    Set up argument parser for Propulate optimization of simple mathematical functions.
+
+    Parameters
+    ----------
+    propulate_comm : MPI.Comm, optional
+        The communicator used to run the Propulate optimization. Default is ``MPI.COMM_WORLD``.
+
+    Returns
+    -------
+    Namespace
+        The namespace of all parsed arguments.
+    Dict[str, bool]
+        A dictionary logging if one of the PSO hyperparameters was actually set. Only relevant for PSO.
+    """
+    parser = argparse.ArgumentParser(
+        prog="Simple Propulator example",
+        description="Set up and run a basic Propulator optimization of mathematical functions.",
+    )
+    parser.add_argument(  # Function to optimize
+        "--function",
+        type=str,
+        choices=[
+            "bukin",
+            "eggcrate",
+            "himmelblau",
+            "keane",
+            "leon",
+            "rastrigin",
+            "schwefel",
+            "sphere",
+            "step",
+            "rosenbrock",
+            "quartic",
+            "bisphere",
+            "birastrigin",
+            "griewank",
+        ],
+        default="sphere",
+    )
+    parser.add_argument(
+        "--generations", type=int, default=1000
+    )  # Number of generations
+    parser.add_argument(
+        "--seed", type=int, default=0
+    )  # Seed for Propulate random number generator
+    parser.add_argument("--verbosity", type=int, default=1)  # Verbosity level
+    parser.add_argument(
+        "--checkpoint", type=str, default="./"
+    )  # Path for loading and writing checkpoints.
+    parser.add_argument(
+        "--pop_size", type=int, default=2 * propulate_comm.size
+    )  # Breeding pool size
+    parser.add_argument(
+        "--crossover_probability", type=float, default=0.7
+    )  # Crossover probability
+    parser.add_argument(
+        "--mutation_probability", type=float, default=0.4
+    )  # Mutation probability
+    parser.add_argument("--random_init_probability", type=float, default=0.1)
+    parser.add_argument("--top_n", type=int, default=1)
+    parser.add_argument("--logging_interval", type=int, default=10)
+    parser.add_argument("--logging_level", type=int, default=logging.INFO)
+
+    # -------- Island-model specific arguments (ignored if not needed) --------
+    parser.add_argument(
+        "--num_islands", type=int, default=2
+    )  # Number of separate evolutionary islands
+    parser.add_argument(
+        "--migration_probability", type=float, default=0.9
+    )  # Migration probability
+    parser.add_argument("--num_migrants", type=int, default=1)
+    parser.add_argument("--pollination", action="store_true")
+
+    # -------- PSO-specific arguments (ignored if not needed) --------
+    parser.add_argument(
+        "--variant",
+        type=str,
+        choices=["Basic", "VelocityClamping", "Constriction", "Canonical"],
+        default="Basic",
+    )  # PSO variant to run
+    hp_set: Dict[str, bool] = {
+        "inertia": False,
+        "cognitive": False,
+        "social": False,
+    }
+
+    class ParamSettingCatcher(argparse.Action):
+        """
+        This class extends ``argparse``'s ``Action`` class in order to allow for an action that logs if one of the PSO
+        hyperparameters was actually set.
+        """
+
+        def __call__(self, parser, namespace, values, option_string=None):
+            hp_set[self.dest] = True
+            super().__call__(parser, namespace, values, option_string)
+
+    parser.add_argument(
+        "--inertia", type=float, default=0.729, action=ParamSettingCatcher
+    )  # Inertia weight
+    parser.add_argument(
+        "--cognitive", type=float, default=1.49445, action=ParamSettingCatcher
+    )  # Cognitive factor
+    parser.add_argument(
+        "--social", type=float, default=1.49445, action=ParamSettingCatcher
+    )  # Social factor
+    parser.add_argument(
+        "--clamping_factor", type=float, default=0.6
+    )  # Velocity clamping factor
+
+    # -------- CMA-ES specific arguments (ignored if not needed)
+    parser.add_argument("--adapter", type=str, default="basic")
+
+    # -------- Multi-rank worker specific arguments (ignored if not needed)
+    parser.add_argument(
+        "--ranks_per_worker", type=int, default=2
+    )  # Number of sub ranks that each worker will use
+
+    return parser.parse_args(), hp_set

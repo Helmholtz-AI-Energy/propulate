@@ -1,14 +1,13 @@
-#!/usr/bin/env python3
+"""Simple example script using CMA-ES"""
 import random
-import argparse
-import logging
+import pathlib
 
 from mpi4py import MPI
 
 from propulate import Propulator
 from propulate.propagators import BasicCMA, ActiveCMA, CMAPropagator
 from propulate.utils import set_logger_config
-from function_benchmark import get_function_search_space
+from function_benchmark import get_function_search_space, parse_arguments
 
 
 if __name__ == "__main__":
@@ -21,51 +20,12 @@ if __name__ == "__main__":
             "#################################################\n"
         )
 
-    parser = argparse.ArgumentParser(
-        prog="Simple Propulator example",
-        description="Set up and run a basic Propulator optimization of mathematical functions.",
-    )
-    parser.add_argument(  # Function to optimize
-        "-f",
-        "--function",
-        type=str,
-        choices=[
-            "bukin",
-            "eggcrate",
-            "himmelblau",
-            "keane",
-            "leon",
-            "rastrigin",
-            "schwefel",
-            "sphere",
-            "step",
-            "rosenbrock",
-            "quartic",
-            "bisphere",
-            "birastrigin",
-            "griewank",
-        ],
-        default="sphere",
-    )
-    parser.add_argument(
-        "-g", "--generations", type=int, default=1000
-    )  # Number of generations
-    parser.add_argument(
-        "-s", "--seed", type=int, default=0
-    )  # Seed for Propulate random number generator
-    parser.add_argument("-a", "--adapter", type=str, default="basic")
-    parser.add_argument("-v", "--verbosity", type=int, default=1)  # Verbosity level
-    parser.add_argument(
-        "-ckpt", "--checkpoint", type=str, default="./"
-    )  # Path for loading and writing checkpoints.
-    parser.add_argument("-t", "--top_n", type=int, default=1)
-    parser.add_argument("-l", "--logging_int", type=int, default=10)
-    config = parser.parse_args()
+    config, _ = parse_arguments(comm)
 
     # Set up separate logger for Propulate optimization.
     set_logger_config(
-        level=logging.INFO,  # logging level
-        log_file=f"{config.checkpoint}/propulator.log",  # logging path
+        level=config.logging_level,  # Logging level
+        log_file=f"{config.checkpoint}/{pathlib.Path(__file__).stem}.log",  # Logging path
         log_to_stdout=True,  # Print log on stdout.
         log_rank=False,  # Do not prepend MPI rank to logging messages.
         colors=True,  # Use colors.
@@ -92,12 +52,14 @@ if __name__ == "__main__":
     propulator = Propulator(
         loss_fn=function,
         propagator=propagator,
-        comm=comm,
+        rng=rng,
+        island_comm=comm,
         generations=config.generations,
         checkpoint_path=config.checkpoint,
-        rng=rng,
     )
 
     # Run optimization and print summary of results.
-    propulator.propulate(logging_interval=config.logging_int, debug=config.verbosity)
+    propulator.propulate(
+        logging_interval=config.logging_interval, debug=config.verbosity
+    )
     propulator.summarize(top_n=config.top_n, debug=config.verbosity)
