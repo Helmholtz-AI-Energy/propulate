@@ -4,8 +4,6 @@ Tested with 8 processes overall, 2 islands, and 2 ranks per worker, where each w
 terms in the (in this case) two-dimensional sphere function. In general, the parallel sphere function's dimension
 should equal the number of ranks per worker.
 """
-import argparse
-import logging
 import random
 import pathlib
 from typing import Dict
@@ -16,6 +14,7 @@ from mpi4py import MPI
 from propulate import Islands
 from propulate.propagators import SelectMin, SelectMax
 from propulate.utils import get_default_propagator, set_logger_config
+from function_benchmark import parse_arguments
 
 
 def parallel_sphere(params: Dict[str, float], comm: MPI.Comm = MPI.COMM_SELF) -> float:
@@ -45,56 +44,17 @@ def parallel_sphere(params: Dict[str, float], comm: MPI.Comm = MPI.COMM_SELF) ->
         )  # Each rank squares one of the inputs.
         return comm.allreduce(term)  # Return the sum over all squared inputs.
     else:
-        return np.sum(np.array(list(params.values())) ** 2)
+        return np.sum(np.array(list(params.values())) ** 2).item()
 
 
 if __name__ == "__main__":
     full_world_comm = MPI.COMM_WORLD  # Get full world communicator.
 
-    parser = argparse.ArgumentParser(
-        prog="Simple Propulator example",
-        description="Set up and run a basic Propulator optimization of mathematical functions.",
-    )
-    parser.add_argument(
-        "--generations", type=int, default=1000
-    )  # Number of generations
-    parser.add_argument(
-        "--seed", type=int, default=0
-    )  # Seed for Propulate random number generator
-    parser.add_argument("--verbosity", type=int, default=1)  # Verbosity level
-    parser.add_argument(
-        "--checkpoint", type=str, default="./"
-    )  # Path for loading and writing checkpoints.
-    parser.add_argument(
-        "--pop_size", type=int, default=2 * full_world_comm.size
-    )  # Breeding pool size
-    parser.add_argument(
-        "--crossover_probability", type=float, default=0.7
-    )  # Crossover probability
-    parser.add_argument(
-        "--mutation_probability", type=float, default=0.4
-    )  # Mutation probability
-    parser.add_argument("--random_init_probability", type=float, default=0.1)
-    parser.add_argument(
-        "--num_islands", type=int, default=2
-    )  # Number of separate evolutionary islands
-    parser.add_argument(
-        "--ranks_per_worker", type=int, default=2
-    )  # number of sub ranks that each worker will use
-    parser.add_argument(
-        "--migration_probability", type=float, default=0.9
-    )  # Migration probability
-    parser.add_argument("--num_migrants", type=int, default=1)
-    parser.add_argument("--pollination", action="store_true")
-    parser.add_argument(
-        "--top_n", type=int, default=1
-    )  # Print top-n best individuals on each island in summary.
-    parser.add_argument("--logging_int", type=int, default=10)  # Logging interval
-    config = parser.parse_args()
+    config, _ = parse_arguments()
 
     # Set up separate logger for Propulate optimization.
     set_logger_config(
-        level=logging.INFO,  # Logging level
+        level=config.logging_level,  # Logging level
         log_file=f"{config.checkpoint}/{pathlib.Path(__file__).stem}.log",  # Logging path
         log_to_stdout=True,  # Print log on stdout.
         log_rank=False,  # Do not prepend MPI rank to logging messages.
@@ -152,6 +112,6 @@ if __name__ == "__main__":
     # Run actual optimization.
     islands.evolve(
         top_n=config.top_n,  # Print top-n best individuals on each island in summary.
-        logging_interval=config.logging_int,  # Logging interval
-        debug=config.verbosity,  # Verbosity level
+        logging_interval=config.logging_interval,  # Logging interval
+        debug=config.verbosity,  # Debug level
     )

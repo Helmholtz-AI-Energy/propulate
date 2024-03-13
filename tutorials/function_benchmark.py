@@ -1,5 +1,9 @@
 """Benchmark function module."""
+import argparse
+import logging
 from typing import Callable, Dict, Tuple
+
+from mpi4py import MPI
 import numpy as np
 
 
@@ -597,3 +601,127 @@ def get_function_search_space(
         ValueError(f"Function {fname} undefined...exiting")
 
     return function, limits
+
+
+def parse_arguments(
+    propulate_comm: MPI.Comm = MPI.COMM_WORLD,
+) -> Tuple[argparse.Namespace, Dict[str, bool]]:
+    """
+    Set up argument parser for Propulate optimization of simple mathematical functions.
+
+    Parameters
+    ----------
+    propulate_comm : MPI.Comm, optional
+        The communicator used to run the Propulate optimization. Default is ``MPI.COMM_WORLD``.
+
+    Returns
+    -------
+    Namespace
+        The namespace of all parsed arguments.
+    Dict[str, bool]
+        A dictionary logging if one of the PSO hyperparameters was actually set. Only relevant for PSO.
+    """
+    parser = argparse.ArgumentParser(
+        prog="Simple Propulator example",
+        description="Set up and run a basic Propulator optimization of mathematical functions.",
+    )
+    parser.add_argument(  # Function to optimize
+        "--function",
+        type=str,
+        choices=[
+            "bukin",
+            "eggcrate",
+            "himmelblau",
+            "keane",
+            "leon",
+            "rastrigin",
+            "schwefel",
+            "sphere",
+            "step",
+            "rosenbrock",
+            "quartic",
+            "bisphere",
+            "birastrigin",
+            "griewank",
+        ],
+        default="sphere",
+    )
+    parser.add_argument(
+        "--generations", type=int, default=1000
+    )  # Number of generations
+    parser.add_argument(
+        "--seed", type=int, default=0
+    )  # Seed for Propulate random number generator
+    parser.add_argument("--verbosity", type=int, default=1)  # Verbosity level
+    parser.add_argument(
+        "--checkpoint", type=str, default="./"
+    )  # Path for loading and writing checkpoints.
+    parser.add_argument(
+        "--pop_size", type=int, default=2 * propulate_comm.size
+    )  # Breeding pool size
+    parser.add_argument(
+        "--crossover_probability", type=float, default=0.7
+    )  # Crossover probability
+    parser.add_argument(
+        "--mutation_probability", type=float, default=0.4
+    )  # Mutation probability
+    parser.add_argument("--random_init_probability", type=float, default=0.1)
+    parser.add_argument("--top_n", type=int, default=1)
+    parser.add_argument("--logging_interval", type=int, default=10)
+    parser.add_argument("--logging_level", type=int, default=logging.INFO)
+
+    # -------- Island-model specific arguments (ignored if not needed) --------
+    parser.add_argument(
+        "--num_islands", type=int, default=2
+    )  # Number of separate evolutionary islands
+    parser.add_argument(
+        "--migration_probability", type=float, default=0.9
+    )  # Migration probability
+    parser.add_argument("--num_migrants", type=int, default=1)
+    parser.add_argument("--pollination", action="store_true")
+
+    # -------- PSO-specific arguments (ignored if not needed) --------
+    parser.add_argument(
+        "--variant",
+        type=str,
+        choices=["Basic", "VelocityClamping", "Constriction", "Canonical"],
+        default="Basic",
+    )  # PSO variant to run
+    hp_set: Dict[str, bool] = {
+        "inertia": False,
+        "cognitive": False,
+        "social": False,
+    }
+
+    class ParamSettingCatcher(argparse.Action):
+        """
+        This class extends ``argparse``'s ``Action`` class in order to allow for an action that logs if one of the PSO
+        hyperparameters was actually set.
+        """
+
+        def __call__(self, parser, namespace, values, option_string=None):
+            hp_set[self.dest] = True
+            super().__call__(parser, namespace, values, option_string)
+
+    parser.add_argument(
+        "--inertia", type=float, default=0.729, action=ParamSettingCatcher
+    )  # Inertia weight
+    parser.add_argument(
+        "--cognitive", type=float, default=1.49445, action=ParamSettingCatcher
+    )  # Cognitive factor
+    parser.add_argument(
+        "--social", type=float, default=1.49445, action=ParamSettingCatcher
+    )  # Social factor
+    parser.add_argument(
+        "--clamping_factor", type=float, default=0.6
+    )  # Velocity clamping factor
+
+    # -------- CMA-ES specific arguments (ignored if not needed)
+    parser.add_argument("--adapter", type=str, default="basic")
+
+    # -------- Multi-rank worker specific arguments (ignored if not needed)
+    parser.add_argument(
+        "--ranks_per_worker", type=int, default=2
+    )  # Number of sub ranks that each worker will use
+
+    return parser.parse_args(), hp_set

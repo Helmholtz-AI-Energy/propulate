@@ -18,7 +18,7 @@ from propulate.propagators.pso import (
     CanonicalPSO,
     InitUniformPSO,
 )
-from tutorials.function_benchmark import get_function_search_space
+from function_benchmark import get_function_search_space, parse_arguments
 
 if __name__ == "__main__":
     comm = MPI.COMM_WORLD
@@ -30,89 +30,15 @@ if __name__ == "__main__":
             "#################################################\n"
         )
 
-    parser = argparse.ArgumentParser(
-        prog="Simple PSO example",
-        description="Set up and run a basic particle swarm optimization of mathematical functions.",
-    )
-    parser.add_argument(  # Function to optimize
-        "--function",
-        type=str,
-        choices=[
-            "bukin",
-            "eggcrate",
-            "himmelblau",
-            "keane",
-            "leon",
-            "rastrigin",
-            "schwefel",
-            "sphere",
-            "step",
-            "rosenbrock",
-            "quartic",
-            "bisphere",
-            "birastrigin",
-            "griewank",
-        ],
-        default="sphere",
-    )
-    parser.add_argument(
-        "--generations", type=int, default=1000
-    )  # Number of generations
-    parser.add_argument(
-        "--seed", type=int, default=0
-    )  # Seed for Propulate random number generator
-    parser.add_argument(
-        "--verbosity", type=int, default=1, choices=range(6)
-    )  # Verbosity level
-    parser.add_argument(
-        "--checkpoint", type=str, default="./"
-    )  # Path for loading and writing checkpoints.
-    parser.add_argument(
-        "--pop_size", type=int, default=2 * comm.size
-    )  # Breeding pool size
-    parser.add_argument(
-        "--variant",
-        type=str,
-        choices=["Basic", "VelocityClamping", "Constriction", "Canonical"],
-        default="Basic",
-    )  # PSO variant to run
-
-    hp_set: Dict[str, bool] = {
-        "inertia": False,
-        "cognitive": False,
-        "social": False,
-    }
-
-    class ParamSettingCatcher(argparse.Action):
-        """
-        This class extends ``argparse``'s ``Action`` class in order to allow for an action that logs if one of the PSO
-        hyperparameters was actually set.
-        """
-
-        def __call__(self, parser, namespace, values, option_string=None):
-            hp_set[self.dest] = True
-            super().__call__(parser, namespace, values, option_string)
-
-    parser.add_argument(
-        "--inertia", type=float, default=0.729, action=ParamSettingCatcher
-    )  # Inertia weight
-    parser.add_argument(
-        "--cognitive", type=float, default=1.49445, action=ParamSettingCatcher
-    )  # Cognitive factor
-    parser.add_argument(
-        "--social", type=float, default=1.49445, action=ParamSettingCatcher
-    )  # Social factor
-    parser.add_argument(
-        "--clamping_factor", type=float, default=0.6
-    )  # Clamping factor for velocity clamping
-    parser.add_argument("--top_n", type=int, default=1)
-    parser.add_argument("--logging_int", type=int, default=20)
-    config = parser.parse_args()
+    config, hp_set = parse_arguments(comm)
 
     # Set up separate logger for Propulate optimization.
     set_logger_config(
-        level=config.logging_int,  # Logging level
+        level=config.logging_level,  # Logging level
         log_file=f"{config.checkpoint}/{pathlib.Path(__file__).stem}.log",  # Logging path
+        log_to_stdout=True,  # Print log on stdout.
+        log_rank=False,  # Do not prepend MPI rank to logging messages.
+        colors=True,  # Use colors.
     )
 
     rng = random.Random(
@@ -169,5 +95,7 @@ if __name__ == "__main__":
         generations=config.generations,
         checkpoint_path=config.checkpoint,
     )
-    propulator.propulate(config.logging_int, config.verbosity)
+    propulator.propulate(
+        logging_interval=config.logging_interval, debug=config.verbosity
+    )
     propulator.summarize(top_n=config.top_n, debug=config.verbosity)
