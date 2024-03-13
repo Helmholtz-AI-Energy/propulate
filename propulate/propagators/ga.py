@@ -72,12 +72,12 @@ class PointMutation(Stochastic):
 
         Parameters
         ----------
-        ind : propulate.individual.Individual
+        ind : propulate.Individual
             The individual the propagator is applied to.
 
         Returns
         -------
-        propulate.individual.Individual
+        propulate.Individual
             The possibly point-mutated individual after application of the propagator.
         """
         if (
@@ -184,12 +184,12 @@ class RandomPointMutation(Stochastic):
 
         Parameters
         ----------
-        ind : propulate.population.Individual
+        ind : propulate.Individual
             The individual the propagator is applied to.
 
         Returns
         -------
-        propulate.population.Individual
+        propulate.Individual
             The possibly point-mutated individual after application of the propagator.
         """
         if (
@@ -288,12 +288,12 @@ class IntervalMutationNormal(Stochastic):
 
         Parameters
         ----------
-        ind : propulate.individual.Individual
+        ind : propulate.Individual
             The input individual the propagator is applied to.
 
         Returns
         -------
-        propulate.individual.Individual
+        propulate.Individual
             The possibly interval-mutated output individual after application of the propagator.
         """
         if (
@@ -377,12 +377,12 @@ class CrossoverUniform(Stochastic):  # uniform crossover
 
         Parameters
         ----------
-        inds : List[propulate.individual.Individual]
+        inds : List[propulate.Individual]
             The individuals the propagator is applied to.
 
         Returns
         -------
-        propulate.individual.Individual
+        propulate.Individual
             The possibly cross-bred individual after application of the propagator.
         """
         ind = copy.deepcopy(inds[0])  # Consider 1st parent.
@@ -438,12 +438,12 @@ class CrossoverMultiple(Stochastic):  # uniform crossover
 
         Parameters
         ----------
-        inds : list[propulate.individual.Individual]
+        inds : list[propulate.Individual]
             The individuals the propagator is applied to.
 
         Returns
         -------
-        propulate.individual.Individual
+        propulate.Individual
             The possibly cross-bred individual after application of propagator
         """
         ind = copy.deepcopy(inds[0])  # Consider 1st parent.
@@ -507,12 +507,12 @@ class CrossoverSigmoid(Stochastic):
 
         Parameters
         ----------
-        inds : List[propulate.individual.Individual]
+        inds : List[propulate.Individual]
             The individuals the propagator is applied to.
 
         Returns
         -------
-        propulate.individual.Individual
+        propulate.Individual
             The possibly cross-bred individual after application of the propagator.
         """
         ind = copy.deepcopy(inds[0])  # Consider 1st parent.

@@ -306,11 +306,11 @@ class Islands:
         logging_interval : int
             The logging interval.
         debug : int
-            The verbosity/debug level.
+            The debug level.
 
         Returns
         -------
-        List[List[Individual] | Individual]
+        List[List[propulate.Individual] | propulate.Individual]
             The top-n best individuals on each island.
         """
         self.propulator.propulate(logging_interval, debug)
@@ -333,7 +333,7 @@ class Islands:
 
         Returns
         -------
-        List[List[Individual] | Individual]
+        List[List[propulate.Individual] | propulate.Individual]
             The top-n best individuals on each island.
         """
         return self._run(top_n, logging_interval, debug)

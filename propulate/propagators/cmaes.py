@@ -200,16 +200,16 @@ class CMAParameter:
         self.old_mean = self.mean
         self.mean = new_mean
 
-    def update_covariance_matrix(self, new_co_matrix: np.ndarray) -> None:
+    def update_covariance_matrix(self, new_covariance_matrix: np.ndarray) -> None:
         """
-        Setter for the covariance matrix.
+        Update the covariance matrix.
 
         Computes new values for ``b_matrix``, ``d_matrix``, and ``covariance_inv_sqrt``. Decomposition of
         ``covariance_matrix`` is O(n^3), hence the possibility of lazy updating ``b_matrix`` and ``d_matrix``.
 
         Parameters
         ----------
-        new_co_matrix : numpy.ndarray
+        new_covariance_matrix : numpy.ndarray
             The new covariance matrix.
         """
         # Update b and d matrix and covariance_inv_sqrt only after certain number of evaluations to ensure 0(n^2).
@@ -219,7 +219,7 @@ class CMAParameter:
             > self.lambd / (self.c_1 + self.c_mu) / self.problem_dimension / 10
         ):
             self.eigen_eval = self.count_eval
-            self._decompose_co_matrix(new_co_matrix)
+            self._decompose_co_matrix(new_covariance_matrix)
             self.covariance_inv_sqrt = (
                 self.b_matrix @ np.diag(self.d_matrix ** (-1)) @ self.b_matrix.T
             )
@@ -802,12 +802,12 @@ class CMAPropagator(Propagator):
 
         Parameters
         ----------
-        inds: List[Individual]
+        inds: List[propulate.Individual]
             Available individuals.
 
         Returns
         -------
-        new_ind : Individual
+        new_ind : propulate.Individual
             The newly sampled individual.
         """
         num_inds = len(inds)
@@ -845,7 +845,7 @@ class CMAPropagator(Propagator):
 
         Parameters
         ----------
-        inds : list[Individual]
+        inds : list[propulate.Individual]
             The list of individuals.
 
         Returns
@@ -865,7 +865,7 @@ class CMAPropagator(Propagator):
 
         Returns
         -------
-        new_ind : Individual
+        new_ind : propulate.Individual
             The newly sampled individual.
         """
         # Generate new offspring

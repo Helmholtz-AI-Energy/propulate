@@ -100,7 +100,7 @@ class BasicPSO(Propagator):
 
         Parameters
         ----------
-        individuals : List[Individual]
+        individuals : List[propulate.Individual]
             A list of individuals that must at least contain one individual that belongs to the propagator.
             This list is used to calculate personal and global best of the particle and the swarm,
             respectively, and then to update the particle based on the retrieved results. Individuals that
@@ -108,7 +108,7 @@ class BasicPSO(Propagator):
 
         Returns
         -------
-        propulate.population.Particle
+        propulate.Particle
             The updated particle.
         """
         old_p, p_best, g_best = self._prepare_data(individuals)
@@ -131,12 +131,12 @@ class BasicPSO(Propagator):
 
         Parameters
         ----------
-        individuals : List[Individual]
+        individuals : List[propulate.Individual]
             ``Individual`` objects that shall be used as data basis for a PSO update step.
 
         Returns
         -------
-        Tuple[propulate.population.Particle, propulate.population.Particle, propulate.population.Particle]
+        Tuple[propulate.Particle, propulate.Particle, propulate.Particle]
             The following particles in this very order:
             1.  old_p: the current particle to be updated now
             2.  p_best: the personal best value of this particle
@@ -195,7 +195,7 @@ class BasicPSO(Propagator):
 
         Returns
         -------
-        propulate.population.Particle
+        propulate.Particle
             The new ``Particle`` object resulting from the PSO update step.
         """
         new_p = Particle(position, velocity, generation, self.rank)
@@ -274,7 +274,7 @@ class VelocityClampingPSO(BasicPSO):
 
         Parameters
         ----------
-        individuals : List[Individual]
+        individuals : List[propulate.Individual]
             The list of individuals that must at least contain one individual that belongs to the propagator.
             This list is used to calculate personal and global best of the particle and the swarm,
             respectively, and then to update the particle based on the retrieved results. Individuals that
@@ -282,7 +282,7 @@ class VelocityClampingPSO(BasicPSO):
 
         Returns
         -------
-        propulate.population.Particle
+        propulate.Particle
             The updated particle.
         """
         old_p, p_best, g_best = self._prepare_data(individuals)
@@ -370,7 +370,7 @@ class ConstrictionPSO(BasicPSO):
 
         Parameters
         ----------
-        individuals: List[Individual]
+        individuals: List[propulate.Individual]
             A list of individuals that must at least contain one individual that belongs to the propagator.
             This list is used to calculate personal and global best of the particle and the swarm,
             respectively, and then to update the particle based on the retrieved results. Individuals that
@@ -378,7 +378,7 @@ class ConstrictionPSO(BasicPSO):
 
         Returns
         -------
-        propulate.population.Particle
+        propulate.Particle
             The updated particle.
         """
         old_p, p_best, g_best = self._prepare_data(individuals)
@@ -460,7 +460,7 @@ class CanonicalPSO(ConstrictionPSO):
 
         Parameters
         ----------
-        individuals : List[Individual]
+        individuals : List[propulate.Individual]
             The list of individuals that must at least contain one individual that belongs to the propagator.
             This list is used to calculate personal and global best of the particle and the swarm,
             respectively, and then to update the particle based on the retrieved results. Individuals that
@@ -468,7 +468,7 @@ class CanonicalPSO(ConstrictionPSO):
 
         Returns
         -------
-        propulate.population.Particle
+        propulate.Particle
             The updated particle.
         """
         # Abuse Constriction's update rule, so I don't have to rewrite it.
@@ -549,12 +549,12 @@ class InitUniformPSO(Stochastic):
 
         Parameters
         ----------
-        individuals : list[Individual]
+        individuals : List[propulate.Individual]
             The individuals the propagator is applied to.
 
         Returns
         -------
-        propulate.population.Particle
+        propulate.Particle
             A single particle object.
         """
         if (
@@ -664,12 +664,12 @@ class StatelessPSO(Propagator):
 
         Parameters
         ----------
-        individuals : List[Individual]
+        individuals : List[propulate.Individual]
             The individuals used as data basis for the PSO update.
 
         Returns
         -------
-        propulate.population.Individual
+        propulate.Individual
             The updated individual.
 
         Raises

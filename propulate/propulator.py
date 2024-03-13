@@ -214,7 +214,7 @@ class Propulator:
 
         Returns
         -------
-        List[propulate.individual.Individual]
+        List[propulate.Individual]
             All active individuals in the current population.
         int
             The number of currently active individuals.
@@ -228,7 +228,7 @@ class Propulator:
 
         Returns
         -------
-        propulate.individual.Individual
+        propulate.Individual
             The newly bred individual.
         """
         if (
@@ -347,7 +347,7 @@ class Propulator:
 
         Returns
         -------
-        List[propulate.individual.Individual]
+        List[propulate.Individual]
             All unique individuals in the current population.
         """
         unique_inds = []
@@ -371,7 +371,7 @@ class Propulator:
 
         Parameters
         ----------
-        populations : List[List[propulate.individual.Individual]]
+        populations : List[List[propulate.Individual]]
             A list of all islands' sorted population lists.
 
         Returns
@@ -535,9 +535,9 @@ class Propulator:
 
         Returns
         -------
-        List[List[propulate.individual.Individual | int]]
+        List[List[propulate.Individual | int]]
             The individuals and their occurrences.
-        List[propulate.individual.Individual]
+        List[propulate.Individual]
             The unique individuals in the population.
         """
         if active:
@@ -577,7 +577,7 @@ class Propulator:
 
         Returns
         -------
-        List[List[Individual] | Individual]
+        List[List[propulate.Individual] | propulate.Individual]
             The top-n best individuals on each island.
         """
         if self.propulate_comm is None:

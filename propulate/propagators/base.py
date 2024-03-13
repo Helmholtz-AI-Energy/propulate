@@ -78,12 +78,12 @@ class Propagator:
 
         Parameters
         ----------
-        inds : List[propulate.individual.Individual]
+        inds : List[propulate.Individual]
             The input individuals the propagator is applied to.
 
         Returns
         -------
-        List[Individual] | Individual
+        List[propulate.Individual] | propulate.Individual
             The individual(s) bred by applying the propagator.
             While this abstract base class method actually returns ``None``, each concrete child class of ``Propagator``
             should return an ``Individual`` instance or a list of them.
@@ -182,7 +182,7 @@ class Conditional(Propagator):
         offspring: int = -1,
     ) -> None:
         """
-        Initialize the conditional propagator.
+        Initialize a conditional propagator.
 
         Parameters
         ----------
@@ -208,12 +208,12 @@ class Conditional(Propagator):
 
         Parameters
         ----------
-        inds : List[propulate.individual.Individual]
+        inds : List[propulate.Individual]
             The input individuals the propagator is applied to.
 
         Returns
         -------
-        List[propulate.individual.Individual]
+        List[propulate.Individual]
             The output individuals returned by the conditional propagator.
         """
         if (
@@ -283,12 +283,12 @@ class Compose(Propagator):
 
         Parameters
         ----------
-        inds : List[propulate.individual.Individual]
+        inds : List[propulate.Individual]
             The input individuals the propagator is applied to.
 
         Returns
         -------
-        List[propulate.individual.Individual]
+        List[propulate.Individual]
             The output individuals after application of the propagator.
         """
         for p in self.propagators:
@@ -329,12 +329,12 @@ class SelectMin(Propagator):
 
         Parameters
         ----------
-        inds : List[propulate.individual.Individual]
+        inds : List[propulate.Individual]
             The input individuals the propagator is applied to.
 
         Returns
         -------
-        List[propulate.individual.Individual]
+        List[propulate.Individual]
             The selected output individuals after application of the propagator.
 
         Raises
@@ -385,12 +385,12 @@ class SelectMax(Propagator):
 
         Parameters
         ----------
-        inds : List[propulate.individual.Individual]
+        inds : List[propulate.Individual]
             The individuals the propagator is applied to.
 
         Returns
         -------
-        List[propulate.individual.Individual]
+        List[propulate.Individual]
             The selected individuals after application of the propagator.
 
         Raises
@@ -423,7 +423,7 @@ class SelectUniform(Propagator):
 
     def __init__(self, offspring: int, rng: Optional[random.Random] = None) -> None:
         """
-        Initialize random-selection propagator.
+        Initialize a random-selection propagator.
 
         Parameters
         ----------
@@ -440,12 +440,12 @@ class SelectUniform(Propagator):
 
         Parameters
         ----------
-        inds : List[propulate.individual.Individual]
+        inds : List[propulate.Individual]
             The individuals the propagator is applied to.
 
         Returns
         -------
-        List[propulate.individual.Individual]
+        List[propulate.Individual]
             The selected individuals after application of the propagator.
 
         Raises
@@ -515,12 +515,12 @@ class InitUniform(Stochastic):
 
         Parameters
         ----------
-        inds : propulate.individual.Individual
+        inds : propulate.Individual
             The individuals the propagator is applied to.
 
         Returns
         -------
-        propulate.individual.Individual
+        propulate.Individual
             The output individual after application of the propagator.
 
         Raises

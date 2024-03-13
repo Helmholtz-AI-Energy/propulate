@@ -160,12 +160,12 @@ def make_particle(individual: Individual) -> Particle:
 
     Parameters
     ----------
-    individual : Individual
+    individual : propulate.Individual
         An individual to be converted to a particle.
 
     Returns
     --------
-    Particle
+    propulate.Particle
         The converted individual.
     """
     p = Particle(generation=individual.generation)
