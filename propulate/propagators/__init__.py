@@ -1,6 +1,4 @@
-"""
-This package bundles all classes that are used as propagators in Propulate's optimization routine.
-"""
+"""This package bundles all classes that are used as propagators in Propulate's optimization routine."""
 
 from .base import (
     Propagator,
@@ -17,9 +15,9 @@ from .ga import (
     PointMutation,
     RandomPointMutation,
     IntervalMutationNormal,
-    MateUniform,
-    MateMultiple,
-    MateSigmoid,
+    CrossoverUniform,
+    CrossoverMultiple,
+    CrossoverSigmoid,
 )
 
 from .pso import (
@@ -50,9 +48,9 @@ __all__ = [
     "PointMutation",
     "RandomPointMutation",
     "IntervalMutationNormal",
-    "MateUniform",
-    "MateMultiple",
-    "MateSigmoid",
+    "CrossoverUniform",
+    "CrossoverMultiple",
+    "CrossoverSigmoid",
     "BasicPSO",
     "VelocityClampingPSO",
     "ConstrictionPSO",

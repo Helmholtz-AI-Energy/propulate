@@ -1,6 +1,6 @@
 import copy
 import random
-from typing import List, Dict, Union, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -11,6 +11,21 @@ from ..population import Individual
 class PointMutation(Stochastic):
     """
     Point-mutate given number of traits with given probability.
+
+    Attributes
+    ----------
+    points : int
+        The number of points to mutate.
+    limits : Dict[str, Tuple[float, float]] | Dict[str, Tuple[int, int]] | Dict[str, Tuple[str, ...]]
+        The search space, i.e., the limits of (hyper-)parameters to be optimized.
+
+    Notes
+    -----
+    The ``PointMutation`` class inherits all methods and attributes from the ``Stochastic`` class.
+
+    See Also
+    --------
+    :class:`Stochastic` : The parent class.
     """
 
     def __init__(
@@ -22,28 +37,28 @@ class PointMutation(Stochastic):
         ],
         points: int = 1,
         probability: float = 1.0,
-        rng: random.Random = None,
+        rng: Optional[random.Random] = None,
     ) -> None:
         """
         Initialize point-mutation propagator.
 
         Parameters
         ----------
-        limits: dict[str, tuple[float, float]] | dict[str, tuple[int, int]] | dict[str, tuple[str, ...]]
-            limits of (hyper-)parameters to be optimized
-        points: int
-            number of points to mutate
-        probability: float
-            probability of application
-        rng: random.Random
-            random number generator
+        limits : Dict[str, Tuple[float, float]] | Dict[str, Tuple[int, int]] | Dict[str, Tuple[str, ...]]
+            The search space, i.e., the limits of the (hyper-)parameters to be optimized.
+        points : int, optional
+            The number of points to mutate. Default is 1.
+        probability : float, optional
+            The probability of application. Default is 1.0.
+        rng : random.Random, optional
+            The separate random number generator of the Propulate optimization.
 
         Raises
         ------
         ValueError
             If the requested number of points to mutate is greater than the number of traits.
         """
-        super(PointMutation, self).__init__(1, 1, probability, rng)
+        super().__init__(1, 1, probability, rng)
         self.points = points
         self.limits = limits
         if len(limits) < points:
@@ -53,17 +68,17 @@ class PointMutation(Stochastic):
 
     def __call__(self, ind: Individual) -> Individual:
         """
-        Apply point-mutation propagator.
+        Apply the point-mutation propagator.
 
         Parameters
         ----------
-        ind: propulate.individual.Individual
-            individual the propagator is applied to
+        ind : propulate.Individual
+            The individual the propagator is applied to.
 
         Returns
         -------
-        propulate.individual.Individual
-            possibly point-mutated individual after application of propagator
+        propulate.Individual
+            The possibly point-mutated individual after application of the propagator.
         """
         if (
             self.rng.random() < self.probability
@@ -85,13 +100,29 @@ class PointMutation(Stochastic):
                 elif isinstance(ind[i], str):
                     # Return random element from non-empty sequence.
                     ind[i] = self.rng.choice(self.limits[i])
-
         return ind  # Return point-mutated individual.
 
 
 class RandomPointMutation(Stochastic):
     """
     Point-mutate random number of traits with given probability.
+
+    Attributes
+    ----------
+    min_points : int
+        The minimum number of points to mutate.
+    max_points : int
+        The maximum number of points to mutate.
+    limits : Dict[str, Tuple[float, float]] | Dict[str, Tuple[int, int]] | Dict[str, Tuple[str, ...]]
+        The search space, i.e., the limits of (hyper-)parameters to be optimized.
+
+    Notes
+    -----
+    The ``RandomPointMutation`` class inherits all methods and attributes from the ``Stochastic`` class.
+
+    See Also
+    --------
+    :class:`Stochastic` : The parent class.
     """
 
     def __init__(
@@ -104,34 +135,32 @@ class RandomPointMutation(Stochastic):
         min_points: int = 1,
         max_points: int = 1,
         probability: float = 1.0,
-        rng: random.Random = None,
+        rng: Optional[random.Random] = None,
     ) -> None:
         """
         Initialize random point-mutation propagator.
 
         Parameters
         ----------
-        limits: dict[str, tuple[float, float]] | dict[str, tuple[int, int]] | dict[str, tuple[str, ...]]
-            limits of parameters to optimize, i.e., search space
-        min_points: int
-            minimum number of points to mutate
-        max_points: int
-            maximum number of points to mutate
-        probability: float
-            probability of application
-        rng: random.Random
+        limits : Dict[str, Tuple[float, float]] | Dict[str, Tuple[int, int]] | Dict[str, Tuple[str, ...]]
+            The limits of the parameters to optimize, i.e., the search space.
+        min_points : int, optional
+            minimum number of points to mutate. Default is 1.
+        max_points : int, optional
+            maximum number of points to mutate. Default is 1.
+        probability : float, optional
+            probability of application. Default is 1.0.
+        rng : random.Random, optional
             random number generator
 
         Raises
         ------
         ValueError
             If no or a negative number of points shall be mutated.
-        ValueError
             If there are fewer traits than requested number of points to mutate.
-        ValueError
             If the requested minimum number of points to mutate is greater than the requested maximum number.
         """
-        super(RandomPointMutation, self).__init__(1, 1, probability, rng)
+        super().__init__(1, 1, probability, rng)
         if min_points <= 0:
             raise ValueError(
                 f"Minimum number of points to mutate must be > 0 but was {min_points}."
@@ -151,17 +180,17 @@ class RandomPointMutation(Stochastic):
 
     def __call__(self, ind: Individual) -> Individual:
         """
-        Apply random-point-mutation propagator.
+        Apply the random-point-mutation propagator.
 
         Parameters
         ----------
-        ind: propulate.population.Individual
-            individual the propagator is applied to
+        ind : propulate.Individual
+            The individual the propagator is applied to.
 
         Returns
         -------
-        propulate.population.Individual
-            possibly point-mutated individual after application of propagator
+        propulate.Individual
+            The possibly point-mutated individual after application of the propagator.
         """
         if (
             self.rng.random() < self.probability
@@ -190,7 +219,24 @@ class RandomPointMutation(Stochastic):
 
 class IntervalMutationNormal(Stochastic):
     """
-    Mutate given number of traits according to Gaussian distribution around current value with given probability.
+    Mutate a number of traits according to a Gaussian distribution around the current value with the given probability.
+
+    Attributes
+    ----------
+    sigma_factor : float
+        The scaling factor for the interval width to obtain standard deviation.
+    points : int
+        The number of points to mutate.
+    limits : Dict[str, Tuple[float, float]] | Dict[str, Tuple[int, int]] | Dict[str, Tuple[str, ...]]
+        The search space, i.e., the limits of (hyper-)parameters to be optimized.
+
+    Notes
+    -----
+    The ``IntervalMutationNormal`` class inherits all methods and attributes from the ``Stochastic`` class.
+
+    See Also
+    --------
+    :class:`Stochastic` : The parent class.
     """
 
     def __init__(
@@ -203,31 +249,31 @@ class IntervalMutationNormal(Stochastic):
         sigma_factor: float = 0.1,
         points: int = 1,
         probability: float = 1.0,
-        rng: random.Random = None,
+        rng: Optional[random.Random] = None,
     ) -> None:
         """
         Initialize interval-mutation propagator.
 
         Parameters
         ----------
-        limits: dict[str, tuple[float, float]] | dict[str, tuple[int, int]] | dict[str, tuple[str, ...]]
-            limits of (hyper-)parameters to be optimized, i.e., search space
-        sigma_factor: float
-            scaling factor for interval width to obtain standard deviation
-        points: int
-            number of points to mutate
-        probability: float
-            probability of application
-        rng: random.Random
-            random number generator
+        limits : Dict[str, Tuple[float, float]] | Dict[str, Tuple[int, int]] | Dict[str, Tuple[str, ...]]
+            The limits of the (hyper-)parameters to be optimized, i.e., the search space.
+        sigma_factor : float, optional
+            The scaling factor for the interval width to obtain the standard deviation. Default is 0.1.
+        points : int, optional
+            The number of points to mutate. Default is 1.
+        probability : float, optional
+            The probability of application, Default is 1.0
+        rng : random.Random, optional
+            The separate random number generator for the Propulate optimization.
 
         Raises
         ------
         ValueError
             If the individuals has fewer continuous traits than the requested number of points to mutate.
         """
-        super(IntervalMutationNormal, self).__init__(1, 1, probability, rng)
-        self.points = points  # number of traits to point-mutate
+        super().__init__(1, 1, probability, rng)
+        self.points = points  # Number of traits to point-mutate
         self.limits = limits
         self.sigma_factor = sigma_factor
         n_interval_traits = len([x for x in limits if isinstance(limits[x][0], float)])
@@ -238,17 +284,17 @@ class IntervalMutationNormal(Stochastic):
 
     def __call__(self, ind: Individual) -> Individual:
         """
-        Apply interval-mutation propagator.
+        Apply the interval-mutation propagator.
 
         Parameters
         ----------
-        ind: propulate.individual.Individual
-            input individual the propagator is applied to
+        ind : propulate.Individual
+            The input individual the propagator is applied to.
 
         Returns
         -------
-        propulate.individual.Individual
-            possibly interval-mutated output individual after application of propagator
+        propulate.Individual
+            The possibly interval-mutated output individual after application of the propagator.
         """
         if (
             self.rng.random() < self.probability
@@ -277,56 +323,67 @@ class IntervalMutationNormal(Stochastic):
         return ind  # Return point-mutated individual.
 
 
-class MateUniform(Stochastic):  # uniform crossover
+class CrossoverUniform(Stochastic):  # uniform crossover
     """
     Generate new individual by uniform crossover of two parents with specified relative parent contribution.
+
+    Attributes
+    ----------
+    rel_parent_contrib : float
+        The relative parent contribution with respect to the first parent.
+
+    Notes
+    -----
+    The ``CrossoverUniform`` class inherits all methods and attributes from the ``Stochastic`` class.
+
+    See Also
+    --------
+    :class:`Stochastic` : The parent class.
     """
 
     def __init__(
         self,
-        rel_parent_contrib: float = 0.5,
+        relative_parent_contribution: float = 0.5,
         probability: float = 1.0,
-        rng: random.Random = None,
+        rng: Optional[random.Random] = None,
     ) -> None:
         """
         Initialize uniform crossover propagator.
 
         Parameters
         ----------
-        rel_parent_contrib: float
-            relative parent contribution w.r.t. first parent
-        probability: float
-            probability of application
-        rng: random.Random
-            random number generator
+        relative_parent_contribution : float, optional
+            The relative parent contribution with respect to the first parent. Default is 0.5.
+        probability: float, optional
+            The probability of application. Default is 1.0.
+        rng: random.Random, optional
+            The separate random number generator for the Propulate optimization.
 
         Raises
         ------
         ValueError
             If the relative parent contribution is not within [0, 1].
         """
-        super(MateUniform, self).__init__(
-            2, 1, probability, rng
-        )  # Breed 1 offspring from 2 parents.
-        if rel_parent_contrib <= 0 or rel_parent_contrib >= 1:
+        super().__init__(2, 1, probability, rng)  # Breed 1 offspring from 2 parents.
+        if relative_parent_contribution <= 0 or relative_parent_contribution >= 1:
             raise ValueError(
-                f"Relative parent contribution must be within (0, 1) but was {rel_parent_contrib}."
+                f"Relative parent contribution must be within (0, 1) but was {relative_parent_contribution}."
             )
-        self.rel_parent_contrib = rel_parent_contrib
+        self.rel_parent_contrib = relative_parent_contribution
 
     def __call__(self, inds: List[Individual]) -> Individual:
         """
-        Apply uniform-crossover propagator.
+        Apply the uniform-crossover propagator.
 
         Parameters
         ----------
-        inds: List[propulate.individual.Individual]
-            individuals the propagator is applied to
+        inds : List[propulate.Individual]
+            The individuals the propagator is applied to.
 
         Returns
         -------
-        propulate.individual.Individual
-            possibly cross-bred individual after application of propagator
+        propulate.Individual
+            The possibly cross-bred individual after application of the propagator.
         """
         ind = copy.deepcopy(inds[0])  # Consider 1st parent.
         ind.loss = None  # Initialize individual's loss attribute.
@@ -340,43 +397,54 @@ class MateUniform(Stochastic):  # uniform crossover
         return ind  # Return offspring.
 
 
-class MateMultiple(Stochastic):  # uniform crossover
+class CrossoverMultiple(Stochastic):  # uniform crossover
     """
     Breed new individual by uniform crossover of multiple parents.
+
+    Notes
+    -----
+    The ``CrossoverMultiple`` class inherits all methods and attributes from the ``Stochastic`` class.
+
+    See Also
+    --------
+    :class:`Stochastic` : The parent class.
     """
 
     def __init__(
-        self, parents: int = -1, probability: float = 1.0, rng: random.Random = None
+        self,
+        parents: int = -1,
+        probability: float = 1.0,
+        rng: Optional[random.Random] = None,
     ) -> None:
         """
-        Initialize multiple-crossover propagator.
+        Initialize a multiple-crossover propagator.
 
         Parameters
         ----------
-        probability: float
-            probability of application
-        parents: int
-            number of parents
-        rng: random.Random
-            random number generator
+        probability : float, optional
+            The probability of application. Default is 1.0.
+        parents: int, optional
+            The number of parents (not used) here. Default is -1.
+        rng : random.Random, optional
+            The separate random number generator for the Propulate optimization.
         """
-        super(MateMultiple, self).__init__(
+        super().__init__(
             parents, 1, probability, rng
         )  # Breed 1 offspring from specified number of parents.
 
     def __call__(self, inds: List[Individual]) -> Individual:
         """
-        Apply multiple-crossover propagator.
+        Apply the multi-crossover propagator.
 
         Parameters
         ----------
-        inds: list[propulate.individual.Individual]
-            individuals the propagator is applied to
+        inds : list[propulate.Individual]
+            The individuals the propagator is applied to.
 
         Returns
         -------
-        propulate.individual.Individual
-            possibly cross-bred individual after application of propagator
+        propulate.Individual
+            The possibly cross-bred individual after application of propagator
         """
         ind = copy.deepcopy(inds[0])  # Consider 1st parent.
         ind.loss = None  # Initialize individual's loss attribute.
@@ -389,50 +457,63 @@ class MateMultiple(Stochastic):  # uniform crossover
         return ind  # Return offspring.
 
 
-class MateSigmoid(Stochastic):
+class CrossoverSigmoid(Stochastic):
     """
     Generate new individual by crossover of two parents according to Boltzmann sigmoid probability.
 
     Consider two parent individuals with fitness values f1 and f2. Let f1 <= f2. For each trait,
     the better parent's value is accepted with the probability sigmoid(- (f1-f2) / temperature).
+
+    Attributes
+    ----------
+    temperature : float
+        The temperature hyperparameter of the Boltzmann distribution.
+
+    Notes
+    -----
+    The ``CrossoverSigmoid`` class inherits all methods and attributes from the ``Stochastic`` class.
+
+    See Also
+    --------
+    :class:`Stochastic` : The parent class.
     """
 
     def __init__(
         self,
         temperature: float = 1.0,
         probability: float = 1.0,
-        rng: random.Random = None,
+        rng: Optional[random.Random] = None,
     ) -> None:
         """
-        Initialize sigmoid-crossover propagator.
+        Initialize a sigmoid-crossover propagator.
 
         Parameters
         ----------
-        temperature: float
-            temperature for Boltzmann factor in sigmoid probability
-        probability: float
-            probability of application
-        rng: random.Random
-            random number generator
+        temperature : float, optional
+            The temperature in the Boltzmann factor of the sigmoid probability. Default is 1.0.
+        probability : float, optional
+            The probability of application. Default is 1.0.
+        rng : random.Random, optional
+            The separate random number generator for the Propulate optimization.
         """
-        super(MateSigmoid, self).__init__(
+        super(CrossoverSigmoid, self).__init__(
             2, 1, probability, rng
         )  # Breed 1 offspring from 2 parents.
         self.temperature = temperature
 
     def __call__(self, inds: List[Individual]) -> Individual:
         """
-        Apply sigmoid-crossover propagator.
+        Apply the sigmoid-crossover propagator.
 
         Parameters
         ----------
-        inds: list[propulate.individual.Individual]
-            individuals the propagator is applied to
+        inds : List[propulate.Individual]
+            The individuals the propagator is applied to.
 
         Returns
         -------
-        propulate.individual.Individual
-            possibly cross-bred individual after application of propagator
+        propulate.Individual
+            The possibly cross-bred individual after application of the propagator.
         """
         ind = copy.deepcopy(inds[0])  # Consider 1st parent.
         ind.loss = None  # Initialize individual's loss attribute.

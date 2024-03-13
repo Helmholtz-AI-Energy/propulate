@@ -4,5 +4,4 @@ Particle Swarm Optimization
 ===========================
 
 .. note::
-   Particle swarm optimization (PSO) is under active development and not yet provided in the latest version of
-   ``Propulate``. It will be available soon.
+   The documentation for particle swarm optimization (PSO) will be available soon.

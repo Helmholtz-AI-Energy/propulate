@@ -31,9 +31,11 @@ Thus, our search space dictionary looks as follows:
 
 .. code-block:: python
 
-    limits = {"conv_layers": (2, 10),  # number of convolutional layers, int for ordinal
-              "activation": ("relu", "sigmoid", "tanh"),  # activation function, str for categorical
-              "learning_rate": (0.01, 0.0001)}  # learning rate, float for continuous
+    limits = {
+        "conv_layers": (2, 10),  # Number of convolutional layers, int for ordinal
+        "activation": ("relu", "sigmoid", "tanh"),  # Activation function, str for categorical
+        "learning_rate": (0.01, 0.0001),  # Learning rate, float for continuous
+    }
 
 When tuning an ML model's hyperparameters, evaluating an individual during the optimization corresponds to training
 a neural network instance using a specific combination of hyperparameters to be optimized. In addition, we need some
@@ -47,33 +49,65 @@ Below, we show you how to do this using the example of the most important code s
 the hyperparameters we want to optimize are highlighted in pink. We start with defining the neural network which looks like this:
 
 .. code-block:: python
-    :emphasize-lines: 5,6,7,26,28,29,33-35,106,107,120
+    :emphasize-lines: 38-40,59,61,65-77
 
     class Net(LightningModule):
-        """Neural network class."""
+        """
+        Neural network class.
+
+        Attributes
+        ----------
+        best_accuracy : float
+            The model's best validation accuracy.
+        conv_layers : torch.nn.modules.container.Sequential
+            The model's convolutional layers.
+        fc : torch.nn.modules.linear.Linear
+            The model's fully connected layers.
+        loss_fn : torch.nn.modules.loss
+            The loss function used for training the model.
+        lr : float
+            The learning rate.
+        train_acc : torchmetrics.classification.accuracy.Accuracy
+            The accuracy metric used for evaluating model performance on the training dataset.
+        val_acc : torchmetrics.classification.accuracy.Accuracy
+            The accuracy metric used for evaluating model performance on the validation dataset.
+
+        Methods
+        -------
+        forward()
+            The forward pass.
+        training_step()
+            Calculate loss for training step in Lightning train loop.
+        validation_step()
+            Calculate loss for validation step in Lightning validation loop during training.
+        configure_optimizers()
+            Configure the optimizer.
+        on_validation_epoch_end()
+            Calculate and store the model's validation accuracy after each epoch.
+        """
 
         def __init__(
-                self,
-                conv_layers: int,
-                activation: torch.nn.modules.activation,
-                lr: float,
-                loss_fn: torch.nn.modules.loss,
+            self,
+            conv_layers: int,
+            activation: torch.nn.modules.activation,
+            lr: float,
+            loss_fn: torch.nn.modules.loss,
         ) -> None:
             """
             Set up neural network.
 
             Parameters
             ----------
-            conv_layers: int
-                         number of convolutional layers
-            activation: torch.nn.modules.activation
-                        activation function to use
-            lr: float
-                learning rate
-            loss_fn: torch.nn.modules.loss
-                     loss function
+            conv_layers : int
+                The number of convolutional layers.
+            activation : torch.nn.modules.activation
+                The activation function to use.
+            lr : float
+                The learning rate.
+            loss_fn : torch.nn.modules.loss
+                The loss function.
             """
-            super(Net, self).__init__()
+            super().__init__()
 
             self.lr = lr  # Set learning rate.
             self.loss_fn = loss_fn  # Set the loss function used for training the model.
@@ -106,13 +140,13 @@ the hyperparameters we want to optimize are highlighted in pink. We start with d
 
             Parameters
             ----------
-            x: torch.Tensor
-               data sample
+            x : torch.Tensor
+               The data sample.
 
             Returns
             -------
             torch.Tensor
-                The model's predictions for input data sample
+                The model's predictions for input data sample.
             """
             b, c, w, h = x.size()
             x = self.conv_layers(x)
@@ -128,15 +162,15 @@ the hyperparameters we want to optimize are highlighted in pink. We start with d
 
             Parameters
             ----------
-            batch: Tuple[torch.Tensor, torch.Tensor]
-                   input batch
-            batch_idx: int
-                       batch index
+            batch : Tuple[torch.Tensor, torch.Tensor]
+                The input batch.
+            batch_idx : int
+                Its batch index.
 
             Returns
             -------
             torch.Tensor
-                training loss for input batch
+                The training loss for this input batch.
             """
             x, y = batch
             pred = self(x)
@@ -154,15 +188,15 @@ the hyperparameters we want to optimize are highlighted in pink. We start with d
 
             Parameters
             ----------
-            batch: Tuple[torch.Tensor, torch.Tensor]
-                   current batch
-            batch_idx: int
-                       batch index
+            batch : Tuple[torch.Tensor, torch.Tensor]
+                The current batch
+            batch_idx : int
+                The batch index.
 
             Returns
             -------
             torch.Tensor
-                validation loss for input batch
+                The validation loss for the input batch.
             """
             x, y = batch
             pred = self(x)
@@ -174,19 +208,17 @@ the hyperparameters we want to optimize are highlighted in pink. We start with d
 
         def configure_optimizers(self) -> torch.optim.SGD:
             """
-            Configure optimizer.
+            Configure the optimizer.
 
             Returns
             -------
             torch.optim.sgd.SGD
-                stochastic gradient descent optimizer
+                A stochastic gradient descent optimizer.
             """
             return torch.optim.SGD(self.parameters(), lr=self.lr)
 
         def on_validation_epoch_end(self):
-            """
-            Calculate and store the model's validation accuracy after each epoch.
-            """
+            """Calculate and store the model's validation accuracy after each epoch."""
             val_acc_val = self.val_acc.compute()
             self.val_acc.reset()
             if val_acc_val > self.best_accuracy:
@@ -202,42 +234,51 @@ We also need some helper function to load the MNIST data:
 
         Parameters
         ----------
-        batch_size: int
-                    batch size
+        batch_size : int
+            The batch size.
 
         Returns
         -------
-        DataLoader
-            training dataloader
-        DataLoader
-            validation dataloader
+        torch.utils.data.DataLoader
+            The training dataloader.
+        torch.utils.data.DataLoader
+            The validation dataloader.
         """
-        ...
-
         data_transform = Compose([ToTensor(), Normalize((0.1307,), (0.3081,))])
+        num_workers = NUM_WORKERS
+        log.info(f"Use {num_workers} workers in dataloader.")
 
-        if MPI.COMM_WORLD.Get_rank() == 0:  # Only root downloads data.
+        if MPI.COMM_WORLD.rank == 0:  # Only root downloads data.
             train_loader = DataLoader(
                 dataset=MNIST(
                     download=True, root=".", transform=data_transform, train=True
                 ),  # Use MNIST training dataset.
                 batch_size=batch_size,  # Batch size
+                num_workers=num_workers,
+                pin_memory=True,
+                persistent_workers=True,
                 shuffle=True,  # Shuffle data.
             )
 
-        MPI.COMM_WORLD.Barrier()
-        if MPI.COMM_WORLD.Get_rank() != 0:
+        MPI.COMM_WORLD.barrier()
+        if MPI.COMM_WORLD.rank != 0:
             train_loader = DataLoader(
                 dataset=MNIST(
                     download=False, root=".", transform=data_transform, train=True
                 ),  # Use MNIST training dataset.
                 batch_size=batch_size,  # Batch size
+                num_workers=num_workers,
+                pin_memory=True,
+                persistent_workers=True,
                 shuffle=True,  # Shuffle data.
             )
         val_loader = DataLoader(
             dataset=MNIST(
                 download=False, root=".", transform=data_transform, train=False
             ),  # Use MNIST testing dataset.
+            num_workers=num_workers,
+            pin_memory=True,
+            persistent_workers=True,
             batch_size=1,  # Batch size
             shuffle=False,  # Do not shuffle data.
         )
@@ -247,53 +288,65 @@ Now we are ready to set up the ``Propulate`` loss function that is minimized dur
 order to find the best hyperparameters for our model:
 
 .. code-block:: python
-    :emphasize-lines: 18-20, 24-26, 29, 30, 48
+    :emphasize-lines: 16-18, 22-26, 32-35, 60
 
-    def ind_loss(
-            params: Dict[str, Union[int, float, str]]
-    ) -> float:
+    def ind_loss(params: Dict[str, Union[int, float, str]]) -> float:
         """
-        Loss function for evolutionary optimization with Propulate.
-        We minimize the model's negative validation accuracy.
+        Loss function for evolutionary optimization with Propulate. Minimize the model's negative validation accuracy.
 
         Parameters
         ----------
-        params: dict[str, int | float | str]]
+        params : Dict[str, int | float | str]
+            The hyperparameters to be optimized evolutionarily.
 
         Returns
         -------
         float
-            The trained model's negative validation accuracy
+            The trained model's negative validation accuracy.
         """
         # Extract hyperparameter combination to test from input dictionary.
         conv_layers = params["conv_layers"]  # Number of convolutional layers
         activation = params["activation"]  # Activation function
         lr = params["lr"]  # Learning rate
 
-        epochs = 2  # Number of epochs to train
+        epochs = 100
 
-        # Define the activation function mapping.
-        activations = {"relu": nn.ReLU, "sigmoid": nn.Sigmoid, "tanh": nn.Tanh}
+        activations = {
+            "relu": nn.ReLU,
+            "sigmoid": nn.Sigmoid,
+            "tanh": nn.Tanh,
+        }  # Define activation function mapping.
         activation = activations[activation]  # Get activation function.
-        loss_fn = torch.nn.CrossEntropyLoss()  # Use cross-entropy loss for multi-class classification.
+        loss_fn = (
+            torch.nn.CrossEntropyLoss()
+        )  # Use cross-entropy loss for multi-class classification.
 
-        model = Net(conv_layers, activation, lr, loss_fn)  # Set up neural network with specified hyperparameters.
+        model = Net(
+            conv_layers, activation, lr, loss_fn
+        )  # Set up neural network with specified hyperparameters.
         model.best_accuracy = 0.0  # Initialize the model's best validation accuracy.
 
-        train_loader, val_loader = get_data_loaders(batch_size=8)  # Get training and validation data loaders.
+        train_loader, val_loader = get_data_loaders(
+            batch_size=8
+        )  # Get training and validation data loaders.
+
+        tb_logger = loggers.TensorBoardLogger(
+            save_dir=log_path + "/lightning_logs"
+        )  # Get tensor board logger.
 
         # Under the hood, the Lightning Trainer handles the training loop details.
-        trainer = Trainer(max_epochs=epochs,  # Stop training once this number of epochs is reached.
-                          accelerator="gpu",  # Pass accelerator type.
-                          devices=[  # Devices to train on
-                              MPI.COMM_WORLD.Get_rank() % GPUS_PER_NODE
-                                  ],
-                          enable_progress_bar=False,  # Disable progress bar.
-                          )
+        trainer = Trainer(
+            max_epochs=epochs,  # Stop training once this number of epochs is reached.
+            accelerator="gpu",  # Pass accelerator type.
+            devices=[MPI.COMM_WORLD.rank % GPUS_PER_NODE],  # Devices to train on
+            callbacks=[EarlyStopping(monitor="val_loss", mode="min")],
+            enable_progress_bar=False,  # Disable progress bar.
+            logger=tb_logger,  # Logger
+        )
         trainer.fit(  # Run full model training optimization routine.
             model=model,  # Model to train
             train_dataloaders=train_loader,  # Dataloader for training samples
-            val_dataloaders=val_loader  # Dataloader for validation samples
+            val_dataloaders=val_loader,  # Dataloader for validation samples
         )
         # Return negative best validation accuracy as an individual's loss.
         return -model.best_accuracy.item()
@@ -303,37 +356,53 @@ asynchronous island model (``Islands``) which takes care of the actual genetic o
 
 .. code-block:: python
 
-    num_generations = 3  # Number of generations
-    pop_size = 2 * MPI.COMM_WORLD.size  # Breeding population size
-    limits = {
-        "conv_layers": (2, 10),
-        "activation": ("relu", "sigmoid", "tanh"),
-        "lr": (0.01, 0.0001),
-    }  # Search space
-    rng = random.Random(
-        MPI.COMM_WORLD.rank
-    )  # Set up separate random number generator for evolutionary optimizer.
-    propagator = get_default_propagator(  # Get default evolutionary operator.
-        pop_size=pop_size,  # Breeding population size
-        limits=limits,  # Search space
-        mate_prob=0.7,  # Crossover probability
-        mut_prob=0.4,  # Mutation probability
-        random_prob=0.1,  # Random-initialization probability
-        rng=rng,  # Random number generator for evolutionary optimizer
-    )
-    islands = Islands(  # Set up island model.
-        loss_fn=ind_loss,  # Loss function to optimize
-        propagator=propagator,  # Evolutionary operator
-        rng=rng,  # Random number generator
-        generations=num_generations,  # Number of generations per worker
-        num_islands=1,  # Number of islands
-        checkpoint_path=log_path,
-    )
-    islands.evolve(  # Run evolutionary optimization.
-        top_n=1,  # Print top-n best individuals on each island in summary.
-        logging_interval=1,  # Logging interval
-        debug=2,  # Verbosity level
-    )
+    if __name__ == "__main__":
+        comm = MPI.COMM_WORLD
+        num_generations = 10  # Number of generations
+        pop_size = 2 * comm.size  # Breeding population size
+        limits = {
+            "conv_layers": (2, 10),
+            "activation": ("relu", "sigmoid", "tanh"),
+            "lr": (0.01, 0.0001),
+        }  # Define search space.
+        rng = random.Random(
+            comm.rank
+        )  # Set up separate random number generator for evolutionary optimizer.
+        propagator = get_default_propagator(  # Get default evolutionary operator.
+            pop_size=pop_size,  # Breeding population size
+            limits=limits,  # Search space
+            crossover_prob=0.7,  # Crossover probability
+            mutation_prob=0.4,  # Mutation probability
+            random_init_prob=0.1,  # Random-initialization probability
+            rng=rng,  # Separate random number generator for Propulate optimization
+        )
+
+        # Set up separate logger for Propulate optimization.
+        set_logger_config(
+            level=logging.INFO,  # Logging level
+            log_file=f"{log_path}/{pathlib.Path(__file__).stem}.log",  # Logging path
+            log_to_stdout=True,  # Print log on stdout.
+            log_rank=False,  # Do not prepend MPI rank to logging messages.
+            colors=True,  # Use colors.
+        )
+
+        # Set up propulator performing actual optimization.
+        propulator = Propulator(
+            loss_fn=ind_loss,  # Loss function to optimize
+            propagator=propagator,  # Evolutionary operator
+            rng=rng,  # Random number generator
+            island_comm=comm,  # Communicator
+            generations=num_generations,  # Number of generations per worker
+            checkpoint_path=log_path,  # Path to save checkpoints to
+        )
+
+        # Run optimization and print summary of results.
+        propulator.propulate(
+            logging_interval=1, debug=2  # Logging interval and verbosity level
+        )
+        propulator.summarize(
+            top_n=1, debug=2  # Print top-n best individuals on each island in summary.
+        )
 
 After additionally installing ``torch``, ``lightning``, and ``tensorboard``, we can use the the virtual environment from
 the previous example to run a search with four GPUs on a single node:
