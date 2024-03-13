@@ -103,8 +103,7 @@ def set_logger_config(
     colors: bool = True,
 ) -> None:
     """
-    Set up the logger. Should only need to be done once.
-    Generally, logging should only be done on the master rank.
+    Set up the logger. Should only need to be done once. Generally, logging should only be done on the master rank.
 
     Parameters
     ----------
