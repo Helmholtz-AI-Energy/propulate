@@ -2,7 +2,7 @@ from propulate import Surrogate
 from propulate.population import Individual
 
 
-class DefaultSurrogate(Surrogate):
+class MockSurrogate(Surrogate):
     """
     This surrogate model does nothing.
     It exists for testing purposes and comparing performance decline
