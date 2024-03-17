@@ -9,8 +9,9 @@ class StaticSurrogate(Surrogate):
     After the first run, each subsequent loss is compared to the baseline.
     Every run with a loss outside the margin of the baseline is cancelled.
 
-    This model assumes regular yields between training runs,
-    otherwise the indices of the baseline run won't match.
+    This model creates an internal index for the yielded losses during each run.
+    That means the yield order and frquency has to be consistent between runs.
+    Otherwise, the indices of the baseline run won't match.
 
     Loosely based on the paper:
     Use of Static Surrogates in Hyperparameter Optimization
