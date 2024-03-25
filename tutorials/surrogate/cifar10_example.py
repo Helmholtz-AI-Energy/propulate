@@ -18,12 +18,7 @@ from mpi4py import MPI
 from propulate import Islands
 from propulate.utils import get_default_propagator
 
-from tutorials.surrogate import (
-    MockSurrogate,
-    LogSurrogate,
-    StaticSurrogate,
-    DynamicSurrogate,
-)
+import tutorials.surrogate
 
 
 GPUS_PER_NODE: int = 1
@@ -480,10 +475,10 @@ if __name__ == "__main__":
         generations=num_generations,  # Number of generations per worker
         num_islands=1,  # Number of islands
         checkpoint_path=log_path,
-        # surrogate_factory=lambda: MockSurrogate(),
-        # surrogate_factory=lambda: LogSurrogate(),
-        surrogate_factory=lambda: StaticSurrogate(),
-        # surrogate_factory=lambda: DynamicSurrogate(limits),
+        # surrogate_factory=lambda: tutorials.surrogate.MockSurrogate(),
+        # surrogate_factory=lambda: tutorials.surrogate.LogSurrogate(),
+        surrogate_factory=lambda: tutorials.surrogate.StaticSurrogate(),
+        # surrogate_factory=lambda: tutorials.surrogate.DynamicSurrogate(limits),
     )
     islands.evolve(  # Run evolutionary optimization.
         top_n=1,  # Print top-n best individuals on each island in summary.
