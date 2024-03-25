@@ -90,8 +90,8 @@ class Islands:
         ranks_per_worker : int, optional
             The number of ranks per worker. Default is 1.
         surrogate_factory : Callable[[], Surrogate], optional
-           Function that returns a new instance of a Surrogate model.
-           Only used when loss_fn is a generator function.
+           Function that returns a new instance of a ``Surrogate`` model.
+           Only used when ``loss_fn`` is a generator function.
 
         Raises
         ------

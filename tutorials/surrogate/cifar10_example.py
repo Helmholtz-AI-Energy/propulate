@@ -1,5 +1,4 @@
-#!/usr/bin/env python3
-
+import logging
 import random
 import os
 import sys
@@ -19,20 +18,29 @@ from mpi4py import MPI
 from propulate import Islands
 from propulate.utils import get_default_propagator
 
-# from tutorials.surrogate.mock_surrogate import MockSurrogate
-# from tutorials.surrogate.log_surrogate import LogSurrogate
-from tutorials.surrogate.static_surrogate import StaticSurrogate
-# from tutorials.surrogate.dynamic_surrogate import DynamicSurrogate
+from tutorials.surrogate import (
+    MockSurrogate,
+    LogSurrogate,
+    StaticSurrogate,
+    DynamicSurrogate,
+)
 
 
 GPUS_PER_NODE: int = 1
 
 log_path = "torch_ckpts"
+log = logging.getLogger(__name__)  # Get logger instance.
 
-sys.path.append(os.path.abspath('../../'))
+sys.path.append(os.path.abspath("../../"))
 
 
 class Permutation(enum.Enum):
+    """
+    Enum class for permutations of layers in convolution block.
+    Each letter represents a layer in the block.
+    The default permutation is ABC.
+    """
+
     ABC = (0, 1, 2)
     ACB = (0, 2, 1)
     BAC = (1, 0, 2)
@@ -41,33 +49,87 @@ class Permutation(enum.Enum):
     CBA = (2, 1, 0)
 
 
-def accuracy(outputs, labels):
+def accuracy(outputs: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+    """
+    Calculate accuracy of model's predictions.
+
+    Parameters
+    ----------
+    outputs : torch.Tensor
+        The model's predictions.
+    labels : torch.Tensor
+        The true labels.
+
+    Returns
+    -------
+    torch.Tensor
+        The accuracy of the model's predictions.
+    """
     _, preds = torch.max(outputs, dim=1)
     return torch.tensor(torch.sum(preds == labels).item() / len(preds))
 
 
-def shuffle_array(array, permutation):
+def shuffle_array(array: list, permutation: Permutation) -> list:
+    """
+    Shuffle the order of elements in an array according to a given permutation.
+
+    Parameters
+    ----------
+    array : list
+        The array to shuffle.
+    permutation : Permutation
+        The permutation to apply to the array.
+
+    Returns
+    -------
+    list
+        The shuffled array.
+    """
     return [array[i] for i in permutation.value]
 
 
 def conv_block(
-        in_channels,
-        out_channels,
-        perm: Permutation = Permutation.ABC,
-        pool=False,
+    in_channels: int,
+    out_channels: int,
+    perm: Permutation = Permutation.ABC,
+    pool: bool = False,
 ) -> nn.Sequential:
     """
-    Create a resnet block
-    """
-    # adjust when batch normalization is called before convolution
-    batch_norm_in = out_channels if perm in [Permutation.ABC, Permutation.ACB, Permutation.CAB] else in_channels
+    Create a ResNet block. The block consists of the convolution layer, batch normalization, and ReLU activation function.
+    The order of these layers can be shuffled according to a given permutation.
 
-    # shuffle layers to sometimes get bad performance
+    Parameters
+    ----------
+    in_channels : int
+        The number of input channels.
+    out_channels : int
+        The number of output channels.
+    perm : Permutation
+        Shuffle layers according to given permutation.
+    pool : bool
+        Whether to apply max pooling.
+
+    Returns
+    -------
+    nn.Sequential
+        The ResNet convolution block.
+    """
+    # Adjust when batch normalization is called before convolution.
+    batch_norm_in = (
+        out_channels
+        if perm in [Permutation.ABC, Permutation.ACB, Permutation.CAB]
+        else in_channels
+    )
+
+    # Shuffle layers to sometimes get bad performance.
     layers = shuffle_array(
-                [nn.Conv2d(
-                        in_channels, out_channels, kernel_size=3, padding=1),
-                    nn.BatchNorm2d(batch_norm_in),
-                    nn.ReLU(inplace=True)], perm)
+        [
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+            nn.BatchNorm2d(batch_norm_in),
+            nn.ReLU(inplace=True),
+        ],
+        perm,
+    )
     if pool:
         layers.append(nn.MaxPool2d(2))
     return nn.Sequential(*layers)
@@ -75,31 +137,31 @@ def conv_block(
 
 class Net(nn.Module):
     def __init__(
-            self,
-            in_channels: int,
-            num_classes: int,
-            perm: Permutation,
-            lr: float,
-            loss_fn: nn.Module,
-            weight_decay: float = 0.0
+        self,
+        in_channels: int,
+        num_classes: int,
+        perm: Permutation,
+        lr: float,
+        loss_fn: nn.Module,
+        weight_decay: float = 0.0,
     ) -> None:
         """
-        Set up resnet neural network.
+        Set up ResNet neural network.
 
         Parameters
         ----------
-        in_channels: int
-                     input channels
-        num_classes: int
-                     number of classes in dataset
-        perm: Permutation
-              Shuffle layers according to permutation
-        lr: float
-            learning rate
-        loss_fn: torch.nn.modules.loss
-                 loss function
-        weight_decay: float
-                      weight decay
+        in_channels : int
+            The number of input channels.
+        num_classes : int
+            The number of classes in the dataset.
+        perm : Permutation
+              Shuffle layers according to given permutation.
+        lr : float
+            The learning rate.
+        loss_fn : torch.nn.modules.loss
+            The loss function.
+        weight_decay : float
+            The weight decay.
         """
         super().__init__()
 
@@ -114,33 +176,32 @@ class Net(nn.Module):
         self.conv1 = conv_block(in_channels, 64, perm)
         self.conv2 = conv_block(64, 128, perm, pool=True)
         self.res1 = nn.Sequential(
-                conv_block(128, 128, perm), conv_block(128, 128, perm))
+            conv_block(128, 128, perm), conv_block(128, 128, perm)
+        )
 
         self.conv3 = conv_block(128, 256, perm, pool=True)
         self.conv4 = conv_block(256, 512, perm, pool=True)
         self.res2 = nn.Sequential(
-                conv_block(512, 512, perm), conv_block(512, 512, perm))
+            conv_block(512, 512, perm), conv_block(512, 512, perm)
+        )
 
-        self.classifier = nn.Sequential(nn.MaxPool2d(4),
-                                        nn.Flatten(),
-                                        nn.Linear(512, num_classes))
+        self.classifier = nn.Sequential(
+            nn.MaxPool2d(4), nn.Flatten(), nn.Linear(512, num_classes)
+        )
 
-    def forward(
-        self,
-        x: torch.Tensor
-    ) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Forward pass.
 
         Parameters
         ----------
-        x: torch.Tensor
-           data sample
+        x : torch.Tensor
+            The data sample.
 
         Returns
         -------
         torch.Tensor
-            The model's predictions for input data sample
+            The model's predictions for input data sample.
         """
         out = self.conv1(x)
         out = self.conv2(out)
@@ -152,9 +213,7 @@ class Net(nn.Module):
         return out
 
     def training_step(
-        self,
-        batch: Tuple[torch.Tensor, torch.Tensor],
-        batch_idx: int
+        self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int
     ) -> torch.Tensor:
         """
         Calculate loss for training step in Lightning train loop.
@@ -162,27 +221,22 @@ class Net(nn.Module):
         Parameters
         ----------
         batch: Tuple[torch.Tensor, torch.Tensor]
-               input batch
+            The input batch.
         batch_idx: int
-                   batch index
+            The batch index.
 
         Returns
         -------
         torch.Tensor
-            training loss for input batch
+            The training loss for the input batch.
         """
         x, y = batch
         pred = self(x)
         loss_val = self.loss_fn(pred, y)
-        # self.log("train loss", loss_val)
-        # train_acc_val = self.train_acc(torch.nn.functional.softmax(pred, dim=-1), y)
-        # self.log("train_ acc", train_acc_val)
         return loss_val
 
     def validation_step(
-        self,
-        batch: Tuple[torch.Tensor, torch.Tensor],
-        batch_idx: int
+        self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int
     ) -> torch.Tensor:
         """
         Calculate loss for validation step in Lightning validation loop during training.
@@ -190,25 +244,33 @@ class Net(nn.Module):
         Parameters
         ----------
         batch: Tuple[torch.Tensor, torch.Tensor]
-               current batch
+            The current batch.
         batch_idx: int
-                   batch index
+            The batch index.
 
         Returns
         -------
         torch.Tensor
-            validation loss for input batch
+            The validation loss for the input batch.
         """
         x, y = batch
         pred = self(x)
         loss_val = self.loss_fn(pred, y)
-        # val_acc_val = self.val_acc(torch.nn.functional.softmax(pred, dim=-1), y)
-        # self.log("val_loss", loss_val)
-        # self.log("val_acc", val_acc_val)
         return loss_val
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
-        return torch.optim.Adam(self.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+        """
+        Configure the adam optimizer.
+
+        Returns
+        -------
+        torch.optim.Optimizer
+            An instance of the Adam optimizer with the specified learning rate and weight decay.
+
+        """
+        return torch.optim.Adam(
+            self.parameters(), lr=self.lr, weight_decay=self.weight_decay
+        )
 
 
 def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
@@ -218,23 +280,23 @@ def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
     Parameters
     ----------
     batch_size: int
-                batch size
+        The batch size.
 
     Returns
     -------
-    DataLoader
-        training dataloader
-    DataLoader
-        validation dataloader
+    torch.utils.data.DataLoader
+        The training dataloader.
+    torch.utils.data.DataLoader
+        The validation dataloader.
     """
-    data_transform = Compose([ToTensor(),
-                              Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+    data_transform = Compose([ToTensor(), Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
-    # set empty DataLoader
+    # Set empty DataLoader.
     train_loader = DataLoader(
-            dataset=TensorDataset(torch.empty(0), torch.empty(0)),
-            batch_size=batch_size,
-            shuffle=False)
+        dataset=TensorDataset(torch.empty(0), torch.empty(0)),
+        batch_size=batch_size,
+        shuffle=False,
+    )
 
     if MPI.COMM_WORLD.Get_rank() == 0:  # Only root downloads data.
         train_loader = DataLoader(
@@ -269,19 +331,20 @@ def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
 
 
 def ind_loss(
-        params: Dict[str, Union[int, float, str]],
+    params: Dict[str, Union[int, float, str]],
 ) -> Generator[float, None, None]:
     """
     Loss function for evolutionary optimization with Propulate. Minimize the model's negative validation accuracy.
 
     Parameters
     ----------
-    params: dict[str, int | float | str]]
+    params : Dict[str, int | float | str]]
+        The parameters to be optimized.
 
     Returns
     -------
     Generator[float, None, None]
-        yields the negative validation accuracy of the trained model
+        Yields the negative validation accuracy in regular intervals during training of the model.
     """
     # Extract hyperparameter combination to test from input dictionary.
     lr = float(params["lr"])  # Learning rate
@@ -289,18 +352,18 @@ def ind_loss(
 
     epochs: int = 2  # Number of epochs to train
 
-    rank: int = MPI.COMM_WORLD.Get_rank()  # Get rank of current worker
+    rank: int = MPI.COMM_WORLD.Get_rank()  # Get rank of current worker.
 
     num_gpus = torch.cuda.device_count()  # Number of GPUs available
     if num_gpus == 0:
-        device = torch.device('cpu')
+        device = torch.device("cpu")
     else:
         device_index = rank % num_gpus
-        device = torch.device(f'cuda:{device_index}'
-                              if torch.cuda.is_available()
-                              else 'cpu')
+        device = torch.device(
+            f"cuda:{device_index}" if torch.cuda.is_available() else "cpu"
+        )
 
-    print(f"Rank: {rank}, Using device: {device}")
+    log.info(f"Rank: {rank}, Using device: {device}")
 
     permutations = {
         "ABC": Permutation.ABC,
@@ -320,23 +383,23 @@ def ind_loss(
         torch.nn.CrossEntropyLoss()
     )  # Use cross-entropy loss for multi-class classification.
 
-    # use non null weight decay
+    # Use non-null weight decay.
     weight_decay = 1e-4
     grad_clip = 0.1
 
-    model = Net(
-        in_channels, num_classes, permutation, lr, loss_fn, weight_decay
-    ).to(device)  # Set up neural network with specified hyperparameters.
+    model = Net(in_channels, num_classes, permutation, lr, loss_fn, weight_decay).to(
+        device
+    )  # Set up neural network with specified hyperparameters.
     model.best_accuracy = 0.0  # Initialize the model's best validation accuracy.
 
     train_loader, val_loader = get_data_loaders(
         batch_size=8
     )  # Get training and validation data loaders.
 
-    # Configure optimizer
+    # Configure optimizer.
     optimizer = model.configure_optimizers()
 
-    # init avg_val_loss
+    # Initialize average validation loss parameter.
     avg_val_loss: float = 0.0
 
     for epoch in range(epochs):
@@ -345,21 +408,21 @@ def ind_loss(
         # Training loop
         for batch_idx, (data, target) in enumerate(train_loader):
             data, target = data.to(device), target.to(device)
-            # zero parameter gradients
+            # Zero out gradients.
             optimizer.zero_grad()
-            # forward + backward + optimize
+            # Forward + backward + optimize.
             loss = model.training_step((data, target), batch_idx)
             loss.backward()
 
-            # use gradient clipping
+            # Use gradient clipping.
             nn.utils.clip_grad_value_(model.parameters(), grad_clip)
 
             optimizer.step()
-            # update loss
+            # Update loss.
             total_train_loss += loss.item()
 
         avg_train_loss = total_train_loss / len(train_loader)
-        print(f"Epoch {epoch+1}: Avg Training Loss: {avg_train_loss}")
+        log.info(f"Epoch {epoch+1}: Avg Training Loss: {avg_train_loss}")
 
         # Validation loop
         model.eval()
@@ -367,13 +430,13 @@ def ind_loss(
         with torch.no_grad():
             for batch_idx, (data, target) in enumerate(val_loader):
                 data, target = data.to(device), target.to(device)
-                # forward
+                # Forward pass
                 loss = model.validation_step((data, target), batch_idx)
-                # update loss
+                # Update loss.
                 total_val_loss += loss.item()
 
         avg_val_loss = total_val_loss / len(val_loader)
-        print(f"Epoch {epoch+1}: Avg Validation Loss: {avg_val_loss}")
+        log.info(f"Epoch {epoch+1}: Avg Validation Loss: {avg_val_loss}")
 
         yield avg_val_loss
 
@@ -388,7 +451,7 @@ def set_seeds(seed_value=42):
     torch.cuda.manual_seed_all(seed_value)  # for multi-GPU.
     torch.backends.cudnn.deterministic = True  # use deterministic algorithms.
     torch.backends.cudnn.benchmark = False  # disable to be deterministic.
-    os.environ['PYTHONHASHSEED'] = str(seed_value)  # python hash seed.
+    os.environ["PYTHONHASHSEED"] = str(seed_value)  # python hash seed.
 
 
 if __name__ == "__main__":

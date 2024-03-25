@@ -19,7 +19,7 @@ from .propagators import Propagator, SelectMin
 from .surrogate import Surrogate
 
 log = logging.getLogger(__name__)  # Get logger instance.
-SURROGATE_KEY: Final[str] = "_s"  # key for Surrogate data in Individual
+SURROGATE_KEY: Final[str] = "_s"  # Key for ``Surrogate`` data in ``Individual``
 
 
 class Propulator:
@@ -133,8 +133,8 @@ class Propulator:
             An array with the number of workers per island. Element i specifies the number of workers on island with
             index i.
         surrogate_factory : Callable[[], Surrogate], optional
-           Function that returns a new instance of a Surrogate model.
-           Only used when loss_fn is a generator function.
+           Function that returns a new instance of a ``Surrogate`` model.
+           Only used when ``loss_fn`` is a generator function.
         """
         # Set class attributes.
         self.loss_fn = loss_fn  # Callable loss function
@@ -167,8 +167,7 @@ class Propulator:
         self.emigration_propagator = emigration_propagator  # Emigration propagator
         self.rng = rng
 
-        # always initialize Surrogate
-        # as the class attr has to be set for None checks later
+        # Always initialize the ``Surrogate`` as the class attribute has to be set for ``None`` checks later.
         self.surrogate = None if surrogate_factory is None else surrogate_factory()
 
         # Load initial population of evaluated individuals from checkpoint if exists.
@@ -275,29 +274,29 @@ class Propulator:
         ind = self._breed()  # Breed new individual.
         start_time = time.time()  # Start evaluation timer.
 
-        # signal start of run to surrogate model
+        # Signal start of run to surrogate model.
         if self.surrogate is not None:
             self.surrogate.start_run(ind)
 
-        # define local loss_fn for parallelized evaluation
+        # Define local ``loss_fn`` for parallelized evaluation.
         def loss_fn(individual):
             if self.worker_sub_comm != MPI.COMM_SELF:
                 return self.loss_fn(individual, self.worker_sub_comm)
             else:
                 return self.loss_fn(individual)
 
-        # check if loss_fn is Generator, prerequisite for surrogate model
+        # Check if ``loss_fn`` is generator, prerequisite for surrogate model.
         if inspect.isgeneratorfunction(self.loss_fn):
             last: float = 0.0
             for last in loss_fn(ind):
                 if self.surrogate is not None:
-                    if self.surrogate.cancel(last):  # check cancel for each yield
+                    if self.surrogate.cancel(last):  # Check cancel for each yield.
                         break
-            ind.loss = last  # set final loss as individual's loss
+            ind.loss = last  # Set final loss as individual's loss.
         else:
-            ind.loss = loss_fn(ind)  # Evaluate its loss
+            ind.loss = loss_fn(ind)  # Evaluate its loss.
 
-        # add final value to surrogate
+        # Add final value to surrogate.
         if self.surrogate is not None:
             self.surrogate.update(ind.loss)
         if self.propulate_comm is None:
@@ -313,7 +312,7 @@ class Propulator:
         )
 
         if self.surrogate is not None:
-            # add Surrogate model data to individual for synchronization
+            # Add surrogate model data to individual for synchronization.
             ind[SURROGATE_KEY] = self.surrogate.data()
 
         # Tell other workers in own island about results to synchronize their populations.
@@ -325,7 +324,7 @@ class Propulator:
             self.island_comm.send(copy.deepcopy(ind), dest=r, tag=INDIVIDUAL_TAG)
 
         if self.surrogate is not None:
-            # remove data from individual again as __eq__ fails otherwise
+            # Remove data from individual again as ``__eq__`` fails otherwise.
             del ind[SURROGATE_KEY]
 
     def _receive_intra_island_individuals(self) -> None:
@@ -352,10 +351,10 @@ class Propulator:
                     source=stat.Get_source(), tag=INDIVIDUAL_TAG
                 )
 
-                # only merge if Surrogate model is used
+                # Only merge if surrogate model is used.
                 if SURROGATE_KEY in ind_temp and self.surrogate is not None:
                     self.surrogate.merge(ind_temp[SURROGATE_KEY])
-                # remove data from individual again as __eq__ fails otherwise
+                # Remove data from individual again as ``__eq__`` fails otherwise.
                 if SURROGATE_KEY in ind_temp:
                     del ind_temp[SURROGATE_KEY]
 

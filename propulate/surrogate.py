@@ -20,7 +20,6 @@ class Surrogate(ABC, Generic[T]):
 
     1. Yield from ``loss_fn`` is called periodically without any randomness.
     2. Merge is commutative.
-
     """
 
     @abstractmethod
@@ -35,10 +34,7 @@ class Surrogate(ABC, Generic[T]):
         pass
 
     @abstractmethod
-    def start_run(
-        self,
-        ind: Individual
-    ) -> None:
+    def start_run(self, ind: Individual) -> None:
         """
         Signals that a new run is about to start.
         This is called before the first yield from the ``loss_fn``.
@@ -50,8 +46,8 @@ class Surrogate(ABC, Generic[T]):
 
         Parameters
         ----------
-        ind: Individual
-             The to be evaluated individual
+        ind : propulate.Individual
+            The individual to be evaluated.
         """
         pass
 
@@ -64,26 +60,26 @@ class Surrogate(ABC, Generic[T]):
         Parameters
         ----------
         loss : float
-               final loss of the current run
+            The final loss of the current run.
         """
         pass
 
     @abstractmethod
     def cancel(self, loss: float) -> bool:
         """
-        Evaluate Surrogate to check if the current run should be cancelled.
+        Evaluate surrogate to check if the current run should be cancelled.
         This will be called after every yield from the ``loss_fn``.
 
         Parameters
         ----------
         loss : float
-               loss of the most recent step
+            The loss of the most recent step.
 
         Returns
         -------
         bool
-            if the surrogate model determines that the current run
-            will not result in a lower loss than previous runs
+           If the surrogate model determines that the current run
+           will not result in a lower loss than previous runs.
         """
         return False
 
@@ -99,8 +95,8 @@ class Surrogate(ABC, Generic[T]):
         Parameters
         ----------
         data : T
-               All relevant information to update its model
-               to the same state as the origin of the data.
+            All relevant information to update its model
+            to the same state as the origin of the data.
         """
         pass
 

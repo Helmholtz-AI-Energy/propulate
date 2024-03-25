@@ -98,8 +98,8 @@ class Migrator(Propulator):
         island_counts : numpy.ndarray, optional
             An array with the number of workers per island. Element i specifies the number of workers on island i.
         surrogate_factory : Callable[[], Surrogate], optional
-           Function that returns a new instance of a Surrogate model.
-           Only used when loss_fn is a generator function.
+           Function that returns a new instance of a ``Surrogate`` model.
+           Only used when ``loss_fn`` is a generator function.
         """
         super().__init__(
             loss_fn,
