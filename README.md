@@ -49,8 +49,7 @@ In contrast to classical GAs, ``Propulate`` maintains a continuous population of
 softened notion of the typically strictly separated, discrete generations.
 Our contributions include:
 - A novel parallel genetic algorithm based on a fully asynchronized island model with independently processing workers.
-- Massive parallelism by asynchronous propagation of continuous populations and migration via efficient communication 
-- using the message passing interface.
+- Massive parallelism by asynchronous propagation of continuous populations and migration via efficient communication using the message passing interface.
 - Optimized use efficiency of parallel hardware by minimizing idle times in distributed computing environments.
 
 To be more efficient, the generations are less well separated than they usually are in evolutionary algorithms.
