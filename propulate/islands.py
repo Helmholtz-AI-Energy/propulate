@@ -2,7 +2,7 @@ import logging
 import platform
 import random
 from pathlib import Path
-from typing import Callable, List, Optional, Type, Union
+from typing import Callable, Generator, List, Optional, Type, Union
 
 import numpy as np
 from mpi4py import MPI
@@ -11,6 +11,7 @@ from .migrator import Migrator
 from .pollinator import Pollinator
 from .population import Individual
 from .propagators import Propagator, SelectMin, SelectMax
+from .surrogate import Surrogate
 
 log = logging.getLogger(__name__)  # Get logger instance.
 
@@ -38,7 +39,7 @@ class Islands:
 
     def __init__(
         self,
-        loss_fn: Callable,
+        loss_fn: Union[Callable, Generator[float, None, None]],
         propagator: Propagator,
         rng: random.Random,
         generations: int = 0,
@@ -51,13 +52,14 @@ class Islands:
         pollination: bool = True,
         checkpoint_path: Union[str, Path] = Path("./"),
         ranks_per_worker: int = 1,
+        surrogate_factory: Optional[Callable[[], Surrogate]] = None,
     ) -> None:
         """
         Initialize an island model with the given parameters.
 
         Parameters
         ----------
-        loss_fn : Callable
+        loss_fn : Union[Callable, Generator[float, None, None]]
             The loss function to be minimized.
         propagator : propulate.propagators.Propagator
             The propagator, i.e., evolutionary operator, to apply for breeding.
@@ -87,6 +89,9 @@ class Islands:
             The path where checkpoints are loaded from and stored to. Default is the current working directory.
         ranks_per_worker : int, optional
             The number of ranks per worker. Default is 1.
+        surrogate_factory : Callable[[], Surrogate], optional
+           Function that returns a new instance of a ``Surrogate`` model.
+           Only used when ``loss_fn`` is a generator function.
 
         Raises
         ------
@@ -271,6 +276,7 @@ class Islands:
                 emigration_propagator=emigration_propagator,
                 island_displs=island_displs,
                 island_counts=island_sizes,
+                surrogate_factory=surrogate_factory,
             )
         else:
             if full_world_rank == 0:
@@ -291,6 +297,7 @@ class Islands:
                 immigration_propagator=immigration_propagator,
                 island_displs=island_displs,
                 island_counts=island_sizes,
+                surrogate_factory=surrogate_factory,
             )
 
     def _run(

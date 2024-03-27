@@ -4,9 +4,10 @@ import os
 import pickle
 import random
 import time
+import inspect
 from operator import attrgetter
 from pathlib import Path
-from typing import Callable, List, Optional, Tuple, Type, Union
+from typing import Callable, Final, Generator, List, Optional, Tuple, Type, Union
 
 import deepdiff
 import numpy as np
@@ -15,8 +16,10 @@ from mpi4py import MPI
 from ._globals import DUMP_TAG, INDIVIDUAL_TAG
 from .population import Individual
 from .propagators import Propagator, SelectMin
+from .surrogate import Surrogate
 
 log = logging.getLogger(__name__)  # Get logger instance.
+SURROGATE_KEY: Final[str] = "_s"  # Key for ``Surrogate`` data in ``Individual``
 
 
 class Propulator:
@@ -46,7 +49,7 @@ class Propulator:
         The island displacements.
     island_idx : int
         The island's index.
-    loss_fn : Callable
+    loss_fn : Union[Callable, Generator[float, None, None]]
         The loss function to be minimized.
     migration_prob : float
         The migration probability.
@@ -60,6 +63,8 @@ class Propulator:
         The Propulate world communicator, consisting of rank 0 of each worker's sub communicator.
     rng : random.Random
         The separate random number generator for the Propulate optimization.
+    surrogate : propulate.Surrogate, optional
+        The local surrogate model.
     worker_sub_comm : MPI.Comm
         The worker's internal communicator for parallelized evaluation of single individuals.
 
@@ -73,7 +78,7 @@ class Propulator:
 
     def __init__(
         self,
-        loss_fn: Callable,
+        loss_fn: Union[Callable, Generator[float, None, None]],
         propagator: Propagator,
         rng: random.Random,
         island_idx: int = 0,
@@ -87,13 +92,14 @@ class Propulator:
         emigration_propagator: Type[Propagator] = SelectMin,
         island_displs: Optional[np.ndarray] = None,
         island_counts: Optional[np.ndarray] = None,
+        surrogate_factory: Optional[Callable[[], Surrogate]] = None,
     ) -> None:
         """
         Initialize Propulator with given parameters.
 
         Parameters
         ----------
-        loss_fn : Callable
+        loss_fn : Union[Callable, Generator[float, None, None]]
             The loss function to be minimized.
         propagator : propulate.propagators.Propagator
             The propagator to apply for breeding.
@@ -126,6 +132,9 @@ class Propulator:
         island_counts : numpy.ndarray, optional
             An array with the number of workers per island. Element i specifies the number of workers on island with
             index i.
+        surrogate_factory : Callable[[], Surrogate], optional
+           Function that returns a new instance of a ``Surrogate`` model.
+           Only used when ``loss_fn`` is a generator function.
         """
         # Set class attributes.
         self.loss_fn = loss_fn  # Callable loss function
@@ -157,6 +166,9 @@ class Propulator:
         self.island_counts = island_counts  # Number of workers on each island
         self.emigration_propagator = emigration_propagator  # Emigration propagator
         self.rng = rng
+
+        # Always initialize the ``Surrogate`` as the class attribute has to be set for ``None`` checks later.
+        self.surrogate = None if surrogate_factory is None else surrogate_factory()
 
         # Load initial population of evaluated individuals from checkpoint if exists.
         load_ckpt_file = self.checkpoint_path / f"island_{self.island_idx}_ckpt.pickle"
@@ -261,10 +273,32 @@ class Propulator:
         """Breed and evaluate individual."""
         ind = self._breed()  # Breed new individual.
         start_time = time.time()  # Start evaluation timer.
-        if self.worker_sub_comm != MPI.COMM_SELF:
-            ind.loss = self.loss_fn(ind, self.worker_sub_comm)  # Evaluate its loss.
+
+        # Signal start of run to surrogate model.
+        if self.surrogate is not None:
+            self.surrogate.start_run(ind)
+
+        # Define local ``loss_fn`` for parallelized evaluation.
+        def loss_fn(individual):
+            if self.worker_sub_comm != MPI.COMM_SELF:
+                return self.loss_fn(individual, self.worker_sub_comm)
+            else:
+                return self.loss_fn(individual)
+
+        # Check if ``loss_fn`` is generator, prerequisite for surrogate model.
+        if inspect.isgeneratorfunction(self.loss_fn):
+            last: float = 0.0
+            for last in loss_fn(ind):
+                if self.surrogate is not None:
+                    if self.surrogate.cancel(last):  # Check cancel for each yield.
+                        break
+            ind.loss = last  # Set final loss as individual's loss.
         else:
-            ind.loss = self.loss_fn(ind)
+            ind.loss = loss_fn(ind)  # Evaluate its loss.
+
+        # Add final value to surrogate.
+        if self.surrogate is not None:
+            self.surrogate.update(ind.loss)
         if self.propulate_comm is None:
             return
         ind.evaltime = time.time()  # Stop evaluation timer.
@@ -276,6 +310,11 @@ class Propulator:
             f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: BREEDING\n"
             f"Bred and evaluated individual {ind}."
         )
+
+        if self.surrogate is not None:
+            # Add surrogate model data to individual for synchronization.
+            ind[SURROGATE_KEY] = self.surrogate.data()
+
         # Tell other workers in own island about results to synchronize their populations.
         for r in range(
             self.island_comm.size
@@ -283,6 +322,10 @@ class Propulator:
             if r == self.island_comm.rank:
                 continue  # No self-talk.
             self.island_comm.send(copy.deepcopy(ind), dest=r, tag=INDIVIDUAL_TAG)
+
+        if self.surrogate is not None:
+            # Remove data from individual again as ``__eq__`` fails otherwise.
+            del ind[SURROGATE_KEY]
 
     def _receive_intra_island_individuals(self) -> None:
         """Check for and possibly receive incoming individuals evaluated by other workers within own island."""
@@ -307,9 +350,18 @@ class Propulator:
                 ind_temp = self.island_comm.recv(
                     source=stat.Get_source(), tag=INDIVIDUAL_TAG
                 )
+
+                # Only merge if surrogate model is used.
+                if SURROGATE_KEY in ind_temp and self.surrogate is not None:
+                    self.surrogate.merge(ind_temp[SURROGATE_KEY])
+                # Remove data from individual again as ``__eq__`` fails otherwise.
+                if SURROGATE_KEY in ind_temp:
+                    del ind_temp[SURROGATE_KEY]
+
                 self.population.append(
                     ind_temp
                 )  # Add received individual to own worker-local population.
+
                 log_string += f"Added individual {ind_temp} from W{stat.Get_source()} to own population.\n"
         _, n_active = self._get_active_individuals()
         log_string += (

@@ -2,13 +2,14 @@ import copy
 import random
 import logging
 from pathlib import Path
-from typing import Callable, Optional, Type, Union
+from typing import Callable, Generator, Optional, Type, Union
 
 import numpy as np
 from mpi4py import MPI
 
 from .propagators import Propagator, SelectMin
 from .propulator import Propulator
+from .surrogate import Surrogate
 from ._globals import MIGRATION_TAG, SYNCHRONIZATION_TAG
 
 
@@ -43,7 +44,7 @@ class Migrator(Propulator):
 
     def __init__(
         self,
-        loss_fn: Callable,
+        loss_fn: Union[Callable, Generator[float, None, None]],
         propagator: Propagator,
         rng: random.Random,
         island_idx: int = 0,
@@ -57,13 +58,14 @@ class Migrator(Propulator):
         emigration_propagator: Type[Propagator] = SelectMin,
         island_displs: Optional[np.ndarray] = None,
         island_counts: Optional[np.ndarray] = None,
+        surrogate_factory: Optional[Callable[[], Surrogate]] = None,
     ) -> None:
         """
         Initialize ``Migrator`` with given parameters.
 
         Parameters
         ----------
-        loss_fn : Callable
+        loss_fn : Union[Callable, Generator[float, None, None]]
             The loss function to be minimized.
         propagator: propulate.propagators.Propagator
             The propagator to apply for breeding.
@@ -95,6 +97,9 @@ class Migrator(Propulator):
             island with index i in the Propulate communicator.
         island_counts : numpy.ndarray, optional
             An array with the number of workers per island. Element i specifies the number of workers on island i.
+        surrogate_factory : Callable[[], Surrogate], optional
+           Function that returns a new instance of a ``Surrogate`` model.
+           Only used when ``loss_fn`` is a generator function.
         """
         super().__init__(
             loss_fn,
@@ -111,6 +116,7 @@ class Migrator(Propulator):
             emigration_propagator,
             island_displs,
             island_counts,
+            surrogate_factory,
         )
         # Set class attributes.
         self.emigrated = []  # Emigrated individuals to be deactivated on sending island
