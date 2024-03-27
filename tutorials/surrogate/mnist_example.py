@@ -271,7 +271,7 @@ def ind_loss(
             # Zero out gradients.
             optimizer.zero_grad()
             # Forward + backward pass and optimizer step to update parameters.
-            loss = model.training_step((data, target), batch_idx)
+            loss = model.training_step((data, target))
             loss.backward()
             optimizer.step()
             # Update loss.
@@ -287,7 +287,7 @@ def ind_loss(
             for batch_idx, (data, target) in enumerate(val_loader):
                 data, target = data.to(device), target.to(device)
                 # Forward pass
-                loss = model.validation_step((data, target), batch_idx)
+                loss = model.validation_step((data, target))
                 # Update loss.
                 total_val_loss += loss.item()
 
