@@ -94,7 +94,7 @@ class Net(nn.Module):
         return x
 
     def training_step(
-        self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int
+        self, batch: Tuple[torch.Tensor, torch.Tensor]
     ) -> torch.Tensor:
         """
         Calculate loss for training step in Lightning train loop.
@@ -103,8 +103,6 @@ class Net(nn.Module):
         ----------
         batch: Tuple[torch.Tensor, torch.Tensor]
             The input batch.
-        batch_idx: int
-            The batch index.
 
         Returns
         -------
@@ -114,11 +112,10 @@ class Net(nn.Module):
         x, y = batch
         pred = self(x)
         loss_val = self.loss_fn(pred, y)
-        train_acc_val = self.train_acc(torch.nn.functional.softmax(pred, dim=-1), y)
         return loss_val
 
     def validation_step(
-        self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int
+        self, batch: Tuple[torch.Tensor, torch.Tensor]
     ) -> torch.Tensor:
         """
         Calculate loss for validation step in Lightning validation loop during training.
@@ -127,8 +124,6 @@ class Net(nn.Module):
         ----------
         batch: Tuple[torch.Tensor, torch.Tensor]
             The current batch.
-        batch_idx: int
-            The batch index.
 
         Returns
         -------
@@ -138,7 +133,6 @@ class Net(nn.Module):
         x, y = batch
         pred = self(x)
         loss_val = self.loss_fn(pred, y)
-        val_acc_val = self.val_acc(torch.nn.functional.softmax(pred, dim=-1), y)
         return loss_val
 
     def configure_optimizers(self) -> torch.optim.SGD:
@@ -218,7 +212,7 @@ def ind_loss(
 
     Parameters
     ----------
-    params : Dict[str, int | float | str]]
+    params : Dict[str, int | float | str]
         The parameters to be optimized.
 
     Returns
@@ -268,9 +262,6 @@ def ind_loss(
     # Configure optimizer.
     optimizer = model.configure_optimizers()
 
-    # Initialize average validation loss variable.
-    avg_val_loss: float = 0.0
-
     for epoch in range(epochs):
         model.train()
         total_train_loss = 0
@@ -312,12 +303,7 @@ def set_seeds(seed_value: int = 42) -> None:
 
     Parameters
     ----------
-    seed : int, optional
-        The seed to use. Default is 42.
-
-    Parameters
-    ----------
-    seed : int, optional
+    seed_value : int, optional
         The seed to use. Default is 42.
     """
     random.seed(seed_value)  # Python random module
