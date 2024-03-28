@@ -3,7 +3,7 @@ import logging
 import random
 import sys
 from pathlib import Path
-from typing import Dict, Optional, Union, Tuple
+from typing import Dict, Optional, Tuple, Union
 
 import colorlog
 import numpy as np
@@ -13,9 +13,9 @@ from .population import Individual, Particle
 from .propagators import (
     Compose,
     Conditional,
+    CrossoverUniform,
     InitUniform,
     IntervalMutationNormal,
-    CrossoverUniform,
     PointMutation,
     Propagator,
     SelectMin,
@@ -164,7 +164,7 @@ def make_particle(individual: Individual) -> Particle:
         An individual to be converted to a particle.
 
     Returns
-    --------
+    -------
     propulate.Particle
         The converted individual.
     """

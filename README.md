@@ -14,38 +14,38 @@
 [![Documentation Status](https://readthedocs.org/projects/propulate/badge/?version=latest)](https://propulate.readthedocs.io/en/latest/?badge=latest)
 ![](./coverage.svg)
 
-# **Click [here](https://www.scc.kit.edu/en/aboutus/16956.php) to watch our 3 min introduction video!** 
+# **Click [here](https://www.scc.kit.edu/en/aboutus/16956.php) to watch our 3 min introduction video!**
 
 ## What `Propulate` can do for you
 
-`Propulate` is an HPC-tailored software for solving optimization problems in parallel. It is openly accessible and easy 
-to use. Compared to a widely used competitor, `Propulate` is consistently faster - at least an order of magnitude for a 
+`Propulate` is an HPC-tailored software for solving optimization problems in parallel. It is openly accessible and easy
+to use. Compared to a widely used competitor, `Propulate` is consistently faster - at least an order of magnitude for a
 set of typical benchmarks - and in some cases even more accurate.
 
-Inspired by biology, `Propulate` borrows mechanisms from biological evolution, such as selection, recombination, and 
-mutation. Evolution begins with a population of solution candidates, each with randomly initialized genes. It is an 
-iterative "survival of the fittest" process where the population at each iteration can be viewed as a generation. For 
-each generation, the fitness of each candidate in the population is evaluated. The genes of the fittest candidates are 
+Inspired by biology, `Propulate` borrows mechanisms from biological evolution, such as selection, recombination, and
+mutation. Evolution begins with a population of solution candidates, each with randomly initialized genes. It is an
+iterative "survival of the fittest" process where the population at each iteration can be viewed as a generation. For
+each generation, the fitness of each candidate in the population is evaluated. The genes of the fittest candidates are
 incorporated in the next generation.
 
-Like in nature, `Propulate` does not wait for all compute units to finish the evaluation of the current generation. 
-Instead, the compute units communicate the currently available information and use that to breed the next candidate 
+Like in nature, `Propulate` does not wait for all compute units to finish the evaluation of the current generation.
+Instead, the compute units communicate the currently available information and use that to breed the next candidate
 immediately. This avoids waiting idly for other units and thus a load imbalance.
-Each unit is responsible for evaluating a single candidate. The result is a fitness level corresponding with that 
-candidate’s genes, allowing us to compare and rank all candidates. This information is sent to other compute units as 
+Each unit is responsible for evaluating a single candidate. The result is a fitness level corresponding with that
+candidate’s genes, allowing us to compare and rank all candidates. This information is sent to other compute units as
 soon as it becomes available.
-When a unit is finished evaluating a candidate and communicating the resulting fitness, it breeds the candidate for the 
-next generation using the fitness values of all candidates it evaluated and received from other units so far. 
+When a unit is finished evaluating a candidate and communicating the resulting fitness, it breeds the candidate for the
+next generation using the fitness values of all candidates it evaluated and received from other units so far.
 
-`Propulate` can be used for hyperparameter optimization and neural architecture search. 
-It was already successfully applied in several accepted scientific publications. Applications include grid load 
+`Propulate` can be used for hyperparameter optimization and neural architecture search.
+It was already successfully applied in several accepted scientific publications. Applications include grid load
 forecasting, remote sensing, and structural molecular biology.
 
 ## In more technical terms
 
-``Propulate`` is a massively parallel evolutionary hyperparameter optimizer based on the island model with asynchronous 
+``Propulate`` is a massively parallel evolutionary hyperparameter optimizer based on the island model with asynchronous
 propagation of populations and asynchronous migration.
-In contrast to classical GAs, ``Propulate`` maintains a continuous population of already evaluated individuals with a 
+In contrast to classical GAs, ``Propulate`` maintains a continuous population of already evaluated individuals with a
 softened notion of the typically strictly separated, discrete generations.
 Our contributions include:
 - A novel parallel genetic algorithm based on a fully asynchronized island model with independently processing workers.
@@ -53,40 +53,40 @@ Our contributions include:
 - Optimized use efficiency of parallel hardware by minimizing idle times in distributed computing environments.
 
 To be more efficient, the generations are less well separated than they usually are in evolutionary algorithms.
-New individuals are generated from a pool of currently active, already evaluated individuals that may be from any 
+New individuals are generated from a pool of currently active, already evaluated individuals that may be from any
 generation.
 Individuals may be removed from the breeding population based on different criteria.
 
-You can find the corresponding publication [here](https://doi.org/10.1007/978-3-031-32041-5_6):  
-> Taubert, O. *et al.* (2023). Massively Parallel Genetic Optimization Through Asynchronous Propagation of Populations. 
-> In: Bhatele, A., Hammond, J., Baboulin, M., Kruse, C. (eds) High Performance Computing. ISC High Performance 2023. 
-> Lecture Notes in Computer Science, vol 13948. Springer, Cham. 
+You can find the corresponding publication [here](https://doi.org/10.1007/978-3-031-32041-5_6):
+> Taubert, O. *et al.* (2023). Massively Parallel Genetic Optimization Through Asynchronous Propagation of Populations.
+> In: Bhatele, A., Hammond, J., Baboulin, M., Kruse, C. (eds) High Performance Computing. ISC High Performance 2023.
+> Lecture Notes in Computer Science, vol 13948. Springer, Cham.
 > [doi.org/10.1007/978-3-031-32041-5_6](https://doi.org/10.1007/978-3-031-32041-5_6)
 
 ## Documentation
 
-Check out the full documentation at [https://propulate.readthedocs.io/](https://propulate.readthedocs.io/) :rocket:! Here you can find installation 
+Check out the full documentation at [https://propulate.readthedocs.io/](https://propulate.readthedocs.io/) :rocket:! Here you can find installation
 instructions, tutorials, theoretical background, and API references.
 
-**:point_right: If you have any questions or run into any challenges while using `Propulate`, don't hesitate to post an 
-[issue](https://github.com/Helmholtz-AI-Energy/propulate/issues) :bookmark:, reach out via [GitHub 
-discussions](https://github.com/Helmholtz-AI-Energy/propulate/discussions) :octocat:, or contact us directly via e-mail 
-:email: to [propulate@lists.kit.edu](mailto:propulate@lists.kit.edu).** 
+**:point_right: If you have any questions or run into any challenges while using `Propulate`, don't hesitate to post an
+[issue](https://github.com/Helmholtz-AI-Energy/propulate/issues) :bookmark:, reach out via [GitHub
+discussions](https://github.com/Helmholtz-AI-Energy/propulate/discussions) :octocat:, or contact us directly via e-mail
+:email: to [propulate@lists.kit.edu](mailto:propulate@lists.kit.edu).**
 
 ## Installation
 
-You can install the latest stable release from PyPI: ``pip install propulate``  
+You can install the latest stable release from PyPI: ``pip install propulate``
 If you need the latest updates, you can also install ``Propulate`` directly from the master branch at you own risk.
-Pull and run ``pip install -e .`` or ``python setup.py develop``.  
-``Propulate`` depends on [``mpi4py``](https://mpi4py.readthedocs.io/en/stable/) and requires an MPI implementation under 
+Pull and run ``pip install -e .`` or ``python setup.py develop``.
+``Propulate`` depends on [``mpi4py``](https://mpi4py.readthedocs.io/en/stable/) and requires an MPI implementation under
 the hood. Currently, it is only tested with [OpenMPI](https://www.open-mpi.org/).
 
 ## Quickstart
-*Below, you can find a quick recipe for how to use `Propulate` in general. Check out the official 
-[ReadTheDocs](https://propulate.readthedocs.io/en/latest/tut_propulator.html) documentation for more detailed tutorials 
+*Below, you can find a quick recipe for how to use `Propulate` in general. Check out the official
+[ReadTheDocs](https://propulate.readthedocs.io/en/latest/tut_propulator.html) documentation for more detailed tutorials
 and explanations.*
 
-Let's minimize the sphere function $f_\text{sphere}\left(x,y\right)=x^2 +y^2$ with `Propulate` as a quick example. The 
+Let's minimize the sphere function $f_\text{sphere}\left(x,y\right)=x^2 +y^2$ with `Propulate` as a quick example. The
 minimum is at $\left(x, y\right)=\left(0,0\right)$ at the orange star.
 ![](./docs/images/sphere.png)
 First, we need to define the key ingredients that define our optimization problem:
@@ -95,7 +95,7 @@ First, we need to define the key ingredients that define our optimization proble
     - A tuple of `float` for a continuous parameter, e.g., `{"learning_rate": (0.0001, 0.01)}`
     - A tuple of `int` for an ordinal parameter, e.g., `{"conv_layers": (2, 10)}`
     - A tuple of `str` for a categorical parameter, e.g., `{"activation": ("relu", "sigmoid", "tanh")}`
-  
+
   Thus, an exemplary search space might look like this:
   ```python
   search_space = {
@@ -105,19 +105,19 @@ First, we need to define the key ingredients that define our optimization proble
   }
   ```
 
-  The sphere function has two continuous parameters, $x$ and $y$, and we consider $x,y\in\left[-5.12,5.12\right]$. The 
+  The sphere function has two continuous parameters, $x$ and $y$, and we consider $x,y\in\left[-5.12,5.12\right]$. The
   search space in our example thus looks like this:
   ```python
   limits = {
       "x": (-5.12, 5.12),
       "y": (-5.12, 5.12)
-  } 
+  }
   ```
-- The **loss function**. This is the function we want to minimize in order to find the best parameters. It can be any 
+- The **loss function**. This is the function we want to minimize in order to find the best parameters. It can be any
   `Python` function that
   - takes a set of parameters as a `Python` dictionary as an input.
   - returns a scalar loss value that determines how good the tested parameter set is.
-  
+
   In this example, the loss function whose minimum we want to find is the sphere function:
   ```python
   def sphere(params: Dict[str, float]) -> float:
@@ -131,7 +131,7 @@ First, we need to define the key ingredients that define our optimization proble
     ----------
     params: Dict[str, float]
         The function parameters.
-  
+
     Returns
     -------
     float
@@ -139,7 +139,7 @@ First, we need to define the key ingredients that define our optimization proble
     """
     return numpy.sum(numpy.array(list(params.values())) ** 2).item()
   ```
-Next, we need to define the **evolutionary operator** or propagator that we want to use to breed new individuals during the 
+Next, we need to define the **evolutionary operator** or propagator that we want to use to breed new individuals during the
 optimization process. `Propulate` provides a reasonable default propagator via a utility function:
 ```python
 # Set up logger for Propulate optimization.
@@ -166,7 +166,7 @@ propulator = propulate.Propulator(
     checkpoint_path=config.checkpoint,
 )
 ```
-Now we can run the actual optimization. Overall, ``generations * mpi4py.MPI.COMM_WORLD.size`` evaluations will be 
+Now we can run the actual optimization. Overall, ``generations * mpi4py.MPI.COMM_WORLD.size`` evaluations will be
 performed:
 ```python
 # Run optimization and print summary of results.
@@ -219,9 +219,3 @@ Do the following to run the [example script](https://github.com/Helmholtz-AI-Ene
 ## Acknowledgments
 *This work is supported by the Helmholtz AI platform grant.*
 ![](./.figs/hai_kit_logos.svg)
-
-
-
-
-
-

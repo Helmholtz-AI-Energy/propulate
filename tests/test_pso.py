@@ -2,8 +2,8 @@ import random
 import tempfile
 from typing import Dict
 
-from mpi4py import MPI
 import numpy as np
+from mpi4py import MPI
 
 from propulate import Propulator
 from propulate.propagators import Conditional
@@ -12,7 +12,7 @@ from propulate.propagators.pso import BasicPSO, InitUniformPSO
 
 def sphere(params: Dict[str, float]) -> float:
     """
-    Sphere function: continuous, convex, separable, differentiable, unimodal
+    Sphere function: continuous, convex, separable, differentiable, unimodal.
 
     Input domain: -5.12 <= x, y <= 5.12
     Global minimum 0 at (x, y) = (0, 0)
@@ -21,6 +21,7 @@ def sphere(params: Dict[str, float]) -> float:
     ----------
     params : Dict[str, float]
         The function parameters.
+
     Returns
     -------
     float

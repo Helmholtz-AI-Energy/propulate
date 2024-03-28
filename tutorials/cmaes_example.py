@@ -1,14 +1,13 @@
-"""Simple example script using CMA-ES"""
-import random
+"""Simple example script using CMA-ES."""
 import pathlib
+import random
 
+from function_benchmark import get_function_search_space, parse_arguments
 from mpi4py import MPI
 
 from propulate import Propulator
-from propulate.propagators import BasicCMA, ActiveCMA, CMAPropagator
+from propulate.propagators import ActiveCMA, BasicCMA, CMAPropagator
 from propulate.utils import set_logger_config
-from function_benchmark import get_function_search_space, parse_arguments
-
 
 if __name__ == "__main__":
     comm = MPI.COMM_WORLD

@@ -1,8 +1,10 @@
 import random
+from typing import Dict, Tuple, Union
+
 import GPy
-from mpi4py import MPI
 import numpy as np
-from typing import Tuple, Dict, Union
+from mpi4py import MPI
+
 from propulate import Surrogate
 from propulate.population import Individual
 
@@ -10,8 +12,8 @@ from propulate.population import Individual
 # Gaussian Process Regression with an Exponential Decay Kernel Surrogate
 class DynamicSurrogate(Surrogate):
     """
-    Surrogate model using a two-step Gaussian Process Regression
-    to predict the final loss of a configuration.
+    Surrogate model using a two-step Gaussian Process Regression to predict the final loss of a configuration.
+
     The first global model is trained on the configurations with their final losses.
     The second local model is trained on the interim losses of the current run.
     The local model uses the global model's prediction as the mean function.
@@ -85,9 +87,10 @@ class DynamicSurrogate(Surrogate):
         ],
     ) -> None:
         """
-        Initialize the DynamicSurrogate with the configuration space limits.
-        Set the global and local kernels for Gaussian Process Regression.
-        All other needed attributes are initialized as empty arrays or None.
+        Initialize a dynamic surrogate with the configuration space limits.
+
+        Set the global and local kernels for Gaussian process regression. All other needed attributes are initialized as
+        empty arrays or None.
 
         Parameters
         ----------
@@ -130,12 +133,11 @@ class DynamicSurrogate(Surrogate):
 
     def start_run(self, ind: Individual) -> None:
         """
-        Encode the configuration given as individual and create the mean function
-        for the local model by using the global model's prediction.
+        Encode the config. given as individual and create the local GP's mean function from the global GP's prediction.
 
         Parameters
         ----------
-        ind : Individual
+        ind : propulate.Individual
             The individual containing the current configuration.
         """
         self.current_encoding = self.encode_configuration(ind)
@@ -155,8 +157,7 @@ class DynamicSurrogate(Surrogate):
 
     def update(self, loss: float) -> None:
         """
-        Update the model with the final loss of the current run
-        and retrain the global Gaussian Process with the new data.
+        Update the model with the current run's final loss and retrain the global Gaussian Process with the new data.
 
         Parameters
         ----------
@@ -202,8 +203,7 @@ class DynamicSurrogate(Surrogate):
 
     def cancel(self, loss: float) -> bool:
         """
-        Cancel the current run if the local Gaussian Process predicts a final loss
-        that is higher than the best known loss with an allowed margin.
+        Cancel the run if the local GP predicts a final loss higher than the best known loss with an allowed margin.
 
         Parameters
         ----------
@@ -255,8 +255,7 @@ class DynamicSurrogate(Surrogate):
 
     def merge(self, data: Tuple[np.ndarray, float]) -> None:
         """
-        Merge a configuration and loss tuple into the history arrays.
-        Then retrain the global Gaussian Process with the new data.
+        Merge a configuration and loss tuple into the history arrays and retrain the global GP with the new data.
 
         Parameters
         ----------
@@ -314,8 +313,7 @@ class DynamicSurrogate(Surrogate):
         ],
     ) -> Dict[str, Dict[str, int]]:
         """
-        Create a mapping from categorical values to integers.
-        Gaussian Process Regression only accepts numerical values.
+        Create a mapping from categorical values to integers. Gaussian Process Regression only accepts numerical values.
 
         Parameters
         ----------
@@ -343,8 +341,7 @@ class DynamicSurrogate(Surrogate):
         ],
     ) -> np.ndarray:
         """
-        Encode a configuration dictionary into a 2D array.
-        This is the format required by the Gaussian Process Regression model.
+        Encode a configuration dictionary into a 2D array (required by the Gaussian Process Regression model).
 
         Parameters
         ----------

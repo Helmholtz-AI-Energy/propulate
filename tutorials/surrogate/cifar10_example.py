@@ -1,25 +1,21 @@
-import logging
-import random
-import os
-import sys
 import enum
-from typing import Union, Dict, Tuple, Generator
+import logging
+import os
+import random
+import sys
+from typing import Dict, Generator, Tuple, Union
 
 import torch
+from mpi4py import MPI
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
-
-from torchvision.datasets import CIFAR10
-from torchvision.transforms import Compose, ToTensor, Normalize
 from torchmetrics import Accuracy
-
-from mpi4py import MPI
-
-from propulate import Islands
-from propulate.utils import get_default_propagator
+from torchvision.datasets import CIFAR10
+from torchvision.transforms import Compose, Normalize, ToTensor
 
 import tutorials.surrogate
-
+from propulate import Islands
+from propulate.utils import get_default_propagator
 
 GPUS_PER_NODE: int = 1
 
@@ -32,8 +28,8 @@ sys.path.append(os.path.abspath("../../"))
 class Permutation(enum.Enum):
     """
     Enum class for permutations of layers in convolution block.
-    Each letter represents a layer in the block.
-    The default permutation is ABC.
+
+    Each letter represents a layer in the block. The default permutation is "ABC".
     """
 
     ABC = (0, 1, 2)
@@ -90,7 +86,8 @@ def conv_block(
     pool: bool = False,
 ) -> nn.Sequential:
     """
-    Create a ResNet block. The block consists of the convolution layer, batch normalization, and ReLU activation function.
+    Create a ResNet block, consisting of the convolution layer, batch normalization, and ReLU activation function.
+
     The order of these layers can be shuffled according to a given permutation.
 
     Parameters
@@ -131,6 +128,8 @@ def conv_block(
 
 
 class Net(nn.Module):
+    """Residual neural network class."""
+
     def __init__(
         self,
         in_channels: int,
@@ -437,9 +436,7 @@ def ind_loss(
 
 
 def set_seeds(seed_value=42):
-    """
-    Set seed for reproducibility.
-    """
+    """Set seed for reproducibility."""
     random.seed(seed_value)  # Python random module
     torch.manual_seed(seed_value)  # pytorch random number generator for CPU
     torch.cuda.manual_seed(seed_value)  # pytorch random number generator for all GPUs

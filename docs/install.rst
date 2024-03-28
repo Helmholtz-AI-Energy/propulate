@@ -30,7 +30,7 @@ with ``pip`` or via ``setup.py``:
 
     $ git clone https://github.com/Helmholtz-AI-Energy/propulate
     $ pip install -e .
-   
+
 Alternatively:
 
 .. code-block:: console

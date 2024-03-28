@@ -1,20 +1,21 @@
 """
 Multi-rank workers in Propulate using the example of a parallel sphere function.
+
 Tested with 8 processes overall, 2 islands, and 2 ranks per worker, where each worker calculates one of the squared
 terms in the (in this case) two-dimensional sphere function. In general, the parallel sphere function's dimension
 should equal the number of ranks per worker.
 """
-import random
 import pathlib
+import random
 from typing import Dict
 
 import numpy as np
+from function_benchmark import parse_arguments
 from mpi4py import MPI
 
 from propulate import Islands
-from propulate.propagators import SelectMin, SelectMax
+from propulate.propagators import SelectMax, SelectMin
 from propulate.utils import get_default_propagator, set_logger_config
-from function_benchmark import parse_arguments
 
 
 def parallel_sphere(params: Dict[str, float], comm: MPI.Comm = MPI.COMM_SELF) -> float:

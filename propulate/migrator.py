@@ -1,17 +1,16 @@
 import copy
-import random
 import logging
+import random
 from pathlib import Path
 from typing import Callable, Generator, Optional, Type, Union
 
 import numpy as np
 from mpi4py import MPI
 
+from ._globals import MIGRATION_TAG, SYNCHRONIZATION_TAG
 from .propagators import Propagator, SelectMin
 from .propulator import Propulator
 from .surrogate import Surrogate
-from ._globals import MIGRATION_TAG, SYNCHRONIZATION_TAG
-
 
 log = logging.getLogger(__name__)
 

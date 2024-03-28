@@ -145,4 +145,3 @@ With ten MPI ranks and two islands with five workers each, the output looks like
 
     [2024-03-13 12:30:46,611][propulate.propulator][INFO] - Top 1 result(s) on island 0:
     (1): [{'a': '-2.83E-4', 'b': '1.04E-3'}, loss 1.16E-6, island 0, worker 3, generation 901]
-

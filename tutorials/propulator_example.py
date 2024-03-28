@@ -1,11 +1,12 @@
 """Simple Propulator example script using the default genetic propagator."""
-import random
 import pathlib
+import random
 
+from function_benchmark import get_function_search_space, parse_arguments
 from mpi4py import MPI
+
 from propulate import Propulator
 from propulate.utils import get_default_propagator, set_logger_config
-from function_benchmark import get_function_search_space, parse_arguments
 
 if __name__ == "__main__":
     comm = MPI.COMM_WORLD

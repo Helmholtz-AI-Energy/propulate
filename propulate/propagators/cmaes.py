@@ -1,10 +1,10 @@
 import random
-from typing import List, Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
-from .base import Propagator, SelectMax, SelectMin, SelectUniform
 from ..population import Individual
+from .base import Propagator, SelectMax, SelectMin, SelectUniform
 
 
 class CMAParameter:
@@ -268,8 +268,7 @@ class CMAParameter:
 
     def _limit_condition(self, limit: float) -> None:
         """
-        Limit the condition (square of ratio largest to smallest eigenvalue) of the covariance matrix if it exceeds a
-        threshold.
+        Limit the condition (squared ratio largest / smallest eigenvalue) of the cov. matrix if it exceeds a threshold.
 
         Credits on how to limit the condition: https://github.com/CMA-ES/pycma/blob/development/cma/sampler.py
 
@@ -795,14 +794,14 @@ class CMAPropagator(Propagator):
 
     def __call__(self, inds: List[Individual]) -> Individual:
         """
-        The skeleton of the CMA-ES algorithm using the template method design pattern.
+        Define the skeleton of the CMA-ES algorithm using the template method design pattern.
 
         Sampling individuals and adapting the strategy parameters. Template methods are ``update_mean``,
         ``update_covariance_matrix``, and ``update_step_size``.
 
         Parameters
         ----------
-        inds: List[propulate.Individual]
+        inds : List[propulate.Individual]
             Available individuals.
 
         Returns

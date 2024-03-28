@@ -3,8 +3,8 @@ import argparse
 import logging
 from typing import Callable, Dict, Tuple
 
-from mpi4py import MPI
 import numpy as np
+from mpi4py import MPI
 
 
 def rosenbrock(params: Dict[str, float]) -> float:
@@ -83,7 +83,7 @@ def quartic(params: Dict[str, float]) -> float:
 
 def rastrigin(params: Dict[str, float]) -> float:
     """
-    Rastrigin function: continuous, non-convex, separable, differentiable, multimodal
+    Rastrigin function: continuous, non-convex, separable, differentiable, multimodal.
 
     A non-linear and highly multimodal function. Its surface is determined by two external variables, controlling
     the modulation’s amplitude and frequency. The local minima are located at a rectangular grid with size 1.
@@ -137,7 +137,7 @@ def griewank(params: Dict[str, float]) -> float:
 
 def schwefel(params: Dict[str, float]) -> float:
     """
-    Schwefel 2.20 function: continuous, convex, separable, non-differentiable, non-multimodal
+    Schwefel 2.20 function: continuous, convex, separable, non-differentiable, non-multimodal.
 
     This function has a second-best minimum far away from the global optimum.
 
@@ -238,7 +238,7 @@ def birastrigin(params: Dict[str, float]) -> float:
 
 def bukin_n6(params: Dict[str, float]) -> float:
     """
-    Bukin N.6 function: continuous, convex, non-separable, non-differentiable, multimodal
+    Bukin N.6 function: continuous, convex, non-separable, non-differentiable, multimodal.
 
     Input domain: -15 <= x <= -5, -3 <= y <= 3
     Global minimum 0 at (x, y) = (-10, 1)
@@ -261,7 +261,7 @@ def bukin_n6(params: Dict[str, float]) -> float:
 
 def egg_crate(params: Dict[str, float]) -> float:
     """
-    Egg-crate function: continuous, non-convex, separable, differentiable, multimodal
+    Egg-crate function: continuous, non-convex, separable, differentiable, multimodal.
 
     Input domain: -5 <= x, y <= 5
     Global minimum -1 at (x, y) = (0, 0)
@@ -286,7 +286,7 @@ def egg_crate(params: Dict[str, float]) -> float:
 
 def himmelblau(params: Dict[str, float]) -> float:
     """
-    Himmelblau function: continuous, non-convex, non-separable, differentiable, multimodal
+    Himmelblau function: continuous, non-convex, non-separable, differentiable, multimodal.
 
     Input domain: -6 <= x, y <= 6
     Global minimum 0 at (x, y) = (3, 2)
@@ -309,13 +309,13 @@ def himmelblau(params: Dict[str, float]) -> float:
 
 def keane(params: Dict[str, float]) -> float:
     """
-    Keane function: continuous, non-convex, non-separable, differentiable, multimodal
+    Keane function: continuous, non-convex, non-separable, differentiable, multimodal.
 
     Input domain: -10 <= x, y <= 10
     Global minimum 0.6736675 at (x, y) = (1.3932491, 0) and (x, y) = (0, 1.3932491)
 
     Parameters
-    ------
+    ----------
     params : Dict[str, float]
         The function parameters.
 
@@ -326,7 +326,7 @@ def keane(params: Dict[str, float]) -> float:
     """
     params = np.array(list(params.values()))
     return (
-        -np.sin(params[0] - params[1]) ** 2
+        -(np.sin(params[0] - params[1]) ** 2)
         * np.sin(params[0] + params[1]) ** 2
         / np.sqrt(params[0] ** 2 + params[1] ** 2)
     )
@@ -334,7 +334,7 @@ def keane(params: Dict[str, float]) -> float:
 
 def leon(params: Dict[str, float]) -> float:
     """
-    Leon function: continuous, non-convex, non-separable, differentiable, non-multimodal, non-random, non-parametric
+    Leon function: continuous, non-convex, non-separable, differentiable, non-multimodal, non-random, non-parametric.
 
     Input domain: 0 <= x, y <= 10
     Global minimum 0 at (x, y) =(1, 1)
@@ -355,7 +355,7 @@ def leon(params: Dict[str, float]) -> float:
 
 def sphere(params: Dict[str, float]) -> float:
     """
-    Sphere function: continuous, convex, separable, differentiable, unimodal
+    Sphere function: continuous, convex, separable, differentiable, unimodal.
 
     Input domain: -5.12 <= x, y <= 5.12
     Global minimum 0 at (x, y) = (0, 0)
@@ -694,10 +694,7 @@ def parse_arguments(
     }
 
     class ParamSettingCatcher(argparse.Action):
-        """
-        This class extends ``argparse``'s ``Action`` class in order to allow for an action that logs if one of the PSO
-        hyperparameters was actually set.
-        """
+        """Extend ``argparse``'s ``Action`` class to enable logging if one of the PSO hyperparameters was set."""
 
         def __call__(self, parser, namespace, values, option_string=None):
             hp_set[self.dest] = True
