@@ -1,4 +1,5 @@
 import numpy as np
+
 from propulate import Surrogate
 from propulate.population import Individual
 
@@ -6,12 +7,12 @@ from propulate.population import Individual
 class StaticSurrogate(Surrogate):
     """
     Surrogate model using the best known run as baseline.
-    After the first run, each subsequent loss is compared to the baseline.
-    Every run with a loss outside the margin of the baseline is cancelled.
 
-    This model creates an internal index for the yielded losses during each run.
-    That means the yield order and frquency has to be consistent between runs.
-    Otherwise, the indices of the baseline run won't match.
+    After the first run, each subsequent loss is compared to the baseline. Every run with a loss outside the margin of
+    the baseline is cancelled.
+
+    This model creates an internal index for the yielded losses during each run. That means the yield order and
+    frequency has to be consistent between runs. Otherwise, the indices of the baseline run won't match.
 
     Loosely based on the paper:
     Use of Static Surrogates in Hyperparameter Optimization
@@ -22,7 +23,7 @@ class StaticSurrogate(Surrogate):
     synthetic_id : int
         An internal running index to keep track of the current runs loss index.
     margin : float
-        A margin that gets multiplied with the the new incoming losses to compare them to the baseline.
+        A margin to be multiplied with the new incoming losses to compare them to the baseline.
     first_run : bool
         Flag for the first complete run.
     baseline : np.ndarray
@@ -45,7 +46,6 @@ class StaticSurrogate(Surrogate):
     data()
         Return the loss series of the best known run so far.
 
-
     Notes
     -----
     The ``StaticSurrogate`` class implements all methods from the ``Surrogate`` class.
@@ -57,8 +57,7 @@ class StaticSurrogate(Surrogate):
 
     def __init__(self, margin: float = 0.8) -> None:
         """
-        Initialize the StaticSurrogate with a synthetic id, a margin
-        and empty arrays for the baseline and the current run.
+        Initialize a static surrogate with a synthetic id, a margin, and empty arrays for baseline and current run.
 
         Parameters
         ----------
@@ -95,8 +94,7 @@ class StaticSurrogate(Surrogate):
 
     def update(self, loss: float) -> None:
         """
-        Replace the baseline with the current run if the final loss is better,
-        or if there is no prior run.
+        Replace the baseline with the current run if the final loss is better, or if there is no prior run.
 
         Parameters
         ----------
@@ -144,8 +142,7 @@ class StaticSurrogate(Surrogate):
 
     def merge(self, data: np.ndarray) -> None:
         """
-        Replace the baseline with the incoming run if the final loss is better,
-        or if there is no prior run.
+        Replace the baseline with the incoming run if the final loss is better, or if there is no prior run.
 
         Parameters
         ----------

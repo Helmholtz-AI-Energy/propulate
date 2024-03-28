@@ -4,11 +4,10 @@ from propulate.population import Individual
 
 class LogSurrogate(Surrogate):
     """
-    Surrogate model with just a few debug prints to see what's going on
-    when debugging. Prints once for every method call.
-    Additionally it keeps track of the best final loss so far
-    and an id that increments for every cancel call.
-    This makes it easier to read the debug prints.
+    Surrogate model with just a few debug prints to see what's going on when debugging.
+
+    Prints once for every method call. Additionally, it keeps track of the best final loss so far and an id that
+    increments for every cancel call. This makes it easier to read the debug prints.
 
     Attributes
     ----------
@@ -40,9 +39,7 @@ class LogSurrogate(Surrogate):
     """
 
     def __init__(self) -> None:
-        """
-        Initialize the LogSurrogate with a synthetic id and a high best loss.
-        """
+        """Initialize the ``LogSurrogate`` with a synthetic id and a high best loss."""
         super().__init__()
         self.synthetic_id: int = 0
         self.best_loss: float = 10000.0

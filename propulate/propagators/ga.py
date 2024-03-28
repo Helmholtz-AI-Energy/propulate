@@ -4,8 +4,8 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-from .base import Stochastic
 from ..population import Individual
+from .base import Stochastic
 
 
 class PointMutation(Stochastic):
@@ -310,8 +310,8 @@ class IntervalMutationNormal(Stochastic):
             for i in to_mutate:
                 min_val, max_val = self.limits[i]  # Determine interval boundaries.
                 sigma = (
-                    max_val - min_val
-                ) * self.sigma_factor  # Determine std from interval boundaries and sigma factor.
+                    (max_val - min_val) * self.sigma_factor
+                )  # Determine std from interval boundaries and sigma factor.
                 ind[i] = self.rng.gauss(
                     ind[i], sigma
                 )  # Sample new value from Gaussian centered around current value.
