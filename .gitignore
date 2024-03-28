@@ -48,6 +48,7 @@ MANIFEST
 
 # Per-project virtualenvs
 .venv*/
+venv/
 
 *.pickle
 MNIST
