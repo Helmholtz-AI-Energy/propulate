@@ -10,7 +10,7 @@ from mpi4py import MPI
 
 from ._globals import MIGRATION_TAG, SYNCHRONIZATION_TAG
 from .population import Individual
-from .propagators import Propagator, SelectMin, SelectMax
+from .propagators import Propagator, SelectMax, SelectMin
 from .propulator import Propulator
 from .surrogate import Surrogate
 

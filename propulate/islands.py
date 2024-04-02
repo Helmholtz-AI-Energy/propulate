@@ -10,7 +10,7 @@ from mpi4py import MPI
 from .migrator import Migrator
 from .pollinator import Pollinator
 from .population import Individual
-from .propagators import Propagator, SelectMin, SelectMax
+from .propagators import Propagator, SelectMax, SelectMin
 from .surrogate import Surrogate
 
 log = logging.getLogger(__name__)  # Get logger instance.

@@ -1,22 +1,24 @@
 """
-This files contains an example use case for the PSO propagators. Here, you can choose between benchmark functions and
-optimize them. The example shows how to set up Propulate in order to use it with PSO.
+Example use case for the PSO propagators.
+
+You can choose between benchmark functions and optimize them. The example shows how to set up Propulate in order to use
+it with PSO.
 """
 import pathlib
 import random
 
+from function_benchmark import get_function_search_space, parse_arguments
 from mpi4py import MPI
 
-from propulate import set_logger_config, Propulator
+from propulate import Propulator, set_logger_config
 from propulate.propagators import Conditional, Propagator
 from propulate.propagators.pso import (
     BasicPSO,
-    VelocityClampingPSO,
-    ConstrictionPSO,
     CanonicalPSO,
+    ConstrictionPSO,
     InitUniformPSO,
+    VelocityClampingPSO,
 )
-from function_benchmark import get_function_search_space, parse_arguments
 
 if __name__ == "__main__":
     comm = MPI.COMM_WORLD

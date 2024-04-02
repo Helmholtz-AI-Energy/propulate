@@ -1,26 +1,25 @@
 """
-Toy example for hyperparameter optimization / NAS in Propulate, using a simple convolutional network trained on the
-MNIST dataset.
+Toy example for HP optimization / NAS in Propulate, using a simple CNN trained on the MNIST dataset.
 
 This script was tested on a single compute node with 4 GPUs. Note that you need to adapt ``GPUS_PER_NODE`` (see ll. 25).
 """
 import logging
 import pathlib
 import random
-from typing import Union, Dict, Tuple
+from typing import Dict, Tuple, Union
 
 import torch
-from torch import nn
-from torch.utils.data import DataLoader
 from lightning.pytorch import LightningModule, Trainer, loggers
 from lightning.pytorch.callbacks.early_stopping import EarlyStopping
+from mpi4py import MPI
+from torch import nn
+from torch.utils.data import DataLoader
 from torchmetrics import Accuracy
 from torchvision.datasets import MNIST
-from torchvision.transforms import Compose, ToTensor, Normalize
-from mpi4py import MPI
+from torchvision.transforms import Compose, Normalize, ToTensor
+
 from propulate import Propulator
 from propulate.utils import get_default_propagator, set_logger_config
-
 
 GPUS_PER_NODE: int = 4  # This example script was tested on a single node with 4 GPUs.
 NUM_WORKERS: int = (
@@ -91,9 +90,7 @@ class Net(LightningModule):
         self.lr = lr  # Set learning rate.
         self.loss_fn = loss_fn  # Set the loss function used for training the model.
         self.best_accuracy = 0.0  # Initialize the model's best validation accuracy.
-        layers = (
-            []
-        )  # Set up the model architecture (depending on number of convolutional layers specified).
+        layers = []  # Set up the model architecture (depending on number of convolutional layers specified).
         layers += [
             nn.Sequential(
                 nn.Conv2d(in_channels=1, out_channels=10, kernel_size=3, padding=1),
@@ -365,8 +362,10 @@ if __name__ == "__main__":
 
     # Run optimization and print summary of results.
     propulator.propulate(
-        logging_interval=1, debug=2  # Logging interval and verbosity level
+        logging_interval=1,
+        debug=2,  # Logging interval and verbosity level
     )
     propulator.summarize(
-        top_n=1, debug=2  # Print top-n best individuals on each island in summary.
+        top_n=1,
+        debug=2,  # Print top-n best individuals on each island in summary.
     )

@@ -5,8 +5,8 @@ from propulate.population import Individual
 class MockSurrogate(Surrogate):
     """
     This surrogate model does nothing.
-    It exists for testing purposes and comparing performance decline
-    due to the additional overhead of using a surrogate.
+
+    It exists for testing purposes and comparing performance decline due to the overhead caused by using a surrogate.
 
     Methods
     -------
@@ -34,16 +34,21 @@ class MockSurrogate(Surrogate):
         super().__init__()
 
     def start_run(self, ind: Individual) -> None:
+        """Do nothing."""
         pass
 
     def update(self, loss: float) -> None:
+        """Do nothing."""
         pass
 
     def cancel(self, loss: float) -> bool:
+        """Never cancel."""
         return False
 
     def merge(self, data: float) -> None:
+        """Do nothing."""
         pass
 
     def data(self) -> float:
+        """Do nothing."""
         return 0.0

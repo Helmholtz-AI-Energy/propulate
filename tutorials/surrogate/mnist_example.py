@@ -1,24 +1,20 @@
 import logging
-import random
 import os
+import random
 import sys
-from typing import Union, Dict, Tuple, Generator
+from typing import Dict, Generator, Tuple, Union
 
 import torch
+from mpi4py import MPI
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
-
-from torchvision.datasets import MNIST
-from torchvision.transforms import Compose, ToTensor, Normalize
 from torchmetrics import Accuracy
-
-from mpi4py import MPI
-
-from propulate import Islands
-from propulate.utils import get_default_propagator
+from torchvision.datasets import MNIST
+from torchvision.transforms import Compose, Normalize, ToTensor
 
 import tutorials.surrogate
-
+from propulate import Islands
+from propulate.utils import get_default_propagator
 
 GPUS_PER_NODE: int = 1
 
@@ -29,6 +25,8 @@ sys.path.append(os.path.abspath("../../"))
 
 
 class Net(nn.Module):
+    """Convolutional neural network class."""
+
     def __init__(
         self, conv_layers: int, activation: nn.Module, lr: float, loss_fn: nn.Module
     ) -> None:
@@ -51,9 +49,7 @@ class Net(nn.Module):
         self.lr = lr  # Set learning rate.
         self.loss_fn = loss_fn  # Set the loss function used for training the model.
         self.best_accuracy = 0.0  # Initialize the model's best validation accuracy.
-        layers = (
-            []
-        )  # Set up the model architecture (depending on number of convolutional layers specified).
+        layers = []  # Set up the model architecture (depending on number of convolutional layers specified).
         layers += [
             nn.Sequential(
                 nn.Conv2d(in_channels=1, out_channels=10, kernel_size=3, padding=1),
@@ -93,9 +89,7 @@ class Net(nn.Module):
         x = self.fc(x)
         return x
 
-    def training_step(
-        self, batch: Tuple[torch.Tensor, torch.Tensor]
-    ) -> torch.Tensor:
+    def training_step(self, batch: Tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
         """
         Calculate loss for training step in Lightning train loop.
 
@@ -114,9 +108,7 @@ class Net(nn.Module):
         loss_val = self.loss_fn(pred, y)
         return loss_val
 
-    def validation_step(
-        self, batch: Tuple[torch.Tensor, torch.Tensor]
-    ) -> torch.Tensor:
+    def validation_step(self, batch: Tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
         """
         Calculate loss for validation step in Lightning validation loop during training.
 

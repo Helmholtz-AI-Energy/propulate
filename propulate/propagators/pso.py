@@ -1,11 +1,11 @@
 import logging
 from random import Random
-from typing import Dict, Tuple, Union, List
+from typing import Dict, List, Tuple, Union
 
 import numpy as np
 
+from ..population import Individual, Particle
 from ..propagators import Propagator, Stochastic
-from ..population import Particle, Individual
 from ..utils import make_particle
 
 
@@ -126,6 +126,8 @@ class BasicPSO(Propagator):
         self, individuals: List[Individual]
     ) -> Tuple[Particle, Particle, Particle]:
         """
+        Get the particle to be updated on this rank, its current personal best, and the swarm's current global best.
+
         Given a list of ``Individual`` or ``Particle`` objects, determine the particle to be updated on this rank, its
         current personal best, and the currently known global best of the swarm to perform a particle update step.
 
@@ -598,12 +600,10 @@ class InitUniformPSO(Stochastic):
 
 class StatelessPSO(Propagator):
     """
-    This propagator performs PSO without the need of Particles, but as a consequence, also without velocity.
-    Thus, it is called stateless.
+    The stateless propagator performs PSO without the need of Particles, but as a consequence, also without velocity.
 
-    As this propagator works without velocity, there is also no inertia weight used.
-
-    It uses only classes provided by vanilla Propulate.
+    As this propagator works without velocity, there is also no inertia weight used. It uses only classes provided by
+    vanilla Propulate.
 
     Attributes
     ----------

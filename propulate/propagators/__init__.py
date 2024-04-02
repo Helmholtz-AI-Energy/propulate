@@ -1,39 +1,36 @@
 """This package bundles all classes that are used as propagators in Propulate's optimization routine."""
 
 from .base import (
-    Propagator,
-    Stochastic,
-    Conditional,
     Compose,
-    SelectMin,
-    SelectMax,
-    SelectUniform,
+    Conditional,
     InitUniform,
+    Propagator,
+    SelectMax,
+    SelectMin,
+    SelectUniform,
+    Stochastic,
 )
-
-from .ga import (
-    PointMutation,
-    RandomPointMutation,
-    IntervalMutationNormal,
-    CrossoverUniform,
-    CrossoverMultiple,
-    CrossoverSigmoid,
-)
-
-from .pso import (
-    BasicPSO,
-    VelocityClampingPSO,
-    ConstrictionPSO,
-    CanonicalPSO,
-    StatelessPSO,
-)
-
 from .cmaes import (
+    ActiveCMA,
+    BasicCMA,
     CMAAdapter,
     CMAParameter,
     CMAPropagator,
-    BasicCMA,
-    ActiveCMA,
+)
+from .ga import (
+    CrossoverMultiple,
+    CrossoverSigmoid,
+    CrossoverUniform,
+    IntervalMutationNormal,
+    PointMutation,
+    RandomPointMutation,
+)
+from .pso import (
+    BasicPSO,
+    CanonicalPSO,
+    ConstrictionPSO,
+    StatelessPSO,
+    VelocityClampingPSO,
 )
 
 __all__ = [

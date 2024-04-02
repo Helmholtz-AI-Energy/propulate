@@ -5,12 +5,12 @@ from typing import Dict
 import numpy as np
 
 from propulate import Propulator
-from propulate.propagators import CMAPropagator, BasicCMA
+from propulate.propagators import BasicCMA, CMAPropagator
 
 
 def sphere(params: Dict[str, float]) -> float:
     """
-    Sphere function: continuous, convex, separable, differentiable, unimodal
+    Sphere function: continuous, convex, separable, differentiable, unimodal.
 
     Input domain: -5.12 <= x, y <= 5.12
     Global minimum 0 at (x, y) = (0, 0)

@@ -1,7 +1,9 @@
 """Minimum working example showing how to use Propulate."""
-import propulate
-from mpi4py import MPI
 import random
+
+from mpi4py import MPI
+
+import propulate
 
 # Set the communicator and the optimization parameters
 comm = MPI.COMM_WORLD
