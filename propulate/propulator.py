@@ -245,21 +245,21 @@ class Propulator:
                     group.require_dataset(
                         "starttime",
                         (self.generations,),
-                        np.float32,
+                        np.uint64,
                         chunks=True,
                         maxshape=(None,),
                     )
                     group.require_dataset(
                         "evaltime",
                         (self.generations,),
-                        np.float32,
+                        np.uint64,
                         chunks=True,
                         maxshape=(None,),
                     )
                     group.require_dataset(
                         "evalperiod",
                         (self.generations,),
-                        np.float32,
+                        np.uint64,
                         chunks=True,
                         maxshape=(None,),
                     )
@@ -275,6 +275,8 @@ class Propulator:
         debug: int
                verbosity/debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode)
         """
+        # TODO note the propulating times in the checkpoint file for when the run is interrupted
+        self.start_time = time.time_ns()
         self._work(logging_interval, debug)
 
     def _get_active_individuals(self) -> Tuple[List[Individual], int]:
@@ -320,7 +322,7 @@ class Propulator:
         Breed and evaluate individual.
         """
         ind = self._breed()  # Breed new individual.
-        start_time = time.time()  # Start evaluation timer.
+        start_time = time.time_ns() - self.start_time  # Start evaluation timer.
         ind.starttime = start_time
         ckpt_idx = ind.generation
 
@@ -333,7 +335,7 @@ class Propulator:
         group["starttime"][ckpt_idx] = start_time
 
         ind.loss = self.loss_fn(ind)  # Evaluate its loss.
-        ind.evaltime = time.time()  # Stop evaluation timer.
+        ind.evaltime = time.time_ns() - self.start_time  # Stop evaluation timer.
         ind.evalperiod = ind.evaltime - start_time  # Calculate evaluation duration.
 
         # save result for candidate
