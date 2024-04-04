@@ -381,7 +381,7 @@ def get_function_search_space(
 
     Parameters
     ----------
-    fname: str
+    fname : str
         The function name.
 
     Returns
