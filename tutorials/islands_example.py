@@ -3,12 +3,15 @@ import pathlib
 import random
 
 import numpy as np
-from function_benchmark import get_function_search_space, parse_arguments
 from mpi4py import MPI
 
 from propulate import Islands
 from propulate.propagators import SelectMax, SelectMin
 from propulate.utils import get_default_propagator, set_logger_config
+from propulate.utils.benchmark_functions import (
+    get_function_search_space,
+    parse_arguments,
+)
 
 if __name__ == "__main__":
     comm = MPI.COMM_WORLD

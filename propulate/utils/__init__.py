@@ -9,8 +9,8 @@ import colorlog
 import numpy as np
 from mpi4py import MPI
 
-from .population import Individual, Particle
-from .propagators import (
+from ..population import Individual, Particle
+from ..propagators import (
     Compose,
     Conditional,
     CrossoverUniform,
@@ -21,6 +21,14 @@ from .propagators import (
     SelectMin,
     SelectUniform,
 )
+from . import benchmark_functions
+
+__all__ = [
+    "benchmark_functions",
+    "get_default_propagator",
+    "set_logger_config",
+    "make_particle",
+]
 
 
 def get_default_propagator(

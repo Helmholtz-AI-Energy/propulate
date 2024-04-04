@@ -10,12 +10,12 @@ import random
 from typing import Dict
 
 import numpy as np
-from function_benchmark import parse_arguments
 from mpi4py import MPI
 
 from propulate import Islands
 from propulate.propagators import SelectMax, SelectMin
 from propulate.utils import get_default_propagator, set_logger_config
+from propulate.utils.benchmark_functions import parse_arguments
 
 
 def parallel_sphere(params: Dict[str, float], comm: MPI.Comm = MPI.COMM_SELF) -> float:
