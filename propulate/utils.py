@@ -179,7 +179,7 @@ def rosenbrock(params: Dict[str, float]) -> float:
     float
         function value
     """
-    params = np.array(params[k] for k in params)
+    params = np.array([params[k] for k in params])
     return 100 * (params[0] ** 2 - params[1]) ** 2 + (1 - params[0]) ** 2
 
 
