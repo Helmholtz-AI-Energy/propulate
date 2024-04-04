@@ -1,6 +1,7 @@
 import random
 import tempfile
 
+import pytest
 from mpi4py import MPI
 
 from propulate import Propulator
@@ -9,6 +10,7 @@ from propulate.propagators.pso import BasicPSO, InitUniformPSO
 from propulate.utils.benchmark_functions import sphere
 
 
+@pytest.mark.mpi
 def test_pso():
     """Test single worker using Propulator to optimize sphere using a PSO propagator."""
     rng = random.Random(42)  # Separate random number generator for optimization.

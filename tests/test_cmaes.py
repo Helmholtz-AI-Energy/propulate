@@ -30,3 +30,13 @@ def test_cmaes():
         propulator.propulate()
         best = propulator.summarize(top_n=1, debug=2)
         assert best[0][0].loss < 10**-1
+
+
+# @pytest.mark.mpi
+# def test_cmaes_migration():
+#     raise
+#
+#
+# @pytest.mark.mpi
+# def test_cmaes_categorical():
+#     raise
