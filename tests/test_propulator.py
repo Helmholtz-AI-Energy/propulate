@@ -11,11 +11,42 @@ from propulate.utils import get_default_propagator, set_logger_config
 from propulate.utils.benchmark_functions import get_function_search_space
 
 
+@pytest.fixture(
+    params=[
+        ("rosenbrock", 0.0, 0.1),
+        ("step", -25.0, 2.0),
+        ("quartic", 0.0, 1000.0),
+        ("rastrigin", 0.0, 1000.0),
+        ("griewank", 0.0, 10000.0),
+        ("schwefel", 0.0, 10000.0),
+        ("bisphere", 0.0, 1000.0),
+        ("birastrigin", 0.0, 1000.0),
+        ("bukin", 0.0, 100.0),
+        ("eggcrate", -1.0, 10.0),
+        ("himmelblau", 0.0, 1.0),
+        ("keane", 0.6736675, 1.0),
+        ("leon", 0.0, 10.0),
+        ("sphere", 0.0, 0.01),  # (fname, expected, abs)
+    ]
+)
+def function_parameters(request):
+    """Define benchmark function parameter sets as used in tests."""
+    return request.param
+
+
 @pytest.mark.mpi_skip
-def test_propulator() -> None:
-    """Test single worker using Propulator to optimize sphere."""
+def test_propulator(function_parameters) -> None:
+    """
+    Test single worker using Propulator to optimize a benchmark function using the default genetic propagator.
+
+    Parameters
+    ----------
+    function_parameters : tuple
+        The tuple containing (fname, expected, abs).
+    """
+    fname, expected, abs_tolerance = function_parameters
     rng = random.Random(42)  # Separate random number generator for optimization
-    function, limits = get_function_search_space("sphere")
+    function, limits = get_function_search_space(fname)
     with tempfile.TemporaryDirectory() as checkpoint_path:
         set_logger_config(
             level=logging.INFO,
@@ -45,8 +76,9 @@ def test_propulator() -> None:
 
         # Run optimization and print summary of results.
         propulator.propulate()
-
-        assert propulator.summarize()[0][0].loss < 0.8
+        assert propulator.summarize(top_n=1, debug=2)[0][0].loss == pytest.approx(
+            expected=expected, abs=abs_tolerance
+        )
 
 
 @pytest.mark.mpi_skip
@@ -67,7 +99,7 @@ def test_propulator_checkpointing() -> None:
         propulator = Propulator(
             loss_fn=function,
             propagator=propagator,
-            generations=10,
+            generations=1000,
             checkpoint_path=checkpoint_directory,
             rng=rng,
         )
