@@ -153,6 +153,10 @@ class Propulator:
         self.worker_sub_comm = (
             worker_sub_comm  # Sub communicator for each (multi rank) worker
         )
+
+        # Always initialize the ``Surrogate`` as the class attribute has to be set for ``None`` checks later.
+        self.surrogate = None if surrogate_factory is None else surrogate_factory()
+
         if self.propulate_comm is None:  # Exit early for sub-worker only ranks.
             # These ranks are not used for anything aside from the calculation of the user-defined loss function.
             return
@@ -166,9 +170,6 @@ class Propulator:
         self.island_counts = island_counts  # Number of workers on each island
         self.emigration_propagator = emigration_propagator  # Emigration propagator
         self.rng = rng
-
-        # Always initialize the ``Surrogate`` as the class attribute has to be set for ``None`` checks later.
-        self.surrogate = None if surrogate_factory is None else surrogate_factory()
 
         # Load initial population of evaluated individuals from checkpoint if exists.
         load_ckpt_file = self.checkpoint_path / f"island_{self.island_idx}_ckpt.pickle"
