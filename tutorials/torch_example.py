@@ -233,7 +233,12 @@ def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
             shuffle=True,  # Shuffle data.
         )
 
-    MPI.COMM_WORLD.barrier()
+    # NOTE barrier only called, when dataset has not been downloaded yet
+    if not hasattr(get_data_loaders, "barrier_called"):
+        MPI.COMM_WORLD.Barrier()
+
+        setattr(get_data_loaders, "barrier_called", True)
+
     if MPI.COMM_WORLD.rank != 0:
         train_loader = DataLoader(
             dataset=MNIST(

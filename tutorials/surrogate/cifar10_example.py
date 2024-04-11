@@ -300,6 +300,7 @@ def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
             shuffle=True,  # Shuffle data.
         )
 
+    # NOTE barrier only called, when dataset has not been downloaded yet
     if not hasattr(get_data_loaders, "barrier_called"):
         MPI.COMM_WORLD.Barrier()
 
