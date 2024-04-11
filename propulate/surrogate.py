@@ -173,8 +173,6 @@ class StaticSurrogate(Surrogate):
             A margin on top of incoming losses for comparison with the baseline.
             The default is 0.8.
         """
-        super().__init__()
-
         self.synthetic_id: int = 0
         self.margin: float = margin
 
