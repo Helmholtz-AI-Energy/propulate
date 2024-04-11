@@ -40,6 +40,16 @@ dev = [
     "sphinx-rtd-theme",
     "sphinxcontrib-napoleon",
     "sphinxemoji",
+    "torch",
+    "torchvision",
+    "torchmetrics",
+]
+
+tutorials = [
+    "torch",
+    "torchvision",
+    "torchmetrics",
+    "lightning",
 ]
 
 [project.urls]
