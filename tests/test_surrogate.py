@@ -342,6 +342,8 @@ def test_mnist_static(mpi_tmp_path):
         logging_interval=1,  # Logging interval
         debug=2,  # Verbosity level
     )
+    MPI.COMM_WORLD.barrier()
+    delattr(get_data_loaders, "barrier_called")
 
 
 @pytest.mark.mpi(min_size=4)
