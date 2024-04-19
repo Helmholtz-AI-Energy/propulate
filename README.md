@@ -86,7 +86,7 @@ discussions](https://github.com/Helmholtz-AI-Energy/propulate/discussions) :octo
 ## Installation
 
 - You can install the **latest stable release** from PyPI: ``pip install propulate``
-- If you need the **latest updates**, you can also install ``Propulate`` directly from the master branch at you own risk.
+- If you need the **latest updates**, you can also install ``Propulate`` directly from the master branch.
 Pull and run ``pip install .``.
 - If you want to run the **tutorials**, you can install the required dependencies via: ``pip install ."[tutorials]"``
 - If you want to **contribute** to ``Propulate`` as a developer, you need to install the required dependencies with the package:
