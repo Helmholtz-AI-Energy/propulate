@@ -1,6 +1,8 @@
+import copy
 import logging
 import random
 
+import deepdiff
 import numpy as np
 import pytest
 from mpi4py import MPI
@@ -91,12 +93,89 @@ def test_island(function_parameters, mpi_tmp_path) -> None:
     )
 
 
-# @pytest.mark.mpi
-# def test_checkpointing_isolated():
-#     # do just parallel island without migration for easier debugging
-#     raise
-#
-#
+@pytest.mark.mpi
+def test_checkpointing_isolated(function_parameters, mpi_tmp_path):
+    """Test island checkpointing without migration."""
+    fname, expected, abs_tolerance = function_parameters
+    rng = random.Random(
+        42 + MPI.COMM_WORLD.rank
+    )  # Separate random number generator for optimization
+    function, limits = get_function_search_space(fname)
+    set_logger_config(
+        level=logging.INFO,
+        log_file=mpi_tmp_path / "propulate.log",
+        log_to_stdout=True,
+        log_rank=False,
+        colors=True,
+    )
+
+    # Set up evolutionary operator.
+    propagator = get_default_propagator(
+        pop_size=4,
+        limits=limits,
+        crossover_prob=0.7,
+        mutation_prob=0.9,
+        random_init_prob=0.1,
+        rng=rng,
+    )
+
+    # Set up migration topology.
+    migration_topology = 1 * np.ones(  # Set up fully connected migration topology.
+        (2, 2), dtype=int
+    )
+    np.fill_diagonal(
+        migration_topology, 0
+    )  # An island does not send migrants to itself.
+
+    # Set up island model.
+    islands = Islands(
+        loss_fn=function,
+        propagator=propagator,
+        rng=rng,
+        generations=100,
+        num_islands=2,
+        migration_topology=migration_topology,
+        migration_probability=0.0,
+        emigration_propagator=SelectMin,
+        immigration_propagator=SelectMax,
+        pollination=False,  # TODO fixtureize
+        checkpoint_path=mpi_tmp_path,
+    )
+
+    # Run actual optimization.
+    islands.evolve(
+        top_n=1,
+        logging_interval=10,
+        debug=2,
+    )
+
+    old_population = copy.deepcopy(islands.propulator.population)
+    del islands
+
+    islands = Islands(
+        loss_fn=function,
+        propagator=propagator,
+        rng=rng,
+        generations=100,
+        num_islands=2,
+        migration_topology=migration_topology,
+        migration_probability=0.0,
+        emigration_propagator=SelectMin,
+        immigration_propagator=SelectMax,
+        pollination=False,  # TODO fixtureize
+        checkpoint_path=mpi_tmp_path,
+    )
+
+    assert (
+        len(
+            deepdiff.DeepDiff(
+                old_population, islands.propulator.population, ignore_order=True
+            )
+        )
+        == 0
+    )
+
+
 # @pytest.mark.mpi
 # def test_checkpointing():
 #     # TODO basic checkpointing test with islands with migration/pollination
