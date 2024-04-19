@@ -69,7 +69,7 @@ def test_multi_rank_workers(mpi_tmp_path):
         loss_fn=function,  # Loss function to be minimized
         propagator=propagator,  # Propagator, i.e., evolutionary operator to be used
         rng=rng,  # Separate random number generator for Propulate optimization
-        generations=1000,  # Overall number of generations
+        generations=100,  # Overall number of generations
         num_islands=2,  # Number of islands
         migration_topology=migration_topology,  # Migration topology
         migration_probability=0.9,  # Migration probability

@@ -1,5 +1,4 @@
 import random
-import tempfile
 from typing import Tuple
 
 import pytest
@@ -35,7 +34,7 @@ def function_parameters(request):
 
 
 @pytest.mark.mpi
-def test_pso(function_parameters: Tuple[str, float, float]):
+def test_pso(function_parameters: Tuple[str, float, float], mpi_tmp_path):
     """
     Test single worker using Propulator to optimize a benchmark function using the default genetic propagator.
 
@@ -47,30 +46,29 @@ def test_pso(function_parameters: Tuple[str, float, float]):
     fname, expected, abs_tolerance = function_parameters
     rng = random.Random(42)  # Separate random number generator for optimization.
     function, limits = get_function_search_space("sphere")
-    with tempfile.TemporaryDirectory() as checkpoint_path:
-        # Set up evolutionary operator.
-        pso_propagator = BasicPSO(
-            inertia=0.729,
-            c_cognitive=1.49334,
-            c_social=1.49445,
-            rank=MPI.COMM_WORLD.rank,  # MPI rank
-            limits=limits,
-            rng=rng,
-        )
-        init = InitUniformPSO(limits, rng=rng, rank=MPI.COMM_WORLD.rank)
-        propagator = Conditional(1, pso_propagator, init)
+    # Set up evolutionary operator.
+    pso_propagator = BasicPSO(
+        inertia=0.729,
+        c_cognitive=1.49334,
+        c_social=1.49445,
+        rank=MPI.COMM_WORLD.rank,  # MPI rank
+        limits=limits,
+        rng=rng,
+    )
+    init = InitUniformPSO(limits, rng=rng, rank=MPI.COMM_WORLD.rank)
+    propagator = Conditional(1, pso_propagator, init)
 
-        # Set up propulator performing actual optimization.
-        propulator = Propulator(
-            loss_fn=function,
-            propagator=propagator,
-            rng=rng,
-            generations=100,
-            checkpoint_path=checkpoint_path,
-        )
+    # Set up propulator performing actual optimization.
+    propulator = Propulator(
+        loss_fn=function,
+        propagator=propagator,
+        rng=rng,
+        generations=100,
+        checkpoint_path=mpi_tmp_path,
+    )
 
-        # Run optimization and print summary of results.
-        propulator.propulate()
-        assert propulator.summarize(top_n=1, debug=2)[0][0].loss == pytest.approx(
-            expected=expected, abs=abs_tolerance
-        )
+    # Run optimization and print summary of results.
+    propulator.propulate()
+    assert propulator.summarize(top_n=1, debug=2)[0][0].loss == pytest.approx(
+        expected=expected, abs=abs_tolerance
+    )
