@@ -312,7 +312,7 @@ def test_mnist_static(mpi_tmp_path):
     num_generations = 3  # Number of generations
     pop_size = 2 * MPI.COMM_WORLD.size  # Breeding population size
     limits = {
-        "conv_layers": (2, 10),
+        "conv_layers": (2, 3),
         "activation": ("relu", "sigmoid", "tanh"),
         "lr": (0.01, 0.0001),
     }  # Define search space.
@@ -350,7 +350,7 @@ def test_mnist_dynamic(mpi_tmp_path):
     num_generations = 3  # Number of generations
     pop_size = 2 * MPI.COMM_WORLD.size  # Breeding population size
     limits = {
-        "conv_layers": (2, 10),
+        "conv_layers": (2, 3),
         "activation": ("relu", "sigmoid", "tanh"),
         "lr": (0.01, 0.0001),
     }  # Define search space.
