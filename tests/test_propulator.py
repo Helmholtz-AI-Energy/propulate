@@ -14,18 +14,18 @@ from propulate.utils.benchmark_functions import get_function_search_space
 @pytest.fixture(
     params=[
         ("rosenbrock", 0.0, 0.1),
-        # ("step", -25.0, 2.0),
-        # ("quartic", 0.0, 1000.0),
-        # ("rastrigin", 0.0, 1000.0),
-        # ("griewank", 0.0, 10000.0),
-        # ("schwefel", 0.0, 10000.0),
-        # ("bisphere", 0.0, 1000.0),
-        # ("birastrigin", 0.0, 1000.0),
-        # ("bukin", 0.0, 100.0),
-        # ("eggcrate", -1.0, 10.0),
-        # ("himmelblau", 0.0, 1.0),
-        # ("keane", 0.6736675, 1.0),
-        # ("leon", 0.0, 10.0),
+        ("step", -25.0, 2.0),
+        ("quartic", 0.0, 1000.0),
+        ("rastrigin", 0.0, 1000.0),
+        ("griewank", 0.0, 10000.0),
+        ("schwefel", 0.0, 10000.0),
+        ("bisphere", 0.0, 1000.0),
+        ("birastrigin", 0.0, 1000.0),
+        ("bukin", 0.0, 100.0),
+        ("eggcrate", -1.0, 10.0),
+        ("himmelblau", 0.0, 1.0),
+        ("keane", 0.6736675, 1.0),
+        ("leon", 0.0, 10.0),
         ("sphere", 0.0, 0.01),  # (fname, expected, abs)
     ]
 )
