@@ -342,6 +342,7 @@ def test_mnist_static(mpi_tmp_path):
     )
 
 
+@pytest.mark.mpi(min_size=4)
 def test_mnist_dynamic(mpi_tmp_path):
     """Test static surrogate using a torch convolutional network on the MNIST dataset."""
     num_generations = 3  # Number of generations
