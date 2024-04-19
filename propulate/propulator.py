@@ -289,11 +289,11 @@ class Propulator:
         # Check if ``loss_fn`` is generator, prerequisite for surrogate model.
         if inspect.isgeneratorfunction(self.loss_fn):
             last = float("inf")
-            for last in float(loss_fn(ind)):
+            for last in loss_fn(ind):
                 if self.surrogate is not None:
                     if self.surrogate.cancel(last):  # Check cancel for each yield.
                         break
-            ind.loss = last  # Set final loss as individual's loss.
+            ind.loss = float(last)  # Set final loss as individual's loss.
         else:
             ind.loss = float(loss_fn(ind))  # Evaluate its loss.
 
