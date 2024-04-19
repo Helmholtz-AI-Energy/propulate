@@ -33,9 +33,9 @@ jobs:
               run: |
                 pytest --cov=propulate
                 mpirun -n 8 python -m pytest --with-mpi --cov=propulate --cov-append
-                # coverage-badge -fo coverage.svg
-            - name: Coverage Badge
-              uses: tj-actions/coverage-badge-py@v2
+                coverage-badge -fo coverage.svg
+            # - name: Coverage Badge
+            #   uses: tj-actions/coverage-badge-py@v2
 
             - name: Verify Changed files
               uses: tj-actions/verify-changed-files@v16
