@@ -31,11 +31,11 @@ jobs:
                   ruff --output-format=github --target-version=py39 .
             - name: Test with pytest
               run: |
-                pytest --cov=propulate
-                mpirun -n 8 python -m pytest --with-mpi --cov=propulate --cov-append
-                coverage-badge -fo coverage.svg
-            # - name: Coverage Badge
-            #   uses: tj-actions/coverage-badge-py@v2
+                coverage run --rcfile=./pyproject.toml -m pytest
+                mpirun -n 8 coverage run --rcfile=./pyproject.toml -m mpi4py -m pytest --with-mpi
+                coverage combine
+            - name: Coverage Badge
+              uses: tj-actions/coverage-badge-py@v2
 
             - name: Verify Changed files
               uses: tj-actions/verify-changed-files@v16
