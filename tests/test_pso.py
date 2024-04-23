@@ -1,3 +1,4 @@
+import pathlib
 import random
 from typing import Tuple
 
@@ -12,20 +13,20 @@ from propulate.utils.benchmark_functions import get_function_search_space
 
 @pytest.fixture(
     params=[
-        ("rosenbrock", 0.0, 0.1),
-        ("step", -25.0, 2.0),
-        ("quartic", 0.0, 1000.0),
-        ("rastrigin", 0.0, 1000.0),
-        ("griewank", 0.0, 10000.0),
-        ("schwefel", 0.0, 10000.0),
-        ("bisphere", 0.0, 1000.0),
-        ("birastrigin", 0.0, 1000.0),
-        ("bukin", 0.0, 100.0),
-        ("eggcrate", -1.0, 10.0),
-        ("himmelblau", 0.0, 1.0),
-        ("keane", 0.6736675, 1.0),
-        ("leon", 0.0, 10.0),
-        ("sphere", 0.0, 0.01),  # (fname, expected, abs)
+        ("rosenbrock", 0.0),
+        ("step", -25.0),
+        ("quartic", 0.0),
+        ("rastrigin", 0.0),
+        ("griewank", 0.0),
+        ("schwefel", 0.0),
+        ("bisphere", 0.0),
+        ("birastrigin", 0.0),
+        ("bukin", 0.0),
+        ("eggcrate", -1.0),
+        ("himmelblau", 0.0),
+        ("keane", 0.6736675),
+        ("leon", 0.0),
+        ("sphere", 0.0),  # (fname, expected)
     ]
 )
 def function_parameters(request):
@@ -34,18 +35,19 @@ def function_parameters(request):
 
 
 @pytest.mark.mpi
-def test_pso(function_parameters: Tuple[str, float, float], mpi_tmp_path):
+def test_pso(function_parameters: Tuple[str, float, float], mpi_tmp_path: pathlib.Path):
     """
     Test single worker using Propulator to optimize a benchmark function using the default genetic propagator.
 
     Parameters
     ----------
-    function_parameters : tuple
-        The tuple containing (fname, expected, abs).
+    function_parameters : Tuple
+        The tuple containing each function name along with its global minimum.
+    mpi_tmp_path : pathlib.Path
+        The temporary checkpoint directory.
     """
-    fname, expected, abs_tolerance = function_parameters
     rng = random.Random(42)  # Separate random number generator for optimization.
-    function, limits = get_function_search_space("sphere")
+    function, limits = get_function_search_space(function_parameters[0])
     # Set up evolutionary operator.
     pso_propagator = BasicPSO(
         inertia=0.729,
@@ -69,6 +71,3 @@ def test_pso(function_parameters: Tuple[str, float, float], mpi_tmp_path):
 
     # Run optimization and print summary of results.
     propulator.propulate()
-    # assert propulator.summarize(top_n=1, debug=2)[0][0].loss == pytest.approx(
-    #     expected=expected, abs=abs_tolerance
-    # )
