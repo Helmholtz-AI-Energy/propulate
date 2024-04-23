@@ -328,7 +328,7 @@ def test_checkpointing_unequal_populations(
         rng=rng,
         generations=100,
         num_islands=2,
-        island_sizes=np.array([1, 3]),
+        island_sizes=np.array([3, 5]),
         migration_probability=0.9,
         pollination=False,  # TODO fixtureize
         checkpoint_path=mpi_tmp_path,
