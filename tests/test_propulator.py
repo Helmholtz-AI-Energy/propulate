@@ -30,9 +30,7 @@ def test_propulator(
         42 + MPI.COMM_WORLD.rank
     )  # Random number generator for optimization
     function, limits = get_function_search_space(function_parameters[0])
-    set_logger_config(
-        log_file=mpi_tmp_path / "log.log",
-    )
+    set_logger_config(log_file=mpi_tmp_path / "log.log")
     propagator = get_default_propagator(
         pop_size=4,
         limits=limits,
