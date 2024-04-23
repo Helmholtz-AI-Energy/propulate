@@ -359,13 +359,10 @@ def test_mnist_dynamic(mpi_tmp_path):
     rng = random.Random(
         MPI.COMM_WORLD.rank
     )  # Set up separate random number generator for evolutionary optimizer.
-    set_seeds(42 * MPI.COMM_WORLD.Get_rank())  # set seed for torch
+    set_seeds(42 + MPI.COMM_WORLD.rank)  # set seed for torch
     propagator = get_default_propagator(  # Get default evolutionary operator.
         pop_size=pop_size,  # Breeding population size
         limits=limits,  # Search space
-        crossover_prob=0.7,  # Crossover probability
-        mutation_prob=0.4,  # Mutation probability
-        random_init_prob=0.1,  # Random-initialization probability
         rng=rng,  # Random number generator for evolutionary optimizer
     )
     islands = Islands(  # Set up island model.
@@ -384,5 +381,5 @@ def test_mnist_dynamic(mpi_tmp_path):
     )
 
 
-if __name__ == "__main__":
-    test_mnist_static("./")
+# if __name__ == "__main__":
+#     test_mnist_static("./")

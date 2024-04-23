@@ -4,11 +4,35 @@ import random
 from typing import Tuple
 
 import deepdiff
+import pytest
 from mpi4py import MPI
 
 from propulate import Propulator
 from propulate.utils import get_default_propagator, set_logger_config
 from propulate.utils.benchmark_functions import get_function_search_space
+
+
+@pytest.fixture(
+    params=[
+        ("rosenbrock", 0.0),
+        ("step", -25.0),
+        ("quartic", 0.0),
+        ("rastrigin", 0.0),
+        ("griewank", 0.0),
+        ("schwefel", 0.0),
+        ("bisphere", 0.0),
+        ("birastrigin", 0.0),
+        ("bukin", 0.0),
+        ("eggcrate", -1.0),
+        ("himmelblau", 0.0),
+        ("keane", 0.6736675),
+        ("leon", 0.0),
+        ("sphere", 0.0),  # (fname, expected)
+    ]
+)
+def function_parameters(request):
+    """Define benchmark function parameter sets as used in tests."""
+    return request.param
 
 
 def test_propulator(
@@ -21,7 +45,7 @@ def test_propulator(
 
     Parameters
     ----------
-    function_parameters : Tuple
+    function_parameters : Tuple[str, float]
         The tuple containing each function name along with its global minimum.
     mpi_tmp_path : pathlib.Path
         The temporary checkpoint directory.

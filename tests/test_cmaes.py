@@ -1,4 +1,6 @@
+import pathlib
 import random
+from typing import Tuple
 
 import pytest
 
@@ -9,20 +11,20 @@ from propulate.utils.benchmark_functions import get_function_search_space
 
 @pytest.fixture(
     params=[
-        ("rosenbrock", 0.0, 0.1),
-        ("step", -25.0, 0.0),
-        ("quartic", 0.0, 10.0),
-        ("rastrigin", 0.0, 0.1),
-        ("griewank", 0.0, 10.0),
-        ("schwefel", 0.0, 10.0),
-        ("bisphere", 0.0, 100.0),
-        ("birastrigin", 0.0, 100.0),
-        ("bukin", 0.0, 10.0),
-        ("eggcrate", -1.0, 1.0),
-        ("himmelblau", 0.0, 1.0),
-        ("keane", 0.6736675, 0.1),
-        ("leon", 0.0, 0.1),
-        ("sphere", 0.0, 0.001),  # (fname, expected, abs)
+        ("rosenbrock", 0.0),
+        ("step", -25.0),
+        ("quartic", 0.0),
+        ("rastrigin", 0.0),
+        ("griewank", 0.0),
+        ("schwefel", 0.0),
+        ("bisphere", 0.0),
+        ("birastrigin", 0.0),
+        ("bukin", 0.0),
+        ("eggcrate", -1.0),
+        ("himmelblau", 0.0),
+        ("keane", 0.6736675),
+        ("leon", 0.0),
+        ("sphere", 0.0),  # (fname, expected)
     ]
 )
 def function_parameters(request):
@@ -30,18 +32,23 @@ def function_parameters(request):
     return request.param
 
 
-def test_cmaes(function_parameters, mpi_tmp_path):
+def test_cmaes(
+    function_parameters: Tuple[str, float], mpi_tmp_path: pathlib.Path
+) -> None:
     """
     Test single worker using Propulator to optimize a benchmark function using a CMA-ES propagator.
 
+    This test is run both sequentially and in parallel.
+
     Parameters
     ----------
-    function_parameters : tuple
-        The tuple containing (fname, expected, abs).
+    function_parameters : Tuple[str, float]
+        The tuple containing each function name along with its global minimum.
+    mpi_tmp_path : pathlib.Path
+        The temporary checkpoint directory.
     """
-    fname, expected, abs_tolerance = function_parameters
     rng = random.Random(42)  # Separate random number generator for optimization.
-    function, limits = get_function_search_space(fname)
+    function, limits = get_function_search_space(function_parameters[0])
     # Set up evolutionary operator.
     adapter = BasicCMA()
     propagator = CMAPropagator(adapter, limits, rng=rng)
@@ -56,16 +63,3 @@ def test_cmaes(function_parameters, mpi_tmp_path):
     )
     # Run optimization and print summary of results.
     propulator.propulate()
-    # assert propulator.summarize(top_n=1, debug=2)[0][0].loss == pytest.approx(
-    #     expected=expected, abs=abs_tolerance
-    # )
-
-
-# @pytest.mark.mpi
-# def test_cmaes_migration():
-#     raise
-#
-#
-# @pytest.mark.mpi
-# def test_cmaes_categorical():
-#     raise
