@@ -144,3 +144,6 @@ convention = "numpy"
 testpaths = [
     "tests",
 ]
+
+[tool.coverage.run]
+parallel = true
