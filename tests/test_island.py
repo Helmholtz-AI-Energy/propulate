@@ -9,7 +9,6 @@ import pytest
 from mpi4py import MPI
 
 from propulate import Islands
-from propulate.propagators import SelectMax, SelectMin
 from propulate.utils import get_default_propagator, set_logger_config
 from propulate.utils.benchmark_functions import get_function_search_space
 
@@ -208,8 +207,6 @@ def test_checkpointing_migration(
         generations=100,
         num_islands=2,
         migration_probability=0.9,
-        emigration_propagator=SelectMin,
-        immigration_propagator=SelectMax,
         pollination=False,  # TODO fixtureize
         checkpoint_path=mpi_tmp_path,
     )
@@ -242,7 +239,7 @@ def test_checkpointing_pollination(
         42 + MPI.COMM_WORLD.rank
     )  # Separate random number generator for optimization
     function, limits = get_function_search_space(function_parameters[0])
-    set_logger_config(log_file=mpi_tmp_path / "propulate.log")
+    set_logger_config(log_file=mpi_tmp_path / "log.log")
 
     # Set up evolutionary operator.
     propagator = get_default_propagator(
