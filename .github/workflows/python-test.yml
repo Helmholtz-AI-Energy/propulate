@@ -20,9 +20,7 @@ jobs:
                   python -m pip install --upgrade pip
                   pip install ruff pytest pytest-cov
                   pip install coverage-badge
-                  # pip install -r requirements.txt
                   pip install ."[dev]"
-                  pip install matplotlib  # GPy needs this and does not install it as a dependency
             - name: Lint with ruff
               run: |
                   # stop the build if there are Python syntax errors or undefined names
