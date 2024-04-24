@@ -33,6 +33,11 @@ class Surrogate:
         Propulate passes down a surrogate factory, as defined by the user,
         to each Propulator instance. That means ``__init__`` can be overwritten
         to take additional arguments.
+
+        Raises
+        ------
+        NotImplementedError
+            Not implemented (abstract base class method needs to be overridden).
         """
         raise NotImplementedError()
 
@@ -48,6 +53,11 @@ class Surrogate:
         ----------
         ind : propulate.Individual
             The individual to be evaluated.
+
+        Raises
+        ------
+        NotImplementedError
+            Not implemented (abstract base class method needs to be overridden).
         """
         raise NotImplementedError()
 
@@ -61,6 +71,11 @@ class Surrogate:
         ----------
         loss : float
             The final loss of the current run.
+
+        Raises
+        ------
+        NotImplementedError
+            Not implemented (abstract base class method needs to be overridden).
         """
         raise NotImplementedError()
 
@@ -80,6 +95,11 @@ class Surrogate:
         bool
            If the surrogate model determines that the current run
            will not result in a lower loss than previous runs.
+
+        Raises
+        ------
+        NotImplementedError
+            Not implemented (abstract base class method needs to be overridden).
         """
         raise NotImplementedError()
 
@@ -95,6 +115,11 @@ class Surrogate:
         ----------
         data : T
             All relevant information to update its model to the same state as the origin of the data.
+
+        Raises
+        ------
+        NotImplementedError
+            Not implemented (abstract base class method needs to be overridden).
         """
         raise NotImplementedError()
 
@@ -108,6 +133,11 @@ class Surrogate:
         -------
         T
             All relevant information to convey the current state of the surrogate model.
+
+        Raises
+        ------
+        NotImplementedError
+            Not implemented (abstract base class method needs to be overridden).
         """
         raise NotImplementedError()
 
