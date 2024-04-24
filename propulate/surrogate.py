@@ -366,7 +366,6 @@ class DynamicSurrogate(Surrogate):
     data()
         Return the latest configuration and loss tuple from the history arrays.
 
-
     Notes
     -----
     The ``DynamicSurrogate`` class implements all methods from the ``Surrogate`` class.
