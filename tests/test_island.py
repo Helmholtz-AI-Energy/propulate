@@ -46,7 +46,7 @@ def test_islands(
 
     Parameters
     ----------
-    function_parameters : Tuple
+    function_parameters : Tuple[str, float]
         The tuple containing each function name along with its global minimum.
     mpi_tmp_path : pathlib.Path
         The temporary checkpoint directory.
@@ -93,7 +93,7 @@ def test_checkpointing_isolated(
 
     Parameters
     ----------
-    function_parameters : Tuple
+    function_parameters : Tuple[str, float]
         The tuple containing each function name along with its global minimum.
     mpi_tmp_path : pathlib.Path
         The temporary checkpoint directory.
@@ -161,7 +161,7 @@ def test_checkpointing_migration(
 
     Parameters
     ----------
-    function_parameters : Tuple
+    function_parameters : Tuple[str, float]
         The tuple containing each function name along with its global minimum.
     mpi_tmp_path : pathlib.Path
         The temporary checkpoint directory.
@@ -233,7 +233,7 @@ def test_checkpointing_pollination(
 
     Parameters
     ----------
-    function_parameters : Tuple
+    function_parameters : Tuple[str, float]
         The tuple containing each function name along with its global minimum.
     mpi_tmp_path : pathlib.Path
         The temporary checkpoint directory.
@@ -303,7 +303,7 @@ def test_checkpointing_unequal_populations(
 
     Parameters
     ----------
-    function_parameters : Tuple
+    function_parameters : Tuple[str, float]
         The tuple containing each function name along with its global minimum.
     mpi_tmp_path : pathlib.Path
         The temporary checkpoint directory.
