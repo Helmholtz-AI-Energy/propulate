@@ -8,7 +8,7 @@ jobs:
         steps:
             - uses: actions/checkout@v4
             - name: Set up MPI
-              uses: mpi4py/setup-mpi@v1
+              uses: mpi4py/setup-mpi@v1.2.2
               with:
                 mpi: 'openmpi'
             - name: Set up Python
