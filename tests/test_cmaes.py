@@ -36,7 +36,7 @@ def test_cmaes(
     function_parameters: Tuple[str, float], mpi_tmp_path: pathlib.Path
 ) -> None:
     """
-    Test single worker using Propulator to optimize a benchmark function using a CMA-ES propagator.
+    Test Propulator to optimize a benchmark function using a CMA-ES propagator.
 
     This test is run both sequentially and in parallel.
 
