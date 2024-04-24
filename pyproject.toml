@@ -33,6 +33,7 @@ dependencies = [
 dev = [
     "pre-commit",
     "black",
+    "coverage",
     "ruff",
     "pytest",
     "pytest-cov",
