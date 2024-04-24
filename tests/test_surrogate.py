@@ -379,7 +379,3 @@ def test_mnist_dynamic(mpi_tmp_path):
         logging_interval=1,  # Logging interval
         debug=2,  # Verbosity level
     )
-
-
-# if __name__ == "__main__":
-#     test_mnist_static("./")
