@@ -1,5 +1,6 @@
-deepdiff>=5.8.0
-mpi4py==3.0.3
+deepdiff
+mpi4py
 numpy
 colorlog
 GPy
+h5py

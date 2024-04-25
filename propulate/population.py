@@ -59,8 +59,8 @@ class Individual(dict):
 
         Parameters
         ----------
-        other: Individual
-            other individual to compare individual under consideration to
+        other : Individual
+            Other individual to compare individual under consideration to.
 
         Returns
         -------

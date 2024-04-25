@@ -381,7 +381,7 @@ def get_function_search_space(
 
     Parameters
     ----------
-    fname: str
+    fname : str
         The function name.
 
     Returns
@@ -412,8 +412,8 @@ def get_function_search_space(
     elif fname == "keane":
         function = keane
         limits = {
-            "a": (-10.0, 10.0),
-            "b": (-10.0, 10.0),
+            "a": (0.0, 10.0),
+            "b": (0.0, 10.0),
         }
     elif fname == "leon":
         function = leon

@@ -1,9 +1,11 @@
 import logging
 import os
 import random
-import sys
+from functools import partial
+from pathlib import Path
 from typing import Dict, Generator, Tuple, Union
 
+import pytest
 import torch
 from mpi4py import MPI
 from torch import nn
@@ -13,14 +15,10 @@ from torchvision.datasets import MNIST
 from torchvision.transforms import Compose, Normalize, ToTensor
 
 from propulate import Islands, surrogate
-from propulate.utils import get_default_propagator
+from propulate.utils import get_default_propagator, set_logger_config
 
-GPUS_PER_NODE: int = 1
-
-log_path = "torch_ckpts"
 log = logging.getLogger(__name__)  # Get logger instance.
-
-sys.path.append(os.path.abspath("../../"))
+set_logger_config()
 
 
 class Net(nn.Module):
@@ -34,13 +32,13 @@ class Net(nn.Module):
 
         Parameters
         ----------
-        conv_layers: int
+        conv_layers : int
             The number of convolutional layers.
-        activation: torch.nn.modules.activation
+        activation : torch.nn.modules.activation
             The activation function to use.
-        lr: float
+        lr : float
             The learning rate.
-        loss_fn: torch.nn.modules.loss
+        loss_fn : torch.nn.modules.loss
             The loss function.
         """
         super(Net, self).__init__()
@@ -74,7 +72,7 @@ class Net(nn.Module):
 
         Parameters
         ----------
-        x: torch.Tensor
+        x : torch.Tensor
             The data sample.
 
         Returns
@@ -94,7 +92,7 @@ class Net(nn.Module):
 
         Parameters
         ----------
-        batch: Tuple[torch.Tensor, torch.Tensor]
+        batch : Tuple[torch.Tensor, torch.Tensor]
             The input batch.
 
         Returns
@@ -113,7 +111,7 @@ class Net(nn.Module):
 
         Parameters
         ----------
-        batch: Tuple[torch.Tensor, torch.Tensor]
+        batch : Tuple[torch.Tensor, torch.Tensor]
             The current batch.
 
         Returns
@@ -138,13 +136,13 @@ class Net(nn.Module):
         return torch.optim.SGD(self.parameters(), lr=self.lr)
 
 
-def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
+def get_data_loaders(batch_size: int, root=Path) -> Tuple[DataLoader, DataLoader]:
     """
     Get MNIST train and validation dataloaders.
 
     Parameters
     ----------
-    batch_size: int
+    batch_size : int
         The batch size.
 
     Returns
@@ -166,13 +164,12 @@ def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
     if MPI.COMM_WORLD.Get_rank() == 0:  # Only root downloads data.
         train_loader = DataLoader(
             dataset=MNIST(
-                download=True, root=".", transform=data_transform, train=True
+                download=True, root=root, transform=data_transform, train=True
             ),  # Use MNIST training dataset.
             batch_size=batch_size,  # Batch size
             shuffle=True,  # Shuffle data.
         )
 
-    # NOTE barrier only called, when dataset has not been downloaded yet
     if not hasattr(get_data_loaders, "barrier_called"):
         MPI.COMM_WORLD.Barrier()
 
@@ -181,14 +178,14 @@ def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
     if MPI.COMM_WORLD.Get_rank() != 0:
         train_loader = DataLoader(
             dataset=MNIST(
-                download=False, root=".", transform=data_transform, train=True
+                download=False, root=root, transform=data_transform, train=True
             ),  # Use MNIST training dataset.
             batch_size=batch_size,  # Batch size
             shuffle=True,  # Shuffle data.
         )
     val_loader = DataLoader(
         dataset=MNIST(
-            download=False, root=".", transform=data_transform, train=False
+            download=False, root=root, transform=data_transform, train=False
         ),  # Use MNIST testing dataset.
         batch_size=1,  # Batch size
         shuffle=False,  # Do not shuffle data.
@@ -197,7 +194,7 @@ def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
 
 
 def ind_loss(
-    params: Dict[str, Union[int, float, str]],
+    params: Dict[str, Union[int, float, str]], root: Path
 ) -> Generator[float, None, None]:
     """
     Loss function for evolutionary optimization with Propulate. Minimize the model's negative validation accuracy.
@@ -248,7 +245,7 @@ def ind_loss(
     model.best_accuracy = 0.0  # Initialize the model's best validation accuracy.
 
     train_loader, val_loader = get_data_loaders(
-        batch_size=8
+        batch_size=8, root=root
     )  # Get training and validation data loaders.
 
     # Configure optimizer.
@@ -309,11 +306,13 @@ def set_seeds(seed_value: int = 42) -> None:
     os.environ["PYTHONHASHSEED"] = str(seed_value)  # Python hash seed
 
 
-if __name__ == "__main__":
+@pytest.mark.mpi(min_size=4)
+def test_mnist_static(mpi_tmp_path):
+    """Test static surrogate using a torch convolutional network on the MNIST dataset."""
     num_generations = 3  # Number of generations
     pop_size = 2 * MPI.COMM_WORLD.size  # Breeding population size
     limits = {
-        "conv_layers": (2, 10),
+        "conv_layers": (2, 3),
         "activation": ("relu", "sigmoid", "tanh"),
         "lr": (0.01, 0.0001),
     }  # Define search space.
@@ -330,14 +329,50 @@ if __name__ == "__main__":
         rng=rng,  # Random number generator for evolutionary optimizer
     )
     islands = Islands(  # Set up island model.
-        loss_fn=ind_loss,  # Loss function to optimize
+        loss_fn=partial(ind_loss, root=mpi_tmp_path),  # Loss function to optimize
         propagator=propagator,  # Evolutionary operator
         rng=rng,  # Random number generator
         generations=num_generations,  # Number of generations per worker
         num_islands=1,  # Number of islands
-        checkpoint_path=log_path,
+        checkpoint_path=mpi_tmp_path,
         surrogate_factory=lambda: surrogate.StaticSurrogate(),
-        # surrogate_factory=lambda: surrogate.DynamicSurrogate(limits),
+    )
+    islands.evolve(  # Run evolutionary optimization.
+        top_n=1,  # Print top-n best individuals on each island in summary.
+        logging_interval=1,  # Logging interval
+        debug=2,  # Verbosity level
+    )
+    MPI.COMM_WORLD.barrier()
+    delattr(get_data_loaders, "barrier_called")
+
+
+@pytest.mark.mpi(min_size=4)
+def test_mnist_dynamic(mpi_tmp_path):
+    """Test static surrogate using a torch convolutional network on the MNIST dataset."""
+    num_generations = 3  # Number of generations
+    pop_size = 2 * MPI.COMM_WORLD.size  # Breeding population size
+    limits = {
+        "conv_layers": (2, 3),
+        "activation": ("relu", "sigmoid", "tanh"),
+        "lr": (0.01, 0.0001),
+    }  # Define search space.
+    rng = random.Random(
+        MPI.COMM_WORLD.rank
+    )  # Set up separate random number generator for evolutionary optimizer.
+    set_seeds(42 + MPI.COMM_WORLD.rank)  # set seed for torch
+    propagator = get_default_propagator(  # Get default evolutionary operator.
+        pop_size=pop_size,  # Breeding population size
+        limits=limits,  # Search space
+        rng=rng,  # Random number generator for evolutionary optimizer
+    )
+    islands = Islands(  # Set up island model.
+        loss_fn=partial(ind_loss, root=mpi_tmp_path),  # Loss function to optimize
+        propagator=propagator,  # Evolutionary operator
+        rng=rng,  # Random number generator
+        generations=num_generations,  # Number of generations per worker
+        num_islands=1,  # Number of islands
+        checkpoint_path=mpi_tmp_path,
+        surrogate_factory=lambda: surrogate.DynamicSurrogate(limits),
     )
     islands.evolve(  # Run evolutionary optimization.
         top_n=1,  # Print top-n best individuals on each island in summary.

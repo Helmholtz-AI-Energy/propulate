@@ -9,8 +9,8 @@ import colorlog
 import numpy as np
 from mpi4py import MPI
 
-from .population import Individual, Particle
-from .propagators import (
+from ..population import Individual, Particle
+from ..propagators import (
     Compose,
     Conditional,
     CrossoverUniform,
@@ -21,6 +21,14 @@ from .propagators import (
     SelectMin,
     SelectUniform,
 )
+from . import benchmark_functions
+
+__all__ = [
+    "benchmark_functions",
+    "get_default_propagator",
+    "set_logger_config",
+    "make_particle",
+]
 
 
 def get_default_propagator(
@@ -148,6 +156,9 @@ def set_logger_config(
     if log_to_stdout:
         base_logger.addHandler(std_handler)
     if log_file is not None:
+        log_file = Path(log_file)
+        log_dir = log_file.parents[0]
+        log_dir.mkdir(parents=True, exist_ok=True)
         file_handler = logging.FileHandler(filename=log_file)
         file_handler.setFormatter(simple_formatter)
         base_logger.addHandler(file_handler)

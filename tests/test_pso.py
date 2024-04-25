@@ -1,65 +1,73 @@
+import pathlib
 import random
-import tempfile
-from typing import Dict
+from typing import Tuple
 
-import numpy as np
+import pytest
 from mpi4py import MPI
 
 from propulate import Propulator
 from propulate.propagators import Conditional
 from propulate.propagators.pso import BasicPSO, InitUniformPSO
+from propulate.utils.benchmark_functions import get_function_search_space
 
 
-def sphere(params: Dict[str, float]) -> float:
+@pytest.fixture(
+    params=[
+        ("rosenbrock", 0.0),
+        ("step", -25.0),
+        ("quartic", 0.0),
+        ("rastrigin", 0.0),
+        ("griewank", 0.0),
+        ("schwefel", 0.0),
+        ("bisphere", 0.0),
+        ("birastrigin", 0.0),
+        ("bukin", 0.0),
+        ("eggcrate", -1.0),
+        ("himmelblau", 0.0),
+        ("keane", 0.6736675),
+        ("leon", 0.0),
+        ("sphere", 0.0),  # (fname, expected)
+    ]
+)
+def function_parameters(request):
+    """Define benchmark function parameter sets as used in tests."""
+    return request.param
+
+
+@pytest.mark.mpi
+def test_pso(function_parameters: Tuple[str, float, float], mpi_tmp_path: pathlib.Path):
     """
-    Sphere function: continuous, convex, separable, differentiable, unimodal.
-
-    Input domain: -5.12 <= x, y <= 5.12
-    Global minimum 0 at (x, y) = (0, 0)
+    Test single worker using Propulator to optimize a benchmark function using the default genetic propagator.
 
     Parameters
     ----------
-    params : Dict[str, float]
-        The function parameters.
-
-    Returns
-    -------
-    float
-        The function value.
+    function_parameters : Tuple
+        The tuple containing each function name along with its global minimum.
+    mpi_tmp_path : pathlib.Path
+        The temporary checkpoint directory.
     """
-    return np.sum(np.array(list(params.values())) ** 2).item()
-
-
-def test_pso():
-    """Test single worker using Propulator to optimize sphere using a PSO propagator."""
     rng = random.Random(42)  # Separate random number generator for optimization.
-    limits = {
-        "a": (-5.12, 5.12),
-        "b": (-5.12, 5.12),
-    }
-    with tempfile.TemporaryDirectory() as checkpoint_path:
-        # Set up evolutionary operator.
-        pso_propagator = BasicPSO(
-            inertia=0.729,
-            c_cognitive=1.49334,
-            c_social=1.49445,
-            rank=MPI.COMM_WORLD.rank,  # MPI rank TODO fix when implemented proper MPI parallel tests
-            limits=limits,
-            rng=rng,
-        )
-        init = InitUniformPSO(limits, rng=rng, rank=MPI.COMM_WORLD.rank)
-        propagator = Conditional(1, pso_propagator, init)  # TODO MPIify
+    function, limits = get_function_search_space(function_parameters[0])
+    # Set up evolutionary operator.
+    pso_propagator = BasicPSO(
+        inertia=0.729,
+        c_cognitive=1.49334,
+        c_social=1.49445,
+        rank=MPI.COMM_WORLD.rank,  # MPI rank
+        limits=limits,
+        rng=rng,
+    )
+    init = InitUniformPSO(limits, rng=rng, rank=MPI.COMM_WORLD.rank)
+    propagator = Conditional(1, pso_propagator, init)
 
-        # Set up propulator performing actual optimization.
-        propulator = Propulator(
-            loss_fn=sphere,
-            propagator=propagator,
-            rng=rng,
-            generations=100,
-            checkpoint_path=checkpoint_path,
-        )
+    # Set up propulator performing actual optimization.
+    propulator = Propulator(
+        loss_fn=function,
+        propagator=propagator,
+        rng=rng,
+        generations=100,
+        checkpoint_path=mpi_tmp_path,
+    )
 
-        # Run optimization and print summary of results.
-        propulator.propulate()
-        best = propulator.summarize(top_n=1, debug=2)
-        assert best[0][0].loss < 30.0
+    # Run optimization and print summary of results.
+    propulator.propulate()

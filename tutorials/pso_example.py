@@ -7,7 +7,6 @@ it with PSO.
 import pathlib
 import random
 
-from function_benchmark import get_function_search_space, parse_arguments
 from mpi4py import MPI
 
 from propulate import Propulator, set_logger_config
@@ -18,6 +17,10 @@ from propulate.propagators.pso import (
     ConstrictionPSO,
     InitUniformPSO,
     VelocityClampingPSO,
+)
+from propulate.utils.benchmark_functions import (
+    get_function_search_space,
+    parse_arguments,
 )
 
 if __name__ == "__main__":

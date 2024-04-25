@@ -13,8 +13,7 @@ from torchmetrics import Accuracy
 from torchvision.datasets import CIFAR10
 from torchvision.transforms import Compose, Normalize, ToTensor
 
-import tutorials.surrogate
-from propulate import Islands
+from propulate import Islands, surrogate
 from propulate.utils import get_default_propagator
 
 GPUS_PER_NODE: int = 1
@@ -301,6 +300,7 @@ def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
             shuffle=True,  # Shuffle data.
         )
 
+    # NOTE barrier only called, when dataset has not been downloaded yet
     if not hasattr(get_data_loaders, "barrier_called"):
         MPI.COMM_WORLD.Barrier()
 
@@ -472,10 +472,8 @@ if __name__ == "__main__":
         generations=num_generations,  # Number of generations per worker
         num_islands=1,  # Number of islands
         checkpoint_path=log_path,
-        # surrogate_factory=lambda: tutorials.surrogate.MockSurrogate(),
-        # surrogate_factory=lambda: tutorials.surrogate.LogSurrogate(),
-        surrogate_factory=lambda: tutorials.surrogate.StaticSurrogate(),
-        # surrogate_factory=lambda: tutorials.surrogate.DynamicSurrogate(limits),
+        surrogate_factory=lambda: surrogate.StaticSurrogate(),
+        # surrogate_factory=lambda: surrogate.DynamicSurrogate(limits),
     )
     islands.evolve(  # Run evolutionary optimization.
         top_n=1,  # Print top-n best individuals on each island in summary.

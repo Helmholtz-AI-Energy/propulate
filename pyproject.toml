@@ -21,23 +21,37 @@ classifiers = [
 ]
 dependencies = [
 	"deepdiff",
+    "matplotlib",
 	"mpi4py",
 	"numpy",
     "colorlog",
     "Gpy",
+    "h5py",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pre-commit",
     "black",
+    "coverage",
     "ruff",
     "pytest",
     "pytest-cov",
+    "pytest-mpi",
     "sphinx-autoapi",
     "sphinx-rtd-theme",
     "sphinxcontrib-napoleon",
     "sphinxemoji",
+    "torch",
+    "torchvision",
+    "torchmetrics",
+]
+
+tutorials = [
+    "torch",
+    "torchvision",
+    "torchmetrics",
+    "lightning",
 ]
 
 [project.urls]
@@ -132,3 +146,6 @@ convention = "numpy"
 testpaths = [
     "tests",
 ]
+
+[tool.coverage.run]
+parallel = true

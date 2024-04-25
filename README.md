@@ -8,7 +8,7 @@
 ![PyPI](https://img.shields.io/pypi/v/propulate)
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/propulate)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![](https://img.shields.io/badge/Python-3.6+-blue.svg)](https://www.python.org/downloads/)
+[![](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/7785/badge)](https://www.bestpractices.dev/projects/7785)
 [![](https://img.shields.io/badge/Contact-propulate%40lists.kit.edu-orange)](mailto:propulate@lists.kit.edu)
 [![Documentation Status](https://readthedocs.org/projects/propulate/badge/?version=latest)](https://propulate.readthedocs.io/en/latest/?badge=latest)
@@ -37,9 +37,19 @@ soon as it becomes available.
 When a unit is finished evaluating a candidate and communicating the resulting fitness, it breeds the candidate for the
 next generation using the fitness values of all candidates it evaluated and received from other units so far.
 
-`Propulate` can be used for hyperparameter optimization and neural architecture search.
+`Propulate` can be used for hyperparameter optimization and neural architecture search at scale.
 It was already successfully applied in several accepted scientific publications. Applications include grid load
-forecasting, remote sensing, and structural molecular biology.
+forecasting, remote sensing, and structural molecular biology:
+
+> D. Coquelin, R. Sedona, M. Riedel, and M. Götz. **Evolutionary Optimization of Neural Architectures in Remote Sensing
+> Classification Problems**. IEEE International Geoscience and Remote Sensing Symposium IGARSS, Brussels, Belgium,
+> pp. 1587-1590 (2021). https://doi.org/10.1109/IGARSS47720.2021.9554309
+
+> O. Taubert, F. von der Lehr, A. Bazarova, et al. **RNA contact prediction by data efficient deep learning**. Commun
+> Biol 6, 913 (2023). https://doi.org/10.1038/s42003-023-05244-9
+
+> D. Coquelin, K. Flügel, M. Weiel, et al. **Harnessing Orthogonality to Train Low-Rank Neural Networks**. arXiv
+> preprint (2023). https://doi.org/10.48550/arXiv.2401.08505
 
 ## In more technical terms
 
@@ -75,9 +85,13 @@ discussions](https://github.com/Helmholtz-AI-Energy/propulate/discussions) :octo
 
 ## Installation
 
-You can install the latest stable release from PyPI: ``pip install propulate``
-If you need the latest updates, you can also install ``Propulate`` directly from the master branch at you own risk.
-Pull and run ``pip install -e .`` or ``python setup.py develop``.
+- You can install the **latest stable release** from PyPI: ``pip install propulate``
+- If you need the **latest updates**, you can also install ``Propulate`` directly from the master branch.
+Pull and run ``pip install .``.
+- If you want to run the **tutorials**, you can install the required dependencies via: ``pip install ."[tutorials]"``
+- If you want to **contribute** to ``Propulate`` as a developer, you need to install the required dependencies with the package:
+``pip install -e ."[dev]"``.
+
 ``Propulate`` depends on [``mpi4py``](https://mpi4py.readthedocs.io/en/stable/) and requires an MPI implementation under
 the hood. Currently, it is only tested with [OpenMPI](https://www.open-mpi.org/).
 
