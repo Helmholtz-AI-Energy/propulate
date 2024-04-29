@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import Union
 
 import numpy as np
 
@@ -6,7 +7,14 @@ import numpy as np
 class Individual(dict):
     """An individual represents a candidate solution to the considered optimization problem."""
 
-    def __init__(self, generation: int = -1, rank: int = -1) -> None:
+    def __init__(
+        self,
+        position: Union[dict, np.ndarray],
+        limits: dict,
+        velocity: np.ndarray = None,
+        generation: int = -1,
+        rank: int = -1,
+    ) -> None:
         """
         Initialize an individual with given parameters.
 
@@ -17,7 +25,32 @@ class Individual(dict):
         rank : int
             The rank (-1 if unset).
         """
-        super(Individual, self).__init__(list())
+        # TODO compare keys of position to keys of limits
+        self.limits = limits
+        self.types = {key: type(limits[key][0]) for key in limits}
+        offset = 0
+        self.offsets = {}
+        for key in limits:
+            self.offsets[key] = offset
+            if isinstance(limits[key][0], str):
+                offset += len(limits[key])
+            else:
+                offset += 1
+
+        if isinstance(position, np.ndarray):
+            self.position = position
+            if len(position) != offset:
+                raise ValueError(
+                    "Individual position not compatible with given search space limits."
+                )
+            # TODO update keys and values
+            super(Individual, self).__init__({k: self[k] for k in self.limits})
+        else:
+            super(Individual, self).__init__(list())
+            self.position = np.zeros(offset)
+            for key in position:
+                self[key] = position[key]
+
         self.generation = generation  # Equals each worker's iteration for continuous population in Propulate.
         self.rank = rank
         self.loss = None  # Set to None instead of inf since there are no comparisons
@@ -28,6 +61,47 @@ class Individual(dict):
         self.migration_history = None  # migration history
         self.evaltime = None  # evaluation time
         self.evalperiod = None  # evaluation duration
+
+        self.velocity = velocity
+        if self.velocity is not None:
+            if not self.position.shape == self.velocity.shape:
+                raise ValueError("Position and velocity shape do not match.")
+
+    def __getitem__(self, key):
+        """Return decoded value for input key."""
+        if self.types[key] == float:
+            return self.position[self.offsets[key]].item()
+        elif self.types[key] == int:
+            return np.rint(self.position[self.offsets[key]]).item()
+        elif self.types[key] == str:
+            offset = self.offsets[key]
+            upper = self.offsets[key] + len(self.limits[key])
+            return self.limits[key][np.argmax(self.position[offset:upper]).item()]
+        else:
+            raise ValueError("Unknown type")
+
+    def __setitem__(self, key, newvalue):
+        """Encode and set value for given key."""
+        if key not in self.limits:
+            raise ValueError("Unknown gene.")
+        if self.types[key] == float:
+            assert isinstance(newvalue, float)
+            self.position[self.offsets[key]] = newvalue
+        elif self.types[key] == int:
+            assert isinstance(newvalue, int)
+            self.position[self.offsets[key]] = float(newvalue)
+        elif self.types[key] == str:
+            assert newvalue in self.limits[key]
+            offset = self.offsets[key]
+            upper = len(self.limits[key])
+            self.position[offset:upper] = np.array([0])
+            self.position[offset + self.limits[key].index(newvalue)] = 1.0
+        else:
+            raise ValueError("Unknown type")
+
+    def __len__(self):
+        """Give number of genes i.e. the dimension of the parameter space. Each categorical variable adds only one dimension."""
+        return len(self.limits)
 
     def __repr__(self) -> str:
         """Return string representation of an ``Individual`` instance."""
@@ -49,6 +123,11 @@ class Individual(dict):
             + f", island {self.island}, worker {self.rank}, "
             f"generation {self.generation}]"
         )
+
+    def __iter__(self):
+        """Return standard iterator."""
+        for key in self.limits:
+            yield key
 
     def __eq__(self, other) -> bool:
         """
@@ -131,31 +210,3 @@ class Individual(dict):
                 compare_traits = False
                 break
         return compare_traits and self.loss == other.loss
-
-
-class Particle(Individual):
-    """
-    Child class of ``Individual`` with additional properties required for PSO.
-
-    Particles additionally feature an array-type velocity field and a (redundant) array-type position field.
-    Note that Propulate relies on individuals being dictionaries. When defining new propagators, users of the
-    ``Particle`` class thus need to ensure that a ``Particle``'s position always matches its dict contents and vice
-    versa.
-
-    This class also contains an attribute field called ``global_rank``. It contains the global rank of the propagator
-    that created it. This is for purposes of better (or at all) retrieval in multi swarm case.
-    """
-
-    def __init__(
-        self,
-        position: np.ndarray = None,
-        velocity: np.ndarray = None,
-        generation: int = -1,
-        rank: int = -1,
-    ):
-        super().__init__(generation=generation, rank=rank)
-        if position is not None and velocity is not None:
-            assert position.shape == velocity.shape
-        self.velocity = velocity
-        self.position = position
-        self.global_rank = rank  # The global rank of the creating propagator for later retrieval upon update.
