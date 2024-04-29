@@ -12,7 +12,7 @@ from . import propagators
 from .islands import Islands
 from .migrator import Migrator
 from .pollinator import Pollinator
-from .population import Individual, Particle
+from .population import Individual
 from .propulator import Propulator
 from .surrogate import Surrogate
 from .utils import get_default_propagator, set_logger_config
@@ -20,7 +20,6 @@ from .utils import get_default_propagator, set_logger_config
 __all__ = [
     "Islands",
     "Individual",
-    "Particle",
     "Propulator",
     "Surrogate",
     "Migrator",
