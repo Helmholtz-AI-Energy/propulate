@@ -6,10 +6,8 @@ from pathlib import Path
 from typing import Dict, Optional, Tuple, Union
 
 import colorlog
-import numpy as np
 from mpi4py import MPI
 
-from ..population import Individual, Particle
 from ..propagators import (
     Compose,
     Conditional,
@@ -27,7 +25,6 @@ __all__ = [
     "benchmark_functions",
     "get_default_propagator",
     "set_logger_config",
-    "make_particle",
 ]
 
 
@@ -163,26 +160,3 @@ def set_logger_config(
         file_handler.setFormatter(simple_formatter)
         base_logger.addHandler(file_handler)
     base_logger.setLevel(level)
-
-
-def make_particle(individual: Individual) -> Particle:
-    """
-    Convert individuals to particles.
-
-    Parameters
-    ----------
-    individual : propulate.Individual
-        An individual to be converted to a particle.
-
-    Returns
-    -------
-    propulate.Particle
-        The converted individual.
-    """
-    p = Particle(generation=individual.generation)
-    p.position = np.zeros(len(individual))
-    p.velocity = np.zeros(len(individual))
-    for i, k in enumerate(individual):
-        p.position[i] = individual[k]
-        p[k] = individual[k]
-    return p
