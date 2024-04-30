@@ -1,10 +1,11 @@
+from collections import UserDict
 from decimal import Decimal
 from typing import Union
 
 import numpy as np
 
 
-class Individual(dict):
+class Individual(UserDict):
     """An individual represents a candidate solution to the considered optimization problem."""
 
     def __init__(
@@ -43,10 +44,10 @@ class Individual(dict):
                 raise ValueError(
                     "Individual position not compatible with given search space limits."
                 )
-            # TODO update keys and values
             super(Individual, self).__init__({k: self[k] for k in self.limits})
         else:
-            super(Individual, self).__init__(list())
+            # super(Individual, self).__init__(position)
+            super(Individual, self).__init__()
             self.position = np.zeros(offset)
             for key in position:
                 self[key] = position[key]
@@ -69,6 +70,7 @@ class Individual(dict):
 
     def __getitem__(self, key):
         """Return decoded value for input key."""
+        # super(Individual, self).__getitem__(key)
         if self.types[key] == float:
             return self.position[self.offsets[key]].item()
         elif self.types[key] == int:
@@ -82,6 +84,7 @@ class Individual(dict):
 
     def __setitem__(self, key, newvalue):
         """Encode and set value for given key."""
+        super(Individual, self).__setitem__(key, newvalue)
         if key not in self.limits:
             raise ValueError("Unknown gene.")
         if self.types[key] == float:
@@ -98,6 +101,10 @@ class Individual(dict):
             self.position[offset + self.limits[key].index(newvalue)] = 1.0
         else:
             raise ValueError("Unknown type")
+
+    def __delitem(self, key):
+        """Do not implement deleting items."""
+        raise NotImplementedError()
 
     def __len__(self):
         """Give number of genes i.e. the dimension of the parameter space. Each categorical variable adds only one dimension."""
