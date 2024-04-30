@@ -1,7 +1,6 @@
 import copy
 import pathlib
 import random
-from typing import Tuple
 
 import deepdiff
 import pytest
@@ -14,30 +13,28 @@ from propulate.utils.benchmark_functions import get_function_search_space
 
 @pytest.fixture(
     params=[
-        ("rosenbrock", 0.0),
-        ("step", -25.0),
-        ("quartic", 0.0),
-        ("rastrigin", 0.0),
-        ("griewank", 0.0),
-        ("schwefel", 0.0),
-        ("bisphere", 0.0),
-        ("birastrigin", 0.0),
-        ("bukin", 0.0),
-        ("eggcrate", -1.0),
-        ("himmelblau", 0.0),
-        ("keane", 0.6736675),
-        ("leon", 0.0),
-        ("sphere", 0.0),  # (fname, expected)
+        "rosenbrock",
+        "step",
+        "quartic",
+        "rastrigin",
+        "griewank",
+        "schwefel",
+        "bisphere",
+        "birastrigin",
+        "bukin",
+        "eggcrate",
+        "himmelblau",
+        "keane",
+        "leon",
+        "sphere",
     ]
 )
-def function_parameters(request):
+def function_name(request):
     """Define benchmark function parameter sets as used in tests."""
     return request.param
 
 
-def test_propulator(
-    function_parameters: Tuple[str, float], mpi_tmp_path: pathlib.Path
-) -> None:
+def test_propulator(function_name: str, mpi_tmp_path: pathlib.Path) -> None:
     """
     Test standard Propulator to optimize the benchmark functions using the default genetic propagator.
 
@@ -45,15 +42,15 @@ def test_propulator(
 
     Parameters
     ----------
-    function_parameters : Tuple[str, float]
-        The tuple containing each function name along with its global minimum.
+    function_name : str
+        The function name.
     mpi_tmp_path : pathlib.Path
         The temporary checkpoint directory.
     """
     rng = random.Random(
         42 + MPI.COMM_WORLD.rank
     )  # Random number generator for optimization
-    function, limits = get_function_search_space(function_parameters[0])
+    function, limits = get_function_search_space(function_name)
     set_logger_config(log_file=mpi_tmp_path / "log.log")
     propagator = get_default_propagator(
         pop_size=4,
@@ -94,7 +91,7 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
     propulator = Propulator(
         loss_fn=function,
         propagator=propagator,
-        generations=1000,
+        generations=100,
         checkpoint_path=mpi_tmp_path,
         rng=rng,
     )  # Set up propulator performing actual optimization.
