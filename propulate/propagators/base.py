@@ -552,7 +552,7 @@ class InitUniform(Stochastic):
                         "Unknown type of limits. Has to be float for interval, "
                         "int for ordinal, or string for categorical."
                     )
+            ind = Individual(ind, self.limits)  # Instantiate new individual.
         else:  # Return first input individual w/o changes otherwise.
             ind = inds[0]
-        ind = Individual(ind, self.limits)  # Instantiate new individual.
         return ind
