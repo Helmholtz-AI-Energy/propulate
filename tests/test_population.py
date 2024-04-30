@@ -34,3 +34,4 @@ def test_individual():
 
     ind["cat1"] = "b"
     assert ind.position[5] == 1.0
+    assert list(ind.keys()) == list(ind_map.keys())
