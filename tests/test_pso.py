@@ -8,10 +8,10 @@ from propulate import Propulator
 from propulate.propagators import Conditional
 from propulate.propagators.pso import (
     BasicPSO,
-    InitUniformPSO,
-    VelocityClampingPSO,
     CanonicalPSO,
     ConstrictionPSO,
+    InitUniformPSO,
+    VelocityClampingPSO,
 )
 from propulate.utils.benchmark_functions import get_function_search_space, sphere
 
