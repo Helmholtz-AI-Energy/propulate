@@ -879,8 +879,6 @@ class CMAPropagator(Propagator):
             )
         self.par.count_eval += 1
         # Remove problem_dim.
-        new_ind = Individual()
+        new_ind = Individual(new_x[:, 0], self.par.limits)
 
-        for i, (dim, _) in enumerate(self.par.limits.items()):
-            new_ind[dim] = new_x[i, 0]
         return new_ind

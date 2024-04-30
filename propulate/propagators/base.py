@@ -528,10 +528,10 @@ class InitUniform(Stochastic):
         ValueError
             If a parameter's type is invalid, i.e., not float (continuous), int (ordinal), or str (categorical).
         """
+        ind = {}
         if (
             self.rng.random() < self.probability
         ):  # Apply only with specified probability.
-            ind = Individual()  # Instantiate new individual.
             for (
                 limit
             ) in self.limits:  # Randomly sample from specified limits for each trait.
@@ -554,4 +554,5 @@ class InitUniform(Stochastic):
                     )
         else:  # Return first input individual w/o changes otherwise.
             ind = inds[0]
+        ind = Individual(ind, self.limits)  # Instantiate new individual.
         return ind
