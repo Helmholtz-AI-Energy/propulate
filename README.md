@@ -41,15 +41,19 @@ next generation using the fitness values of all candidates it evaluated and rece
 It was already successfully applied in several accepted scientific publications. Applications include grid load
 forecasting, remote sensing, and structural molecular biology:
 
-> D. Coquelin, R. Sedona, M. Riedel, and M. Götz. **Evolutionary Optimization of Neural Architectures in Remote Sensing
-> Classification Problems**. IEEE International Geoscience and Remote Sensing Symposium IGARSS, Brussels, Belgium,
-> pp. 1587-1590 (2021). https://doi.org/10.1109/IGARSS47720.2021.9554309
-
 > O. Taubert, F. von der Lehr, A. Bazarova, et al. **RNA contact prediction by data efficient deep learning**. Commun
 > Biol 6, 913 (2023). https://doi.org/10.1038/s42003-023-05244-9
 
 > D. Coquelin, K. Flügel, M. Weiel, et al. **Harnessing Orthogonality to Train Low-Rank Neural Networks**. arXiv
 > preprint (2023). https://doi.org/10.48550/arXiv.2401.08505
+
+> Y. Funk, M. Götz, & H. Anzt. **Prediction of optimal solvers for sparse linear systems using deep learning**.
+> Proceedings of the 2022 SIAM Conference on Parallel Processing for Scientific Computing (pp. 14-24). Society for
+> Industrial and Applied Mathematics (2022). https://doi.org/10.1137/1.9781611977141.2
+
+> D. Coquelin, R. Sedona, M. Riedel, and M. Götz. **Evolutionary Optimization of Neural Architectures in Remote Sensing
+> Classification Problems**. IEEE International Geoscience and Remote Sensing Symposium IGARSS, Brussels, Belgium,
+> pp. 1587-1590 (2021). https://doi.org/10.1109/IGARSS47720.2021.9554309
 
 ## In more technical terms
 
