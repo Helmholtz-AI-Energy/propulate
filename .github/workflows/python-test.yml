@@ -35,7 +35,7 @@ jobs:
                 coverage xml
                 genbadge coverage -i coverage.xml -o coverage.svg
             - name: Verify Changed files
-              uses: tj-actions/verify-changed-files@v16
+              uses: tj-actions/verify-changed-files@v19
               id: verify-changed-files
               with:
                 files: coverage.svg
