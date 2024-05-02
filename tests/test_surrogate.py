@@ -144,6 +144,8 @@ def get_data_loaders(batch_size: int, root=Path) -> Tuple[DataLoader, DataLoader
     ----------
     batch_size : int
         The batch size.
+    root : Path
+        The root path.
 
     Returns
     -------
@@ -161,7 +163,7 @@ def get_data_loaders(batch_size: int, root=Path) -> Tuple[DataLoader, DataLoader
         shuffle=False,
     )
 
-    if MPI.COMM_WORLD.Get_rank() == 0:  # Only root downloads data.
+    if MPI.COMM_WORLD.rank == 0:  # Only root downloads data.
         train_loader = DataLoader(
             dataset=MNIST(
                 download=True, root=root, transform=data_transform, train=True
@@ -175,7 +177,7 @@ def get_data_loaders(batch_size: int, root=Path) -> Tuple[DataLoader, DataLoader
 
         setattr(get_data_loaders, "barrier_called", True)
 
-    if MPI.COMM_WORLD.Get_rank() != 0:
+    if MPI.COMM_WORLD.rank != 0:
         train_loader = DataLoader(
             dataset=MNIST(
                 download=False, root=root, transform=data_transform, train=True
@@ -203,6 +205,8 @@ def ind_loss(
     ----------
     params : Dict[str, int | float | str]
         The parameters to be optimized.
+    root : Path
+        The root path.
 
     Returns
     -------
@@ -346,6 +350,10 @@ def test_mnist_static(mpi_tmp_path):
     delattr(get_data_loaders, "barrier_called")
 
 
+@pytest.mark.filterwarnings(
+    "ignore::DeprecationWarning",
+    match="Assigning the 'data' attribute is an inherently unsafe operation and will be removed in the future.",
+)
 @pytest.mark.mpi(min_size=4)
 def test_mnist_dynamic(mpi_tmp_path):
     """Test static surrogate using a torch convolutional network on the MNIST dataset."""

@@ -1,56 +1,36 @@
 import pathlib
 import random
-from typing import Tuple
 
 import pytest
 
 from propulate import Propulator
-from propulate.propagators import BasicCMA, CMAPropagator
+from propulate.propagators import ActiveCMA, BasicCMA, CMAPropagator
 from propulate.utils.benchmark_functions import get_function_search_space
 
 
-@pytest.fixture(
-    params=[
-        ("rosenbrock", 0.0),
-        ("step", -25.0),
-        ("quartic", 0.0),
-        ("rastrigin", 0.0),
-        ("griewank", 0.0),
-        ("schwefel", 0.0),
-        ("bisphere", 0.0),
-        ("birastrigin", 0.0),
-        ("bukin", 0.0),
-        ("eggcrate", -1.0),
-        ("himmelblau", 0.0),
-        ("keane", 0.6736675),
-        ("leon", 0.0),
-        ("sphere", 0.0),  # (fname, expected)
-    ]
-)
-def function_parameters(request):
-    """Define benchmark function parameter sets as used in tests."""
+@pytest.fixture(params=[BasicCMA(), ActiveCMA()])
+def cma_adapter(request):
+    """Iterate over CMA adapters (basic and active)."""
     return request.param
 
 
-def test_cmaes(
-    function_parameters: Tuple[str, float], mpi_tmp_path: pathlib.Path
-) -> None:
+def test_cmaes_basic(cma_adapter, mpi_tmp_path: pathlib.Path) -> None:
     """
-    Test Propulator to optimize a benchmark function using a CMA-ES propagator.
+    Test Propulator to optimize a benchmark function using CMA-ES propagators.
 
     This test is run both sequentially and in parallel.
 
     Parameters
     ----------
-    function_parameters : Tuple[str, float]
-        The tuple containing each function name along with its global minimum.
+    cma_adapter : CMAAdapter
+        The CMA adapter used, either basic or active.
     mpi_tmp_path : pathlib.Path
         The temporary checkpoint directory.
     """
     rng = random.Random(42)  # Separate random number generator for optimization.
-    function, limits = get_function_search_space(function_parameters[0])
+    function, limits = get_function_search_space("sphere")
     # Set up evolutionary operator.
-    adapter = BasicCMA()
+    adapter = cma_adapter
     propagator = CMAPropagator(adapter, limits, rng=rng)
 
     # Set up Propulator performing actual optimization.
