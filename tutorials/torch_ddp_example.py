@@ -3,31 +3,29 @@ Toy example for HP optimization / NAS in Propulate, using a simple CNN trained o
 
 This script was tested on a single compute node with 4 GPUs. Note that you need to adapt ``GPUS_PER_NODE`` (see ll. 25).
 """
+import datetime as dt
 import logging
+import os
 import pathlib
 import random
+import socket
+import time
 from typing import Dict, Tuple, Union
 
 import torch
-import os
-import socket
-from mpi4py import MPI
-from torch import nn
-import time
-from torch.utils.data import DataLoader
-import torch.utils.data.distributed as datadist
-from torch.optim.lr_scheduler import StepLR
-from torch import optim
 import torch.distributed as dist
-import datetime as dt
+import torch.nn.functional as F  # noqa: N812
+import torch.utils.data.distributed as datadist
+from mpi4py import MPI
+from torch import nn, optim
+from torch.optim.lr_scheduler import StepLR
+from torch.utils.data import DataLoader
 from torchvision.datasets import MNIST
 from torchvision.transforms import Compose, Normalize, ToTensor
-import torch.nn.functional as F
 
 from propulate import Islands
 from propulate.utils import get_default_propagator, set_logger_config
 from propulate.utils.benchmark_functions import parse_arguments
-
 
 GPUS_PER_NODE: int = 4  # This example script was tested on a single node with 4 GPUs.
 NUM_WORKERS: int = (
@@ -35,10 +33,26 @@ NUM_WORKERS: int = (
 )
 SUBGROUP_COMM_METHOD = "nccl-slurm"
 log_path = "torch_ckpts"
-log = logging.getLogger(__name__)  # Get logger instance.
+log = logging.getLogger("propulate")  # Get logger instance.
 
 
 class Net(nn.Module):
+    """
+    Toy Neural network class.
+
+    Attributes
+    ----------
+    conv_layers : torch.nn.modules.container.Sequential
+        The model's convolutional layers.
+    fc : nn.Linear
+        fully connected output layer
+
+    Methods
+    -------
+    forward()
+        The forward pass.
+    """
+
     def __init__(
         self,
         conv_layers: int,
@@ -85,7 +99,9 @@ class Net(nn.Module):
         return output
 
 
-def get_data_loaders(batch_size: int, subgroup_comm: MPI.Comm) -> Tuple[DataLoader, DataLoader]:
+def get_data_loaders(
+    batch_size: int, subgroup_comm: MPI.Comm
+) -> Tuple[DataLoader, DataLoader]:
     """
     Get MNIST train and validation dataloaders.
 
@@ -104,9 +120,13 @@ def get_data_loaders(batch_size: int, subgroup_comm: MPI.Comm) -> Tuple[DataLoad
         The validation dataloader.
     """
     data_transform = Compose([ToTensor(), Normalize((0.1307,), (0.3081,))])
-    train_dataset = MNIST(download=False, root=".", transform=data_transform, train=True)
+    train_dataset = MNIST(
+        download=False, root=".", transform=data_transform, train=True
+    )
     val_dataset = MNIST(download=False, root=".", transform=data_transform, train=False)
-    if subgroup_comm.size > 1:  # need to make the samplers use the torch world to distributed data
+    if (
+        subgroup_comm.size > 1
+    ):  # need to make the samplers use the torch world to distributed data
         train_sampler = datadist.DistributedSampler(train_dataset)
         val_sampler = datadist.DistributedSampler(val_dataset)
     else:
@@ -137,6 +157,19 @@ def get_data_loaders(batch_size: int, subgroup_comm: MPI.Comm) -> Tuple[DataLoad
 
 
 def torch_process_group_init(subgroup_comm: MPI.Comm, method) -> None:
+    """
+    Create the torch process group on the subgroup of the MPI world.
+
+    Parameters
+    ----------
+    subgroup_comm : MPI.Comm
+        the split communicator for the subgroup. This is provided to the individual's loss function
+        by the Islands class if there are multiple ranks per worker.
+    method : str
+        method to use to initialize the process group.
+        options: [nccl-slurm, nccl-openmpi, gloo]
+        if CUDA is not available, then gloo is automatically chosen for the method
+    """
     global _DATA_PARALLEL_GROUP
     global _DATA_PARALLEL_ROOT
     # done want different groups to use the same port
@@ -154,7 +187,7 @@ def torch_process_group_init(subgroup_comm: MPI.Comm, method) -> None:
 
     # save env vars
     os.environ["MASTER_ADDR"] = master_address
-        # use the default pytorch port
+    # use the default pytorch port
     os.environ["MASTER_PORT"] = str(port)
 
     comm_rank = subgroup_comm.Get_rank()
@@ -168,9 +201,9 @@ def torch_process_group_init(subgroup_comm: MPI.Comm, method) -> None:
     else:
         log.info(f"CUDA_VISIBLE_DEVICES: {os.environ['CUDA_VISIBLE_DEVICES']}")
         num_cuda_devices = torch.cuda.device_count()
-        log.info(f"device count: {num_cuda_devices}, device number: {comm_rank % num_cuda_devices}")
-        torch.cuda.set_device(comm_rank % num_cuda_devices)
-
+        dev_number = MPI.COMM_WORLD.rank % num_cuda_devices
+        log.info(f"device count: {num_cuda_devices}, device number: {dev_number}")
+        torch.cuda.set_device(dev_number)
 
     time.sleep(0.001 * comm_rank)  # avoid DDOS'ing rank 0
     if method == "nccl-openmpi":
@@ -209,7 +242,9 @@ def torch_process_group_init(subgroup_comm: MPI.Comm, method) -> None:
             rank=nccl_world_rank,
         )
     else:
-        raise NotImplementedError(f"Given 'method' ({method}) not in [nccl-openmpi, nccl-slurm, gloo]")
+        raise NotImplementedError(
+            f"Given 'method' ({method}) not in [nccl-openmpi, nccl-slurm, gloo]"
+        )
 
     # make sure to call a barrier here in order for sharp to use the default comm:
     if dist.is_initialized():
@@ -222,10 +257,14 @@ def torch_process_group_init(subgroup_comm: MPI.Comm, method) -> None:
         assert disttest[0] == nccl_world_size, "failed test of dist!"
     else:
         disttest = None
-    log.info(f"Finish subgroup torch.dist init: world size: {dist.get_world_size()}, rank: {dist.get_rank()}")
+    log.info(
+        f"Finish subgroup torch.dist init: world size: {dist.get_world_size()}, rank: {dist.get_rank()}"
+    )
 
 
-def ind_loss(params: Dict[str, Union[int, float, str]], subgroup_comm: MPI.Comm) -> float:
+def ind_loss(
+    params: Dict[str, Union[int, float, str]], subgroup_comm: MPI.Comm
+) -> float:
     """
     Loss function for evolutionary optimization with Propulate. Minimize the model's negative validation accuracy.
 
@@ -246,7 +285,7 @@ def ind_loss(params: Dict[str, Union[int, float, str]], subgroup_comm: MPI.Comm)
     lr = params["lr"]  # Learning rate
     gamma = params["gamma"]
 
-    epochs = 100
+    epochs = 20
 
     activations = {
         "relu": nn.ReLU,
@@ -256,7 +295,7 @@ def ind_loss(params: Dict[str, Union[int, float, str]], subgroup_comm: MPI.Comm)
     activation = activations[activation]  # Get activation function.
     loss_fn = torch.nn.NLLLoss()
 
-    model = Net(conv_layers, activation)  
+    model = Net(conv_layers, activation)
     # Set up neural network with specified hyperparameters.
     # model.best_accuracy = 0.0  # Initialize the model's best validation accuracy.
 
@@ -271,7 +310,7 @@ def ind_loss(params: Dict[str, Union[int, float, str]], subgroup_comm: MPI.Comm)
         device = "cpu"
     optimizer = optim.Adadelta(model.parameters(), lr=lr)
     scheduler = StepLR(optimizer, step_size=1, gamma=gamma)
-    log_interval = 100
+    log_interval = 10000
     best_val_loss = 1000000
     early_stopping_count, early_stopping_limit = 0, 5
     set_new_best = False
@@ -286,9 +325,9 @@ def ind_loss(params: Dict[str, Union[int, float, str]], subgroup_comm: MPI.Comm)
             loss.backward()
             optimizer.step()
             if batch_idx % log_interval == 0 or batch_idx == len(train_loader) - 1:
-                log.info('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                    epoch, batch_idx * len(data), len(train_loader.dataset),
-                    100. * batch_idx / len(train_loader), loss.item()))
+                log.info(
+                    f"Train Epoch: {epoch} [{batch_idx}/{len(train_loader)} ({100. * batch_idx / len(train_loader):.0f}%)]\tLoss: {loss.item():.6f}"
+                )
         # val loop ======================================================
         model.eval()
         val_loss = 0
@@ -298,7 +337,9 @@ def ind_loss(params: Dict[str, Union[int, float, str]], subgroup_comm: MPI.Comm)
                 data, target = data.to(device), target.to(device)
                 output = model(data)
                 val_loss += loss_fn(output, target).item()  # sum up batch loss
-                pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
+                pred = output.argmax(
+                    dim=1, keepdim=True
+                )  # get the index of the max log-probability
                 correct += pred.eq(target.view_as(pred)).sum().item()
 
         val_loss /= len(val_loader.dataset)
@@ -306,19 +347,22 @@ def ind_loss(params: Dict[str, Union[int, float, str]], subgroup_comm: MPI.Comm)
             best_val_loss = val_loss
             set_new_best = True
 
-        log.info(f'\nTest set: Average loss: {val_loss:.4f}, Accuracy: {correct}/{len(val_loader.dataset)} ({100. * correct / len(val_loader.dataset):.0f}%)\n')
+        log.info(
+            f"\nTest set: Average loss: {val_loss:.4f}, Accuracy: {correct}/{len(val_loader.dataset)} ({100. * correct / len(val_loader.dataset):.0f}%)\n"
+        )
 
         if not set_new_best:
             early_stopping_count += 1
         if early_stopping_count >= early_stopping_limit:
-            log.info(f"hit early stopping count, breaking")
+            log.info("hit early stopping count, breaking")
             break
-        
+
         # scheduler step ================================================
         scheduler.step()
         set_new_best = False
-        
+
     # Return best validation loss as an individual's loss (trained so lower is better)
+    dist.destroy_process_group()
     return best_val_loss
 
 
@@ -349,14 +393,6 @@ if __name__ == "__main__":
     rng = random.Random(
         comm.rank
     )  # Set up separate random number generator for evolutionary optimizer.
-    propagator = get_default_propagator(  # Get default evolutionary operator.
-        pop_size=pop_size,  # Breeding population size
-        limits=limits,  # Search space
-        crossover_prob=0.7,  # Crossover probability
-        mutation_prob=0.4,  # Mutation probability
-        random_init_prob=0.1,  # Random-initialization probability
-        rng=rng,  # Separate random number generator for Propulate optimization
-    )
 
     # Set up separate logger for Propulate optimization.
     set_logger_config(
@@ -365,6 +401,17 @@ if __name__ == "__main__":
         log_to_stdout=True,  # Print log on stdout.
         log_rank=False,  # Do not prepend MPI rank to logging messages.
         colors=True,  # Use colors.
+    )
+    if comm.rank == 0:
+        log.info("Starting Torch DDP tutorial!")
+
+    propagator = get_default_propagator(  # Get default evolutionary operator.
+        pop_size=pop_size,  # Breeding population size
+        limits=limits,  # Search space
+        crossover_prob=0.7,  # Crossover probability
+        mutation_prob=0.4,  # Mutation probability
+        random_init_prob=0.1,  # Random-initialization probability
+        rng=rng,  # Separate random number generator for Propulate optimization
     )
 
     # Set up island model.
