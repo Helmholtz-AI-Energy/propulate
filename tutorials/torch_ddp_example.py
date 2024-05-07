@@ -222,6 +222,7 @@ def torch_process_group_init(subgroup_comm: MPI.Comm, method) -> None:
         assert disttest[0] == nccl_world_size, "failed test of dist!"
     else:
         disttest = None
+    log.info(f"Finish subgroup torch.dist init: world size: {dist.get_world_size()}, rank: {dist.get_rank()}")
 
 
 def ind_loss(params: Dict[str, Union[int, float, str]], subgroup_comm: MPI.Comm) -> float:
@@ -263,7 +264,11 @@ def ind_loss(params: Dict[str, Union[int, float, str]], subgroup_comm: MPI.Comm)
         batch_size=8, subgroup_comm=subgroup_comm
     )  # Get training and validation data loaders.
 
-    device = "cpu" if not torch.cuda.is_available() else MPI.COMM_WORLD.rank % GPUS_PER_NODE
+    if torch.cuda.is_available():
+        device = MPI.COMM_WORLD.rank % GPUS_PER_NODE
+        model = model.to(device)
+    else:
+        device = "cpu"
     optimizer = optim.Adadelta(model.parameters(), lr=lr)
     scheduler = StepLR(optimizer, step_size=1, gamma=gamma)
     log_interval = 100
@@ -280,7 +285,7 @@ def ind_loss(params: Dict[str, Union[int, float, str]], subgroup_comm: MPI.Comm)
             loss = loss_fn(output, target)
             loss.backward()
             optimizer.step()
-            if batch_idx == len(train_loader) - 1:
+            if batch_idx % log_interval == 0 or batch_idx == len(train_loader) - 1:
                 log.info('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                     epoch, batch_idx * len(data), len(train_loader.dataset),
                     100. * batch_idx / len(train_loader), loss.item()))
@@ -292,7 +297,7 @@ def ind_loss(params: Dict[str, Union[int, float, str]], subgroup_comm: MPI.Comm)
             for data, target in val_loader:
                 data, target = data.to(device), target.to(device)
                 output = model(data)
-                val_loss += loss_fn(output, target, reduction='sum').item()  # sum up batch loss
+                val_loss += loss_fn(output, target).item()  # sum up batch loss
                 pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
                 correct += pred.eq(target.view_as(pred)).sum().item()
 
