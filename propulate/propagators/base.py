@@ -1,5 +1,5 @@
 import random
-from typing import List, Dict, Union, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 from ..population import Individual
 
@@ -11,14 +11,14 @@ def _check_compatible(out1: int, in2: int) -> bool:
     Parameters
     ----------
     out1: int
-        number of output individuals returned by first propagator
+        The number of output individuals returned by the first propagator.
     in2: int
-        number of input individuals taken by second propagator
+        The number of input individuals taken by the second propagator.
 
     Returns
     -------
     bool
-        True if propagators can be stacked, False if not.
+        True if the input propagators can be stacked: False if not.
     """
     return out1 == in2 or in2 == -1
 
@@ -28,22 +28,36 @@ class Propagator:
     Abstract base class for all propagators, i.e., evolutionary operators.
 
     A propagator takes a collection of individuals and uses them to breed a new collection of individuals.
+
+    Attributes
+    ----------
+    offspring : int
+        The number of output individuals to breed.
+    parents : int
+        The number of input individuals to use as parents.
+    rng : random.Random
+        The separate random number generator for the Propulate optimization.
+
+    Methods
+    -------
+    __call__()
+        Apply the propagator.
     """
 
     def __init__(
-        self, parents: int = 0, offspring: int = 0, rng: random.Random = None
+        self, parents: int = 0, offspring: int = 0, rng: Optional[random.Random] = None
     ) -> None:
         """
         Initialize a propagator with given parameters.
 
         Parameters
         ----------
-        parents: int
-            number of input individuals (-1 for any)
-        offspring: int
-            number of output individuals
-        rng: random.Random
-            random number generator
+        parents : int, optional
+            The number of input individuals (-1 for any). Default is 0 for abstract base class.
+        offspring : int, optional
+            The number of output individuals to breed. Default is 0 for abstract base class.
+        rng : random.Random, optional
+            The separate random number generator for the Propulate optimization.
 
         Raises
         ------
@@ -54,6 +68,8 @@ class Propagator:
             raise ValueError("Propagator has to sire more than 0 offspring.")
         self.offspring = offspring  # Number of offspring individuals to breed
         self.parents = parents  # Number of parent individuals
+        if rng is None:
+            rng = random.Random()
         self.rng = rng  # Random number generator
 
     def __call__(self, inds: List[Individual]) -> Union[List[Individual], Individual]:
@@ -62,13 +78,13 @@ class Propagator:
 
         Parameters
         ----------
-        inds: list[propulate.individual.Individual]
-            input individuals the propagator is applied to
+        inds : List[propulate.Individual]
+            The input individuals the propagator is applied to.
 
         Returns
         -------
-        list[Individual] | Individual
-            individual(s) bred by applying the propagator
+        List[propulate.Individual] | propulate.Individual
+            The individual(s) bred by applying the propagator.
             While this abstract base class method actually returns ``None``, each concrete child class of ``Propagator``
             should return an ``Individual`` instance or a list of them.
 
@@ -85,6 +101,19 @@ class Stochastic(Propagator):
     Apply a propagator with a given probability.
 
     If the propagator is not applied, the output still has to adhere to the defined number of offspring.
+
+    Attributes
+    ----------
+    probability : float
+        The probability of applying the propagator.
+
+    Notes
+    -----
+    The ``Stochastic`` class inherits all methods and attributes from the ``Propagator`` class.
+
+    See Also
+    --------
+    :class:`Propagator` : The parent class.
     """
 
     def __init__(
@@ -99,21 +128,21 @@ class Stochastic(Propagator):
 
         Parameters
         ----------
-        parents: int
-            number of input individuals (-1 for any)
-        offspring: int
-            number of output individuals
-        probability: float
-            probability of application
-        rng: random.Random
-            random number generator
+        parents : int, optional
+            The number of input individuals (-1 for any). Default is 0.
+        offspring : int, optional
+            The number of output individuals. Default is 0.
+        probability : float, optional
+            The probability of application. Default is 0.0.
+        rng : random.Random, optional
+            The separate random number generator for the Propulate optimization.
 
         Raises
         ------
         ValueError
             If the number of offspring to breed is zero.
         """
-        super(Stochastic, self).__init__(parents, offspring, rng)
+        super().__init__(parents, offspring, rng)
         self.probability = probability
         if offspring == 0:
             raise ValueError("Propagator has to sire more than 0 offspring.")
@@ -125,6 +154,23 @@ class Conditional(Propagator):
 
     If the population consists of the specified number of individuals required for breeding (or more),
     a different propagator is applied than if not.
+
+    Attributes
+    ----------
+    pop_size : int
+        The breeding population size.
+    true_prop : propulate.propagators.Propagator
+        The propagator applied if the current population's size is greater than ``pop_size``.
+    false_prop : propulate.propagators.Propagator
+        The propagator applied if the current population's size equals at least ``pop_size``.
+
+    Notes
+    -----
+    The ``Conditional`` class inherits all methods and attributes from the ``Propagator`` class.
+
+    See Also
+    --------
+    :class:`Propagator` : The parent class.
     """
 
     def __init__(
@@ -136,22 +182,22 @@ class Conditional(Propagator):
         offspring: int = -1,
     ) -> None:
         """
-        Initialize the conditional propagator.
+        Initialize a conditional propagator.
 
         Parameters
         ----------
-        pop_size: int
-            breeding population size
-        true_prop: propulate.propagators.Propagator
-            propagator applied if size of current population >= pop_size.
-        false_prop: propulate.propagators.Propagator
-            propagator applied if size of current population < pop_size.
-        parents: int
-            number of input individuals (-1 for any)
-        offspring: int
-            number of output individuals
+        pop_size : int
+            The breeding population size.
+        true_prop : propulate.propagators.Propagator
+            The propagator applied if the current population's size equals at least ``pop_size``.
+        false_prop : propulate.propagators.Propagator
+            The propagator applied if the current population's size is less than ``pop_size``.
+        parents : int, optional
+            The number of input individuals (-1 for any). Default is -1.
+        offspring : int
+            The number of output individuals to breed. Default is -1.
         """
-        super(Conditional, self).__init__(parents, offspring)
+        super().__init__(parents, offspring)
         self.pop_size = pop_size
         self.true_prop = true_prop
         self.false_prop = false_prop
@@ -162,46 +208,59 @@ class Conditional(Propagator):
 
         Parameters
         ----------
-        inds: list[propulate.individual.Individual]
-            input individuals the propagator is applied to
+        inds : List[propulate.Individual]
+            The input individuals the propagator is applied to.
 
         Returns
         -------
-        list[propulate.individual.Individual]
-            output individuals returned by the conditional propagator
+        List[propulate.Individual]
+            The output individuals returned by the conditional propagator.
         """
         if (
             len(inds) >= self.pop_size
-        ):  # If number of evaluated individuals >= pop_size apply true_prop.
+        ):  # If number of evaluated individuals >= `pop_size`, apply `true_prop`.
             return self.true_prop(inds)
-        else:  # Else apply false_prop.
+        else:  # Else apply `false_prop`.
             return self.false_prop(inds)
 
 
 class Compose(Propagator):
     """
     Stack propagators together sequentially for successive application.
+
+    Attributes
+    ----------
+    propagators : List[propulate.propagators.Propagator]
+        The propagators to be stacked together.
+
+    Notes
+    -----
+    The ``Compose`` class inherits all methods and attributes from the ``Propagator`` class.
+
+    See Also
+    --------
+    :class:`Propagator` : The parent class.
     """
 
     def __init__(self, propagators: List[Propagator]) -> None:
         """
-        Initialize composed propagator.
+        Initialize a composed propagator.
 
         Parameters
         ----------
-        propagators: list[propulate.propagators.Propagator]
-            propagators to be stacked together sequentially
+        propagators : List[propulate.propagators.Propagator]
+            The propagators to be stacked together sequentially.
 
         Raises
         ------
         ValueError
-            If propagators to stack are incompatible in terms of number of input and output individuals.
+            If the propagators to stack are incompatible in terms of number of input and output individuals.
         """
         if len(propagators) < 1:
             raise ValueError(
                 f"Not enough propagators given ({len(propagators)}). At least 1 is required."
             )
-        super(Compose, self).__init__(propagators[0].parents, propagators[-1].offspring)
+        super().__init__(propagators[0].parents, propagators[-1].offspring)
         for i in range(len(propagators) - 1):
             # Check compatibility of consecutive propagators in terms of number of parents + offsprings.
             if not _check_compatible(
@@ -220,17 +279,17 @@ class Compose(Propagator):
 
     def __call__(self, inds: List[Individual]) -> List[Individual]:
         """
-        Apply composed propagator.
+        Apply the composed propagator.
 
         Parameters
         ----------
-        inds: list[propulate.individual.Individual]
-            input individuals the propagator is applied to
+        inds : List[propulate.Individual]
+            The input individuals the propagator is applied to.
 
         Returns
         -------
-        list[propulate.individual.Individual]
-            output individuals after application of propagator
+        List[propulate.Individual]
+            The output individuals after application of the propagator.
         """
         for p in self.propagators:
             inds = p(inds)
@@ -239,8 +298,15 @@ class Compose(Propagator):
 
 class SelectMin(Propagator):
     """
-    Select specified number of best performing individuals as evaluated by their losses.
-    i.e., those individuals with minimum losses.
+    Select a specified number of best performing individuals in terms of their losses, i.e., with the smallest losses.
+
+    Notes
+    -----
+    The ``SelectMin`` class inherits all methods and attributes from the ``Propagator`` class.
+
+    See Also
+    --------
+    :class:`Propagator` : The parent class.
     """
 
     def __init__(
@@ -248,28 +314,28 @@ class SelectMin(Propagator):
         offspring: int,
     ) -> None:
         """
-        Initialize elitist selection propagator.
+        Initialize an elitist selection propagator.
 
         Parameters
         ----------
-        offspring: int
-            number of offsprings (individuals to be selected)
+        offspring : int
+            The number of offspring (individuals to be selected).
         """
-        super(SelectMin, self).__init__(-1, offspring)
+        super().__init__(-1, offspring)
 
     def __call__(self, inds: List[Individual]) -> List[Individual]:
         """
-        Apply elitist-selection propagator.
+        Apply the elitist-selection propagator.
 
         Parameters
         ----------
-        inds: list[propulate.individual.Individual]
-            input individuals the propagator is applied to
+        inds : List[propulate.Individual]
+            The input individuals the propagator is applied to.
 
         Returns
         -------
-        list[propulate.individual.Individual]
-            selected output individuals after application of the propagator
+        List[propulate.Individual]
+            The selected output individuals after application of the propagator.
 
         Raises
         ------
@@ -288,8 +354,15 @@ class SelectMin(Propagator):
 
 class SelectMax(Propagator):
     """
-    Select specified number of worst performing individuals as evaluated by their losses,
-    i.e., those individuals with maximum losses.
+    Select a specified number of worst performing individuals in terms of their losses, i.e., with the greatest losses.
+
+    Notes
+    -----
+    The ``SelectMax`` class inherits all methods and attributes from the ``Propagator`` class.
+
+    See Also
+    --------
+    :class:`Propagator` : The parent class.
     """
 
     def __init__(
@@ -297,28 +370,28 @@ class SelectMax(Propagator):
         offspring: int,
     ) -> None:
         """
-        Initialize anti-elitist propagator.
+        Initialize an anti-elitist propagator.
 
         Parameters
         ----------
-        offspring: int
-            number of offspring (individuals to be selected)
+        offspring : int
+            The number of offspring (individuals to be selected).
         """
-        super(SelectMax, self).__init__(-1, offspring)
+        super().__init__(-1, offspring)
 
     def __call__(self, inds: List[Individual]) -> List[Individual]:
         """
-        Apply anti-elitist-selection propagator.
+        Apply the anti-elitist-selection propagator.
 
         Parameters
         ----------
-        inds: list[propulate.individual.Individual]
-            individuals the propagator is applied to
+        inds : List[propulate.Individual]
+            The individuals the propagator is applied to.
 
         Returns
         -------
-        list[propulate.individual.Individual]
-            selected individuals after application of the propagator
+        List[propulate.Individual]
+            The selected individuals after application of the propagator.
 
         Raises
         ------
@@ -337,35 +410,43 @@ class SelectMax(Propagator):
 
 class SelectUniform(Propagator):
     """
-    Select specified number of individuals randomly.
+    Select a specified number of individuals randomly.
+
+    Notes
+    -----
+    The ``SelectUniform`` class inherits all methods and attributes from the ``Propagator`` class.
+
+    See Also
+    --------
+    :class:`Propagator` : The parent class.
     """
 
-    def __init__(self, offspring: int, rng: random.Random = None) -> None:
+    def __init__(self, offspring: int, rng: Optional[random.Random] = None) -> None:
         """
-        Initialize random-selection propagator.
+        Initialize a random-selection propagator.
 
         Parameters
         ----------
-        offspring: int
-            number of offspring (individuals to be selected)
-        rng: random.Random
-            random number generator
+        offspring : int
+            The number of offspring (individuals to be selected).
+        rng : random.Random, optional
+            The separate random number generator for the Propulate optimization.
         """
-        super(SelectUniform, self).__init__(-1, offspring, rng)
+        super().__init__(-1, offspring, rng)
 
     def __call__(self, inds: List[Individual]) -> List[Individual]:
         """
-        Apply uniform-selection propagator.
+        Apply the uniform-selection propagator.
 
         Parameters
         ----------
-        inds: list[propulate.individual.Individual]
-            individuals the propagator is applied to
+        inds : List[propulate.Individual]
+            The individuals the propagator is applied to.
 
         Returns
         -------
-        list[propulate.individual.Individual]
-            selected individuals after application of propagator
+        List[propulate.Individual]
+            The selected individuals after application of the propagator.
 
         Raises
         ------
@@ -384,7 +465,20 @@ class SelectUniform(Propagator):
 # TODO parents should be fixed to one NOTE see utils reason why it is not right now
 class InitUniform(Stochastic):
     """
-    Initialize individual by uniformly sampling specified limits for each trait.
+    Initialize an individual by uniformly sampling the specified limits for each trait.
+
+    Attributes
+    ----------
+    limits : Dict[str, Tuple[float, float]] | Dict[str, Tuple[int, int]] | Dict[str, Tuple[str, ...]]
+        The search space, i.e., the limits of (hyper-)parameters to be optimized.
+
+    Notes
+    -----
+    The ``InitUniform`` class inherits all methods and attributes from the ``Stochastic`` class.
+
+    See Also
+    --------
+    :class:`Stochastic` : The parent class.
     """
 
     def __init__(
@@ -396,38 +490,38 @@ class InitUniform(Stochastic):
         ],
         parents: int = 0,
         probability: float = 1.0,
-        rng: random.Random = None,
+        rng: Optional[random.Random] = None,
     ) -> None:
         """
-        Initialize random-initialization propagator.
+        Initialize a random-initialization propagator.
 
         Parameters
         ----------
-        limits: dict[str, tuple[float, float]] | dict[str, tuple[int, int]] | dict[str, tuple[str, ...]]
-            search space, i.e., limits of (hyper-)parameters to be optimized
-        parents: int
-            number of parents
-        probability: float
-            probability of application
-        rng: random.Random
-            random number generator
+        limits : Dict[str, Tuple[float, float]] | Dict[str, Tuple[int, int]] | Dict[str, Tuple[str, ...]]
+            The search space, i.e., the limits of (hyper-)parameters to be optimized.
+        parents : int, optional
+            The number of parents. Default is 0.
+        probability : float, optional
+            The probability of application. Default is 1.0.
+        rng : random.Random, optional
+            The separate random number generator for the Propulate optimization.
         """
-        super(InitUniform, self).__init__(parents, 1, probability, rng)
+        super().__init__(parents, 1, probability, rng)
         self.limits = limits
 
     def __call__(self, *inds: Individual) -> Individual:
         """
-        Apply uniform-initialization propagator.
+        Apply the uniform-initialization propagator.
 
         Parameters
         ----------
-        inds: propulate.individual.Individual
-            individuals the propagator is applied to
+        inds : propulate.Individual
+            The individuals the propagator is applied to.
 
         Returns
         -------
-        propulate.individual.Individual
-            output individual after application of propagator
+        propulate.Individual
+            The output individual after application of the propagator.
 
         Raises
         ------

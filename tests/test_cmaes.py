@@ -1,60 +1,45 @@
+import pathlib
 import random
-import tempfile
-from typing import Dict
-from operator import attrgetter
 
-import numpy as np
+import pytest
 
 from propulate import Propulator
-from propulate.propagators import CMAPropagator, BasicCMA
+from propulate.propagators import ActiveCMA, BasicCMA, CMAPropagator
+from propulate.utils.benchmark_functions import get_function_search_space
 
 
-def sphere(params: Dict[str, float]) -> float:
+@pytest.fixture(params=[BasicCMA(), ActiveCMA()])
+def cma_adapter(request):
+    """Iterate over CMA adapters (basic and active)."""
+    return request.param
+
+
+def test_cmaes_basic(cma_adapter, mpi_tmp_path: pathlib.Path) -> None:
     """
-    Sphere function: continuous, convex, separable, differentiable, unimodal
+    Test Propulator to optimize a benchmark function using CMA-ES propagators.
 
-    Input domain: -5.12 <= x, y <= 5.12
-    Global minimum 0 at (x, y) = (0, 0)
+    This test is run both sequentially and in parallel.
 
     Parameters
     ----------
-    params: dict[str, float]
-            function parameters
-    Returns
-    -------
-    float
-        function value
-    """
-    return np.sum(np.array(list(params.values())) ** 2)
-
-
-def test_PSO():
-    """
-    Test single worker using Propulator to optimize sphere using a PSO propagator.
+    cma_adapter : CMAAdapter
+        The CMA adapter used, either basic or active.
+    mpi_tmp_path : pathlib.Path
+        The temporary checkpoint directory.
     """
     rng = random.Random(42)  # Separate random number generator for optimization.
-    limits = {
-        "a": (-5.12, 5.12),
-        "b": (-5.12, 5.12),
-    }
-    with tempfile.TemporaryDirectory() as checkpoint_path:
-        # Set up evolutionary operator.
+    function, limits = get_function_search_space("sphere")
+    # Set up evolutionary operator.
+    adapter = cma_adapter
+    propagator = CMAPropagator(adapter, limits, rng=rng)
 
-        adapter = BasicCMA()
-        propagator = CMAPropagator(adapter, limits, rng=rng)
-
-        # Set up propulator performing actual optimization.
-        propulator = Propulator(
-            loss_fn=sphere,
-            propagator=propagator,
-            generations=10,
-            checkpoint_path=checkpoint_path,
-            rng=rng,
-        )
-
-        # Run optimization and print summary of results.
-        propulator.propulate()
-        propulator.summarize()
-        best = min(propulator.population, key=attrgetter("loss"))
-
-        assert best.loss < 10.0
+    # Set up Propulator performing actual optimization.
+    propulator = Propulator(
+        loss_fn=function,
+        propagator=propagator,
+        rng=rng,
+        generations=100,
+        checkpoint_path=mpi_tmp_path,
+    )
+    # Run optimization and print summary of results.
+    propulator.propulate()

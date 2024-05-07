@@ -7,10 +7,11 @@ Evolutionary Optimization of a Mathematical Function
    You can find the corresponding ``Python`` script here:
    https://github.com/Helmholtz-AI-Energy/propulate/blob/master/tutorials/propulator_example.py
 
-The basic optimization mechanism in ``Propulate`` is that of Darwinian evolution, i.e.,
-beneficial traits are selected, recombined, and mutated to breed more fit individuals.
-To show you how ``Propulate`` works, we use its *basic asynchronous evolutionary optimizer* to minimize
-two-dimensional mathematical functions. Let us consider the sphere function:
+The basic optimization mechanism in ``Propulate`` is that of Darwinian evolution, i.e., beneficial traits are selected,
+recombined, and mutated to breed more fit individuals.
+To show you how ``Propulate`` works, we use its *basic asynchronous evolutionary optimizer* to minimize two-dimensional
+mathematical functions.
+Let us consider the sphere function:
 
 .. math::
     f_\mathrm{sphere}\left(x,y\right)=x^2+y^2
@@ -43,17 +44,21 @@ As the very first step, we need to define the key ingredients that define the op
 
   .. code-block:: python
 
-    limits = {"learning_rate": (0.001, 0.01),
-              "conv_layers": (2, 10),
-              "activation": ("relu", "sigmoid", "tanh")}
+    limits = {
+        "learning_rate": (0.001, 0.01),
+        "conv_layers": (2, 10),
+        "activation": ("relu", "sigmoid", "tanh")
+    }
 
   The sphere function has two continuous parameters, :math:`x` and :math:`y`, and we consider
   :math:`x,y \in\left[-5.12, 5.12\right]`. The search space in our example thus looks like this:
 
   .. code-block:: python
 
-    limits = {"x": (-5.12, 5.12),
-              "y": (-5.12, 5.12)}
+    limits = {
+        "x": (-5.12, 5.12),
+        "y": (-5.12, 5.12)
+    }
 
 * The fitness or *loss function* (also known as the objective function). This is the function we want to optimize in order
   to find the best parameters. It can be any ``Python`` function with the following characteristics:
@@ -74,40 +79,54 @@ As the very first step, we need to define the key ingredients that define the op
 
     def sphere(params: Dict[str, float]) -> float:
         """
-        Sphere function: continuous, convex, separable, differentiable, unimodal
+        Sphere function: continuous, convex, separable, differentiable, unimodal.
 
         Input domain: -5.12 <= x, y <= 5.12
         Global minimum 0 at (x, y) = (0, 0)
 
         Parameters
         ----------
-        params: dict[str, float]
-                function parameters
+        params: Dict[str, float]
+            The function parameters.
+
         Returns
         -------
         float
-            function value
+            The function value.
         """
-        return numpy.sum(numpy.array(list(params.values())) ** 2)
-
+        return numpy.sum(numpy.array(list(params.values())) ** 2).item()
 
 Next, we need to define the evolutionary operator or propagator that we want to use to breed new individuals during the
-optimization process. ``Propulate`` provides a reasonable default propagator via a utility function, ``get_default_propagator``,
-that serves as a good start for the most optimization problems. You can adapt its hyperparameters, such as crossover and mutation
-probability, as you wish. In the example script, you can pass those hyperparameters as command-line options (this is the
-``config`` in the code snippet below) or just use the default values. You also need to pass a separate random number
-generator that is used exclusively in the evolutionary optimization process (and not in the objective function):
+optimization process. ``Propulate`` provides a reasonable default propagator via a utility function,
+``get_default_propagator``, that serves as a good start for the most optimization problems. You can adapt its
+hyperparameters, such as crossover and mutation probability, as you wish. In the example script, you can pass those
+hyperparameters as command-line options (this is the ``config`` in the code snippet below) or just use the default
+values. You also need to pass a separate random number generator that is used exclusively in the evolutionary
+optimization process (and not in the objective function).
+In addition, you can adapt the separate logger used to track the ``Propulate`` optimization with the utility function
+``set_logger_config`` as shown below:
 
 .. code-block:: python
 
-    rng = random.Random(config.seed+MPI.COMM_WORLD.rank)  # Separate random number generator for optimization.
+    # Set up separate logger for Propulate optimization.
+    propulate.set_logger_config(
+        level=config.logging_level,  # Logging level
+        log_file=f"{config.checkpoint}/{pathlib.Path(__file__).stem}.log",  # Logging path
+        log_to_stdout=True,  # Print log on stdout.
+        log_rank=False,  # Do not prepend MPI rank to logging messages.
+        colors=True,  # Use colors.
+    )
+    rng = random.Random(
+        config.seed + MPI.COMM_WORLD.rank
+    )  # Separate random number generator for optimization.
     propagator = propulate.utils.get_default_propagator(  # Get default evolutionary operator.
         pop_size=config.pop_size,  # Breeding pool size
         limits=limits,  # Search-space limits
-        mate_prob=config.crossover_probability,  # Crossover probability
-        mut_prob=config.mutation_probability,  # Mutation probability
-        random_prob=config.random_init_probability,  # Random-initialization probability
-        rng=rng)  # Random number generator for the optimization process
+        crossover_prob=config.crossover_probability,  # Crossover probability
+        mutation_prob=config.mutation_probability,  # Mutation probability
+        random_init_prob=config.random_init_probability,  # Random-initialization probability
+        rng=rng  # Random number generator for the optimization process
+    )
 
 We also need to set up the actual evolutionary optimizer, that is a so-called ``Propulator`` instance. This will handle the
 parallel asynchronous optimization process for us:
@@ -117,10 +136,10 @@ parallel asynchronous optimization process for us:
     propulator = Propulator(  # Set up propulator performing actual optimization.
         loss_fn=sphere,  # Loss function to minimize
         propagator=propagator,  # Evolutionary operator
-        comm=MPI.COMM_WORLD,  # Communicator
+        rng=rng,  # Random number generator for optimization process
         generations=config.generations,  # Number of generations
-        checkpoint_path=config.checkpoint,  # Checkpoint path
-        rng=rng)  # Random number generator for optimization process
+        checkpoint_path=config.checkpoint  # Checkpoint path
+    )
 
 Now it's time to run the actual optimization. Overall, ``generations * MPI.COMM_WORLD.size`` evaluations will be performed:
 
@@ -138,36 +157,32 @@ The output looks like this:
     # PROPULATE: Parallel Propagator of Populations #
     #################################################
 
-    NOTE: No valid checkpoint file given. Initializing population randomly...
-    Island 0 has 4 workers.
-    Island 0 Worker 0: In generation 0...
-    Island 0 Worker 2: In generation 0...
-    Island 0 Worker 1: In generation 0...
-    Island 0 Worker 3: In generation 0...
-    Island 0 Worker 0: In generation 10...
-    Island 0 Worker 1: In generation 10...
-    Island 0 Worker 3: In generation 10...
-    Island 0 Worker 2: In generation 10...
-    Island 0 Worker 0: In generation 20...
-    Island 0 Worker 1: In generation 20...
-    Island 0 Worker 2: In generation 20...
-    Island 0 Worker 3: In generation 20...
+    [2024-03-12 14:37:01,374][propulate.propulator][INFO] - No valid checkpoint file given. Initializing population randomly...
+    [2024-03-12 14:37:01,374][propulate.propulator][INFO] - Island 0 has 4 workers.
+    [2024-03-12 14:37:01,374][propulate.propulator][INFO] - Island 0 Worker 0: In generation 0...
+    [2024-03-12 14:37:01,374][propulate.propulator][INFO] - Island 0 Worker 3: In generation 0...
+    [2024-03-12 14:37:01,374][propulate.propulator][INFO] - Island 0 Worker 2: In generation 0...
+    [2024-03-12 14:37:01,374][propulate.propulator][INFO] - Island 0 Worker 1: In generation 0...
+    [2024-03-12 14:37:01,377][propulate.propulator][INFO] - Island 0 Worker 3: In generation 10...
+    [2024-03-12 14:37:01,377][propulate.propulator][INFO] - Island 0 Worker 1: In generation 10...
+    [2024-03-12 14:37:01,378][propulate.propulator][INFO] - Island 0 Worker 0: In generation 10...
+    [2024-03-12 14:37:01,378][propulate.propulator][INFO] - Island 0 Worker 2: In generation 10...
 
     ...
-
-    Island 0 Worker 0: In generation 990...
-    Island 0 Worker 1: In generation 990...
-    OPTIMIZATION DONE.
+    [2024-03-12 14:37:02,197][propulate.propulator][INFO] - Island 0 Worker 1: In generation 960...
+    [2024-03-12 14:37:02,206][propulate.propulator][INFO] - Island 0 Worker 2: In generation 990...
+    [2024-03-12 14:37:02,206][propulate.propulator][INFO] - Island 0 Worker 1: In generation 970...
+    [2024-03-12 14:37:02,215][propulate.propulator][INFO] - Island 0 Worker 1: In generation 980...
+    [2024-03-12 14:37:02,224][propulate.propulator][INFO] - Island 0 Worker 1: In generation 990...
+    [2024-03-12 14:37:02,232][propulate.propulator][INFO] - OPTIMIZATION DONE.
     NEXT: Final checks for incoming messages...
-
-    ###########
+    [2024-03-12 14:37:02,244][propulate.propulator][INFO] - ###########
     # SUMMARY #
     ###########
-
     Number of currently active individuals is 4000.
     Expected overall number of evaluations is 4000.
-    Top 1 result(s) on island 0:
-    (1): [{'a': '3.90E-3', 'b': '1.16E-3'}, loss 1.66E-5, island 0, worker 2, generation 739]
+    [2024-03-12 14:37:03,703][propulate.propulator][INFO] - Top 1 result(s) on island 0:
+    (1): [{'a': '2.91E-3', 'b': '-3.05E-3'}, loss 1.78E-5, island 0, worker 0, generation 956]
 
 Let's Get Your Hands Dirty (At Least a Bit)
 -------------------------------------------
