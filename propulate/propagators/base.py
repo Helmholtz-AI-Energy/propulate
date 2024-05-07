@@ -1,6 +1,8 @@
 import random
 from typing import Dict, List, Optional, Tuple, Union
 
+import numpy as np
+
 from ..population import Individual
 
 
@@ -556,3 +558,49 @@ class InitUniform(Stochastic):
         else:  # Return first input individual w/o changes otherwise.
             ind = inds[0]
         return ind
+
+
+class Gaussian(Propagator):
+    """Sample a new individual from a multivariate gaussian distribution around an initial point."""
+
+    def __init__(
+        self,
+        limits: Dict[str, Tuple[float, float]],
+        scale: float,
+        rng: np.random.Generator,
+    ):
+        """
+        Initialize gaussian propagator.
+
+        Parameters
+        ----------
+        limits: dict[str, tuple[float, float]] | dict[str, tuple[int, int]] | dict[str, tuple[str, ...]]
+            search space, i.e., limits of (hyper-)parameters to be optimized
+        scale: float
+            standard deviation
+        rng: random.Random
+            random number generator
+
+        """
+        super().__init__(1, 1)
+        self.limits = limits
+        self.rng = rng
+        self.scale = scale
+
+    def __call__(self, inds: List[Individual]) -> Individual:
+        """
+        Apply the gaussian propagator.
+
+        Parameters
+        ----------
+        inds : propulate.Individual
+            The individuals the propagator is applied to.
+
+        Returns
+        -------
+        propulate.Individual
+            The output individual after application of the propagator.
+        """
+        position = np.array(inds[0].position)
+        position += self.rng.normal(scale=self.scale, size=position.shape)
+        return Individual(position, self.limits)
