@@ -4,6 +4,7 @@ Example use case for the PSO propagators.
 You can choose between benchmark functions and optimize them. The example shows how to set up Propulate in order to use
 it with PSO.
 """
+
 import pathlib
 import random
 
@@ -47,7 +48,7 @@ if __name__ == "__main__":
     rng = random.Random(
         config.seed + comm.rank
     )  # Separate random number generator for optimization.
-    function, limits = get_function_search_space(
+    benchmark_function, limits = get_function_search_space(
         config.function
     )  # Get callable function + search-space limits.
 
@@ -91,7 +92,7 @@ if __name__ == "__main__":
     propagator = Conditional(config.pop_size, pso_propagator, init)
 
     propulator = Propulator(
-        function,
+        benchmark_function,
         propagator,
         rng=rng,
         island_comm=comm,

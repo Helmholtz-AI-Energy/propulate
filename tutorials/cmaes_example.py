@@ -1,4 +1,5 @@
 """Simple example script using CMA-ES."""
+
 import pathlib
 import random
 
@@ -36,7 +37,7 @@ if __name__ == "__main__":
     rng = random.Random(
         config.seed + comm.rank
     )  # Separate random number generator for optimization.
-    function, limits = get_function_search_space(
+    benchmark_function, limits = get_function_search_space(
         config.function
     )  # Get callable function + search-space limits.
 
@@ -52,7 +53,7 @@ if __name__ == "__main__":
 
     # Set up propulator performing actual optimization.
     propulator = Propulator(
-        loss_fn=function,
+        loss_fn=benchmark_function,
         propagator=propagator,
         rng=rng,
         island_comm=comm,

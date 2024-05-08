@@ -50,7 +50,7 @@ def test_propulator(function_name: str, mpi_tmp_path: pathlib.Path) -> None:
     rng = random.Random(
         42 + MPI.COMM_WORLD.rank
     )  # Random number generator for optimization
-    function, limits = get_function_search_space(function_name)
+    benchmark_function, limits = get_function_search_space(function_name)
     set_logger_config(log_file=mpi_tmp_path / "log.log")
     propagator = get_default_propagator(
         pop_size=4,
@@ -58,7 +58,7 @@ def test_propulator(function_name: str, mpi_tmp_path: pathlib.Path) -> None:
         rng=rng,
     )  # Set up evolutionary operator.
     propulator = Propulator(
-        loss_fn=function,
+        loss_fn=benchmark_function,
         propagator=propagator,
         rng=rng,
         generations=100,
@@ -81,7 +81,7 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
     rng = random.Random(
         42 + MPI.COMM_WORLD.rank
     )  # Separate random number generator for optimization
-    function, limits = get_function_search_space("sphere")
+    benchmark_function, limits = get_function_search_space("sphere")
 
     propagator = get_default_propagator(  # Get default evolutionary operator.
         pop_size=4,  # Breeding pool size
@@ -89,7 +89,7 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
         rng=rng,  # Random number generator
     )
     propulator = Propulator(
-        loss_fn=function,
+        loss_fn=benchmark_function,
         propagator=propagator,
         generations=100,
         checkpoint_path=mpi_tmp_path,
@@ -105,7 +105,7 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
     MPI.COMM_WORLD.barrier()  # Synchronize all processes.
 
     propulator = Propulator(
-        loss_fn=function,
+        loss_fn=benchmark_function,
         propagator=propagator,
         generations=20,
         checkpoint_path=mpi_tmp_path,
