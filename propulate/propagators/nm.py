@@ -64,7 +64,8 @@ class ParallelNelderMead(Propagator):
             Size of the initial simplex.
 
         """
-        super().__init__(limits, parents=-1, offspring=1, rng=rng)
+        super().__init__(parents=-1, offspring=1, rng=rng)
+        self.limits = limits
         self.alpha = alpha
         self.gamma = gamma
         self.rho = rho
@@ -81,7 +82,7 @@ class ParallelNelderMead(Propagator):
             scale=scale,
             rng=np.random.default_rng(seed=self.rng.randint(0, 10000000)),
         )
-        self.select_simplex = SelectMin(self.limits, self.problem_dimension + 1)
+        self.select_simplex = SelectMin(self.problem_dimension + 1)
 
     def __call__(self, inds: List[Individual]) -> Individual:
         """
