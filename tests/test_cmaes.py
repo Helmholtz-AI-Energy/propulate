@@ -28,14 +28,14 @@ def test_cmaes_basic(cma_adapter, mpi_tmp_path: pathlib.Path) -> None:
         The temporary checkpoint directory.
     """
     rng = random.Random(42)  # Separate random number generator for optimization.
-    function, limits = get_function_search_space("sphere")
+    benchmark_function, limits = get_function_search_space("sphere")
     # Set up evolutionary operator.
     adapter = cma_adapter
     propagator = CMAPropagator(adapter, limits, rng=rng)
 
     # Set up Propulator performing actual optimization.
     propulator = Propulator(
-        loss_fn=function,
+        loss_fn=benchmark_function,
         propagator=propagator,
         rng=rng,
         generations=100,

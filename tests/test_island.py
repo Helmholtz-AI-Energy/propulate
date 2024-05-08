@@ -20,7 +20,7 @@ def global_variables():
     rng = random.Random(
         42 + MPI.COMM_WORLD.rank
     )  # Set up separate random number generator for optimization.
-    function, limits = get_function_search_space(
+    benchmark_function, limits = get_function_search_space(
         "sphere"
     )  # Get function and search space to optimize.
     propagator = get_default_propagator(
@@ -28,7 +28,7 @@ def global_variables():
         limits=limits,
         rng=rng,
     )  # Set up evolutionary operator.
-    yield rng, function, limits, propagator
+    yield rng, benchmark_function, limits, propagator
 
 
 @pytest.fixture(
@@ -62,12 +62,12 @@ def test_islands(
     mpi_tmp_path : pathlib.Path
         The temporary checkpoint directory.
     """
-    rng, function, limits, propagator = global_variables
+    rng, benchmark_function, limits, propagator = global_variables
     set_logger_config(log_file=mpi_tmp_path / "log.log")
 
     # Set up island model.
     islands = Islands(
-        loss_fn=function,
+        loss_fn=benchmark_function,
         propagator=propagator,
         rng=rng,
         generations=100,
@@ -100,12 +100,12 @@ def test_checkpointing_isolated(
     mpi_tmp_path : pathlib.Path
         The temporary checkpoint directory.
     """
-    rng, function, limits, propagator = global_variables
+    rng, benchmark_function, limits, propagator = global_variables
     set_logger_config(log_file=mpi_tmp_path / "log.log")
 
     # Set up island model.
     islands = Islands(
-        loss_fn=function,
+        loss_fn=benchmark_function,
         propagator=propagator,
         rng=rng,
         generations=100,
@@ -121,7 +121,7 @@ def test_checkpointing_isolated(
     del islands
 
     islands = Islands(
-        loss_fn=function,
+        loss_fn=benchmark_function,
         propagator=propagator,
         rng=rng,
         generations=100,
@@ -160,12 +160,12 @@ def test_checkpointing(
     mpi_tmp_path : pathlib.Path
         The temporary checkpoint directory.
     """
-    rng, function, limits, propagator = global_variables
+    rng, benchmark_function, limits, propagator = global_variables
     set_logger_config(log_file=mpi_tmp_path / "log.log")
 
     # Set up island model.
     islands = Islands(
-        loss_fn=function,
+        loss_fn=benchmark_function,
         propagator=propagator,
         rng=rng,
         generations=100,
@@ -185,7 +185,7 @@ def test_checkpointing(
     del islands
 
     islands = Islands(
-        loss_fn=function,
+        loss_fn=benchmark_function,
         propagator=propagator,
         rng=rng,
         generations=100,
@@ -225,12 +225,12 @@ def test_checkpointing_unequal_populations(
     mpi_tmp_path : pathlib.Path
         The temporary checkpoint directory.
     """
-    rng, function, limits, propagator = global_variables
+    rng, benchmark_function, limits, propagator = global_variables
     set_logger_config(log_file=mpi_tmp_path / "log.log")
 
     # Set up island model.
     islands = Islands(
-        loss_fn=function,
+        loss_fn=benchmark_function,
         propagator=propagator,
         rng=rng,
         generations=100,
@@ -251,7 +251,7 @@ def test_checkpointing_unequal_populations(
     del islands
 
     islands = Islands(
-        loss_fn=function,
+        loss_fn=benchmark_function,
         propagator=propagator,
         rng=rng,
         generations=100,
