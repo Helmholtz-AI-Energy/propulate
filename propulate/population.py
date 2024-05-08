@@ -1,11 +1,11 @@
-from collections import UserDict
+# from collections import UserDict
 from decimal import Decimal
 from typing import Union
 
 import numpy as np
 
 
-class Individual(UserDict):
+class Individual:
     """An individual represents a candidate solution to the considered optimization problem."""
 
     def __init__(
@@ -28,6 +28,9 @@ class Individual(UserDict):
         """
         # TODO compare keys of position to keys of limits
         self.limits = limits
+        for key in limits:
+            if key.startswith("_"):
+                raise ValueError("Keys starting with '_' are reserved.")
         self.types = {key: type(limits[key][0]) for key in limits}
         offset = 0
         self.offsets = {}
@@ -44,10 +47,12 @@ class Individual(UserDict):
                 raise ValueError(
                     "Individual position not compatible with given search space limits."
                 )
-            super(Individual, self).__init__({k: self[k] for k in self.limits})
+            # super(Individual, self).__init__({k: self[k] for k in self.limits})
+            self.mapping = {k: self[k] for k in self.limits}
         else:
             # super(Individual, self).__init__(position)
-            super(Individual, self).__init__()
+            # super(Individual, self).__init__()
+            self.mapping = position
             self.position = np.zeros(offset)
             for key in position:
                 self[key] = position[key]
@@ -71,44 +76,67 @@ class Individual(UserDict):
     def __getitem__(self, key):
         """Return decoded value for input key."""
         # super(Individual, self).__getitem__(key)
-        if self.types[key] == float:
-            return self.position[self.offsets[key]].item()
-        elif self.types[key] == int:
-            return np.rint(self.position[self.offsets[key]]).item()
-        elif self.types[key] == str:
-            offset = self.offsets[key]
-            upper = self.offsets[key] + len(self.limits[key])
-            return self.limits[key][np.argmax(self.position[offset:upper]).item()]
+        if key.startswith("_"):
+            # return super(Individual, self).__getitem__(key)
+            return self.mapping[key]
         else:
-            raise ValueError("Unknown type")
+            if self.types[key] == float:
+                return self.position[self.offsets[key]].item()
+            elif self.types[key] == int:
+                return np.rint(self.position[self.offsets[key]]).item()
+            elif self.types[key] == str:
+                offset = self.offsets[key]
+                upper = self.offsets[key] + len(self.limits[key])
+                return self.limits[key][np.argmax(self.position[offset:upper]).item()]
+            else:
+                raise ValueError("Unknown type")
 
     def __setitem__(self, key, newvalue):
         """Encode and set value for given key."""
-        super(Individual, self).__setitem__(key, newvalue)
-        if key not in self.limits:
-            raise ValueError("Unknown gene.")
-        if self.types[key] == float:
-            assert isinstance(newvalue, float)
-            self.position[self.offsets[key]] = newvalue
-        elif self.types[key] == int:
-            assert isinstance(newvalue, int)
-            self.position[self.offsets[key]] = float(newvalue)
-        elif self.types[key] == str:
-            assert newvalue in self.limits[key]
-            offset = self.offsets[key]
-            upper = len(self.limits[key])
-            self.position[offset:upper] = np.array([0])
-            self.position[offset + self.limits[key].index(newvalue)] = 1.0
+        # super(Individual, self).__setitem__(key, newvalue)
+        print(key, newvalue)
+        self.mapping[key] = newvalue
+        if key.startswith("_"):
+            pass
         else:
-            raise ValueError("Unknown type")
+            if key not in self.limits:
+                raise ValueError("Unknown gene.")
+            if self.types[key] == float:
+                assert isinstance(newvalue, float)
+                self.position[self.offsets[key]] = newvalue
+            elif self.types[key] == int:
+                assert isinstance(newvalue, int)
+                self.position[self.offsets[key]] = float(newvalue)
+            elif self.types[key] == str:
+                assert newvalue in self.limits[key]
+                offset = self.offsets[key]
+                upper = len(self.limits[key])
+                self.position[offset:upper] = np.array([0])
+                self.position[offset + self.limits[key].index(newvalue)] = 1.0
+            else:
+                raise ValueError("Unknown type")
 
-    def __delitem(self, key):
+    def __delitem__(self, key):
         """Do not implement deleting items."""
-        raise NotImplementedError()
+        if key in self.limits:
+            raise ValueError()
+        self.mapping.__delitem__(key)
 
     def __len__(self):
         """Give number of genes i.e. the dimension of the parameter space. Each categorical variable adds only one dimension."""
         return len(self.limits)
+
+    def values(self):
+        """Return dict values view."""
+        return self.mapping.values()
+
+    def items(self):
+        """Return dict items view."""
+        return self.mapping.items()
+
+    def keys(self):
+        """Return dict keys view."""
+        return self.mapping.keys()
 
     def __repr__(self) -> str:
         """Return string representation of an ``Individual`` instance."""
