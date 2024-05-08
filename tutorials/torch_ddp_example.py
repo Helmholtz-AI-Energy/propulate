@@ -1,8 +1,9 @@
 """
-Toy example for HP optimization / NAS in Propulate, using a simple CNN trained on the MNIST dataset.
+Toy example for HP optimization / NAS in Propulate, using a simple CNN trained on MNIST in a data-parallel fashion.
 
-This script was tested on a single compute node with 4 GPUs. Note that you need to adapt ``GPUS_PER_NODE`` (see ll. 25).
+This script was tested on two compute nodes with 4 GPUs each. Note that you need to adapt ``GPUS_PER_NODE`` in l. 25.
 """
+
 import datetime as dt
 import logging
 import os
@@ -14,11 +15,9 @@ from typing import Dict, Tuple, Union
 
 import torch
 import torch.distributed as dist
-import torch.nn.functional as F  # noqa: N812
 import torch.utils.data.distributed as datadist
 from mpi4py import MPI
 from torch import nn, optim
-from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import DataLoader
 from torchvision.datasets import MNIST
 from torchvision.transforms import Compose, Normalize, ToTensor
@@ -38,14 +37,14 @@ log = logging.getLogger("propulate")  # Get logger instance.
 
 class Net(nn.Module):
     """
-    Toy Neural network class.
+    Toy neural network class.
 
     Attributes
     ----------
     conv_layers : torch.nn.modules.container.Sequential
         The model's convolutional layers.
     fc : nn.Linear
-        fully connected output layer
+        The fully connected output layer.
 
     Methods
     -------
@@ -57,7 +56,17 @@ class Net(nn.Module):
         self,
         conv_layers: int,
         activation: torch.nn.modules.activation,
-    ):
+    ) -> None:
+        """
+        Initialize the neural network.
+
+        Parameters
+        ----------
+        conv_layers : int
+            The number of convolutional layers to use.
+        activation : torch.nn.modules.activation
+            The activation function to use.
+        """
         super().__init__()
         layers = []  # Set up the model architecture (depending on number of convolutional layers specified).
         layers += [
@@ -95,7 +104,7 @@ class Net(nn.Module):
         x = self.conv_layers(x)
         x = x.view(b, 10 * 28 * 28)
         x = self.fc(x)
-        output = F.log_softmax(x, dim=1)
+        output = nn.functional.log_softmax(x, dim=1)
         return output
 
 
@@ -158,95 +167,91 @@ def get_data_loaders(
 
 def torch_process_group_init(subgroup_comm: MPI.Comm, method) -> None:
     """
-    Create the torch process group on the subgroup of the MPI world.
+    Create the torch process group of each multi-rank worker from a subgroup of the MPI world.
 
     Parameters
     ----------
     subgroup_comm : MPI.Comm
-        the split communicator for the subgroup. This is provided to the individual's loss function
-        by the Islands class if there are multiple ranks per worker.
+        The split communicator for the multi-rank worker's subgroup. This is provided to the individual's loss function
+        by the ``Islands`` class if there are multiple ranks per worker.
     method : str
-        method to use to initialize the process group.
-        options: [nccl-slurm, nccl-openmpi, gloo]
-        if CUDA is not available, then gloo is automatically chosen for the method
+        The method to use to initialize the process group.
+        Options: [``nccl-slurm``, ``nccl-openmpi``, ``gloo``]
+        If CUDA is not available, ``gloo`` is automatically chosen for the method.
     """
     global _DATA_PARALLEL_GROUP
     global _DATA_PARALLEL_ROOT
-    # done want different groups to use the same port
-    subgroup_id = MPI.COMM_WORLD.rank // subgroup_comm.size
-    port = 29500 + subgroup_id
-    # get master address and port
-    # os.environ["NCCL_ASYNC_ERROR_HANDLING"] = "0"
 
-    comm_size = subgroup_comm.Get_size()
+    comm_rank, comm_size = subgroup_comm.rank, subgroup_comm.size
+
+    # Get master address and port
+    # Don't want different groups to use the same port.
+    subgroup_id = MPI.COMM_WORLD.rank // comm_size
+    port = 29500 + subgroup_id
+
     if comm_size == 1:
         return
     master_address = socket.gethostname()
-    # each subgroup needs to get the hostname of rank 0 of that group
+    # Each multi-rank worker rank needs to get the hostname of rank 0 of its subgroup.
     master_address = subgroup_comm.bcast(str(master_address), root=0)
 
-    # save env vars
+    # Save environment variables.
     os.environ["MASTER_ADDR"] = master_address
-    # use the default pytorch port
+    # Use the default PyTorch port.
     os.environ["MASTER_PORT"] = str(port)
 
-    comm_rank = subgroup_comm.Get_rank()
-
-    nccl_world_size = comm_size
-    nccl_world_rank = comm_rank
-    # print(subgroup_comm.rank, subgroup_comm.size, master_address, port)
     if not torch.cuda.is_available():
         method = "gloo"
-        log.info("No CUDA devices found: falling back to gloo")
+        log.info("No CUDA devices found: Falling back to gloo.")
     else:
         log.info(f"CUDA_VISIBLE_DEVICES: {os.environ['CUDA_VISIBLE_DEVICES']}")
         num_cuda_devices = torch.cuda.device_count()
-        dev_number = MPI.COMM_WORLD.rank % num_cuda_devices
-        log.info(f"device count: {num_cuda_devices}, device number: {dev_number}")
-        torch.cuda.set_device(dev_number)
+        device_number = MPI.COMM_WORLD.rank % num_cuda_devices
+        log.info(f"device count: {num_cuda_devices}, device number: {device_number}")
+        torch.cuda.set_device(device_number)
 
-    time.sleep(0.001 * comm_rank)  # avoid DDOS'ing rank 0
-    if method == "nccl-openmpi":
+    time.sleep(0.001 * comm_rank)  # Avoid DDOS'ing rank 0.
+    if method == "nccl-openmpi":  # Use NCCL with OpenMPI.
         dist.init_process_group(
             backend="nccl",
-            rank=subgroup_comm.rank,
-            world_size=subgroup_comm.size,
+            rank=comm_rank,
+            world_size=comm_size,
         )
 
-    elif method == "nccl-slurm":
+    elif method == "nccl-slurm":  # Use NCCL with a TCP store.
         wireup_store = dist.TCPStore(
             host_name=master_address,
             port=port,
-            world_size=nccl_world_size,
-            is_master=(nccl_world_rank == 0),
+            world_size=comm_size,
+            is_master=(comm_rank == 0),
             timeout=dt.timedelta(seconds=60),
         )
         dist.init_process_group(
             backend="nccl",
             store=wireup_store,
-            world_size=nccl_world_size,
-            rank=nccl_world_rank,
+            world_size=comm_size,
+            rank=comm_rank,
         )
-    elif method == "gloo":
+    elif method == "gloo":  # Use gloo.
         wireup_store = dist.TCPStore(
             host_name=master_address,
             port=port,
-            world_size=nccl_world_size,
-            is_master=(nccl_world_rank == 0),
+            world_size=comm_size,
+            is_master=(comm_rank == 0),
             timeout=dt.timedelta(seconds=60),
         )
         dist.init_process_group(
             backend="gloo",
             store=wireup_store,
-            world_size=nccl_world_size,
-            rank=nccl_world_rank,
+            world_size=comm_size,
+            rank=comm_rank,
         )
     else:
         raise NotImplementedError(
-            f"Given 'method' ({method}) not in [nccl-openmpi, nccl-slurm, gloo]"
+            f"Given 'method' ({method}) not in [nccl-openmpi, nccl-slurm, gloo]!"
         )
 
-    # make sure to call a barrier here in order for sharp to use the default comm:
+    # Call a barrier here in order for sharp to use the default comm.
     if dist.is_initialized():
         dist.barrier()
         disttest = torch.ones(1)
@@ -254,7 +259,7 @@ def torch_process_group_init(subgroup_comm: MPI.Comm, method) -> None:
             disttest = disttest.cuda()
 
         dist.all_reduce(disttest)
-        assert disttest[0] == nccl_world_size, "failed test of dist!"
+        assert disttest[0] == comm_size, "Failed test of dist!"
     else:
         disttest = None
     log.info(
@@ -272,11 +277,13 @@ def ind_loss(
     ----------
     params : Dict[str, int | float | str]
         The hyperparameters to be optimized evolutionarily.
+    subgroup_comm : MPI.Comm
+        Each multi-rank worker's subgroup communicator.
 
     Returns
     -------
     float
-        The trained model's negative validation accuracy.
+        The trained model's validation loss.
     """
     torch_process_group_init(subgroup_comm, method=SUBGROUP_COMM_METHOD)
     # Extract hyperparameter combination to test from input dictionary.
@@ -308,16 +315,19 @@ def ind_loss(
         model = model.to(device)
     else:
         device = "cpu"
+
     optimizer = optim.Adadelta(model.parameters(), lr=lr)
-    scheduler = StepLR(optimizer, step_size=1, gamma=gamma)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=gamma)
     log_interval = 10000
     best_val_loss = 1000000
     early_stopping_count, early_stopping_limit = 0, 5
     set_new_best = False
     model.train()
-    for epoch in range(epochs):
-        # train loop ====================================================
-        for batch_idx, (data, target) in enumerate(train_loader):
+    for epoch in range(epochs):  # Loop over epochs.
+        # ------------ Train loop ------------
+        for batch_idx, (data, target) in enumerate(
+            train_loader
+        ):  # Loop over training batches.
             data, target = data.to(device), target.to(device)
             optimizer.zero_grad()
             output = model(data)
@@ -326,9 +336,10 @@ def ind_loss(
             optimizer.step()
             if batch_idx % log_interval == 0 or batch_idx == len(train_loader) - 1:
                 log.info(
-                    f"Train Epoch: {epoch} [{batch_idx}/{len(train_loader)} ({100. * batch_idx / len(train_loader):.0f}%)]\tLoss: {loss.item():.6f}"
+                    f"Train Epoch: {epoch} [{batch_idx}/{len(train_loader)} "
+                    f"({100. * batch_idx / len(train_loader):.0f}%)]\tLoss: {loss.item():.6f}"
                 )
-        # val loop ======================================================
+        # ------------ Validation loop ------------
         model.eval()
         val_loss = 0
         correct = 0
@@ -336,10 +347,10 @@ def ind_loss(
             for data, target in val_loader:
                 data, target = data.to(device), target.to(device)
                 output = model(data)
-                val_loss += loss_fn(output, target).item()  # sum up batch loss
+                val_loss += loss_fn(output, target).item()  # Sum up batch loss.
                 pred = output.argmax(
                     dim=1, keepdim=True
-                )  # get the index of the max log-probability
+                )  # Get the index of the max log-probability.
                 correct += pred.eq(target.view_as(pred)).sum().item()
 
         val_loss /= len(val_loader.dataset)
@@ -348,7 +359,8 @@ def ind_loss(
             set_new_best = True
 
         log.info(
-            f"\nTest set: Average loss: {val_loss:.4f}, Accuracy: {correct}/{len(val_loader.dataset)} ({100. * correct / len(val_loader.dataset):.0f}%)\n"
+            f"\nTest set: Average loss: {val_loss:.4f}, Accuracy: {correct}/{len(val_loader.dataset)} "
+            f"({100. * correct / len(val_loader.dataset):.0f}%)\n"
         )
 
         if not set_new_best:
@@ -357,11 +369,11 @@ def ind_loss(
             log.info("hit early stopping count, breaking")
             break
 
-        # scheduler step ================================================
+        # ------------ Scheduler step ------------
         scheduler.step()
         set_new_best = False
 
-    # Return best validation loss as an individual's loss (trained so lower is better)
+    # Return best validation loss as an individual's loss (trained so lower is better).
     dist.destroy_process_group()
     return best_val_loss
 
@@ -370,7 +382,7 @@ if __name__ == "__main__":
     config, _ = parse_arguments()
 
     comm = MPI.COMM_WORLD
-    if comm.rank == 0:  # Download data at the top, then we dont need to later
+    if comm.rank == 0:  # Download data at the top, then we don't need to later.
         train_loader = DataLoader(
             dataset=MNIST(
                 download=True, root=".", transform=None, train=True
