@@ -1,4 +1,5 @@
 """Simple island model example script."""
+
 import pathlib
 import random
 

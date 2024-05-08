@@ -4,6 +4,7 @@ Example use case for the PSO propagators.
 You can choose between benchmark functions and optimize them. The example shows how to set up Propulate in order to use
 it with PSO.
 """
+
 import pathlib
 import random
 

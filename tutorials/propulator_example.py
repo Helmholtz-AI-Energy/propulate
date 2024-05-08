@@ -1,4 +1,5 @@
 """Simple Propulator example script using the default genetic propagator."""
+
 import pathlib
 import random
 

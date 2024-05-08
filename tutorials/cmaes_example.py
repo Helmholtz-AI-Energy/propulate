@@ -1,4 +1,5 @@
 """Simple example script using CMA-ES."""
+
 import pathlib
 import random
 
