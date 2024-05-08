@@ -383,17 +383,9 @@ if __name__ == "__main__":
 
     comm = MPI.COMM_WORLD
     if comm.rank == 0:  # Download data at the top, then we don't need to later.
-        train_loader = DataLoader(
-            dataset=MNIST(
-                download=True, root=".", transform=None, train=True
-            ),  # Use MNIST training dataset.
-            batch_size=2,  # Batch size
-            num_workers=1,
-            pin_memory=True,
-            persistent_workers=True,
-            shuffle=True,  # Shuffle data.
-        )
-        del train_loader
+        dataset = MNIST(download=True, root=".", transform=None, train=True)
+        dataset = MNIST(download=True, root=".", transform=None, train=False)
+        del dataset
     comm.Barrier()
     pop_size = 2 * comm.size  # Breeding population size
     limits = {
