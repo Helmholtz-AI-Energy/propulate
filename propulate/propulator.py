@@ -10,12 +10,13 @@ from pathlib import Path
 from typing import Callable, Final, Generator, List, Optional, Tuple, Type, Union
 
 import deepdiff
+import h5py
 import numpy as np
 from mpi4py import MPI
 
 from ._globals import INDIVIDUAL_TAG
 from .population import Individual
-from .propagators import Propagator, SelectMin
+from .propagators import BasicPSO, Propagator, SelectMin
 from .surrogate import Surrogate
 
 log = logging.getLogger(__name__)  # Get logger instance.
@@ -207,6 +208,155 @@ class Propulator:
                 log.info(
                     "No valid checkpoint file given. Initializing population randomly..."
                 )
+
+    def load_checkpoint(self):
+        """Load checkpoint from HDF5 file. Since this is only a read, all workers can do this in read-only mode without the mpio driver."""
+        # TODO check that the island and worker setup is the same as in the checkpoint
+        # TODO load the migrated individuals from the other islands checkpoints
+        # NOTE each individual is only stored once at the position given by its origin island and worker, the modifications have to be put in the checkpoint file during migration  TODO test if this works as intended reliably
+        # TODO get the started but not yet completed ones from the difference in start time and evaltime
+
+        with h5py.File(self.checkpoint_path, "r", driver=None) as f:
+            group = f[f"{self.island_idx}"]
+            self.generation = group[f"{self.comm.Get_rank()}"].attrs["generation"]
+            for rank in range(self.comm.size):
+                # for generation in range(len(group[f"{rank}"])):
+                for generation in range(self.generation):
+                    if group[f"{rank}"]["current"][generation] == self.island_idx:
+                        ind = Individual(
+                            group[f"{rank}"]["x"][generation, 0],
+                            self.propagator.limits,
+                        )
+                        ind.rank = rank
+                        ind.island = self.island_idx
+                        ind.current = group[f"{rank}"]["current"][generation]
+                        # TODO velocity loading
+                        # if len(group[f"{rank}"].shape) > 1:
+                        #     ind.velocity = group[f"{rank}"]["x"][generation, 1]
+                        ind.loss = group[f"{rank}"]["loss"][generation]
+                        ind.startime = group[f"{rank}"]["starttime"][generation]
+                        ind.evaltime = group[f"{rank}"]["evaltime"][generation]
+                        ind.evalperiod = group[f"{rank}"]["evalperiod"][generation]
+                        ind.generation = generation
+                        self.population.append(ind)
+
+    def set_up_checkpoint(self):
+        """Initialize checkpoint file."""
+        limit_dim = 0
+        for key in self.propagator.limits:
+            if isinstance(self.propagator.limits[key][0], str):
+                limit_dim += len(self.propagator.limits[key])
+            else:
+                limit_dim += 1
+
+        num_islands = 1
+        if self.island_counts is not None:
+            num_islands = len(self.island_counts)
+
+        with h5py.File(
+            self.checkpoint_path, "a", driver="mpio", comm=MPI.COMM_WORLD
+        ) as f:
+            # limits
+            limitsgroup = f.require_group("limits")
+            for key in self.propagator.limits:
+                if key not in limitsgroup.attrs:
+                    limitsgroup.attrs[key] = str(self.propagator.limits[key])
+                else:
+                    if not str(self.propagator.limits[key]) == limitsgroup.attrs[key]:
+                        raise RuntimeError("Limits inconsistent with checkpoint")
+
+            xdim = 1
+            if isinstance(self.propagator, BasicPSO):
+                xdim = 2
+
+            oldgenerations = self.generations
+            if "0" in f:
+                oldgenerations = f["0"]["0"]["x"].shape[0]
+
+            # population
+            for i in range(num_islands):
+                f.require_group(f"{i}")
+                for worker_idx in range(self.comm.Get_size()):
+                    group = f[f"{i}"].require_group(f"{worker_idx}")
+                    if oldgenerations < self.generations:
+                        group["x"].resize(self.generations, axis=0)
+                        group["loss"].resize(self.generations, axis=0)
+                        group["active"].resize(self.generations, axis=0)
+                        group["current"].resize(self.generations, axis=0)
+                        group["migration_steps"].resize(self.generations, axis=0)
+                        group["starttime"].resize(self.generations, axis=0)
+                        group["evaltime"].resize(self.generations, axis=0)
+                        group["evalperiod"].resize(self.generations, axis=0)
+
+                    group.require_dataset(
+                        "x",
+                        (self.generations, xdim, limit_dim),
+                        dtype=np.float32,
+                        chunks=True,
+                        maxshape=(None, xdim, limit_dim),
+                    )
+                    group.require_dataset(
+                        "loss",
+                        (self.generations,),
+                        np.float32,
+                        chunks=True,
+                        maxshape=(None,),
+                    )
+                    group.require_dataset(
+                        "active",
+                        (self.generations,),
+                        np.bool_,
+                        chunks=True,
+                        maxshape=(None,),
+                    )
+                    group.require_dataset(
+                        "current",
+                        (self.generations,),
+                        np.int16,
+                        chunks=True,
+                        maxshape=(None,),
+                    )
+                    group.require_dataset(
+                        "migration_steps",
+                        (self.generations,),
+                        np.int32,
+                        chunks=True,
+                        maxshape=(None,),
+                    )
+                    group.require_dataset(
+                        "starttime",
+                        (self.generations,),
+                        np.uint64,
+                        chunks=True,
+                        maxshape=(None,),
+                    )
+                    group.require_dataset(
+                        "evaltime",
+                        (self.generations,),
+                        np.uint64,
+                        chunks=True,
+                        maxshape=(None,),
+                    )
+                    group.require_dataset(
+                        "evalperiod",
+                        (self.generations,),
+                        np.uint64,
+                        chunks=True,
+                        maxshape=(None,),
+                    )
+
+    def propulate(self, logging_interval: int = 10, debug: int = 1) -> None:
+        """
+        Run asynchronous evolutionary optimization routine.
+
+        Parameters
+        ----------
+        logging_interval : int, optional
+            Print each worker's progress every ``logging_interval``-th generation. Default is 10.
+        debug : int, optional
+            The debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode). Default is 1.
+        """
+        self._work(logging_interval, debug)
 
     def _get_active_individuals(self) -> Tuple[List[Individual], int]:
         """
