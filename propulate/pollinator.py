@@ -411,7 +411,6 @@ class Pollinator(Propulator):
         if self.island_comm.rank == 0:
             log.info(f"Island {self.island_idx} has {self.island_comm.size} workers.")
 
-        dump = True if self.island_comm.rank == 0 else False
         migration = True if self.migration_prob > 0 else False
         self.propulate_comm.barrier()
 
@@ -440,12 +439,6 @@ class Pollinator(Propulator):
                 # Immigration: Check for individuals replaced by other intra-island workers to be deactivated.
                 self._deactivate_replaced_individuals()
 
-            if dump:  # Dump checkpoint.
-                self._dump_checkpoint()
-
-            dump = (
-                self._determine_worker_dumping_next()
-            )  # Determine worker dumping checkpoint in the next generation.
             self.generation += 1  # Go to next generation.
 
         # Having completed all generations, the workers have to wait for each other.
@@ -477,11 +470,3 @@ class Pollinator(Propulator):
                     f"Finally {len(self.replaced)} individual(s) in replaced: {self.replaced}:\n{self.population}"
                 )
                 self._deactivate_replaced_individuals()
-            self.propulate_comm.barrier()
-
-        # Final checkpointing on rank 0.
-        if self.island_comm.rank == 0:
-            self._dump_final_checkpoint()  # Dump checkpoint.
-        self.propulate_comm.barrier()
-        _ = self._determine_worker_dumping_next()
-        self.propulate_comm.barrier()

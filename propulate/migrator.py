@@ -428,7 +428,6 @@ class Migrator(Propulator):
         if self.island_comm.rank == 0:
             log.info(f"Island {self.island_idx} has {self.island_comm.size} workers.")
 
-        dump = True if self.island_comm.rank == 0 else False
         migration = True if self.migration_prob > 0 else False
         self.propulate_comm.barrier()
 
@@ -460,13 +459,6 @@ class Migrator(Propulator):
                 if debug == 2:
                     check = self._check_emigrants_to_deactivate()
                     assert check is False
-
-            if dump:  # Dump checkpoint.
-                self._dump_checkpoint()
-
-            dump = (
-                self._determine_worker_dumping_next()
-            )  # Determine worker dumping checkpoint in the next generation.
             self.generation += 1  # Go to next generation.
 
         # Having completed all generations, the workers have to wait for each other.
@@ -507,12 +499,3 @@ class Migrator(Propulator):
                         raise ValueError(
                             "There should not be any individuals left that need to be deactivated."
                         )
-
-            self.propulate_comm.barrier()
-
-        # Final checkpointing on rank 0.
-        if self.island_comm.rank == 0:
-            self._dump_final_checkpoint()  # Dump checkpoint.
-        self.propulate_comm.barrier()
-        _ = self._determine_worker_dumping_next()
-        self.propulate_comm.barrier()
