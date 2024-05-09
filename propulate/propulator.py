@@ -13,7 +13,7 @@ import deepdiff
 import numpy as np
 from mpi4py import MPI
 
-from ._globals import DUMP_TAG, INDIVIDUAL_TAG
+from ._globals import INDIVIDUAL_TAG
 from .population import Individual
 from .propagators import Propagator, SelectMin
 from .surrogate import Surrogate
@@ -441,9 +441,6 @@ class Propulator:
         if self.island_comm.rank == 0:
             log.info(f"Island {self.island_idx} has {self.island_comm.size} workers.")
 
-        dump = True if self.island_comm.rank == 0 else False
-        self.propulate_comm.barrier()
-
         # Loop over generations.
         while self.generations <= -1 or self.generation < self.generations:
             if self.generation % int(logging_interval) == 0:
@@ -457,12 +454,6 @@ class Propulator:
 
             # Clean up requests and buffers.
             self._intra_send_cleanup()
-
-            if dump:  # Dump checkpoint.
-                self._dump_checkpoint()
-
-            dump = self._determine_worker_dumping_next()  # Determine worker dumping checkpoint in the next generation.
-
             # Go to next generation.
             self.generation += 1
 
@@ -480,13 +471,6 @@ class Propulator:
         self._receive_intra_island_individuals()
         self.propulate_comm.barrier()
 
-        # Final checkpointing on rank 0.
-        if self.island_comm.rank == 0:
-            self._dump_final_checkpoint()  # Dump checkpoint.
-        self.propulate_comm.barrier()
-        _ = self._determine_worker_dumping_next()
-        self.propulate_comm.barrier()
-
     def _intra_send_cleanup(self) -> None:
         """Delete all send buffers that have been sent."""
         # Test for requests to complete.
@@ -494,48 +478,6 @@ class Propulator:
         # Remove requests and buffers of complete send operations.
         self.intra_requests = [r for i, r in enumerate(self.intra_requests) if i not in completed]
         self.intra_buffers = [b for i, b in enumerate(self.intra_buffers) if i not in completed]
-
-    def _dump_checkpoint(self) -> None:
-        """Dump checkpoint to file."""
-        log.debug(f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: Dumping checkpoint...")
-        save_ckpt_file = self.checkpoint_path / f"island_{self.island_idx}_ckpt.pickle"
-        if os.path.isfile(save_ckpt_file):
-            try:
-                os.replace(save_ckpt_file, save_ckpt_file.with_suffix(".bkp"))
-            except OSError as e:
-                log.warning(e)
-        with open(save_ckpt_file, "wb") as f:
-            pickle.dump(self.population, f)
-
-        dest = self.island_comm.rank + 1 if self.island_comm.rank + 1 < self.island_comm.size else 0
-        if self.island_comm.size > 1:
-            self.island_comm.send(True, dest=dest, tag=DUMP_TAG)
-
-    def _determine_worker_dumping_next(self) -> bool:
-        """Determine the worker who dumps the checkpoint in the next generation."""
-        if self.island_comm.size == 1:
-            return True
-        dump = False
-        stat = MPI.Status()
-        probe_dump = self.island_comm.iprobe(source=MPI.ANY_SOURCE, tag=DUMP_TAG, status=stat)
-        if probe_dump:
-            dump = self.island_comm.recv(source=stat.Get_source(), tag=DUMP_TAG)
-            log.debug(
-                f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: "
-                f"Going to dump next: {dump}. Before: Worker {stat.Get_source()}"
-            )
-        return dump
-
-    def _dump_final_checkpoint(self) -> None:
-        """Dump final checkpoint."""
-        save_ckpt_file = self.checkpoint_path / f"island_{self.island_idx}_ckpt.pickle"
-        if os.path.isfile(save_ckpt_file):
-            try:
-                os.replace(save_ckpt_file, save_ckpt_file.with_suffix(".bkp"))
-            except OSError as e:
-                log.warning(e)
-            with open(save_ckpt_file, "wb") as f:
-                pickle.dump(self.population, f)
 
     def _check_for_duplicates(self, active: bool, debug: int = 1) -> Tuple[List[List[Union[Individual, int]]], List[Individual]]:
         """
