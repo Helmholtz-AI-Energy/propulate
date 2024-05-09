@@ -94,7 +94,6 @@ class Individual:
     def __setitem__(self, key, newvalue):
         """Encode and set value for given key."""
         # super(Individual, self).__setitem__(key, newvalue)
-        print(key, newvalue)
         self.mapping[key] = newvalue
         if key.startswith("_"):
             pass

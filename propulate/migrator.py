@@ -414,8 +414,6 @@ class Migrator(Propulator):
         if self.propulate_comm is None:
             while self.generations <= -1 or self.generation < self.generations:
                 # Breed and evaluate individual.
-                # print(self.generation)
-
                 self._evaluate_individual()
                 self.generation += 1
             return
