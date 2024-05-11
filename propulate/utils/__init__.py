@@ -87,7 +87,7 @@ def get_default_propagator(
         )
 
     init = InitUniform(limits, rng=rng)
-    propagator = Conditional(pop_size, propagator, init)  # Initialize random if population size < specified `pop_size`.
+    propagator = Conditional(limits, pop_size, propagator, init)  # Initialize random if population size < specified `pop_size`.
     return propagator
 
 
