@@ -611,8 +611,8 @@ class Propulator:
             self.generation = self.worker_sub_comm.bcast(self.generation, root=0)
         if self.propulate_comm is None:
             while self.generation < self.generations:
-                raise
                 # Breed and evaluate individual.
+                # TODO this should be refactored, the subworkers don't need the logfile
                 self._evaluate_individual()
                 self.generation += 1
             return
