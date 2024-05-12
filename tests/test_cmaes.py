@@ -1,3 +1,4 @@
+import logging
 import pathlib
 import random
 
@@ -5,7 +6,10 @@ import pytest
 
 from propulate import Propulator
 from propulate.propagators import ActiveCMA, BasicCMA, CMAAdapter, CMAPropagator
+from propulate.utils import set_logger_config
 from propulate.utils.benchmark_functions import get_function_search_space
+
+log = logging.getLogger("propulate")  # Get logger instance.
 
 
 @pytest.fixture(params=[BasicCMA(), ActiveCMA()])
@@ -27,6 +31,7 @@ def test_cmaes_basic(cma_adapter: CMAAdapter, mpi_tmp_path: pathlib.Path) -> Non
     mpi_tmp_path : pathlib.Path
         The temporary checkpoint directory.
     """
+    set_logger_config()
     rng = random.Random(42)  # Separate random number generator for optimization.
     benchmark_function, limits = get_function_search_space("sphere")
     # Set up evolutionary operator.
@@ -43,3 +48,4 @@ def test_cmaes_basic(cma_adapter: CMAAdapter, mpi_tmp_path: pathlib.Path) -> Non
     )
     # Run optimization and print summary of results.
     propulator.propulate()
+    log.handlers.clear()

@@ -1,4 +1,5 @@
 import copy
+import logging
 import pathlib
 import random
 
@@ -15,8 +16,10 @@ from propulate.propagators.pso import (
     InitUniformPSO,
     VelocityClampingPSO,
 )
+from propulate.utils import set_logger_config
 from propulate.utils.benchmark_functions import get_function_search_space, sphere
 
+log = logging.getLogger("propulate")  # Get logger instance.
 limits = get_function_search_space("sphere")[1]
 rank = MPI.COMM_WORLD.rank
 rng = random.Random(42 + rank)
@@ -68,6 +71,7 @@ def test_pso(pso_propagator: Propagator, mpi_tmp_path: pathlib.Path) -> None:
     mpi_tmp_path : pathlib.Path
         The temporary checkpoint directory.
     """
+    set_logger_config()
     # Set up pso propagator.
     init = InitUniformPSO(limits, rng=rng, rank=rank)
     propagator = Conditional(limits, 1, pso_propagator, init)
@@ -83,6 +87,7 @@ def test_pso(pso_propagator: Propagator, mpi_tmp_path: pathlib.Path) -> None:
 
     # Run optimization and print summary of results.
     propulator.propulate()
+    log.handlers.clear()
 
 
 @pytest.mark.mpi
@@ -97,6 +102,7 @@ def test_pso_checkpointing(pso_propagator, mpi_tmp_path: pathlib.Path):
     mpi_tmp_path : pathlib.Path
         The temporary checkpoint directory.
     """
+    set_logger_config()
     # Set up pso propagator.
     init = InitUniformPSO(limits, rng=rng, rank=rank)
     propagator = Conditional(limits, 1, pso_propagator, init)
@@ -133,6 +139,7 @@ def test_pso_checkpointing(pso_propagator, mpi_tmp_path: pathlib.Path):
         len(deepdiff.DeepDiff(old_population, propulator.population, ignore_order=True))
         == 0
     )
+    log.handlers.clear()
 
 
 # TODO test resuming pso run from a non-pso checkpoint
