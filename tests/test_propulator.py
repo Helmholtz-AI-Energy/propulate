@@ -114,6 +114,7 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
     # As the number of requested generations is smaller than the number of generations from the run before,
     # no new evaluations are performed. Thus, the length of both Propulators' populations must be equal.
     assert len(deepdiff.DeepDiff(old_population, propulator.population, ignore_order=True)) == 0
+    propulator.propulate()
     log.handlers.clear()
 
 
