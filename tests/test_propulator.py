@@ -123,6 +123,8 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
         len(deepdiff.DeepDiff(old_population, propulator.population, ignore_order=True))
         == 0
     )
+
+    propulator.propulate()
     log.handlers.clear()
 
 
