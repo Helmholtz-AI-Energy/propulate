@@ -4,6 +4,7 @@ import random
 from pathlib import Path
 from typing import Callable, Generator, List, Optional, Tuple, Type, Union
 
+import h5py
 import numpy as np
 from mpi4py import MPI
 
@@ -415,31 +416,35 @@ class Pollinator(Propulator):
         self.propulate_comm.barrier()
 
         # Loop over generations.
-        while self.generations <= -1 or self.generation < self.generations:
-            if debug == 1 and self.generation % int(logging_interval) == 0:
-                log.info(
-                    f"Island {self.island_idx} Worker {self.island_comm.rank}: In generation {self.generation}..."
-                )
+        # TODO this should probably be refactored, checkpointing can probably be handled in one place
+        with h5py.File(
+            self.checkpoint_path, "a", driver="mpio", comm=MPI.COMM_WORLD
+        ) as f:
+            while self.generations <= -1 or self.generation < self.generations:
+                if debug == 1 and self.generation % int(logging_interval) == 0:
+                    log.info(
+                        f"Island {self.island_idx} Worker {self.island_comm.rank}: In generation {self.generation}..."
+                    )
 
-            # Breed and evaluate individual.
-            self._evaluate_individual()
+                # Breed and evaluate individual.
+                self._evaluate_individual(f)
 
-            # Check for and possibly receive incoming individuals from other intra-island workers.
-            self._receive_intra_island_individuals()
+                # Check for and possibly receive incoming individuals from other intra-island workers.
+                self._receive_intra_island_individuals()
 
-            if migration:
-                # Emigration: Island sends individuals out.
-                # Happens on per-worker basis with certain probability.
-                if self.rng.random() < self.migration_prob:
-                    self._send_emigrants()
+                if migration:
+                    # Emigration: Island sends individuals out.
+                    # Happens on per-worker basis with certain probability.
+                    if self.rng.random() < self.migration_prob:
+                        self._send_emigrants()
 
-                # Immigration: Island checks for incoming individuals from other islands.
-                self._receive_immigrants()
+                    # Immigration: Island checks for incoming individuals from other islands.
+                    self._receive_immigrants()
 
-                # Immigration: Check for individuals replaced by other intra-island workers to be deactivated.
-                self._deactivate_replaced_individuals()
+                    # Immigration: Check for individuals replaced by other intra-island workers to be deactivated.
+                    self._deactivate_replaced_individuals()
 
-            self.generation += 1  # Go to next generation.
+                self.generation += 1  # Go to next generation.
 
         # Having completed all generations, the workers have to wait for each other.
         # Once all workers are done, they should check for incoming messages once again
