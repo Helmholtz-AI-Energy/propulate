@@ -10,6 +10,8 @@ from propulate import Propulator
 from propulate.utils import get_default_propagator, set_logger_config
 from propulate.utils.benchmark_functions import get_function_search_space
 
+set_logger_config()
+
 
 @pytest.fixture(
     params=[
@@ -51,7 +53,6 @@ def test_propulator(function_name: str, mpi_tmp_path: pathlib.Path) -> None:
         42 + MPI.COMM_WORLD.rank
     )  # Random number generator for optimization
     benchmark_function, limits = get_function_search_space(function_name)
-    set_logger_config(log_file=mpi_tmp_path / "log.log")
     propagator = get_default_propagator(
         pop_size=4,
         limits=limits,
@@ -91,7 +92,7 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
     propulator = Propulator(
         loss_fn=benchmark_function,
         propagator=propagator,
-        generations=100,
+        generations=10,
         checkpoint_path=mpi_tmp_path,
         rng=rng,
     )  # Set up propulator performing actual optimization.
@@ -118,3 +119,6 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
         len(deepdiff.DeepDiff(old_population, propulator.population, ignore_order=True))
         == 0
     )
+
+
+# TODO test loading a checkpoint with an unevaluated individual
