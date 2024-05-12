@@ -109,6 +109,11 @@ def test_static_island(mpi_tmp_path: Path) -> None:
     )
     islands.summarize(top_n=1, debug=2)
     MPI.COMM_WORLD.barrier()
+<<<<<<< HEAD
+=======
+    delattr(get_data_loaders, "barrier_called")
+    log.handlers.clear()
+>>>>>>> fb69169 (fixed logging output during tests and added a surrogate checkpointing test stub)
 
 
 def test_dynamic(mpi_tmp_path: Path) -> None:
@@ -146,9 +151,23 @@ def test_dynamic(mpi_tmp_path: Path) -> None:
     "ignore::DeprecationWarning",
     match="Assigning the 'data' attribute is an inherently unsafe operation and will be removed in the future.",
 )
+<<<<<<< HEAD
 def test_dynamic_island(mpi_tmp_path: Path) -> None:
     """Test dynamic surrogate using a dummy function."""
     num_generations = 4  # Number of generations
+=======
+<<<<<<< HEAD
+def test_dynamic(mpi_tmp_path: Path) -> None:
+    """Test dynamic surrogate using a dummy function."""
+    num_generations = 10  # Number of generations
+=======
+@pytest.mark.mpi(min_size=4)
+def test_mnist_dynamic(mpi_tmp_path):
+    """Test static surrogate using a torch convolutional network on the MNIST dataset."""
+    set_logger_config()
+    num_generations = 3  # Number of generations
+>>>>>>> fb69169 (fixed logging output during tests and added a surrogate checkpointing test stub)
+>>>>>>> 0e448fb (fixed logging output during tests and added a surrogate checkpointing test stub)
     pop_size = 2 * MPI.COMM_WORLD.size  # Breeding population size
     limits: Dict[str, Union[Tuple[int, int], Tuple[float, float], Tuple[str, ...]]] = {
         "start": (0.1, 7.0),
@@ -174,5 +193,18 @@ def test_dynamic_island(mpi_tmp_path: Path) -> None:
         logging_interval=1,  # Logging interval
         debug=2,  # Verbosity level
     )
+<<<<<<< HEAD
     islands.summarize(top_n=1, debug=2)
+<<<<<<< HEAD
     MPI.COMM_WORLD.barrier()
+=======
+=======
+    log.handlers.clear()
+
+
+@pytest.mark.mpi(min_size=4)
+def test_mnist_dynamic_checkpointing(mpi_tmp_path):
+    """Test whether the surrogate state for pruning is checkpointed correctly."""
+    raise
+>>>>>>> fb69169 (fixed logging output during tests and added a surrogate checkpointing test stub)
+>>>>>>> 0e448fb (fixed logging output during tests and added a surrogate checkpointing test stub)
