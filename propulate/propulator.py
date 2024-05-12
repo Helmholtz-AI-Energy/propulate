@@ -209,7 +209,6 @@ class Propulator:
             # TODO check island sizes are consistent
 
             self.generation = int(f["generations"][self.propulate_comm.Get_rank()])
-            print("AAAAAA", self.generation)
             # NOTE load individuals, since they might have migrated, every worker has to check each dataset
             for rank in range(self.propulate_comm.size):
                 # for generation in range(len(islandgroup[f"{rank}"])):
