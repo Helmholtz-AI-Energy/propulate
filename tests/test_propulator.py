@@ -1,4 +1,5 @@
 import copy
+import logging
 import pathlib
 import random
 
@@ -10,7 +11,7 @@ from propulate import Propulator
 from propulate.utils import get_default_propagator, set_logger_config
 from propulate.utils.benchmark_functions import get_function_search_space
 
-set_logger_config()
+log = logging.getLogger("propulate")  # Get logger instance.
 
 
 @pytest.fixture(
@@ -49,6 +50,7 @@ def test_propulator(function_name: str, mpi_tmp_path: pathlib.Path) -> None:
     mpi_tmp_path : pathlib.Path
         The temporary checkpoint directory.
     """
+    set_logger_config()
     rng = random.Random(
         42 + MPI.COMM_WORLD.rank
     )  # Random number generator for optimization
@@ -66,6 +68,7 @@ def test_propulator(function_name: str, mpi_tmp_path: pathlib.Path) -> None:
         checkpoint_path=mpi_tmp_path,
     )  # Set up propulator performing actual optimization.
     propulator.propulate()  # Run optimization and print summary of results.
+    log.handlers.clear()
 
 
 def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
@@ -79,6 +82,7 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
     mpi_tmp_path : pathlib.Path
         The temporary checkpoint directory.
     """
+    set_logger_config()
     rng = random.Random(
         42 + MPI.COMM_WORLD.rank
     )  # Separate random number generator for optimization
@@ -92,7 +96,7 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
     propulator = Propulator(
         loss_fn=benchmark_function,
         propagator=propagator,
-        generations=10,
+        generations=100,
         checkpoint_path=mpi_tmp_path,
         rng=rng,
     )  # Set up propulator performing actual optimization.
@@ -108,7 +112,7 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
     propulator = Propulator(
         loss_fn=benchmark_function,
         propagator=propagator,
-        generations=20,
+        generations=200,
         checkpoint_path=mpi_tmp_path,
         rng=rng,
     )  # Set up new propulator starting from checkpoint.
@@ -119,6 +123,7 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
         len(deepdiff.DeepDiff(old_population, propulator.population, ignore_order=True))
         == 0
     )
+    log.handlers.clear()
 
 
 # TODO test loading a checkpoint with an unevaluated individual

@@ -1,4 +1,5 @@
 import copy
+import logging
 import pathlib
 import random
 from typing import Callable, Dict, Tuple
@@ -13,7 +14,7 @@ from propulate.propagators import Propagator
 from propulate.utils import get_default_propagator, set_logger_config
 from propulate.utils.benchmark_functions import get_function_search_space
 
-set_logger_config()
+log = logging.getLogger("propulate")  # Get logger instance.
 
 
 @pytest.fixture(scope="module")
@@ -64,6 +65,7 @@ def test_islands(
     mpi_tmp_path : pathlib.Path
         The temporary checkpoint directory.
     """
+    set_logger_config()
     rng, benchmark_function, limits, propagator = global_variables
 
     # Set up island model.
@@ -83,6 +85,7 @@ def test_islands(
         debug=2,
     )
     islands.summarize(debug=2)
+    log.handlers.clear()
 
 
 @pytest.mark.mpi(min_size=4)
@@ -102,6 +105,7 @@ def test_checkpointing_isolated(
     mpi_tmp_path : pathlib.Path
         The temporary checkpoint directory.
     """
+    set_logger_config()
     rng, benchmark_function, limits, propagator = global_variables
 
     # Set up island model.
@@ -140,6 +144,7 @@ def test_checkpointing_isolated(
         )
         == 0
     )
+    log.handlers.clear()
 
 
 @pytest.mark.mpi(min_size=4)
@@ -162,6 +167,7 @@ def test_checkpointing(
     mpi_tmp_path : pathlib.Path
         The temporary checkpoint directory.
     """
+    set_logger_config()
     rng, benchmark_function, limits, propagator = global_variables
 
     # Set up island model.
@@ -202,6 +208,7 @@ def test_checkpointing(
         )
         == 0
     )
+    log.handlers.clear()
 
 
 @pytest.mark.mpi(min_size=8)
@@ -224,6 +231,7 @@ def test_checkpointing_unequal_populations(
     mpi_tmp_path : pathlib.Path
         The temporary checkpoint directory.
     """
+    set_logger_config()
     rng, benchmark_function, limits, propagator = global_variables
 
     # Set up island model.
@@ -266,3 +274,4 @@ def test_checkpointing_unequal_populations(
         )
         == 0
     )
+    log.handlers.clear()

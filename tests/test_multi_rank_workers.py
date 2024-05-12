@@ -1,3 +1,4 @@
+import logging
 import pathlib
 import random
 from typing import Dict
@@ -9,7 +10,7 @@ from mpi4py import MPI
 from propulate import Islands
 from propulate.utils import get_default_propagator, set_logger_config
 
-set_logger_config()
+log = logging.getLogger("propulate")  # Get logger instance.
 
 
 def parallel_sphere(params: Dict[str, float], comm: MPI.Comm = MPI.COMM_SELF) -> float:
@@ -52,6 +53,7 @@ def test_multi_rank_workers(mpi_tmp_path: pathlib.Path) -> None:
     mpi_tmp_path : pathlib.Path
         The temporary checkpoint directory.
     """
+    set_logger_config()
     full_world_comm = MPI.COMM_WORLD  # Get full world communicator.
 
     rng = random.Random(42 + full_world_comm.rank)
@@ -85,3 +87,4 @@ def test_multi_rank_workers(mpi_tmp_path: pathlib.Path) -> None:
         debug=1,  # Debug level
     )
     islands.summarize(top_n=1, debug=1)
+    log.handlers.clear()

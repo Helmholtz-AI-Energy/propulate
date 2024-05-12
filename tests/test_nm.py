@@ -1,3 +1,4 @@
+import logging
 import pathlib
 import random
 from typing import Tuple
@@ -7,7 +8,10 @@ import pytest
 
 from propulate import Propulator
 from propulate.propagators import ParallelNelderMead
+from propulate.utils import set_logger_config
 from propulate.utils.benchmark_functions import get_function_search_space
+
+log = logging.getLogger("propulate")  # Get logger instance.
 
 
 @pytest.fixture(
@@ -48,6 +52,7 @@ def test_cmaes(
     mpi_tmp_path : pathlib.Path
         The temporary checkpoint directory.
     """
+    set_logger_config()
     rng = random.Random(42)  # Separate random number generator for optimization.
     function, limits = get_function_search_space(function_parameters[0])
     # Set up evolutionary operator.
@@ -67,3 +72,4 @@ def test_cmaes(
     # Run optimization and print summary of results.
     propulator.propulate()
     propulator.summarize()
+    log.handlers.clear()
