@@ -13,6 +13,8 @@ from propulate.propagators import Propagator
 from propulate.utils import get_default_propagator, set_logger_config
 from propulate.utils.benchmark_functions import get_function_search_space
 
+set_logger_config()
+
 
 @pytest.fixture(scope="module")
 def global_variables() -> Tuple[random.Random, Callable, Dict, Propagator]:
@@ -57,7 +59,6 @@ def test_islands(
         The temporary checkpoint directory.
     """
     rng, benchmark_function, limits, propagator = global_variables
-    set_logger_config(log_file=mpi_tmp_path / "log.log")
 
     # Set up island model.
     islands = Islands(
@@ -94,7 +95,6 @@ def test_checkpointing_isolated(
         The temporary checkpoint directory.
     """
     rng, benchmark_function, limits, propagator = global_variables
-    set_logger_config(log_file=mpi_tmp_path / "log.log")
 
     # Set up island model.
     islands = Islands(
@@ -146,7 +146,6 @@ def test_checkpointing(
         The temporary checkpoint directory.
     """
     rng, benchmark_function, limits, propagator = global_variables
-    set_logger_config(log_file=mpi_tmp_path / "log.log")
 
     # Set up island model.
     islands = Islands(
@@ -200,7 +199,6 @@ def test_checkpointing_unequal_populations(
         The temporary checkpoint directory.
     """
     rng, benchmark_function, limits, propagator = global_variables
-    set_logger_config(log_file=mpi_tmp_path / "log.log")
 
     # Set up island model.
     islands = Islands(
