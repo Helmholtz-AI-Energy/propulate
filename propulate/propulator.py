@@ -2,7 +2,6 @@ import copy
 import inspect
 import logging
 import os
-import pickle
 import random
 import time
 from operator import attrgetter
@@ -16,7 +15,7 @@ from mpi4py import MPI
 
 from ._globals import INDIVIDUAL_TAG
 from .population import Individual
-from .propagators import BasicPSO, Propagator, SelectMin
+from .propagators import BasicPSO, Conditional, Propagator, SelectMin
 from .surrogate import Surrogate
 
 log = logging.getLogger(__name__)  # Get logger instance.
@@ -173,38 +172,22 @@ class Propulator:
         self.rng = rng
 
         # Load initial population of evaluated individuals from checkpoint if exists.
-        load_ckpt_file = self.checkpoint_path / f"island_{self.island_idx}_ckpt.pickle"
-        if not os.path.isfile(load_ckpt_file):  # If not exists, check for backup file.
-            load_ckpt_file = load_ckpt_file.with_suffix(".bkp")
+        self.checkpoint_path = self.checkpoint_path / "ckpt.hdf5"
 
-        if os.path.isfile(load_ckpt_file):
-            with open(load_ckpt_file, "rb") as f:
-                try:
-                    self.population = pickle.load(f)
-                    self.generation = (
-                        max(
-                            [
-                                x.generation
-                                for x in self.population
-                                if x.rank == self.island_comm.rank
-                            ]
-                        )
-                        + 1
-                    )  # Determine generation to be evaluated next from population checkpoint.
-                    if self.island_comm.rank == 0:
-                        log.info(
-                            "Valid checkpoint file found. "
-                            f"Resuming from generation {self.generation} of loaded population..."
-                        )
-                except OSError:
-                    self.population = []
-                    if self.island_comm.rank == 0:
-                        log.info(
-                            "No valid checkpoint file. Initializing population randomly..."
-                        )
+        self.population = []
+        # consistency check and ensure enough space is allocated
+        self.set_up_checkpoint()
+        if os.path.isfile(self.checkpoint_path):
+            self.load_checkpoint()
+            if self.propulate_comm.rank == 0:
+                log.info(
+                    "Valid checkpoint file found. "
+                    f"Resuming from generation {self.generation} of loaded population..."
+                )
+                # TODO it says resuming from generation 0, so something is not right
+                # TODO also each worker might be on a different generation so this message probably does not make all of the sense
         else:
-            self.population = []
-            if self.island_comm.rank == 0:
+            if self.propulate_comm.rank == 0:
                 log.info(
                     "No valid checkpoint file given. Initializing population randomly..."
                 )
@@ -212,36 +195,50 @@ class Propulator:
     def load_checkpoint(self):
         """Load checkpoint from HDF5 file. Since this is only a read, all workers can do this in read-only mode without the mpio driver."""
         # TODO check that the island and worker setup is the same as in the checkpoint
-        # TODO load the migrated individuals from the other islands checkpoints
         # NOTE each individual is only stored once at the position given by its origin island and worker, the modifications have to be put in the checkpoint file during migration  TODO test if this works as intended reliably
         # TODO get the started but not yet completed ones from the difference in start time and evaltime
 
         with h5py.File(self.checkpoint_path, "r", driver=None) as f:
-            group = f[f"{self.island_idx}"]
-            self.generation = group[f"{self.comm.Get_rank()}"].attrs["generation"]
-            for rank in range(self.comm.size):
-                # for generation in range(len(group[f"{rank}"])):
-                for generation in range(self.generation):
-                    if group[f"{rank}"]["current"][generation] == self.island_idx:
+            islandgroup = f[f"{self.island_idx}"]
+
+            # NOTE check limits are consistent
+            limitsgroup = f["limits"]
+            for key in self.propagator.limits:
+                if set(limitsgroup.attrs.keys()) != set(self.propagator.limits):
+                    raise RuntimeError("Limits inconsistent with checkpoint")
+            # TODO check island sizes are consistent
+
+            self.generation = int(f["generations"][self.propulate_comm.Get_rank()])
+            print("AAAAAA", self.generation)
+            # NOTE load individuals, since they might have migrated, every worker has to check each dataset
+            for rank in range(self.propulate_comm.size):
+                # for generation in range(len(islandgroup[f"{rank}"])):
+                for generation in range(f["generations"][rank]):
+                    if islandgroup[f"{rank}"]["current"][generation] == self.island_idx:
                         ind = Individual(
-                            group[f"{rank}"]["x"][generation, 0],
+                            islandgroup[f"{rank}"]["x"][generation, 0],
                             self.propagator.limits,
                         )
                         ind.rank = rank
                         ind.island = self.island_idx
-                        ind.current = group[f"{rank}"]["current"][generation]
+                        ind.current = islandgroup[f"{rank}"]["current"][generation]
                         # TODO velocity loading
                         # if len(group[f"{rank}"].shape) > 1:
-                        #     ind.velocity = group[f"{rank}"]["x"][generation, 1]
-                        ind.loss = group[f"{rank}"]["loss"][generation]
-                        ind.startime = group[f"{rank}"]["starttime"][generation]
-                        ind.evaltime = group[f"{rank}"]["evaltime"][generation]
-                        ind.evalperiod = group[f"{rank}"]["evalperiod"][generation]
+                        #     ind.velocity = islandgroup[f"{rank}"]["x"][generation, 1]
+                        ind.loss = islandgroup[f"{rank}"]["loss"][generation]
+                        ind.startime = islandgroup[f"{rank}"]["starttime"][generation]
+                        ind.evaltime = islandgroup[f"{rank}"]["evaltime"][generation]
+                        ind.evalperiod = islandgroup[f"{rank}"]["evalperiod"][
+                            generation
+                        ]
                         ind.generation = generation
                         self.population.append(ind)
+                        if ind.loss is None:
+                            # TODO resume evaluation
+                            raise
 
     def set_up_checkpoint(self):
-        """Initialize checkpoint file."""
+        """Initialize checkpoint file or check consistenct with an existing one."""
         limit_dim = 0
         for key in self.propagator.limits:
             if isinstance(self.propagator.limits[key][0], str):
@@ -254,29 +251,36 @@ class Propulator:
             num_islands = len(self.island_counts)
 
         with h5py.File(
-            self.checkpoint_path, "a", driver="mpio", comm=MPI.COMM_WORLD
+            self.checkpoint_path, "a", driver="mpio", comm=self.propulate_comm
         ) as f:
             # limits
             limitsgroup = f.require_group("limits")
             for key in self.propagator.limits:
-                if key not in limitsgroup.attrs:
-                    limitsgroup.attrs[key] = str(self.propagator.limits[key])
-                else:
-                    if not str(self.propagator.limits[key]) == limitsgroup.attrs[key]:
-                        raise RuntimeError("Limits inconsistent with checkpoint")
+                limitsgroup.attrs[key] = str(self.propagator.limits[key])
 
             xdim = 1
-            if isinstance(self.propagator, BasicPSO):
+            # TODO clean this up when reorganizing propagators
+            if isinstance(self.propagator, BasicPSO) or (
+                isinstance(self.propagator, Conditional)
+                and isinstance(self.propagator.true_prop, BasicPSO)
+            ):
                 xdim = 2
 
             oldgenerations = self.generations
             if "0" in f:
                 oldgenerations = f["0"]["0"]["x"].shape[0]
+            # Store per worker what generation they are at, since islands can be different sizes, it's flat
+            f.require_dataset(
+                "generations",
+                (self.propulate_comm.Get_size(),),
+                dtype=np.int32,
+                data=np.zeros((self.propulate_comm.Get_size(),), dtype=np.int32),
+            )
 
             # population
             for i in range(num_islands):
                 f.require_group(f"{i}")
-                for worker_idx in range(self.comm.Get_size()):
+                for worker_idx in range(self.propulate_comm.Get_size()):
                     group = f[f"{i}"].require_group(f"{worker_idx}")
                     if oldgenerations < self.generations:
                         group["x"].resize(self.generations, axis=0)
@@ -356,6 +360,8 @@ class Propulator:
         debug : int, optional
             The debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode). Default is 1.
         """
+        # TODO note the propulating times in the checkpoint file for when the run is interrupted
+        self.start_time = time.time_ns()
         self._work(logging_interval, debug)
 
     def _get_active_individuals(self) -> Tuple[List[Individual], int]:
@@ -409,11 +415,32 @@ class Propulator:
         assert isinstance(ind, Individual)
         return ind  # Return new individual.
 
-    def _evaluate_individual(self) -> None:
+    def _evaluate_individual(self, hdf5_checkpoint) -> None:
         """Breed and evaluate individual."""
         ind = self._breed()  # Breed new individual.
-        start_time = time.time()  # Start evaluation timer.
+        start_time = time.time_ns() - self.start_time  # Start evaluation timer.
+        ind.starttime = start_time
+        ckpt_idx = ind.generation
+        hdf5_checkpoint["generations"][self.propulate_comm.Get_rank()] = ind.generation
 
+        group = hdf5_checkpoint[f"{self.island_idx}"][
+            f"{self.propulate_comm.Get_rank()}"
+        ]
+        group.attrs["generation"] = ckpt_idx + 1
+        # save candidate
+        group["x"][ckpt_idx, 0, :] = ind.position[:]
+        if ind.velocity is not None:
+            group["x"][ckpt_idx, 1, :] = ind.velocity[:]
+        group["starttime"][ckpt_idx] = start_time
+
+        ind.loss = self.loss_fn(ind)  # Evaluate its loss.
+        ind.evaltime = time.time_ns() - self.start_time  # Stop evaluation timer.
+        ind.evalperiod = ind.evaltime - start_time  # Calculate evaluation duration.
+
+        # save result for candidate
+        group["loss"][ckpt_idx] = ind.loss
+        group["evaltime"][ckpt_idx] = ind.evaltime
+        group["evalperiod"][ckpt_idx] = ind.evalperiod
         # Signal start of run to surrogate model.
         if self.surrogate is not None:
             self.surrogate.start_run(ind)
@@ -622,7 +649,8 @@ class Propulator:
         if self.worker_sub_comm != MPI.COMM_SELF:
             self.generation = self.worker_sub_comm.bcast(self.generation, root=0)
         if self.propulate_comm is None:
-            while self.generations <= -1 or self.generation < self.generations:
+            while self.generation < self.generations:
+                raise
                 # Breed and evaluate individual.
                 self._evaluate_individual()
                 self.generation += 1
@@ -632,20 +660,27 @@ class Propulator:
             log.info(f"Island {self.island_idx} has {self.island_comm.size} workers.")
 
         # Loop over generations.
-        while self.generations <= -1 or self.generation < self.generations:
-            if self.generation % int(logging_interval) == 0:
-                log.info(
-                    f"Island {self.island_idx} Worker {self.island_comm.rank}: In generation {self.generation}..."
-                )
+        with h5py.File(
+            self.checkpoint_path, "a", driver="mpio", comm=MPI.COMM_WORLD
+        ) as f:
+            while self.generation < self.generations:
+                if self.generation % int(logging_interval) == 0:
+                    log.info(
+                        f"Island {self.island_idx} Worker {self.island_comm.rank}: In generation {self.generation}..."
+                    )
 
-            # Breed and evaluate individual.
-            self._evaluate_individual()
+                # Breed and evaluate individual.
+                self._evaluate_individual(f)
 
-            # Check for and possibly receive incoming individuals from other intra-island workers.
-            self._receive_intra_island_individuals()
+                # Check for and possibly receive incoming individuals from other intra-island workers.
+                self._receive_intra_island_individuals()
 
-            # Go to next generation.
-            self.generation += 1
+                # Go to next generation.
+                self.generation += 1
+                islandgroup = f[f"{self.island_idx}"]
+                islandgroup[f"{self.propulate_comm.Get_rank()}"].attrs[
+                    "generation"
+                ] = self.generation
 
         # Having completed all generations, the workers have to wait for each other.
         # Once all workers are done, they should check for incoming messages once again
