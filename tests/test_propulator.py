@@ -10,6 +10,8 @@ from propulate import Propulator
 from propulate.utils import get_default_propagator, set_logger_config
 from propulate.utils.benchmark_functions import get_function_search_space
 
+set_logger_config()
+
 
 @pytest.fixture(
     params=[
@@ -49,7 +51,6 @@ def test_propulator(function_name: str, mpi_tmp_path: pathlib.Path) -> None:
     """
     rng = random.Random(42 + MPI.COMM_WORLD.rank)  # Random number generator for optimization
     benchmark_function, limits = get_function_search_space(function_name)
-    set_logger_config(log_file=mpi_tmp_path / "log.log")
     propagator = get_default_propagator(
         pop_size=4,
         limits=limits,
@@ -109,3 +110,6 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
     # As the number of requested generations is smaller than the number of generations from the run before,
     # no new evaluations are performed. Thus, the length of both Propulators' populations must be equal.
     assert len(deepdiff.DeepDiff(old_population, propulator.population, ignore_order=True)) == 0
+
+
+# TODO test loading a checkpoint with an unevaluated individual

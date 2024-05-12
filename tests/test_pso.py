@@ -1,6 +1,8 @@
+import copy
 import pathlib
 import random
 
+import deepdiff
 import pytest
 from mpi4py import MPI
 
@@ -57,7 +59,7 @@ def pso_propagator(request: pytest.FixtureRequest) -> Propagator:
 @pytest.mark.mpi
 def test_pso(pso_propagator: Propagator, mpi_tmp_path: pathlib.Path) -> None:
     """
-    Test single worker using Propulator to optimize a benchmark function using the default genetic propagator.
+    Test a pso propagator.
 
     Parameters
     ----------
@@ -66,9 +68,9 @@ def test_pso(pso_propagator: Propagator, mpi_tmp_path: pathlib.Path) -> None:
     mpi_tmp_path : pathlib.Path
         The temporary checkpoint directory.
     """
-    # Set up evolutionary operator.
+    # Set up pso propagator.
     init = InitUniformPSO(limits, rng=rng, rank=rank)
-    propagator = Conditional(1, pso_propagator, init)
+    propagator = Conditional(limits, 1, pso_propagator, init)
 
     # Set up propulator performing actual optimization.
     propulator = Propulator(
@@ -81,3 +83,56 @@ def test_pso(pso_propagator: Propagator, mpi_tmp_path: pathlib.Path) -> None:
 
     # Run optimization and print summary of results.
     propulator.propulate()
+
+
+@pytest.mark.mpi
+def test_pso_checkpointing(pso_propagator, mpi_tmp_path: pathlib.Path):
+    """
+    Test velocity checkpointing when using a PSO propagator.
+
+    Parameters
+    ----------
+    pso_propagator : BasicPSO
+        The PSO propagator variant to test.
+    mpi_tmp_path : pathlib.Path
+        The temporary checkpoint directory.
+    """
+    # Set up pso propagator.
+    init = InitUniformPSO(limits, rng=rng, rank=rank)
+    propagator = Conditional(limits, 1, pso_propagator, init)
+
+    # Set up propulator performing actual optimization.
+    propulator = Propulator(
+        loss_fn=sphere,
+        propagator=propagator,
+        rng=rng,
+        generations=100,
+        checkpoint_path=mpi_tmp_path,
+    )
+
+    # Run optimization and print summary of results.
+    propulator.propulate()
+
+    old_population = copy.deepcopy(
+        propulator.population
+    )  # Save population list from the last run.
+    del propulator  # Delete propulator object.
+    MPI.COMM_WORLD.barrier()  # Synchronize all processes.
+
+    propulator = Propulator(
+        loss_fn=sphere,
+        propagator=propagator,
+        generations=20,
+        checkpoint_path=mpi_tmp_path,
+        rng=rng,
+    )  # Set up new propulator starting from checkpoint.
+
+    # As the number of requested generations is smaller than the number of generations from the run before,
+    # no new evaluations are performed. Thus, the length of both Propulators' populations must be equal.
+    assert (
+        len(deepdiff.DeepDiff(old_population, propulator.population, ignore_order=True))
+        == 0
+    )
+
+
+# TODO test resuming pso run from a non-pso checkpoint
