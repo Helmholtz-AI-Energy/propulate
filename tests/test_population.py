@@ -4,8 +4,8 @@ from propulate.population import Individual
 
 
 @pytest.mark.mpi_skip
-def test_individual():
-    """Test the mapping between dictionary and embedded vector representation of Individuals."""
+def test_individual() -> None:
+    """Test the mapping between dictionary and embedded vector representation of individuals."""
     limits = {
         "float1": (0.0, 1.0),
         "float2": (-1.0, 1.0),
@@ -37,8 +37,8 @@ def test_individual():
 
 
 @pytest.mark.mpi_skip
-def test_individual_order():
-    """Test the mapping between dictionary and embedded vector representation of Individuals at different ordering."""
+def test_individual_order() -> None:
+    """Test the mapping between dictionary and embedded vector representation of individuals at different ordering."""
     limits = {
         "float1": (0.0, 1.0),
         "cat1": ("a", "b", "c", "d", "e"),
@@ -71,8 +71,8 @@ def test_individual_order():
 
 
 @pytest.mark.mpi_skip
-def test_special_key():
-    """Test that using _ prefixed keys does not trigger the categorical embedding correctly."""
+def test_special_key() -> None:
+    """Test that using ``_``-prefixed keys does not trigger the categorical embedding correctly."""
     limits = {
         "float1": (0.0, 1.0),
         "float2": (-1.0, 1.0),
