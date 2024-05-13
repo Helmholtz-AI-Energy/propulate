@@ -530,7 +530,7 @@ class InitUniform(Stochastic):
         ValueError
             If a parameter's type is invalid, i.e., not float (continuous), int (ordinal), or str (categorical).
         """
-        ind = {}
+        position = {}
         if (
             self.rng.random() < self.probability
         ):  # Apply only with specified probability.
@@ -540,21 +540,21 @@ class InitUniform(Stochastic):
                 if isinstance(
                     self.limits[limit][0], int
                 ):  # If ordinal trait of type integer.
-                    ind[limit] = self.rng.randint(*self.limits[limit])
+                    position[limit] = self.rng.randint(*self.limits[limit])
                 elif isinstance(
                     self.limits[limit][0], float
                 ):  # If interval trait of type float.
-                    ind[limit] = self.rng.uniform(*self.limits[limit])
+                    position[limit] = self.rng.uniform(*self.limits[limit])
                 elif isinstance(
                     self.limits[limit][0], str
                 ):  # If categorical trait of type string.
-                    ind[limit] = self.rng.choice(self.limits[limit])
+                    position[limit] = self.rng.choice(self.limits[limit])
                 else:
                     raise ValueError(
                         "Unknown type of limits. Has to be float for interval, "
                         "int for ordinal, or string for categorical."
                     )
-            ind = Individual(ind, self.limits)  # Instantiate new individual.
+            ind = Individual(position, self.limits)  # Instantiate new individual.
         else:  # Return first input individual w/o changes otherwise.
             ind = inds[0]
         return ind
@@ -570,16 +570,16 @@ class Gaussian(Propagator):
         rng: np.random.Generator,
     ):
         """
-        Initialize gaussian propagator.
+        Initialize Gaussian propagator.
 
         Parameters
         ----------
-        limits: dict[str, tuple[float, float]] | dict[str, tuple[int, int]] | dict[str, tuple[str, ...]]
-            search space, i.e., limits of (hyper-)parameters to be optimized
-        scale: float
-            standard deviation
-        rng: random.Random
-            random number generator
+        limits : Dict[str, Tuple[float, float]] | Dict[str, Tuple[int, int]] | Dict[str, Tuple[str, ...]]
+            The search space, i.e., limits of (hyper-)parameters to be optimized.
+        scale : float
+            The standard deviation of the Gaussian distribution.
+        rng : random.Random
+            The separate random number generator for the Propulate optimization.
 
         """
         super().__init__(1, 1)
@@ -589,7 +589,7 @@ class Gaussian(Propagator):
 
     def __call__(self, inds: List[Individual]) -> Individual:
         """
-        Apply the gaussian propagator.
+        Apply the Gaussian propagator.
 
         Parameters
         ----------
