@@ -3,6 +3,7 @@ Toy example for HP optimization / NAS in Propulate, using a simple CNN trained o
 
 This script was tested on a single compute node with 4 GPUs. Note that you need to adapt ``GPUS_PER_NODE`` (see ll. 25).
 """
+
 import logging
 import pathlib
 import random
