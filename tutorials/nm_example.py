@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import pathlib
 import random
 
@@ -6,7 +5,7 @@ import numpy as np
 from mpi4py import MPI
 
 from propulate import Propulator
-from propulate.propagators.nm import AdaptedNM
+from propulate.propagators.nm import ParallelNelderMead
 from propulate.utils import set_logger_config
 from propulate.utils.benchmark_functions import (
     get_function_search_space,
@@ -42,23 +41,25 @@ if __name__ == "__main__":
         config.function
     )  # Get callable function + search-space limits.
 
-    # randomly choose a start point from within the limits
+    # Randomly choose a start point from within the limits.
     low = np.array([v[0] for v in limits.values()])
     high = np.array([v[1] for v in limits.values()])
     start_point = np.random.default_rng(seed=config.seed + 235231).uniform(
         low=low, high=high
     )
-    propagator = AdaptedNM(limits, rng=rng, start=start_point)
-    # Set up propulator performing actual optimization.
+    propagator = ParallelNelderMead(limits, rng=rng, start=start_point)
+    # Set up Propulator performing actual optimization.
     propulator = Propulator(
         loss_fn=function,
         propagator=propagator,
-        comm=comm,
-        generations=config.generations,
-        checkpoint_directory=config.checkpoint,
         rng=rng,
+        propulate_comm=comm,
+        generations=config.generations,
+        checkpoint_path=config.checkpoint,
     )
 
     # Run optimization and print summary of results.
-    propulator.propulate(logging_interval=config.logging_int, debug=config.verbosity)
+    propulator.propulate(
+        logging_interval=config.logging_interval, debug=config.verbosity
+    )
     propulator.summarize(top_n=config.top_n, debug=config.verbosity)
