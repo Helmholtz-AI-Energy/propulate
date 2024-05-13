@@ -144,22 +144,22 @@ class BasicPSO(Propagator):
         if len(individuals) < self.offspring:
             raise ValueError("Not enough Particles")
 
-        particles = individuals
-
         # TODO fix the rank stuff, global_rank was intended for the multi swarm case
         own_p = [
-            x for x in particles if (isinstance(x, Individual) and x.rank == self.rank)
+            x
+            for x in individuals
+            if (isinstance(x, Individual) and x.rank == self.rank)
         ]
         if len(own_p) > 0:
             old_p: Individual = max(own_p, key=lambda p: p.generation)
 
         else:
-            victim = max(particles, key=lambda p: p.generation)
+            victim = max(individuals, key=lambda p: p.generation)
             old_p = self._make_new_particle(
                 victim.position, victim.velocity, victim.generation
             )
 
-        g_best = min(particles, key=lambda p: p.loss)
+        g_best = min(individuals, key=lambda p: p.loss)
         p_best = min(own_p, key=lambda p: p.loss)
 
         return old_p, p_best, g_best
