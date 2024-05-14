@@ -82,7 +82,10 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
     mpi_tmp_path : pathlib.Path
         The temporary checkpoint directory.
     """
-    set_logger_config()
+    first_generations = 20
+    second_generations = 40
+    set_logger_config(level=logging.DEBUG)
+    log.debug("test")
     rng = random.Random(
         42 + MPI.COMM_WORLD.rank
     )  # Separate random number generator for optimization
@@ -96,12 +99,16 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
     propulator = Propulator(
         loss_fn=benchmark_function,
         propagator=propagator,
-        generations=100,
+        generations=first_generations,
         checkpoint_path=mpi_tmp_path,
         rng=rng,
     )  # Set up propulator performing actual optimization.
 
     propulator.propulate()  # Run optimization and print summary of results.
+    assert (
+        len(propulator.population)
+        == first_generations * propulator.propulate_comm.Get_size()
+    )
 
     old_population = copy.deepcopy(
         propulator.population
@@ -112,7 +119,7 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
     propulator = Propulator(
         loss_fn=benchmark_function,
         propagator=propagator,
-        generations=200,
+        generations=second_generations,
         checkpoint_path=mpi_tmp_path,
         rng=rng,
     )  # Set up new propulator starting from checkpoint.
@@ -125,6 +132,16 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
     )
 
     propulator.propulate()
+    # NOTE make sure nothing was overwritten
+    seniors = [
+        ind for ind in propulator.population if ind.generation < first_generations
+    ]
+    assert len(deepdiff.DeepDiff(old_population, seniors, ignore_order=True)) == 0
+    assert (
+        len(propulator.population)
+        == second_generations * propulator.propulate_comm.Get_size()
+    )
+
     log.handlers.clear()
 
 
