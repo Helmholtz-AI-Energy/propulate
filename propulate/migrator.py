@@ -372,17 +372,22 @@ class Migrator(Propulator):
 
         # Loop over generations.
         # TODO this should probably be refactored, checkpointing can probably be handled in one place
-        with h5py.File(self.checkpoint_path, "a", driver="mpio", comm=MPI.COMM_WORLD) as f:
+        log.debug("opening checkpoint file")
+        with h5py.File(self.checkpoint_path, "a", driver="mpio", comm=self.propulate_comm) as f:
+            log.debug("opened checkpoint file")
             while self.generation < self.generations:
                 if self.generation % int(logging_interval) == 0:
                     log.info(f"Island {self.island_idx} Worker {self.island_comm.rank}: In generation {self.generation}...")
 
+                log.debug(f"eval ind {self.generation}")
                 # Breed and evaluate individual.
                 self._evaluate_individual(f)
 
+                log.debug("immigration")
                 # Check for and possibly receive incoming individuals from other intra-island workers.
                 self._receive_intra_island_individuals()
 
+                log.debug("emigration")
                 # Migration.
                 if migration:
                     # Emigration: Island sends individuals out.
