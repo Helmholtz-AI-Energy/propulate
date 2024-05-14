@@ -85,7 +85,6 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
     first_generations = 20
     second_generations = 40
     set_logger_config(level=logging.DEBUG)
-    log.debug("test")
     rng = random.Random(
         42 + MPI.COMM_WORLD.rank
     )  # Separate random number generator for optimization
@@ -124,8 +123,6 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
         rng=rng,
     )  # Set up new propulator starting from checkpoint.
 
-    # As the number of requested generations is smaller than the number of generations from the run before,
-    # no new evaluations are performed. Thus, the length of both Propulators' populations must be equal.
     assert (
         len(deepdiff.DeepDiff(old_population, propulator.population, ignore_order=True))
         == 0
