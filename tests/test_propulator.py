@@ -83,7 +83,6 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
     first_generations = 20
     second_generations = 40
     set_logger_config(level=logging.DEBUG)
-    log.debug("test")
     rng = random.Random(42 + MPI.COMM_WORLD.rank)  # Separate random number generator for optimization
     benchmark_function, limits = get_function_search_space("sphere")
 
@@ -101,10 +100,7 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
     )  # Set up propulator performing actual optimization.
 
     propulator.propulate()  # Run optimization and print summary of results.
-    assert (
-        len(propulator.population)
-        == first_generations * propulator.propulate_comm.Get_size()
-    )
+    assert len(propulator.population) == first_generations * propulator.propulate_comm.Get_size()
 
     old_population = copy.deepcopy(propulator.population)  # Save population list from the last run.
     del propulator  # Delete propulator object.
@@ -113,11 +109,7 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
     propulator = Propulator(
         loss_fn=benchmark_function,
         propagator=propagator,
-<<<<<<< HEAD
-        generations=5,
-=======
         generations=second_generations,
->>>>>>> 2a911c5 (added some more asserts and mode verbose output)
         checkpoint_path=mpi_tmp_path,
         rng=rng,
     )  # Set up new propulator starting from checkpoint.
@@ -127,14 +119,9 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
     assert len(deepdiff.DeepDiff(old_population, propulator.population, ignore_order=True)) == 0
     propulator.propulate()
     # NOTE make sure nothing was overwritten
-    seniors = [
-        ind for ind in propulator.population if ind.generation < first_generations
-    ]
+    seniors = [ind for ind in propulator.population if ind.generation < first_generations]
     assert len(deepdiff.DeepDiff(old_population, seniors, ignore_order=True)) == 0
-    assert (
-        len(propulator.population)
-        == second_generations * propulator.propulate_comm.Get_size()
-    )
+    assert len(propulator.population) == second_generations * propulator.propulate_comm.Get_size()
 
     log.handlers.clear()
 
