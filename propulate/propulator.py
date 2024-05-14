@@ -176,7 +176,6 @@ class Propulator:
 
         self.population = []
         # consistency check and ensure enough space is allocated
-        self.set_up_checkpoint()
         if os.path.isfile(self.checkpoint_path):
             self.load_checkpoint()
             if self.propulate_comm.rank == 0:
@@ -191,6 +190,7 @@ class Propulator:
                 log.info(
                     "No valid checkpoint file given. Initializing population randomly..."
                 )
+        self.set_up_checkpoint()
 
     def load_checkpoint(self):
         """Load checkpoint from HDF5 file. Since this is only a read, all workers can do this in read-only mode without the mpio driver."""
@@ -209,10 +209,17 @@ class Propulator:
             # TODO check island sizes are consistent
 
             self.generation = int(f["generations"][self.propulate_comm.Get_rank()])
+            if (
+                islandgroup[f"{self.island_comm.Get_rank()}"]["evalperiod"][
+                    self.generation
+                ]
+                > 0.0
+            ):
+                self.generation += 1
             # NOTE load individuals, since they might have migrated, every worker has to check each dataset
             for rank in range(self.propulate_comm.size):
                 # for generation in range(len(islandgroup[f"{rank}"])):
-                for generation in range(f["generations"][rank]):
+                for generation in range(f["generations"][rank] + 1):
                     if islandgroup[f"{rank}"]["current"][generation] == self.island_idx:
                         ind = Individual(
                             islandgroup[f"{rank}"]["x"][generation, 0],
@@ -346,6 +353,7 @@ class Propulator:
                         np.uint64,
                         chunks=True,
                         maxshape=(None,),
+                        data=-1 * np.ones((self.generations,)),
                     )
 
     def propulate(self, logging_interval: int = 10, debug: int = 1) -> None:
@@ -425,7 +433,6 @@ class Propulator:
         group = hdf5_checkpoint[f"{self.island_idx}"][
             f"{self.propulate_comm.Get_rank()}"
         ]
-        group.attrs["generation"] = ckpt_idx + 1
         # save candidate
         group["x"][ckpt_idx, 0, :] = ind.position[:]
         if ind.velocity is not None:
@@ -669,28 +676,28 @@ class Propulator:
                     )
 
                 # Breed and evaluate individual.
+                log.debug(f"breeding and evaluating {self.generation}")
                 self._evaluate_individual(f)
 
                 # Check for and possibly receive incoming individuals from other intra-island workers.
+                log.debug(f"receive intra island {self.generation}")
                 self._receive_intra_island_individuals()
 
                 # Go to next generation.
                 self.generation += 1
-                islandgroup = f[f"{self.island_idx}"]
-                islandgroup[f"{self.propulate_comm.Get_rank()}"].attrs[
-                    "generation"
-                ] = self.generation
 
         # Having completed all generations, the workers have to wait for each other.
         # Once all workers are done, they should check for incoming messages once again
         # so that each of them holds the complete final population and the found optimum
         # irrespective of the order they finished.
+        log.debug("barrier")
 
         if self.propulate_comm.rank == 0:
             log.info("OPTIMIZATION DONE.\nNEXT: Final checks for incoming messages...")
         self.propulate_comm.barrier()
 
         # Final check for incoming individuals evaluated by other intra-island workers.
+        log.debug("final sync")
         self._receive_intra_island_individuals()
         self.propulate_comm.barrier()
 
