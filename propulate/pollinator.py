@@ -418,10 +418,10 @@ class Pollinator(Propulator):
         # Loop over generations.
         # TODO this should probably be refactored, checkpointing can probably be handled in one place
         with h5py.File(
-            self.checkpoint_path, "a", driver="mpio", comm=MPI.COMM_WORLD
+            self.checkpoint_path, "a", driver="mpio", comm=self.propulate_comm
         ) as f:
-            while self.generations <= -1 or self.generation < self.generations:
-                if debug == 1 and self.generation % int(logging_interval) == 0:
+            while self.generation < self.generations:
+                if self.generation % int(logging_interval) == 0:
                     log.info(
                         f"Island {self.island_idx} Worker {self.island_comm.rank}: In generation {self.generation}..."
                     )
