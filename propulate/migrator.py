@@ -124,7 +124,7 @@ class Migrator(Propulator):
             Individual
         ] = []  # Emigrated individuals to be deactivated on sending island
 
-    def _send_emigrants(self) -> None:
+    def _send_emigrants(self, hdf5_checkpoint) -> None:
         """Perform migration, i.e. island sends individuals out to other islands."""
         log_string = (
             f"Island {self.island_idx} Worker {self.island_comm.rank} "
@@ -189,6 +189,10 @@ class Migrator(Propulator):
 
                 # Send emigrants to target island.
                 departing = copy.deepcopy(emigrants)
+                for ind in departing:
+                    hdf5_checkpoint[f"{ind.island}"][f"{ind.island_rank}"][
+                        "active_on_island"
+                    ][ind.generation, self.island_idx] = False
                 # Determine new responsible worker on target island.
                 for ind in departing:
                     ind.current = self.rng.randrange(0, count)
@@ -237,7 +241,7 @@ class Migrator(Propulator):
                 f"to select {num_emigrants} migrants."
             )
 
-    def _receive_immigrants(self) -> None:
+    def _receive_immigrants(self, hdf5_checkpoint) -> None:
         """
         Check for and possibly receive immigrants send by other islands.
 
@@ -285,6 +289,9 @@ class Migrator(Propulator):
                             log_string
                             + f"Identical immigrant {immigrant} already active on target  island {self.island_idx}."
                         )
+                    hdf5_checkpoint[f"{immigrant.island}"][f"{immigrant.island_rank}"][
+                        "active_on_island"
+                    ][immigrant.generation] = True
                     self.population.append(
                         copy.deepcopy(immigrant)
                     )  # Append immigrant to population.
@@ -434,35 +441,30 @@ class Migrator(Propulator):
 
         # Loop over generations.
         # TODO this should probably be refactored, checkpointing can probably be handled in one place
-        log.debug("opening checkpoint file")
         with h5py.File(
             self.checkpoint_path, "a", driver="mpio", comm=self.propulate_comm
         ) as f:
-            log.debug("opened checkpoint file")
             while self.generation < self.generations:
                 if self.generation % int(logging_interval) == 0:
                     log.info(
                         f"Island {self.island_idx} Worker {self.island_comm.rank}: In generation {self.generation}..."
                     )
 
-                log.debug(f"eval ind {self.generation}")
                 # Breed and evaluate individual.
                 self._evaluate_individual(f)
 
-                log.debug("immigration")
                 # Check for and possibly receive incoming individuals from other intra-island workers.
                 self._receive_intra_island_individuals()
 
-                log.debug("emigration")
                 # Migration.
                 if migration:
                     # Emigration: Island sends individuals out.
                     # Happens on per-worker basis with certain probability.
                     if self.rng.random() < self.migration_prob:
-                        self._send_emigrants()
+                        self._send_emigrants(f)
 
                     # Immigration: Check for incoming individuals from other islands.
-                    self._receive_immigrants()
+                    self._receive_immigrants(f)
 
                     # Emigration: Check for emigrants from other intra-island workers to be deactivated.
                     self._deactivate_emigrants()
@@ -488,7 +490,10 @@ class Migrator(Propulator):
 
         if migration:
             # Final check for incoming individuals from other islands.
-            self._receive_immigrants()
+            with h5py.File(
+                self.checkpoint_path, "a", driver="mpio", comm=self.propulate_comm
+            ) as f:
+                self._receive_immigrants(f)
             self.propulate_comm.barrier()
 
             # Emigration: Final check for emigrants from other intra-island workers to be deactivated.
