@@ -65,7 +65,7 @@ def test_islands(
     mpi_tmp_path : pathlib.Path
         The temporary checkpoint directory.
     """
-    set_logger_config()
+    set_logger_config(level=logging.DEBUG)
     rng, benchmark_function, limits, propagator = global_variables
 
     # Set up island model.
@@ -105,7 +105,9 @@ def test_checkpointing_isolated(
     mpi_tmp_path : pathlib.Path
         The temporary checkpoint directory.
     """
-    set_logger_config()
+    first_generations = 20
+    second_generations = 40
+    set_logger_config(level=logging.DEBUG)
     rng, benchmark_function, limits, propagator = global_variables
 
     # Set up island model.
@@ -113,28 +115,38 @@ def test_checkpointing_isolated(
         loss_fn=benchmark_function,
         propagator=propagator,
         rng=rng,
-        generations=100,
+        generations=first_generations,
         num_islands=2,
         migration_probability=0.0,
         checkpoint_path=mpi_tmp_path,
     )
 
     # Run actual optimization.
+<<<<<<< HEAD
     islands.propulate(debug=2)
     islands.summarize(top_n=1, debug=2)
+=======
+    islands.evolve(top_n=1, debug=2)
+    assert (
+        len(islands.propulator.population)
+        == first_generations * islands.propulator.island_comm.Get_size()
+    )
+>>>>>>> c7403f4 (comments, generations, debugging stuff)
 
     old_population = copy.deepcopy(islands.propulator.population)
     del islands
+    MPI.COMM_WORLD.barrier()  # Synchronize all processes.
 
     islands = Islands(
         loss_fn=benchmark_function,
         propagator=propagator,
         rng=rng,
-        generations=100,
+        generations=second_generations,
         num_islands=2,
         migration_probability=0.0,
         checkpoint_path=mpi_tmp_path,
     )
+    assert len(old_population) == len(islands.propulator.population)
 
     assert (
         len(
@@ -167,6 +179,8 @@ def test_checkpointing(
     mpi_tmp_path : pathlib.Path
         The temporary checkpoint directory.
     """
+    first_generations = 20
+    second_generations = 40
     set_logger_config()
     rng, benchmark_function, limits, propagator = global_variables
 
@@ -175,7 +189,7 @@ def test_checkpointing(
         loss_fn=benchmark_function,
         propagator=propagator,
         rng=rng,
-        generations=100,
+        generations=first_generations,
         num_islands=2,
         migration_probability=0.9,
         pollination=pollination,
@@ -193,7 +207,7 @@ def test_checkpointing(
         loss_fn=benchmark_function,
         propagator=propagator,
         rng=rng,
-        generations=100,
+        generations=second_generations,
         num_islands=2,
         migration_probability=0.9,
         pollination=pollination,
@@ -231,6 +245,8 @@ def test_checkpointing_unequal_populations(
     mpi_tmp_path : pathlib.Path
         The temporary checkpoint directory.
     """
+    first_generations = 20
+    second_generations = 40
     set_logger_config()
     rng, benchmark_function, limits, propagator = global_variables
 
@@ -239,7 +255,7 @@ def test_checkpointing_unequal_populations(
         loss_fn=benchmark_function,
         propagator=propagator,
         rng=rng,
-        generations=100,
+        generations=first_generations,
         num_islands=2,
         island_sizes=np.array([3, 5]),
         migration_probability=0.9,
@@ -258,7 +274,7 @@ def test_checkpointing_unequal_populations(
         loss_fn=benchmark_function,
         propagator=propagator,
         rng=rng,
-        generations=100,
+        generations=second_generations,
         num_islands=2,
         island_sizes=np.array([3, 5]),
         migration_probability=0.9,
@@ -266,6 +282,7 @@ def test_checkpointing_unequal_populations(
         checkpoint_path=mpi_tmp_path,
     )
 
+    # TODO compare active only
     assert (
         len(
             deepdiff.DeepDiff(
@@ -275,3 +292,6 @@ def test_checkpointing_unequal_populations(
         == 0
     )
     log.handlers.clear()
+
+
+# TODO start from checkpoint with unevaluated candidates
