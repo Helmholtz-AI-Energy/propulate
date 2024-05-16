@@ -41,6 +41,10 @@ next generation using the fitness values of all candidates it evaluated and rece
 It was already successfully applied in several accepted scientific publications. Applications include grid load
 forecasting, remote sensing, and structural molecular biology:
 
+>
+> A. Weyrauch, T. Steens, O. Taubert, et al. **ReCycle: Fast and Efficient Long Time Series Forecasting with Residual
+> Cyclic Transformers**. arXiv preprint (2024). https://doi.org/10.48550/arXiv.2405.03429
+
 > O. Taubert, F. von der Lehr, A. Bazarova, et al. **RNA contact prediction by data efficient deep learning**. Commun
 > Biol 6, 913 (2023). https://doi.org/10.1038/s42003-023-05244-9
 
