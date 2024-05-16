@@ -21,11 +21,11 @@ classifiers = [
 ]
 dependencies = [
 	"deepdiff",
-    "matplotlib",
+    "matplotlib ~= 3.8.4",
 	"mpi4py",
 	"numpy",
     "colorlog",
-    "Gpy",
+    "Gpy ~= 1.13.1",
     "h5py",
 ]
 
