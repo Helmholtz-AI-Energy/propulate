@@ -1,4 +1,3 @@
-# from collections import UserDict
 from decimal import Decimal
 from typing import Union
 
@@ -47,11 +46,8 @@ class Individual:
                 raise ValueError(
                     "Individual position not compatible with given search space limits."
                 )
-            # super(Individual, self).__init__({k: self[k] for k in self.limits})
             self.mapping = {k: self[k] for k in self.limits}
         else:
-            # super(Individual, self).__init__(position)
-            # super(Individual, self).__init__()
             self.mapping = position
             self.position = np.zeros(offset)
             for key in position:
@@ -75,11 +71,10 @@ class Individual:
 
     def __getitem__(self, key):
         """Return decoded value for input key."""
-        # super(Individual, self).__getitem__(key)
         if key.startswith("_"):
-            # return super(Individual, self).__getitem__(key)
             return self.mapping[key]
         else:
+            # continuous variable
             if self.types[key] == float:
                 return self.position[self.offsets[key]].item()
             elif self.types[key] == int:
@@ -93,7 +88,6 @@ class Individual:
 
     def __setitem__(self, key, newvalue):
         """Encode and set value for given key."""
-        # super(Individual, self).__setitem__(key, newvalue)
         self.mapping[key] = newvalue
         if key.startswith("_"):
             pass
