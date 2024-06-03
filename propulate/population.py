@@ -25,7 +25,6 @@ class Individual:
         rank : int
             The rank (-1 if unset).
         """
-        # TODO compare keys of position to keys of limits
         self.limits = limits
         for key in limits:
             if key.startswith("_"):
@@ -48,6 +47,9 @@ class Individual:
                 )
             self.mapping = {k: self[k] for k in self.limits}
         else:
+            assert set(self.limits.keys()) == set(
+                key for key in position if not key.startswith("_")
+            )
             self.mapping = position
             self.position = np.zeros(offset)
             for key in position:

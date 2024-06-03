@@ -356,7 +356,6 @@ class Migrator(Propulator):
                     + f"from worker {stat.Get_source()} to be deactivated.\n"
                     + f"Overall {len(self.emigrated)} individuals to deactivate: {self.emigrated}\n"
                 )
-            # TODO In while loop or not?
             emigrated_copy = copy.deepcopy(self.emigrated)
             for emigrant in emigrated_copy:
                 assert emigrant.active is True

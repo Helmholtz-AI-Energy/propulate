@@ -144,7 +144,6 @@ class BasicPSO(Propagator):
         if len(individuals) < self.offspring:
             raise ValueError("Not enough Particles")
 
-        # TODO fix the rank stuff, global_rank was intended for the multi swarm case
         own_p = [
             x
             for x in individuals

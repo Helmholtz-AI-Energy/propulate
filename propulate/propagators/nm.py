@@ -129,7 +129,6 @@ class ParallelNelderMead(Propagator):
                     ind = self.shrink()
                     self.step = "shrink"
                 else:
-                    # TODO set scale depending on distance between best and centroid
                     ind = self.init([self.simplex[0]])
                     self.step = "desperation"
 
@@ -203,9 +202,6 @@ class ParallelNelderMead(Propagator):
         Individual
             The individual contracted on the inside of the simplex.
         """
-        # TODO Find a way to make the distinction whether to expect a better point on the outside or the inside of the
-        #  simplex. For now assume inside, if not the next generation should be a reflection, probably not the most
-        #  efficient.
         centroid = self.compute_centroid()
         position = centroid + self.rho * (self.simplex[-1].position - centroid)
 

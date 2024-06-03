@@ -464,7 +464,6 @@ class SelectUniform(Propagator):
         return self.rng.sample(inds, self.offspring)
 
 
-# TODO parents should be fixed to one NOTE see utils reason why it is not right now
 class InitUniform(Stochastic):
     """
     Initialize an individual by uniformly sampling the specified limits for each trait.
