@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Union
+from typing import ItemsView, KeysView, Union, ValuesView
 
 import numpy as np
 
@@ -29,7 +29,9 @@ class Individual:
         for key in limits:
             if key.startswith("_"):
                 raise ValueError("Keys starting with '_' are reserved.")
+        # NOTE keep track of the types of variables for setting and getting
         self.types = {key: type(limits[key][0]) for key in limits}
+        # NOTE offsets are used to keep track of where each variable is stored in the position field, since a categorical embedding can take up more space than other types of variables
         offset = 0
         self.offsets = {}
         for key in limits:
@@ -39,6 +41,7 @@ class Individual:
             else:
                 offset += 1
 
+        # NOTE init from position array
         if isinstance(position, np.ndarray):
             self.position = position
             if len(position) != offset:
@@ -46,6 +49,7 @@ class Individual:
                     "Individual position not compatible with given search space limits."
                 )
             self.mapping = {k: self[k] for k in self.limits}
+        # NOTE init from dict
         else:
             assert set(self.limits.keys()) == set(
                 key for key in position if not key.startswith("_")
@@ -56,7 +60,7 @@ class Individual:
                 self[key] = position[key]
 
         self.generation = generation  # Equals each worker's iteration for continuous population in Propulate.
-        self.rank = rank
+        self.rank = rank  # island rank
         self.loss = None  # Set to None instead of inf since there are no comparisons
         self.active = True
         self.island = -1  # island of origin
@@ -66,12 +70,13 @@ class Individual:
         self.evaltime = None  # evaluation time
         self.evalperiod = None  # evaluation duration
 
+        # NOTE needed for PSO type propagators
         self.velocity = velocity
         if self.velocity is not None:
             if not self.position.shape == self.velocity.shape:
                 raise ValueError("Position and velocity shape do not match.")
 
-    def __getitem__(self, key):
+    def __getitem__(self, key) -> Union[float, int, str]:
         """Return decoded value for input key."""
         if key.startswith("_"):
             return self.mapping[key]
@@ -88,7 +93,7 @@ class Individual:
             else:
                 raise ValueError("Unknown type")
 
-    def __setitem__(self, key, newvalue):
+    def __setitem__(self, key, newvalue) -> None:
         """Encode and set value for given key."""
         self.mapping[key] = newvalue
         if key.startswith("_"):
@@ -111,25 +116,25 @@ class Individual:
             else:
                 raise ValueError("Unknown type")
 
-    def __delitem__(self, key):
+    def __delitem__(self, key) -> None:
         """Do not implement deleting items."""
         if key in self.limits:
             raise ValueError()
         self.mapping.__delitem__(key)
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Give number of genes i.e. the dimension of the parameter space. Each categorical variable adds only one dimension."""
         return len(self.limits)
 
-    def values(self):
+    def values(self) -> ValuesView:
         """Return dict values view."""
         return self.mapping.values()
 
-    def items(self):
+    def items(self) -> ItemsView:
         """Return dict items view."""
         return self.mapping.items()
 
-    def keys(self):
+    def keys(self) -> KeysView:
         """Return dict keys view."""
         return self.mapping.keys()
 
@@ -154,7 +159,7 @@ class Individual:
             f"generation {self.generation}]"
         )
 
-    def __iter__(self):
+    def __iter__(self) -> str:
         """Return standard iterator."""
         for key in self.limits:
             yield key
