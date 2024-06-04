@@ -26,7 +26,7 @@ class ParallelNelderMead(Propagator):
     generation : int
         The current optimization iteration. Not the same as a normal Nelder-Mead iteration,
         since there can only be a single loss evaluation per iteration in the adapted algorithm.
-    simplex : list
+    simplex : List[propulate.population.Individual]
         The list of ``Individual`` instances forming the current simplex.
 
     """
@@ -90,12 +90,12 @@ class ParallelNelderMead(Propagator):
 
         Parameters
         ----------
-        inds : List[propulate.Individual]
+        inds : List[propulate.population.Individual]
             The individuals the propagator is applied to.
 
         Returns
         -------
-        propulate.Individual
+        propulate.population.Individual
             The individual after application of the propagator.
         """
         if len(inds) < self.problem_dimension + 1:
@@ -159,7 +159,7 @@ class ParallelNelderMead(Propagator):
 
         Returns
         -------
-        Individual
+        propulate.population.Individual
             The reflection of the worst point in the simplex on the centroid.
         """
         centroid = self.compute_centroid()
@@ -173,7 +173,7 @@ class ParallelNelderMead(Propagator):
 
         Returns
         -------
-        Individual
+        propulate.population.Individual
             The reflection of the worst point in the simplex on the centroid with a larger step size.
         """
         centroid = self.compute_centroid()
@@ -186,7 +186,7 @@ class ParallelNelderMead(Propagator):
 
         Returns
         -------
-        Individual
+        propulate.population.Individual
             The individual contracted on the outside of the simplex.
         """
         centroid = self.compute_centroid()
@@ -199,7 +199,7 @@ class ParallelNelderMead(Propagator):
 
         Returns
         -------
-        Individual
+        propulate.population.Individual
             The individual contracted on the inside of the simplex.
         """
         centroid = self.compute_centroid()
@@ -213,7 +213,7 @@ class ParallelNelderMead(Propagator):
 
         Returns
         -------
-        Individual
+        propulate.population.Individual
             The shrunk individual.
         """
         i = self.rng.randrange(1, len(self.simplex))

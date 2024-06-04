@@ -89,7 +89,7 @@ class Islands:
             The path where checkpoints are loaded from and stored to. Default is the current working directory.
         ranks_per_worker : int, optional
             The number of ranks per worker. Default is 1.
-        surrogate_factory : Callable[[], Surrogate], optional
+        surrogate_factory : Callable[[], propulate.surrogate.Surrogate], optional
            Function that returns a new instance of a ``Surrogate`` model.
            Only used when ``loss_fn`` is a generator function.
 
@@ -317,7 +317,7 @@ class Islands:
 
         Returns
         -------
-        List[List[propulate.Individual] | propulate.Individual]
+        List[List[propulate.population.Individual] | propulate.population.Individual]
             The top-n best individuals on each island.
         """
         self.propulator.propulate(logging_interval, debug)
@@ -340,7 +340,7 @@ class Islands:
 
         Returns
         -------
-        List[List[propulate.Individual] | propulate.Individual]
+        List[List[propulate.population.Individual] | propulate.population.Individual]
             The top-n best individuals on each island.
         """
         return self._run(top_n, logging_interval, debug)
