@@ -50,13 +50,15 @@ generation using the fitness values of all candidates it evaluated and received 
 
 In More Technical Terms
 =======================
-``Propulate`` is a massively parallel evolutionary optimizer based on the island model with asynchronous propagation of
-populations and asynchronous migration. In contrast to classical parallel population-based algorithms, ``Propulate``
-maintains a continuous population of already evaluated individuals with a softened notion of the typically strictly
-separated, discrete generations. Our contributions include:
+``Propulate`` |:dna:| is a massively parallel population-based optimizer based on the island model with asynchronous
+propagation of populations and asynchronous migration. In contrast to classical parallel population-based algorithms,
+``Propulate`` |:dna:| maintains a continuous population of already evaluated individuals with a softened notion of the
+typically strictly separated, discrete generations. Our contributions include:
 
-- A novel parallel population-based algorithm based on a fully asynchronous island model with independently processing workers.
-- Massive parallelism by asynchronous propagation of continuous populations and migration via efficient communication using the message passing interface.
+- A novel parallel population-based algorithm based on a fully asynchronous island model with independently processing
+  workers.
+- Massive parallelism by asynchronous propagation of continuous populations and migration via efficient communication
+  using the message passing interface.
 - Optimized use efficiency of parallel hardware by minimizing idle times in distributed computing environments.
 
 .. figure:: images/synchronous_pop.png
