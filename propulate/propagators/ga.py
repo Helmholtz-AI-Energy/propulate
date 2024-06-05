@@ -30,7 +30,9 @@ class PointMutation(Stochastic):
 
     def __init__(
         self,
-        limits: Mapping[str, Tuple[float, float] | Tuple[int, int] | Tuple[str, ...]],
+        limits: Mapping[
+            str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]
+        ],
         points: int = 1,
         probability: float = 1.0,
         rng: Optional[random.Random] = None,
@@ -237,7 +239,9 @@ class IntervalMutationNormal(Stochastic):
 
     def __init__(
         self,
-        limits: Mapping[str, Tuple[float, float] | Tuple[int, int] | Tuple[str, ...]],
+        limits: Mapping[
+            str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]
+        ],
         sigma_factor: float = 0.1,
         points: int = 1,
         probability: float = 1.0,

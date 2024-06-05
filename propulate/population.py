@@ -21,7 +21,9 @@ class Individual:
     def __init__(
         self,
         position: Union[MutableMapping[str, Union[str, int, float, Any]], np.ndarray],
-        limits: Mapping[str, Tuple[float, float] | Tuple[int, int] | Tuple[str, ...]],
+        limits: Mapping[
+            str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]
+        ],
         velocity: Optional[np.ndarray] = None,
         generation: int = -1,
         rank: int = -1,

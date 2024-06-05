@@ -204,7 +204,7 @@ class Conditional(Propagator):
         self.true_prop = true_prop
         self.false_prop = false_prop
 
-    def __call__(self, inds: List[Individual]) -> List[Individual] | Individual:
+    def __call__(self, inds: List[Individual]) -> Union[List[Individual], Individual]:
         """
         Apply conditional propagator.
 
@@ -279,7 +279,7 @@ class Compose(Propagator):
                 )
         self.propagators = propagators
 
-    def __call__(self, inds: List[Individual]) -> List[Individual] | Individual:
+    def __call__(self, inds: List[Individual]) -> Union[List[Individual], Individual]:
         """
         Apply the composed propagator.
 
@@ -484,7 +484,9 @@ class InitUniform(Stochastic):
 
     def __init__(
         self,
-        limits: Mapping[str, Tuple[float, float] | Tuple[int, int] | Tuple[str, ...]],
+        limits: Mapping[
+            str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]
+        ],
         parents: int = 0,
         probability: float = 1.0,
         rng: Optional[random.Random] = random.Random(),
@@ -525,7 +527,7 @@ class InitUniform(Stochastic):
         ValueError
             If a parameter's type is invalid, i.e., not float (continuous), int (ordinal), or str (categorical).
         """
-        position: MutableMapping[str, int | float | str] = {}
+        position: MutableMapping[str, Union[int, float, str]] = {}
         if (
             self.rng.random() < self.probability
         ):  # Apply only with specified probability.

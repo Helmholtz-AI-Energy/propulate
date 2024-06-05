@@ -367,7 +367,7 @@ class Pollinator(Propulator):
         else:
             population = self.population
         unique_inds: List[Individual] = []
-        occurrences: List[List[Individual | int]] = []
+        occurrences: List[List[Union[Individual, int]]] = []
         for individual in population:
             considered = False
             for ind in unique_inds:
