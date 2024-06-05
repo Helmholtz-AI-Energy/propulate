@@ -16,9 +16,9 @@ from typing import Dict, Tuple, Union
 import torch
 import torch.distributed as dist
 import torch.utils.data.distributed as datadist
-from torch.nn.parallel import DistributedDataParallel as DDP
 from mpi4py import MPI
 from torch import nn, optim
+from torch.nn.parallel import DistributedDataParallel as DDP  # noqa: N817
 from torch.utils.data import DataLoader
 from torchvision.datasets import MNIST
 from torchvision.transforms import Compose, Normalize, ToTensor
@@ -288,10 +288,10 @@ def ind_loss(
     """
     torch_process_group_init(subgroup_comm, method=SUBGROUP_COMM_METHOD)
     # Extract hyperparameter combination to test from input dictionary.
-    conv_layers = params["conv_layers"]  # Number of convolutional layers
-    activation = params["activation"]  # Activation function
-    lr = params["lr"]  # Learning rate
-    gamma = params["gamma"]  # Learning rate reduction factor
+    conv_layers = int(params["conv_layers"])  # Number of convolutional layers
+    activation = str(params["activation"])  # Activation function
+    lr = float(params["lr"])  # Learning rate
+    gamma = float(params["gamma"])  # Learning rate reduction factor
 
     epochs = 20
 
@@ -318,6 +318,7 @@ def ind_loss(
 
     if dist.is_initialized() and dist.get_world_size() > 1:
         model = DDP(model)
+        print(type(model))
 
     optimizer = optim.Adadelta(model.parameters(), lr=lr)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=gamma)
