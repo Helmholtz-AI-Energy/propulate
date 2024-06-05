@@ -227,28 +227,46 @@ will use your current working directory.
     parallel computing environment. This means that if you use a checkpoint created in a setting with 20 processing
     elements in a different computing environment with, e.g., 10 processing elements, the behavior is undefined.
 
+
 Other Optimizer Flavors
 -----------------------
-
 ``Propulate``'s asynchronous communication scheme can not only be used with evolutionary algorithms but any type of
 population-based optimizer. In addition to ``Propulate``'s default genetic propagator, the following alternative
 optimizer flavors are available, along with example scripts showing how to use them:
 
-- **Covariance matrix adaptation evolution strategy (CMA-ES):** Iteratively update a population of candidate solutions
-  using adaptive changes to the covariance matrix, guiding the search towards the optimal solution by learning the
-  problem's underlying structure. :ref:`Here<cmaes>` you can find a more detailed explanation of how CMA-ES works. Check
-  out the example script for how to use CMA-ES in ``Propulate`` |:dna:| below:
-
+**Covariance Matrix Adaptation Evolution Strategy (CMA-ES)**
+  Iteratively update a population of candidate solutions using adaptive changes to the covariance matrix, guiding the
+  search towards the optimal solution by learning the problem's underlying structure. :ref:`Here<cmaes>` you can find a
+  more detailed explanation of how CMA-ES works. Check out the example script for how to use CMA-ES in ``Propulate``
+  |:dna:|:
   https://github.com/Helmholtz-AI-Energy/propulate/blob/master/tutorials/cmaes_example.py
-- **Particle swarm optimization (PSO):** Simulate the social behavior of birds or fish to iteratively adjust candidate
-  solutions (particles) based on their own experience and the experience of their neighbors to find the optimal solution.
-  :ref:`Here<pso>` you can find a more detailed explanation of how PSO works. Check out the example script for how to
-  use PSO in ``Propulate`` |:dna:| below:
 
+  Two different variants of CMA-ES are available, i.e., basic [1] and active [2].
+
+**Particle Swarm Optimization (PSO)**
+  Simulate the social behavior of birds or fish to iteratively adjust candidate solutions (particles) based on their own
+  experience and the experience of their neighbors to find the optimal solution. :ref:`Here<pso>` you can find a more
+  detailed explanation of how PSO works. Check out the example script for how to use PSO in ``Propulate`` |:dna:|:
   https://github.com/Helmholtz-AI-Energy/propulate/blob/master/tutorials/pso_example.py
-- **Nelder-Mead optimization:** Iteratively refine a simplex of candidate solutions by reflecting, expanding,
-  contracting, and shrinking it to find the minimum or maximum of a function. :ref:`Here<nm>` you can find a more
-  detailed explanation of how Nelder-Mead works. Check out the example script for how to use Nelder-Mead in
-  ``Propulate`` |:dna:| below:
 
+  Different variants of PSO are available, including basic PSO, PSO with velocity clamping, constriction PSO [3], and
+  canonical PSO.
+
+**Nelder-Mead Optimization**
+  Iteratively refine a simplex of candidate solutions by reflecting, expanding, contracting, and shrinking it to find
+  the minimum or maximum of a function. :ref:`Here<nm>` you can find a more detailed explanation of how Nelder-Mead
+  works. Check out the example script for how to use Nelder-Mead in ``Propulate`` |:dna:|:
   https://github.com/Helmholtz-AI-Energy/propulate/blob/master/tutorials/nm_example.py
+
+
+[1] *N. Hansen and A. Ostermeier (2001), "Completely Derandomized Self-Adaptation in Evolution Strategies", Evolutionary Computation, 9(2), 159-195.*
+https://doi.org/10.1162/106365601750190398
+
+[2] *G. A. Jastrebski and D. V. Arnold (2006, July), "Improving Evolution Strategies Through Active Covariance Matrix Adaptation", In 2006 IEEE International Conference on Evolutionary Computation (pp. 2814-2821), IEEE.*
+https://doi.org/10.1109/CEC.2006.1688662
+
+[3] *M. Clerc and J. Kennedy (2002). "The Particle Swarm – Explosion, Stability, and Convergence in a Multidimensional Complex Space", IEEE transactions on Evolutionary Computation, 6(1), 58-73.*
+https://doi.org/10.1109/4235.985692
+
+[4] *J. Kennedy and R. Eberhart, (1995, November), "Particle Swarm Optimization", In Proceedings of ICNN'95 – International Conference on Neural Networks (Vol. 4, pp. 1942-1948). IEEE.*
+https://doi.org/10.1109/ICNN.1995.488968
