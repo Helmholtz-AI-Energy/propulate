@@ -7,7 +7,7 @@ from typing import Dict, Generator, Tuple, Union
 import torch
 from mpi4py import MPI
 from torch import nn
-from torch.utils.data import DataLoader, TensorDataset
+from torch.utils.data import DataLoader
 from torchmetrics import Accuracy
 from torchvision.datasets import MNIST
 from torchvision.transforms import Compose, Normalize, ToTensor
@@ -16,6 +16,9 @@ from propulate import Islands, surrogate
 from propulate.utils import get_default_propagator
 
 GPUS_PER_NODE: int = 1
+NUM_WORKERS: int = (
+    2  # Set this to the recommended number of workers in the PyTorch dataloader.
+)
 
 log_path = "torch_ckpts"
 log = logging.getLogger(__name__)  # Get logger instance.
@@ -34,13 +37,13 @@ class Net(nn.Module):
 
         Parameters
         ----------
-        conv_layers: int
+        conv_layers : int
             The number of convolutional layers.
-        activation: torch.nn.modules.activation
+        activation : torch.nn.modules.activation
             The activation function to use.
-        lr: float
+        lr : float
             The learning rate.
-        loss_fn: torch.nn.modules.loss
+        loss_fn : torch.nn.modules.loss
             The loss function.
         """
         super(Net, self).__init__()
@@ -74,7 +77,7 @@ class Net(nn.Module):
 
         Parameters
         ----------
-        x: torch.Tensor
+        x : torch.Tensor
             The data sample.
 
         Returns
@@ -94,7 +97,7 @@ class Net(nn.Module):
 
         Parameters
         ----------
-        batch: Tuple[torch.Tensor, torch.Tensor]
+        batch : Tuple[torch.Tensor, torch.Tensor]
             The input batch.
 
         Returns
@@ -113,7 +116,7 @@ class Net(nn.Module):
 
         Parameters
         ----------
-        batch: Tuple[torch.Tensor, torch.Tensor]
+        batch : Tuple[torch.Tensor, torch.Tensor]
             The current batch.
 
         Returns
@@ -144,52 +147,38 @@ def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
 
     Parameters
     ----------
-    batch_size: int
+    batch_size : int
         The batch size.
 
     Returns
     -------
-    DataLoader
+    torch.utils.data.DataLoader
         The training dataloader.
-    DataLoader
+    torch.utils.data.DataLoader
         The validation dataloader.
     """
     data_transform = Compose([ToTensor(), Normalize((0.1307,), (0.3081,))])
+    num_workers = NUM_WORKERS
+    log.info(f"Use {num_workers} workers in dataloader.")
 
-    # Set empty DataLoader.
+    # Note that the MNIST dataset has already been downloaded before globally by rank 0 in the main part.
     train_loader = DataLoader(
-        dataset=TensorDataset(torch.empty(0), torch.empty(0)),
-        batch_size=batch_size,
-        shuffle=False,
+        dataset=MNIST(
+            download=False, root=".", transform=data_transform, train=True
+        ),  # Use MNIST training dataset.
+        batch_size=batch_size,  # Batch size
+        num_workers=num_workers,
+        pin_memory=True,
+        persistent_workers=True,
+        shuffle=True,  # Shuffle data.
     )
-
-    if MPI.COMM_WORLD.Get_rank() == 0:  # Only root downloads data.
-        train_loader = DataLoader(
-            dataset=MNIST(
-                download=True, root=".", transform=data_transform, train=True
-            ),  # Use MNIST training dataset.
-            batch_size=batch_size,  # Batch size
-            shuffle=True,  # Shuffle data.
-        )
-
-    # NOTE barrier only called, when dataset has not been downloaded yet
-    if not hasattr(get_data_loaders, "barrier_called"):
-        MPI.COMM_WORLD.Barrier()
-
-        setattr(get_data_loaders, "barrier_called", True)
-
-    if MPI.COMM_WORLD.Get_rank() != 0:
-        train_loader = DataLoader(
-            dataset=MNIST(
-                download=False, root=".", transform=data_transform, train=True
-            ),  # Use MNIST training dataset.
-            batch_size=batch_size,  # Batch size
-            shuffle=True,  # Shuffle data.
-        )
     val_loader = DataLoader(
         dataset=MNIST(
             download=False, root=".", transform=data_transform, train=False
         ),  # Use MNIST testing dataset.
+        num_workers=num_workers,
+        pin_memory=True,
+        persistent_workers=True,
         batch_size=1,  # Batch size
         shuffle=False,  # Do not shuffle data.
     )
@@ -219,7 +208,7 @@ def ind_loss(
 
     epochs: int = 2  # Number of epochs to train
 
-    rank: int = MPI.COMM_WORLD.Get_rank()  # Get rank of current worker
+    rank: int = MPI.COMM_WORLD.rank  # Get rank of current worker.
 
     num_gpus = torch.cuda.device_count()  # Number of GPUs available
     if num_gpus == 0:
@@ -249,7 +238,7 @@ def ind_loss(
 
     train_loader, val_loader = get_data_loaders(
         batch_size=8
-    )  # Get training and validation data loaders.
+    )  # Get training and validation dataloaders.
 
     # Configure optimizer.
     optimizer = model.configure_optimizers()
@@ -310,17 +299,23 @@ def set_seeds(seed_value: int = 42) -> None:
 
 
 if __name__ == "__main__":
+    comm = MPI.COMM_WORLD
+    if comm.rank == 0:  # Download data at the top, then we don't need to later.
+        MNIST(download=True, root=".", transform=None, train=True)
+        MNIST(download=True, root=".", transform=None, train=False)
+    comm.Barrier()
+
     num_generations = 3  # Number of generations
-    pop_size = 2 * MPI.COMM_WORLD.size  # Breeding population size
+    pop_size = 2 * comm.size  # Breeding population size
     limits = {
         "conv_layers": (2, 10),
         "activation": ("relu", "sigmoid", "tanh"),
         "lr": (0.01, 0.0001),
     }  # Define search space.
     rng = random.Random(
-        MPI.COMM_WORLD.rank
+        comm.rank
     )  # Set up separate random number generator for evolutionary optimizer.
-    set_seeds(42 * MPI.COMM_WORLD.Get_rank())  # set seed for torch
+    set_seeds(42 * comm.rank)  # Set seed for torch.
     propagator = get_default_propagator(  # Get default evolutionary operator.
         pop_size=pop_size,  # Breeding population size
         limits=limits,  # Search space

@@ -311,10 +311,10 @@ def ind_loss(params: Dict[str, Union[int, float, str]]) -> float:
 if __name__ == "__main__":
     comm = MPI.COMM_WORLD
     if comm.rank == 0:  # Download data at the top, then we don't need to later.
-        dataset = MNIST(download=True, root=".", transform=None, train=True)
-        dataset = MNIST(download=True, root=".", transform=None, train=False)
-        del dataset
+        MNIST(download=True, root=".", transform=None, train=True)
+        MNIST(download=True, root=".", transform=None, train=False)
     comm.Barrier()
+
     num_generations = 10  # Number of generations
     pop_size = 2 * comm.size  # Breeding population size
     limits = {
