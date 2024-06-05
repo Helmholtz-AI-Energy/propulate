@@ -515,6 +515,14 @@ groups, ``SUBGROUP_COMM_METHOD``, for your own needs and hardware:
         )
 
 
+.. warning::
+
+   Combining multi-rank workers with surrogate models in ``Propulate`` |:dna:| has not yet been tested and might cause
+   issues. Please be cautious when using these features together. We are actively working on this and will provide
+   support for their combination soon |:rocket:|.
+
+
+
 .. _documentation: https://pytorch.org/docs/master/generated/torch.nn.parallel.DistributedDataParallel.html
 .. _table: https://pytorch.org/docs/stable/distributed.html#backends
 .. _NCCL: https://developer.nvidia.com/nccl

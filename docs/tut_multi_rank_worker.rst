@@ -206,3 +206,9 @@ The output produced looks like this:
 
 Even though we have eight ranks overall, only four workers are created – two for island 0 and two for island 1–, where
 each worker has two internal ranks for the parallelized evaluation of the loss function.
+
+.. warning::
+
+   Combining multi-rank workers with surrogate models in ``Propulate`` |:dna:| has not yet been tested and might cause
+   issues. Please be cautious when using these features together. We are actively working on this and will provide
+   support for their combination soon |:rocket:|.
