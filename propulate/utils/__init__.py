@@ -3,7 +3,7 @@ import logging
 import random
 import sys
 from pathlib import Path
-from typing import Dict, Optional, Tuple, Union
+from typing import Mapping, Optional, Tuple, Union
 
 import colorlog
 from mpi4py import MPI
@@ -30,11 +30,7 @@ __all__ = [
 
 def get_default_propagator(
     pop_size: int,
-    limits: Union[
-        Dict[str, Tuple[float, float]],
-        Dict[str, Tuple[int, int]],
-        Dict[str, Tuple[str, ...]],
-    ],
+    limits: Mapping[str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]],
     crossover_prob: float = 0.7,
     mutation_prob: float = 0.4,
     random_init_prob: float = 0.1,
@@ -67,6 +63,7 @@ def get_default_propagator(
     propagators.Propagator
         A basic evolutionary optimization propagator.
     """
+    propagator: Propagator
     if any(
         isinstance(limits[x][0], float) for x in limits
     ):  # Check for existence of at least one continuous trait.

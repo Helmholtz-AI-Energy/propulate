@@ -1,6 +1,6 @@
 import copy
 import random
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Mapping, Optional, Tuple, Union
 
 import numpy as np
 
@@ -30,11 +30,7 @@ class PointMutation(Stochastic):
 
     def __init__(
         self,
-        limits: Union[
-            Dict[str, Tuple[float, float]],
-            Dict[str, Tuple[int, int]],
-            Dict[str, Tuple[str, ...]],
-        ],
+        limits: Mapping[str, Tuple[float, float] | Tuple[int, int] | Tuple[str, ...]],
         points: int = 1,
         probability: float = 1.0,
         rng: Optional[random.Random] = None,
@@ -66,7 +62,7 @@ class PointMutation(Stochastic):
                 f"Too many points to mutate for individual with {len(limits)} traits."
             )
 
-    def __call__(self, ind: Individual) -> Individual:
+    def __call__(self, ind: Individual) -> Individual:  # type: ignore[override]
         """
         Apply the point-mutation propagator.
 
@@ -84,7 +80,7 @@ class PointMutation(Stochastic):
             self.rng.random() < self.probability
         ):  # Apply propagator only with specified probability
             ind = copy.deepcopy(ind)
-            ind.loss = None  # Initialize individual's loss attribute.
+            ind.loss = float("inf")  # Initialize individual's loss attribute.
             # Determine traits to mutate via random sampling.
             # Return `self.points` length list of unique elements chosen from `ind.keys()`.
             # Used for random sampling without replacement.
@@ -178,7 +174,7 @@ class RandomPointMutation(Stochastic):
         self.max_points = max_points
         self.limits = limits
 
-    def __call__(self, ind: Individual) -> Individual:
+    def __call__(self, ind: Individual) -> Individual:  # type: ignore[override]
         """
         Apply the random-point-mutation propagator.
 
@@ -196,7 +192,7 @@ class RandomPointMutation(Stochastic):
             self.rng.random() < self.probability
         ):  # Apply propagator only with specified probability.
             ind = copy.deepcopy(ind)
-            ind.loss = None  # Initialize individual's loss attribute.
+            ind.loss = float("inf")  # Initialize individual's loss attribute.
             # Determine traits to mutate via random sampling.
             # Return `self.points` length list of unique elements chosen from `ind.keys()`.
             # Used for random sampling without replacement.
@@ -241,11 +237,7 @@ class IntervalMutationNormal(Stochastic):
 
     def __init__(
         self,
-        limits: Union[
-            Dict[str, Tuple[float, float]],
-            Dict[str, Tuple[int, int]],
-            Dict[str, Tuple[str, ...]],
-        ],
+        limits: Mapping[str, Tuple[float, float] | Tuple[int, int] | Tuple[str, ...]],
         sigma_factor: float = 0.1,
         points: int = 1,
         probability: float = 1.0,
@@ -282,7 +274,7 @@ class IntervalMutationNormal(Stochastic):
                 f"Too many points to mutate ({points}) for individual with {n_interval_traits} continuous traits."
             )
 
-    def __call__(self, ind: Individual) -> Individual:
+    def __call__(self, ind: Individual) -> Individual:  # type: ignore[override]
         """
         Apply the interval-mutation propagator.
 
@@ -300,25 +292,27 @@ class IntervalMutationNormal(Stochastic):
             self.rng.random() < self.probability
         ):  # Apply propagator only with specified probability.
             ind = copy.deepcopy(ind)
-            ind.loss = None  # Initialize individual's loss attribute.
+            ind.loss = float("inf")  # Initialize individual's loss attribute.
             # Determine traits of type float.
-            interval_keys = [x for x in ind.keys() if isinstance(ind[x], float)]
+            interval_keys: List[str] = [
+                x for x in ind.keys() if isinstance(ind[x], float)
+            ]
             # Determine ´self.points` traits to mutate.
-            to_mutate = self.rng.sample(interval_keys, self.points)
+            to_mutate: List[str] = self.rng.sample(interval_keys, self.points)
             # Mutate traits by sampling from Gaussian distribution centered around current value
             # with `sigma_factor` scaled interval width as standard distribution.
-            for i in to_mutate:
-                min_val, max_val = self.limits[i]  # Determine interval boundaries.
+            for key in to_mutate:
+                min_val, max_val = self.limits[key]  # Determine interval boundaries.
                 sigma = (
-                    (max_val - min_val) * self.sigma_factor
+                    (float(max_val) - float(min_val)) * self.sigma_factor
                 )  # Determine std from interval boundaries and sigma factor.
-                ind[i] = self.rng.gauss(
-                    ind[i], sigma
+                ind[key] = self.rng.gauss(
+                    float(ind[key]), sigma
                 )  # Sample new value from Gaussian centered around current value.
-                ind[i] = min(
-                    max_val, ind[i]
+                ind[key] = min(
+                    max_val, ind[key]
                 )  # Make sure new value is within specified limits.
-                ind[i] = max(min_val, ind[i])
+                ind[key] = max(min_val, ind[key])
 
         return ind  # Return point-mutated individual.
 
@@ -386,7 +380,7 @@ class CrossoverUniform(Stochastic):  # uniform crossover
             The possibly cross-bred individual after application of the propagator.
         """
         ind = copy.deepcopy(inds[0])  # Consider 1st parent.
-        ind.loss = None  # Initialize individual's loss attribute.
+        ind.loss = float("inf")  # Initialize individual's loss attribute.
         if (
             self.rng.random() < self.probability
         ):  # Apply propagator only with specified `probability`.
@@ -447,7 +441,7 @@ class CrossoverMultiple(Stochastic):  # uniform crossover
             The possibly cross-bred individual after application of propagator
         """
         ind = copy.deepcopy(inds[0])  # Consider 1st parent.
-        ind.loss = None  # Initialize individual's loss attribute.
+        ind.loss = float("inf")  # Initialize individual's loss attribute.
         if (
             self.rng.random() < self.probability
         ):  # Apply propagator only with specified `probability`.
@@ -516,7 +510,7 @@ class CrossoverSigmoid(Stochastic):
             The possibly cross-bred individual after application of the propagator.
         """
         ind = copy.deepcopy(inds[0])  # Consider 1st parent.
-        ind.loss = None  # Initialize individual's loss attribute.
+        ind.loss = float("inf")  # Initialize individual's loss attribute.
         if inds[0].loss <= inds[1].loss:
             delta = inds[0].loss - inds[1].loss
             fraction = 1 / (1 + np.exp(-delta / self.temperature))

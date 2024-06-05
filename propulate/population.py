@@ -1,5 +1,16 @@
 from decimal import Decimal
-from typing import ItemsView, KeysView, Union, ValuesView
+from typing import (
+    Any,
+    Generator,
+    ItemsView,
+    KeysView,
+    Mapping,
+    MutableMapping,
+    Optional,
+    Tuple,
+    Union,
+    ValuesView,
+)
 
 import numpy as np
 
@@ -9,9 +20,9 @@ class Individual:
 
     def __init__(
         self,
-        position: Union[dict, np.ndarray],
-        limits: dict,
-        velocity: np.ndarray = None,
+        position: Union[MutableMapping[str, Union[str, int, float, Any]], np.ndarray],
+        limits: Mapping[str, Tuple[float, float] | Tuple[int, int] | Tuple[str, ...]],
+        velocity: Optional[np.ndarray] = None,
         generation: int = -1,
         rank: int = -1,
     ) -> None:
@@ -26,6 +37,9 @@ class Individual:
             The rank (-1 if unset).
         """
         self.limits = limits
+        self.mapping: MutableMapping[
+            str, Union[str, int, float, Any]
+        ]  # NOTE the Any is here for surrogate info
         for key in limits:
             if key.startswith("_"):
                 raise ValueError("Keys starting with '_' are reserved.")
@@ -61,39 +75,42 @@ class Individual:
 
         self.generation = generation  # Equals each worker's iteration for continuous population in Propulate.
         self.rank = rank  # island rank
-        self.loss = None  # Set to None instead of inf since there are no comparisons
+        self.loss: float = float("inf")
         self.active = True
         self.island = -1  # island of origin
         self.current = -1  # current responsible worker
         self.migration_steps = -1  # number of migration steps performed
-        self.migration_history = None  # migration history
-        self.evaltime = None  # evaluation time
-        self.evalperiod = None  # evaluation duration
+        self.migration_history: str = ""  # migration history
+        self.evaltime = float("inf")  # evaluation time
+        self.evalperiod = 0.0  # evaluation duration
 
         # NOTE needed for PSO type propagators
         self.velocity = velocity
         if self.velocity is not None:
             if not self.position.shape == self.velocity.shape:
+                print(self.position.shape, self.velocity.shape)
                 raise ValueError("Position and velocity shape do not match.")
 
-    def __getitem__(self, key) -> Union[float, int, str]:
+    def __getitem__(self, key: str) -> Union[float, int, str]:
         """Return decoded value for input key."""
         if key.startswith("_"):
             return self.mapping[key]
         else:
             # continuous variable
             if self.types[key] == float:
-                return self.position[self.offsets[key]].item()
+                return float(self.position[self.offsets[key]].item())
             elif self.types[key] == int:
-                return np.rint(self.position[self.offsets[key]]).item()
+                return int(np.rint(self.position[self.offsets[key]]).item())
             elif self.types[key] == str:
                 offset = self.offsets[key]
                 upper = self.offsets[key] + len(self.limits[key])
-                return self.limits[key][np.argmax(self.position[offset:upper]).item()]
+                return str(
+                    self.limits[key][np.argmax(self.position[offset:upper]).item()]
+                )
             else:
                 raise ValueError("Unknown type")
 
-    def __setitem__(self, key, newvalue) -> None:
+    def __setitem__(self, key: str, newvalue: Union[float, int, str, Any]) -> None:
         """Encode and set value for given key."""
         self.mapping[key] = newvalue
         if key.startswith("_"):
@@ -116,7 +133,7 @@ class Individual:
             else:
                 raise ValueError("Unknown type")
 
-    def __delitem__(self, key) -> None:
+    def __delitem__(self, key: str) -> None:
         """Do not implement deleting items."""
         if key in self.limits:
             raise ValueError()
@@ -146,7 +163,8 @@ class Individual:
                 if isinstance(self[key], float)
                 else self[key]
             )
-            for key in self
+            # NOTE this seems to be a mypy bug?
+            for key in self  # type: ignore
         }
         if self.loss is None:
             loss_str = f"{self.loss}"
@@ -159,12 +177,12 @@ class Individual:
             f"generation {self.generation}]"
         )
 
-    def __iter__(self) -> str:
+    def __iter__(self) -> Generator[str, None, None]:
         """Return standard iterator."""
         for key in self.limits:
             yield key
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         """
         Define equality operator ``==`` for class ``Individual``.
 
@@ -210,7 +228,7 @@ class Individual:
             and self.active == other.active
         )
 
-    def equals(self, other) -> bool:
+    def equals(self, other: object) -> bool:
         """
         Define alternative equality check for class ``Individual``.
 

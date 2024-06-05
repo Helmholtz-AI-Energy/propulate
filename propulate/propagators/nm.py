@@ -71,7 +71,7 @@ class ParallelNelderMead(Propagator):
         self.rho = rho
         self.sigma = sigma
         self.generation = 0
-        self.simplex = None
+        self.simplex: List[Individual]
 
         self.problem_dimension = len(start)
         self.start = start
@@ -148,9 +148,8 @@ class ParallelNelderMead(Propagator):
         numpy.ndarray
             The centroid of current simplex.
         """
-        position = sum([x.position for x in self.simplex[:-1]]) / (
-            len(self.simplex) - 1
-        )
+        position: np.ndarray = sum([x.position for x in self.simplex[:-1]])  # type: ignore
+        position = position / (len(self.simplex) - 1)
         return position
 
     def reflect(self) -> Individual:

@@ -175,7 +175,7 @@ class CMAParameter:
         )
 
         # Mean of the last generation
-        self.old_mean = None
+        self.old_mean: np.ndarray = initial_mean
         self.exploration = exploration
 
         # Number of individuals evaluated when the covariance matrix was last decomposed into B and D.
@@ -312,7 +312,8 @@ class CMAParameter:
         numpy.ndarray
             The resulting Mahalanobis distance.
         """
-        return np.linalg.norm(np.dot(self.covariance_inv_sqrt, dx))
+        # NOTE typing seems to be broken here? mypy says this is a floating[Any], the docs sya this is float | ndarray
+        return np.linalg.norm(np.dot(self.covariance_inv_sqrt, dx))  # type:ignore
 
 
 class CMAAdapter:

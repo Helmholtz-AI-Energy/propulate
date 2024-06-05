@@ -208,19 +208,6 @@ class Propulator:
                     "No valid checkpoint file given. Initializing population randomly..."
                 )
 
-    def propulate(self, logging_interval: int = 10, debug: int = 1) -> None:
-        """
-        Run asynchronous evolutionary optimization routine.
-
-        Parameters
-        ----------
-        logging_interval : int, optional
-            Print each worker's progress every ``logging_interval``-th generation. Default is 10.
-        debug : int, optional
-            The debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode). Default is 1.
-        """
-        self._work(logging_interval, debug)
-
     def _get_active_individuals(self) -> Tuple[List[Individual], int]:
         """
         Get active individuals in current population list.
@@ -252,6 +239,7 @@ class Propulator:
             ind = self.propagator(
                 active_pop
             )  # Breed new individual from active population.
+            assert isinstance(ind, Individual)
             ind.generation = self.generation  # Set generation.
             ind.rank = self.island_comm.rank  # Set worker rank.
             ind.active = True  # If True, individual is active for breeding.
@@ -268,6 +256,7 @@ class Propulator:
             # which is also part of the Propulate comm.
             ind = self.worker_sub_comm.bcast(obj=ind, root=0)
 
+        assert isinstance(ind, Individual)
         return ind  # Return new individual.
 
     def _evaluate_individual(self) -> None:
@@ -279,22 +268,35 @@ class Propulator:
         if self.surrogate is not None:
             self.surrogate.start_run(ind)
 
-        # Define local ``loss_fn`` for parallelized evaluation.
-        def loss_fn(individual):
-            if self.worker_sub_comm != MPI.COMM_SELF:
-                return self.loss_fn(individual, self.worker_sub_comm)
-            else:
-                return self.loss_fn(individual)
-
         # Check if ``loss_fn`` is generator, prerequisite for surrogate model.
         if inspect.isgeneratorfunction(self.loss_fn):
+
+            def loss_gen(individual: Individual) -> Generator[float, None, None]:
+                if self.worker_sub_comm != MPI.COMM_SELF:
+                    # NOTE mypy complains here. no idea why
+                    for x in self.loss_fn(individual, self.worker_sub_comm):  # type: ignore
+                        yield x
+                else:
+                    # NOTE mypy complains here. no idea why
+                    for x in self.loss_fn(individual):  # type: ignore
+                        yield x
+
             last = float("inf")
-            for last in loss_fn(ind):
+            for last in loss_gen(ind):
                 if self.surrogate is not None:
                     if self.surrogate.cancel(last):  # Check cancel for each yield.
                         break
             ind.loss = float(last)  # Set final loss as individual's loss.
         else:
+            # Define local ``loss_fn`` for parallelized evaluation.
+            def loss_fn(individual: Individual) -> float:
+                if self.worker_sub_comm != MPI.COMM_SELF:
+                    # NOTE this is not a generator, but mypy thinks it is
+                    return self.loss_fn(individual, self.worker_sub_comm)  # type: ignore
+                else:
+                    # NOTE this is not a generator, but mypy thinks it is
+                    return self.loss_fn(individual)  # type: ignore
+
             ind.loss = float(loss_fn(ind))  # Evaluate its loss.
 
         # Add final value to surrogate.
@@ -403,7 +405,7 @@ class Propulator:
         List[propulate.Individual]
             All unique individuals in the current population.
         """
-        unique_inds = []
+        unique_inds: List[Individual] = []
         for individual in self.population:
             considered = False
             for ind in unique_inds:
@@ -446,14 +448,14 @@ class Propulator:
             synchronized = False
         return synchronized
 
-    def _work(self, logging_interval: int = 10, debug: int = -1):
+    def propulate(self, logging_interval: int = 10, debug: int = -1) -> None:
         """
         Execute evolutionary algorithm in parallel.
 
         Parameters
         ----------
         logging_interval : int, optional
-            The logging interval. Default is 10.
+            Print each worker's progress every ``logging_interval``-th generation. Default is 10.
         debug : int, optional
             The debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode). Default is 1.
 
@@ -522,7 +524,7 @@ class Propulator:
         _ = self._determine_worker_dumping_next()
         self.propulate_comm.barrier()
 
-    def _dump_checkpoint(self):
+    def _dump_checkpoint(self) -> None:
         """Dump checkpoint to file."""
         log.debug(
             f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: "
@@ -544,7 +546,7 @@ class Propulator:
         )
         self.island_comm.send(True, dest=dest, tag=DUMP_TAG)
 
-    def _determine_worker_dumping_next(self):
+    def _determine_worker_dumping_next(self) -> bool:
         """Determine the worker who dumps the checkpoint in the next generation."""
         dump = False
         stat = MPI.Status()
@@ -559,7 +561,7 @@ class Propulator:
             )
         return dump
 
-    def _dump_final_checkpoint(self):
+    def _dump_final_checkpoint(self) -> None:
         """Dump final checkpoint."""
         save_ckpt_file = self.checkpoint_path / f"island_{self.island_idx}_ckpt.pickle"
         if os.path.isfile(save_ckpt_file):
@@ -597,8 +599,8 @@ class Propulator:
             population, _ = self._get_active_individuals()
         else:
             population = self.population
-        unique_inds = []
-        occurrences = []
+        unique_inds: List[Individual] = []
+        occurrences: List[List[Individual | int]] = []
         for individual in population:
             considered = False
             for ind in unique_inds:
@@ -634,7 +636,7 @@ class Propulator:
             The top-n best individuals on each island.
         """
         if self.propulate_comm is None:
-            return
+            return None
         active_pop, num_active = self._get_active_individuals()
         assert np.all(
             np.array(self.island_comm.allgather(num_active), dtype=int) == num_active
