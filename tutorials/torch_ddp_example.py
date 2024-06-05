@@ -317,8 +317,7 @@ def ind_loss(
         device = "cpu"
 
     if dist.is_initialized() and dist.get_world_size() > 1:
-        model = DDP(model)
-        print(type(model))
+        model = DDP(model)  # Wrap model with DDP.
 
     optimizer = optim.Adadelta(model.parameters(), lr=lr)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=gamma)
