@@ -24,8 +24,8 @@ def rosenbrock(params: Dict[str, float]) -> float:
     float
         The function value.
     """
-    params = np.array(list(params.values()))
-    return 100 * (params[0] ** 2 - params[1]) ** 2 + (1 - params[0]) ** 2
+    x = np.array(list(params.values()))
+    return 100 * (x[0] ** 2 - x[1]) ** 2 + (1 - x[0]) ** 2
 
 
 def step(params: Dict[str, float]) -> float:
@@ -50,8 +50,8 @@ def step(params: Dict[str, float]) -> float:
     float
         The function value.
     """
-    params = np.array(list(params.values()))
-    return np.sum(params.astype(int), dtype=float).item()
+    x = np.array(list(params.values()))
+    return np.sum(x.astype(int), dtype=float).item()
 
 
 def quartic(params: Dict[str, float]) -> float:
@@ -75,10 +75,10 @@ def quartic(params: Dict[str, float]) -> float:
     float
         The function value.
     """
-    params = np.array(list(params.values()))
-    idx = np.arange(1, len(params) + 1)
-    gauss = np.random.normal(size=len(params))
-    return abs(np.sum(idx * params**4 + gauss))
+    x = np.array(list(params.values()))
+    idx = np.arange(1, len(x) + 1)
+    gauss = np.random.normal(size=len(x))
+    return abs(np.sum(idx * x**4 + gauss))
 
 
 def rastrigin(params: Dict[str, float]) -> float:
@@ -104,8 +104,8 @@ def rastrigin(params: Dict[str, float]) -> float:
         The function value.
     """
     a = 10.0
-    params = np.array(list(params.values()))
-    return a * len(params) + np.sum(params**2 - a * np.cos(2 * np.pi * params))
+    x = np.array(list(params.values()))
+    return a * len(x) + np.sum(x**2 - a * np.cos(2 * np.pi * x))
 
 
 def griewank(params: Dict[str, float]) -> float:
@@ -130,9 +130,9 @@ def griewank(params: Dict[str, float]) -> float:
     float
         The function value.
     """
-    params = np.array(list(params.values()))
-    idx = np.arange(1, len(params) + 1)
-    return 1 + 1.0 / 4000 * np.sum(params**2) - np.prod(np.cos(params / np.sqrt(idx)))
+    x = np.array(list(params.values()))
+    idx = np.arange(1, len(x) + 1)
+    return 1 + 1.0 / 4000 * np.sum(x**2) - np.prod(np.cos(x / np.sqrt(idx)))
 
 
 def schwefel(params: Dict[str, float]) -> float:
@@ -156,8 +156,8 @@ def schwefel(params: Dict[str, float]) -> float:
         The function value.
     """
     v = 418.982887
-    params = np.array(list(params.values()))
-    return v * len(params) - np.sum(params * np.sin(np.sqrt(np.abs(params))))
+    x = np.array(list(params.values()))
+    return v * len(x) - np.sum(x * np.sin(np.sqrt(np.abs(x))))
 
 
 def bisphere(params: Dict[str, float]) -> float:
@@ -188,15 +188,13 @@ def bisphere(params: Dict[str, float]) -> float:
     float
         The function value.
     """
-    params = np.array(list(params.values()))
-    n = len(params)
+    x = np.array(list(params.values()))
+    n = len(x)
     d = 1
     s = 1 - np.sqrt(1 / (2 * np.sqrt(n + 20) - 8.2))
     mu1 = 2.5
     mu2 = -np.sqrt((mu1**2 - d) / s)
-    return min(
-        np.sum((params - mu1) ** 2), d * n + s * np.sum((params - mu2) ** 2)
-    ).item()
+    return min(np.sum((x - mu1) ** 2), d * n + s * np.sum((x - mu2) ** 2)).item()
 
 
 def birastrigin(params: Dict[str, float]) -> float:
@@ -225,15 +223,15 @@ def birastrigin(params: Dict[str, float]) -> float:
     float
         The function value.
     """
-    params = np.array(list(params.values()))
-    n = len(params)
+    x = np.array(list(params.values()))
+    n = len(x)
     d = 1
     s = 1 - np.sqrt(1 / (2 * np.sqrt(n + 20) - 8.2))
     mu1 = 2.5
     mu2 = -np.sqrt((mu1**2 - d) / s)
     return min(
-        np.sum((params - mu1) ** 2), d * n + s * np.sum((params - mu2) ** 2)
-    ) + 10 * np.sum(1 - np.cos(2 * np.pi * (params - mu1)))
+        np.sum((x - mu1) ** 2), d * n + s * np.sum((x - mu2) ** 2)
+    ) + 10 * np.sum(1 - np.cos(2 * np.pi * (x - mu1)))
 
 
 def bukin_n6(params: Dict[str, float]) -> float:
@@ -253,10 +251,8 @@ def bukin_n6(params: Dict[str, float]) -> float:
     float
         The function value.
     """
-    params = np.array(list(params.values()))
-    return 100 * np.sqrt(np.abs(params[1] - 0.01 * params[0] ** 2)) + 0.01 * np.abs(
-        params[0] + 10
-    )
+    x = np.array(list(params.values()))
+    return 100 * np.sqrt(np.abs(x[1] - 0.01 * x[0] ** 2)) + 0.01 * np.abs(x[0] + 10)
 
 
 def egg_crate(params: Dict[str, float]) -> float:
@@ -276,12 +272,8 @@ def egg_crate(params: Dict[str, float]) -> float:
     float
         The function value.
     """
-    params = np.array(list(params.values()))
-    return (
-        params[0] ** 2
-        + params[1] ** 2
-        + 25 * (np.sin(params[0]) ** 2 + np.sin(params[1]) ** 2)
-    )
+    x = np.array(list(params.values()))
+    return x[0] ** 2 + x[1] ** 2 + 25 * (np.sin(x[0]) ** 2 + np.sin(x[1]) ** 2)
 
 
 def himmelblau(params: Dict[str, float]) -> float:
@@ -301,10 +293,8 @@ def himmelblau(params: Dict[str, float]) -> float:
     float
         The function value.
     """
-    params = np.array(list(params.values()))
-    return (params[0] ** 2 + params[1] - 11) ** 2 + (
-        params[0] + params[1] ** 2 - 7
-    ) ** 2
+    x = np.array(list(params.values()))
+    return (x[0] ** 2 + x[1] - 11) ** 2 + (x[0] + x[1] ** 2 - 7) ** 2
 
 
 def keane(params: Dict[str, float]) -> float:
@@ -324,11 +314,11 @@ def keane(params: Dict[str, float]) -> float:
     float
         The function value.
     """
-    params = np.array(list(params.values()))
+    x = np.array(list(params.values()))
     return (
-        -(np.sin(params[0] - params[1]) ** 2)
-        * np.sin(params[0] + params[1]) ** 2
-        / np.sqrt(params[0] ** 2 + params[1] ** 2)
+        -(np.sin(x[0] - x[1]) ** 2)
+        * np.sin(x[0] + x[1]) ** 2
+        / np.sqrt(x[0] ** 2 + x[1] ** 2)
     )
 
 
@@ -349,8 +339,8 @@ def leon(params: Dict[str, float]) -> float:
     float
         The function value.
     """
-    params = np.array(list(params.values()))
-    return 100 * (params[1] - params[0] ** 3) ** 2 + (1 - params[0]) ** 2
+    x = np.array(list(params.values()))
+    return 100 * (x[1] - x[0] ** 3) ** 2 + (1 - x[0]) ** 2
 
 
 def sphere(params: Dict[str, float]) -> float:
@@ -696,7 +686,7 @@ def parse_arguments(
     class ParamSettingCatcher(argparse.Action):
         """Extend ``argparse``'s ``Action`` class to enable logging if one of the PSO hyperparameters was set."""
 
-        def __call__(self, parser, namespace, values, option_string=None):
+        def __call__(self, parser, namespace, values, option_string=None):  # type: ignore
             hp_set[self.dest] = True
             super().__call__(parser, namespace, values, option_string)
 

@@ -29,7 +29,7 @@ from propulate.utils.benchmark_functions import get_function_search_space
         "sphere",
     ]
 )
-def function_name(request):
+def function_name(request: pytest.FixtureRequest) -> str:
     """Define benchmark function parameter sets as used in tests."""
     return request.param
 

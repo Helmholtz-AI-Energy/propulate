@@ -73,8 +73,8 @@ if __name__ == "__main__":
     )
 
     # Run actual optimization.
-    islands.evolve(
-        top_n=config.top_n,
+    islands.propulate(
         logging_interval=config.logging_interval,
         debug=config.verbosity,
     )
+    islands.summarize(config.top_n, debug=config.verbosity)

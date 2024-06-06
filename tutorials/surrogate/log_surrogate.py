@@ -120,4 +120,4 @@ class LogSurrogate(Surrogate):
             The best loss so far.
         """
         print(f"LogSurrogate - Data called with best loss: {self.best_loss}")
-        return self.best_loss
+        return float(self.best_loss)

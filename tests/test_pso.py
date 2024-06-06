@@ -5,7 +5,7 @@ import pytest
 from mpi4py import MPI
 
 from propulate import Propulator
-from propulate.propagators import Conditional
+from propulate.propagators import Conditional, Propagator
 from propulate.propagators.pso import (
     BasicPSO,
     CanonicalPSO,
@@ -51,13 +51,13 @@ rng = random.Random(42 + rank)
         ),
     ]
 )
-def pso_propagator(request):
+def pso_propagator(request: pytest.FixtureRequest) -> Propagator:
     """Iterate over PSO propagator variants."""
     return request.param
 
 
 @pytest.mark.mpi
-def test_pso(pso_propagator, mpi_tmp_path: pathlib.Path):
+def test_pso(pso_propagator: Propagator, mpi_tmp_path: pathlib.Path) -> None:
     """
     Test single worker using Propulator to optimize a benchmark function using the default genetic propagator.
 

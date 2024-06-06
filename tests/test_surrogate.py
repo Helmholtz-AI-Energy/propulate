@@ -136,7 +136,7 @@ class Net(nn.Module):
         return torch.optim.SGD(self.parameters(), lr=self.lr)
 
 
-def get_data_loaders(batch_size: int, root=Path) -> Tuple[DataLoader, DataLoader]:
+def get_data_loaders(batch_size: int, root: Path) -> Tuple[DataLoader, DataLoader]:
     """
     Get MNIST train and validation dataloaders.
 
@@ -311,11 +311,11 @@ def set_seeds(seed_value: int = 42) -> None:
 
 
 @pytest.mark.mpi(min_size=4)
-def test_mnist_static(mpi_tmp_path):
+def test_mnist_static(mpi_tmp_path: Path) -> None:
     """Test static surrogate using a torch convolutional network on the MNIST dataset."""
     num_generations = 3  # Number of generations
     pop_size = 2 * MPI.COMM_WORLD.size  # Breeding population size
-    limits = {
+    limits: Dict[str, Union[Tuple[int, int], Tuple[float, float], Tuple[str, ...]]] = {
         "conv_layers": (2, 3),
         "activation": ("relu", "sigmoid", "tanh"),
         "lr": (0.01, 0.0001),
@@ -341,11 +341,11 @@ def test_mnist_static(mpi_tmp_path):
         checkpoint_path=mpi_tmp_path,
         surrogate_factory=lambda: surrogate.StaticSurrogate(),
     )
-    islands.evolve(  # Run evolutionary optimization.
-        top_n=1,  # Print top-n best individuals on each island in summary.
+    islands.propulate(  # Run evolutionary optimization.
         logging_interval=1,  # Logging interval
         debug=2,  # Verbosity level
     )
+    islands.summarize(top_n=1, debug=2)
     MPI.COMM_WORLD.barrier()
     delattr(get_data_loaders, "barrier_called")
 
@@ -355,11 +355,11 @@ def test_mnist_static(mpi_tmp_path):
     match="Assigning the 'data' attribute is an inherently unsafe operation and will be removed in the future.",
 )
 @pytest.mark.mpi(min_size=4)
-def test_mnist_dynamic(mpi_tmp_path):
+def test_mnist_dynamic(mpi_tmp_path: Path) -> None:
     """Test static surrogate using a torch convolutional network on the MNIST dataset."""
     num_generations = 3  # Number of generations
     pop_size = 2 * MPI.COMM_WORLD.size  # Breeding population size
-    limits = {
+    limits: Dict[str, Union[Tuple[int, int], Tuple[float, float], Tuple[str, ...]]] = {
         "conv_layers": (2, 3),
         "activation": ("relu", "sigmoid", "tanh"),
         "lr": (0.01, 0.0001),
@@ -382,8 +382,8 @@ def test_mnist_dynamic(mpi_tmp_path):
         checkpoint_path=mpi_tmp_path,
         surrogate_factory=lambda: surrogate.DynamicSurrogate(limits),
     )
-    islands.evolve(  # Run evolutionary optimization.
-        top_n=1,  # Print top-n best individuals on each island in summary.
+    islands.propulate(  # Run evolutionary optimization.
         logging_interval=1,  # Logging interval
         debug=2,  # Verbosity level
     )
+    islands.summarize(top_n=1, debug=2)

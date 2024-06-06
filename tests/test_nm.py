@@ -28,7 +28,7 @@ from propulate.utils.benchmark_functions import get_function_search_space
         ("sphere", 0.0),  # (fname, expected)
     ]
 )
-def function_parameters(request):
+def function_parameters(request: pytest.FixtureRequest) -> Tuple[str, float]:
     """Define benchmark function parameter sets as used in tests."""
     return request.param
 
@@ -66,3 +66,4 @@ def test_cmaes(
     )
     # Run optimization and print summary of results.
     propulator.propulate()
+    propulator.summarize()
