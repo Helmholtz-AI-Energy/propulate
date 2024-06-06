@@ -34,9 +34,18 @@ function:
     f_\text{parallel sphere}\left(x_i; i=0,\dots,\texttt{ranks_per_worker}\right)=\sum_{i} x_i^2
 
 In general, the parallel sphere function's dimension should equal the number of ranks per worker ``ranks_per_worker``.
-The definition of the corresponding ``Python`` function is shown below:
+The definition of the corresponding ``Python`` function is shown below. The only difference compared to the single-rank
+worker case is that the loss function additionally takes in the worker's sub communicator as an input argument. The
+splitting of all available processes into the required communicators on island and worker level is done by ``Propulate``
+|:dna:| internally. The only thing you need to take care of is that the loss function returns the final evaluated value
+on the worker's rank 0 as these ranks are also part of the ``Propulate`` communicator and responsible for the actual
+optimization process. All communication required between a worker's ranks to achieve this must be implemented within the
+loss function. In the parallel sphere function below, this is done by summing up the squared terms over all ranks in a
+worker with ``allreduce``:
 
 .. code-block:: python
+  :emphasize-lines: 1, 14-15, 26
+
 
   def parallel_sphere(params: Dict[str, float], comm: MPI.Comm = MPI.COMM_SELF) -> float:
       """

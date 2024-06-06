@@ -20,14 +20,10 @@ especially with newer models getting bigger and bigger.
 Predicting the performance of hyperparameter configurations during the training process allows for early termination of
 less promising configurations. To this end, ``Propulate`` features so-called surrogate models, which have access to
 interim loss values from each evaluated neural network's training during the hyperparameter optimization and decide
-about stopping it early.
-
+whether to stop it early.
 Our evaluation of static and probabilistic surrogate models for hyperparameter optimization in ``Propulate`` with
-different datasets and neural networks showed a significant decrease in total run time and energy consumption while still finding
-a loss within small bounds of the best loss found without early stopping.
-
-The universally usable surrogate model implementation in ``Propulate`` enables developing custom surrogate models easily.
-
+different datasets and neural networks showed a significant decrease in total run time and energy consumption while
+still finding a loss within small bounds of the best loss found without early stopping.
 Below, we will guide you through a basic example of how to use surrogate models for pruning in ``Propulate``.
 
 As in the :ref:`hyperparameter optimization tutorial<tut_hpo>`, let us again consider the problem of MNIST
@@ -74,9 +70,9 @@ function are left unchanged and reused as before:
 
 The only thing that is different when using surrogate models is the individual's loss function ``ind_loss()``. As
 mentioned before, surrogate models predict the performance of hyperparameter configurations during the training process
-to stop less promising individuals early. To decide about stopping an individual early, we need access to interim loss
+to stop less promising individuals early. To decide whether to stop an individual early, we need access to interim loss
 values from each evaluated neural network's training. This is achieved by yielding the average validation loss of each
-evaluated candidate in regular intervals (i.e., after each epoch) during training. These interim loss values are fed
+evaluated candidate in regular intervals (e.g., after each epoch) during training. These interim loss values are fed
 into the surrogate model which decides whether to continue or cancel the training and updates itself accordingly based
 on the provided value.
 

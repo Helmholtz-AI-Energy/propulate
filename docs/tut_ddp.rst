@@ -150,6 +150,8 @@ We use ``PyTorch``'s ``DistributedSampler`` to split the input data across the p
 enable data-parallel training of each individual. This is what happens in the ``get_data_loaders()`` function below:
 
 .. code-block:: python
+    :emphasize-lines: 29-30
+
 
     def get_data_loaders(
         batch_size: int, subgroup_comm: MPI.Comm
@@ -321,6 +323,8 @@ loss as a measure of its predictive performance. The main difference to the sing
 initial model with ``DDP`` and use the ``DistributedSampler`` when getting the train and validation dataloaders:
 
 .. code-block:: python
+    :emphasize-lines: 49-50
+
 
     def ind_loss(
         params: Dict[str, Union[int, float, str]], subgroup_comm: MPI.Comm

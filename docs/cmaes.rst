@@ -66,7 +66,7 @@ Key Components
 
   .. math::
 
-     C_{new} = (1 - c_1 - c_\mu) \cdot C + c_1 \cdot p_c \cdot p_c^T + c_\mu \cdot \sum_{i=1}^{\mu} w_i \cdot (x_i - m)(x_i - m)^T
+     C_\text{new} = (1 - c_1 - c_\mu) \cdot C + c_1 \cdot p_c \cdot p_c^T + c_\mu \cdot \sum_{i=1}^{\mu} w_i \cdot (x_i - m)(x_i - m)^T
 
   where:
 
@@ -79,7 +79,7 @@ Key Components
 
   .. math::
 
-     \sigma_text{new} = \sigma \cdot \exp \left( \frac{c_\sigma}{d_\sigma} \left( \frac{||p_\sigma||}{E(||N(0,I)||)} - 1 \right) \right)
+     \sigma_\text{new} = \sigma \cdot \exp \left( \frac{c_\sigma}{d_\sigma} \left( \frac{||p_\sigma||}{E(||N(0,I)||)} - 1 \right) \right)
 
   where:
 
@@ -87,8 +87,6 @@ Key Components
     - :math:`p_\sigma` is the evolution path for the step size.
     - :math:`E(||N(0,I)||)` is the expected length of a random vector from the standard normal distribution.
 
-Iteration
----------
 The process of sampling, evaluating, selecting, and adapting continues iteratively until a stopping criterion is met,
 such as a maximum number of generations or a satisfactory fitness level.
 

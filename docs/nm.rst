@@ -15,7 +15,7 @@ Basic Concepts
 --------------
 
 - **Simplex:** The method operates on a simplex, which is a geometric figure consisting of :math:`n+1` vertices in an
-  :math:`n+1`-dimensional space.
+  :math:`n`-dimensional space.
 - **Non-Derivative Based:** The Nelder-Mead method does not require the calculation of derivatives, making it suitable
   for optimizing functions that are not differentiable or are noisy.
 
@@ -26,7 +26,7 @@ Key Components
 
 - Initialize a simplex with :math:`n+1` vertices, where :math:`n` is the number of dimensions of the function to be
   minimized.
-- The initial vertices can be chosen based on prior knowledge or randomly.
+- The initial vertices can be chosen based on prior knowledge or randomly around a starting point.
 
 **2. Simplex Operations**
 
@@ -79,9 +79,6 @@ for all :math:`i`, where:
    - :math:`x_l` is the best vertex (lowest function value).
    - :math:`x_i` are the other vertices.
    - :math:`\sigma` is the shrinkage coefficient, typically set to 0.5.
-
-Iteration
----------
 
 The process of reflection, expansion, contraction, and shrinkage continues iteratively until a stopping criterion is
 met, such as a maximum number of iterations or a convergence threshold.
