@@ -549,7 +549,7 @@ class InitUniformPSO(Stochastic):
         Returns
         -------
         propulate.Individual
-            A single particle object.
+            A single individual object.
         """
         if (
             len(individuals) == 0 or self.rng.random() < self.probability
