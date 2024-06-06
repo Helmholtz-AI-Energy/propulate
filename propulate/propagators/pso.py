@@ -359,7 +359,7 @@ class ConstrictionPSO(BasicPSO):
         """
         Apply the constriction PSO update rule.
 
-        Return a ``Individual`` object containing the updated values of the youngest passed ``Individual`` or ``Individual``
+        Return an ``Individual`` object containing the updated values of the youngest passed ``Individual`` or ``Individual``
         that belongs to the worker the propagator is living on.
 
         Parameters
