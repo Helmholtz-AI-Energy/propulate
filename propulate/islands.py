@@ -11,6 +11,7 @@ from .migrator import Migrator
 from .pollinator import Pollinator
 from .population import Individual
 from .propagators import Propagator, SelectMax, SelectMin
+from .propulator import Propulator
 from .surrogate import Surrogate
 
 log = logging.getLogger(__name__)  # Get logger instance.
@@ -33,8 +34,8 @@ class Islands:
 
     Methods
     -------
-    evolve()
-        Run Propulate optimization and summarize results.
+    propulate()
+        Run Propulate optimization.
     """
 
     def __init__(
@@ -249,19 +250,19 @@ class Islands:
                     "Starting parallel optimization process."
                 )
         else:
-            migration_prob_rank = None
-            island_displs = None
-            island_idx = None
-            island_comm = None
-            emigration_propagator = None
-            immigration_propagator = None
+            migration_prob_rank = None  # type: ignore
+            island_displs = None  # type: ignore
+            island_idx = None  # type: ignore
+            island_comm = None  # type: ignore
+            emigration_propagator = None  # type: ignore
+            immigration_propagator = None  # type: ignore
 
         MPI.COMM_WORLD.barrier()
         # Set up one Propulator for each island.
         if pollination is False:
             if full_world_rank == 0:
                 log.info("Use island model with real migration.")
-            self.propulator = Migrator(
+            self.propulator: Propulator = Migrator(
                 loss_fn=loss_fn,
                 propagator=propagator,
                 rng=rng,
@@ -300,16 +301,12 @@ class Islands:
                 surrogate_factory=surrogate_factory,
             )
 
-    def _run(
-        self, top_n: int = 3, logging_interval: int = 10, debug: int = 1
-    ) -> List[Union[List[Individual], Individual]]:
+    def propulate(self, logging_interval: int = 10, debug: int = 1) -> None:
         """
         Run Propulate optimization.
 
         Parameters
         ----------
-        top_n : int
-            The number of best results to report.
         logging_interval : int
             The logging interval.
         debug : int
@@ -321,26 +318,18 @@ class Islands:
             The top-n best individuals on each island.
         """
         self.propulator.propulate(logging_interval, debug)
-        return self.propulator.summarize(top_n, debug)
 
-    def evolve(
-        self, top_n: int = 3, logging_interval: int = 10, debug: int = 1
-    ) -> List[Union[List[Individual], Individual]]:
+    def summarize(
+        self, top_n: int = 3, debug: int = 1
+    ) -> Union[List[Union[List[Individual], Individual]], None]:
         """
-        Run Propulate optimization and summarize results.
+        Summarize optimization results.
 
         Parameters
         ----------
-        top_n : int, optional
+        top_n : int
             The number of best results to report. Default is 3.
-        logging_interval : int, optional
-            The logging interval. Default is 10.
         debug : int
-            The debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode). Default is 1.
-
-        Returns
-        -------
-        List[List[propulate.Individual] | propulate.Individual]
-            The top-n best individuals on each island.
+            The debug level; 0 - silent; 1 - moderate, 2 = noisy (debug mode). Default is 1.
         """
-        return self._run(top_n, logging_interval, debug)
+        return self.propulator.summarize(top_n, debug)

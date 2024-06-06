@@ -111,8 +111,8 @@ if __name__ == "__main__":
     )
 
     # Run actual optimization.
-    islands.evolve(
-        top_n=config.top_n,  # Print top-n best individuals on each island in summary.
+    islands.propulate(
         logging_interval=config.logging_interval,  # Logging interval
         debug=config.verbosity,  # Debug level
     )
+    islands.summarize(top_n=config.top_n, debug=config.verbosity)

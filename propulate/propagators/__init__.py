@@ -25,6 +25,7 @@ from .ga import (
     PointMutation,
     RandomPointMutation,
 )
+from .nm import ParallelNelderMead
 from .pso import (
     BasicPSO,
     CanonicalPSO,
@@ -58,4 +59,5 @@ __all__ = [
     "CMAPropagator",
     "BasicCMA",
     "ActiveCMA",
+    "ParallelNelderMead",
 ]

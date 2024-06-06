@@ -2,12 +2,13 @@ import copy
 import logging
 import random
 from pathlib import Path
-from typing import Callable, Generator, Optional, Type, Union
+from typing import Callable, Generator, List, Optional, Type, Union
 
 import numpy as np
 from mpi4py import MPI
 
 from ._globals import MIGRATION_TAG, SYNCHRONIZATION_TAG
+from .population import Individual
 from .propagators import Propagator, SelectMin
 from .propulator import Propulator
 from .surrogate import Surrogate
@@ -118,7 +119,9 @@ class Migrator(Propulator):
             surrogate_factory,
         )
         # Set class attributes.
-        self.emigrated = []  # Emigrated individuals to be deactivated on sending island
+        self.emigrated: List[
+            Individual
+        ] = []  # Emigrated individuals to be deactivated on sending island
 
     def _send_emigrants(self) -> None:
         """Perform migration, i.e. island sends individuals out to other islands."""
@@ -127,6 +130,7 @@ class Migrator(Propulator):
             f"Generation {self.generation}: EMIGRATION\n"
         )
         # Determine relevant line of migration topology.
+        assert self.migration_topology is not None
         to_migrate = self.migration_topology[self.island_idx, :]
         num_emigrants = np.sum(
             to_migrate, dtype=int
@@ -147,6 +151,7 @@ class Migrator(Propulator):
             all_emigrants = emigrator(
                 eligible_emigrants
             )  # Choose `offspring` eligible emigrants.
+            assert isinstance(all_emigrants, list)
             self.rng.shuffle(all_emigrants)
             # Loop through relevant part of migration topology.
             offsprings_sent = 0
@@ -154,6 +159,8 @@ class Migrator(Propulator):
                 if offspring == 0:
                     continue
                 # Determine self.propulate_comm ranks of workers on target island.
+                assert self.island_displs is not None
+                assert self.island_counts is not None
                 displ = self.island_displs[target_island]
                 count = self.island_counts[target_island]
                 dest_island = np.arange(displ, displ + count)
@@ -197,6 +204,7 @@ class Migrator(Propulator):
 
                 # Deactivate emigrants for sending worker.
                 for emigrant in emigrants:
+                    assert isinstance(emigrant, Individual)
                     # Look for emigrant to deactivate in original population list.
                     to_deactivate = [
                         idx
@@ -356,7 +364,6 @@ class Migrator(Propulator):
                     + f"from worker {stat.Get_source()} to be deactivated.\n"
                     + f"Overall {len(self.emigrated)} individuals to deactivate: {self.emigrated}\n"
                 )
-            # TODO In while loop or not?
             emigrated_copy = copy.deepcopy(self.emigrated)
             for emigrant in emigrated_copy:
                 assert emigrant.active is True
@@ -393,7 +400,7 @@ class Migrator(Propulator):
         )
         log.debug(log_string)
 
-    def _work(self, logging_interval: int = 10, debug: int = 1):
+    def propulate(self, logging_interval: int = 10, debug: int = 1) -> None:
         """
         Execute evolutionary algorithm using island model with real migration in parallel.
 
@@ -414,8 +421,6 @@ class Migrator(Propulator):
         if self.propulate_comm is None:
             while self.generations <= -1 or self.generation < self.generations:
                 # Breed and evaluate individual.
-                # print(self.generation)
-
                 self._evaluate_individual()
                 self.generation += 1
             return

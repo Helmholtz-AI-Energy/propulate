@@ -3,6 +3,7 @@ Toy example for HP optimization / NAS in Propulate, using a simple CNN trained o
 
 This script was tested on a single compute node with 4 GPUs. Note that you need to adapt ``GPUS_PER_NODE`` (see ll. 25).
 """
+
 import logging
 import pathlib
 import random
@@ -193,12 +194,12 @@ class Net(LightningModule):
         """
         return torch.optim.SGD(self.parameters(), lr=self.lr)
 
-    def on_validation_epoch_end(self):
+    def on_validation_epoch_end(self) -> None:
         """Calculate and store the model's validation accuracy after each epoch."""
         val_acc_val = self.val_acc.compute()
         self.val_acc.reset()
         if val_acc_val > self.best_accuracy:
-            self.best_accuracy = val_acc_val
+            self.best_accuracy = float(val_acc_val)
 
 
 def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
@@ -260,9 +261,9 @@ def ind_loss(params: Dict[str, Union[int, float, str]]) -> float:
         The trained model's negative validation accuracy.
     """
     # Extract hyperparameter combination to test from input dictionary.
-    conv_layers = params["conv_layers"]  # Number of convolutional layers
-    activation = params["activation"]  # Activation function
-    lr = params["lr"]  # Learning rate
+    conv_layers = int(params["conv_layers"])  # Number of convolutional layers
+    activation = str(params["activation"])  # Activation function
+    lr = float(params["lr"])  # Learning rate
 
     epochs = 100
 
@@ -304,7 +305,7 @@ def ind_loss(params: Dict[str, Union[int, float, str]]) -> float:
         val_dataloaders=val_loader,  # Dataloader for validation samples
     )
     # Return negative best validation accuracy as an individual's loss.
-    return -model.best_accuracy.item()
+    return -model.best_accuracy
 
 
 if __name__ == "__main__":
@@ -316,7 +317,7 @@ if __name__ == "__main__":
     comm.Barrier()
     num_generations = 10  # Number of generations
     pop_size = 2 * comm.size  # Breeding population size
-    limits = {
+    limits: Dict[str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]] = {
         "conv_layers": (2, 10),
         "activation": ("relu", "sigmoid", "tanh"),
         "lr": (0.01, 0.0001),

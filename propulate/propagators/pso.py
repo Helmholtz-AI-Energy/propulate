@@ -1,12 +1,10 @@
-import logging
 from random import Random
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, MutableMapping, Optional, Tuple, Union
 
 import numpy as np
 
-from ..population import Individual, Particle
+from ..population import Individual
 from ..propagators import Propagator, Stochastic
-from ..utils import make_particle
 
 
 class BasicPSO(Propagator):
@@ -19,7 +17,7 @@ class BasicPSO(Propagator):
     update in order to not collapse to linear regression.
 
     This basic PSO propagator can only explore real-valued search spaces, i.e., continuous parameters.
-    It works on ``Particle`` objects and serves as the foundation of all other PSO propagators.
+    It serves as the foundation of all other PSO propagators.
     Further PSO propagators should be derived from this propagator or from one that is derived from this.
 
     This variant was first proposed in 1998 by Y. Shi and R. Eberhart, "A modified particle swarm optimizer"
@@ -28,7 +26,7 @@ class BasicPSO(Propagator):
     Attributes
     ----------
     c_cognitive : float
-        The constant cognitive factor for scaling the distance to the particle's personal best value.
+        The constant cognitive factor for scaling the distance to the individual's personal best value.
     c_social : float
         The constant social factor for scaling the distance to the swarm's global best value.
     inertia : float
@@ -72,7 +70,7 @@ class BasicPSO(Propagator):
         inertia : float
             The inertia weight.
         c_cognitive : float
-            The constant cognitive factor for scaling the distance to the particle's personal best value.
+            The constant cognitive factor for scaling the distance to the individual's personal best value.
         c_social : float
             The constant social factor for scaling the distance to the swarm's global best value.
         rank : int
@@ -91,28 +89,28 @@ class BasicPSO(Propagator):
         self.rng = rng
         self.limits_as_array: np.ndarray = np.array(list(limits.values())).T
 
-    def __call__(self, individuals: List[Individual]) -> Particle:
+    def __call__(self, individuals: List[Individual]) -> Individual:
         """
         Apply the standard PSO update rule with inertia.
 
-        Return a ``Particle`` object containing the updated values of the youngest passed ``Particle`` or ``Individual``
+        Return an ``Individual`` object containing the updated values of the youngest passed ``Individual`` or ``Individual``
         that belongs to the worker the propagator is living on.
 
         Parameters
         ----------
         individuals : List[propulate.Individual]
             A list of individuals that must at least contain one individual that belongs to the propagator.
-            This list is used to calculate personal and global best of the particle and the swarm,
-            respectively, and then to update the particle based on the retrieved results. Individuals that
-            cannot be used as ``Particle`` objects are converted to particles first.
+            This list is used to calculate personal and global best of the individual and the swarm,
+            respectively, and then to update the individual based on the retrieved results.
 
         Returns
         -------
-        propulate.Particle
+        propulate.Individual
             The updated particle.
         """
         old_p, p_best, g_best = self._prepare_data(individuals)
 
+        assert old_p.velocity is not None
         new_velocity: np.ndarray = (
             self.inertia * old_p.velocity
             + self.rng.uniform(0, self.c_cognitive) * (p_best.position - old_p.position)
@@ -124,11 +122,11 @@ class BasicPSO(Propagator):
 
     def _prepare_data(
         self, individuals: List[Individual]
-    ) -> Tuple[Particle, Particle, Particle]:
+    ) -> Tuple[Individual, Individual, Individual]:
         """
         Get the particle to be updated on this rank, its current personal best, and the swarm's current global best.
 
-        Given a list of ``Individual`` or ``Particle`` objects, determine the particle to be updated on this rank, its
+        Given a list of ``Individual`` objects, determine the particle to be updated on this rank, its
         current personal best, and the currently known global best of the swarm to perform a particle update step.
 
         Parameters
@@ -138,7 +136,7 @@ class BasicPSO(Propagator):
 
         Returns
         -------
-        Tuple[propulate.Particle, propulate.Particle, propulate.Particle]
+        Tuple[propulate.Individual, propulate.Individual, propulate.Individual]
             The following particles in this very order:
             1.  old_p: the current particle to be updated now
             2.  p_best: the personal best value of this particle
@@ -147,44 +145,31 @@ class BasicPSO(Propagator):
         if len(individuals) < self.offspring:
             raise ValueError("Not enough Particles")
 
-        particles = []
-        for individual in individuals:
-            if isinstance(individual, Particle):
-                particles.append(individual)
-            else:
-                particles.append(make_particle(individual))
-                logging.warning(
-                    "Got Individual instead of Particle. If this is on purpose, you can ignore this warning. "
-                    "Converted the Individual to Particle. Continuing."
-                )
-
         own_p = [
             x
-            for x in particles
-            if (isinstance(x, Particle) and x.global_rank == self.rank)
-            or x.rank == self.rank
+            for x in individuals
+            if (isinstance(x, Individual) and x.rank == self.rank)
         ]
         if len(own_p) > 0:
             old_p: Individual = max(own_p, key=lambda p: p.generation)
-            if not isinstance(old_p, Particle):
-                old_p = make_particle(old_p)
 
         else:
-            victim = max(particles, key=lambda p: p.generation)
+            victim = max(individuals, key=lambda p: p.generation)
+            assert victim.velocity is not None
             old_p = self._make_new_particle(
                 victim.position, victim.velocity, victim.generation
             )
 
-        g_best = min(particles, key=lambda p: p.loss)
+        g_best = min(individuals, key=lambda p: p.loss)
         p_best = min(own_p, key=lambda p: p.loss)
 
         return old_p, p_best, g_best
 
     def _make_new_particle(
         self, position: np.ndarray, velocity: np.ndarray, generation: int
-    ) -> Particle:
+    ) -> Individual:
         """
-        Create a new ``Particle`` with the position dictionary set to the values provided by the numpy array.
+        Create a new ``Individual`` with the position dictionary set to the values provided by the numpy array.
 
         Parameters
         ----------
@@ -197,10 +182,16 @@ class BasicPSO(Propagator):
 
         Returns
         -------
-        propulate.Particle
-            The new ``Particle`` object resulting from the PSO update step.
+        propulate.Individual
+            The new ``Individual`` object resulting from the PSO update step.
         """
-        new_p = Particle(position, velocity, generation, self.rank)
+        new_p = Individual(
+            position,
+            self.limits,
+            velocity=velocity,
+            generation=generation,
+            rank=self.rank,
+        )
         for i, k in enumerate(self.limits):
             new_p[k] = new_p.position[i]
         return new_p
@@ -263,15 +254,15 @@ class VelocityClampingPSO(BasicPSO):
         """
         super().__init__(inertia, c_cognitive, c_social, rank, limits, rng)
         x_min, x_max = self.limits_as_array
-        x_range = abs(x_max - x_min)
-        v_limits = abs(v_limits)
+        x_range = np.abs(x_max - x_min)
+        v_limits = np.abs(v_limits)
         self.v_cap: np.ndarray = np.array([-v_limits * x_range, v_limits * x_range])
 
-    def __call__(self, individuals: List[Individual]) -> Particle:
+    def __call__(self, individuals: List[Individual]) -> Individual:
         """
         Apply the standard PSO update rule with inertia, extended by cutting off too high velocities.
 
-        Return a ``Particle`` object containing the updated values of the youngest passed ``Particle`` or ``Individual``
+        Return an ``Individual`` object containing the updated values of the youngest passed ``Individual`` or ``Individual``
         that belongs to the worker the propagator is living on.
 
         Parameters
@@ -279,16 +270,17 @@ class VelocityClampingPSO(BasicPSO):
         individuals : List[propulate.Individual]
             The list of individuals that must at least contain one individual that belongs to the propagator.
             This list is used to calculate personal and global best of the particle and the swarm,
-            respectively, and then to update the particle based on the retrieved results. Individuals that
-            cannot be used as ``Particle`` objects are converted to particles first.
+            respectively, and then to update the particle based on the retrieved results. 
+            cannot be used as ``Individual`` objects are converted to particles first.
 
         Returns
         -------
-        propulate.Particle
-            The updated particle.
+        propulate.Individual
+            The updated individual.
         """
         old_p, p_best, g_best = self._prepare_data(individuals)
 
+        assert old_p.velocity is not None
         new_velocity: np.ndarray = (
             self.inertia * old_p.velocity
             + self.rng.uniform(0, self.c_cognitive) * (p_best.position - old_p.position)
@@ -311,7 +303,7 @@ class ConstrictionPSO(BasicPSO):
 
     The constriction factor is calculated from cognitive and social factors and thus no separate hyperparameter.
 
-    This propagator runs on ``Particle`` objects.
+    This propagator runs on ``Individual`` objects.
 
     Notes
     -----
@@ -363,11 +355,11 @@ class ConstrictionPSO(BasicPSO):
         chi: float = 2.0 / (phi - 2.0 + np.sqrt(phi * (phi - 4.0)))
         super().__init__(chi, c_cognitive, c_social, rank, limits, rng)
 
-    def __call__(self, individuals: List[Individual]) -> Particle:
+    def __call__(self, individuals: List[Individual]) -> Individual:
         """
         Apply the constriction PSO update rule.
 
-        Return a ``Particle`` object containing the updated values of the youngest passed ``Particle`` or ``Individual``
+        Return an ``Individual`` object containing the updated values of the youngest passed ``Individual`` or ``Individual``
         that belongs to the worker the propagator is living on.
 
         Parameters
@@ -375,12 +367,11 @@ class ConstrictionPSO(BasicPSO):
         individuals: List[propulate.Individual]
             A list of individuals that must at least contain one individual that belongs to the propagator.
             This list is used to calculate personal and global best of the particle and the swarm,
-            respectively, and then to update the particle based on the retrieved results. Individuals that
-            cannot be used as ``Particle`` objects are converted to particles first.
+            respectively, and then to update the particle based on the retrieved results.
 
         Returns
         -------
-        propulate.Particle
+        propulate.Individual
             The updated particle.
         """
         old_p, p_best, g_best = self._prepare_data(individuals)
@@ -453,11 +444,11 @@ class CanonicalPSO(ConstrictionPSO):
         x_range = np.abs(x_max - x_min)
         self.v_cap: np.ndarray = np.array([-x_range, x_range])
 
-    def __call__(self, individuals: List[Individual]) -> Particle:
+    def __call__(self, individuals: List[Individual]) -> Individual:
         """
         Apply the canonical PSO variant update rule.
 
-        Return a ``Particle`` object containing the updated values of the youngest passed ``Particle`` or ``Individual``
+        Return an ``Individual`` object containing the updated values of the youngest passed ``Individual`` or ``Individual``
         that belongs to the worker the propagator is living on.
 
         Parameters
@@ -466,16 +457,17 @@ class CanonicalPSO(ConstrictionPSO):
             The list of individuals that must at least contain one individual that belongs to the propagator.
             This list is used to calculate personal and global best of the particle and the swarm,
             respectively, and then to update the particle based on the retrieved results. Individuals that
-            cannot be used as ``Particle`` objects are converted to particles first.
+            cannot be used as ``Individual`` objects are converted to particles first.
 
         Returns
         -------
-        propulate.Particle
+        propulate.Individual
             The updated particle.
         """
         # Abuse Constriction's update rule, so I don't have to rewrite it.
         victim = super().__call__(individuals)
 
+        assert victim.velocity is not None
         # Set new position and speed.
         v = victim.velocity.clip(*self.v_cap)
         p = victim.position - victim.velocity + v
@@ -486,7 +478,7 @@ class CanonicalPSO(ConstrictionPSO):
 
 class InitUniformPSO(Stochastic):
     """
-    Initialize ``Particle`` by uniformly sampling specified limits for each trait.
+    Initialize ``Individual`` by uniformly sampling specified limits for each trait.
 
     Attributes
     ----------
@@ -512,9 +504,9 @@ class InitUniformPSO(Stochastic):
         self,
         limits: Dict[str, Tuple[float, float]],
         rank: int,
-        parents=0,
-        probability=1.0,
-        rng: Random = None,
+        parents: int = 0,
+        probability: float = 1.0,
+        rng: Optional[Random] = None,
         v_init_limit: Union[float, np.ndarray] = 0.1,
     ):
         """
@@ -545,7 +537,7 @@ class InitUniformPSO(Stochastic):
         self.v_limits = v_init_limit
         self.rank = rank
 
-    def __call__(self, individuals: List[Individual]) -> Particle:
+    def __call__(self, individuals: List[Individual]) -> Individual:
         """
         Apply the uniform-initialization propagator.
 
@@ -556,8 +548,8 @@ class InitUniformPSO(Stochastic):
 
         Returns
         -------
-        propulate.Particle
-            A single particle object.
+        propulate.Individual
+            A single individual object.
         """
         if (
             len(individuals) == 0 or self.rng.random() < self.probability
@@ -575,8 +567,8 @@ class InitUniformPSO(Stochastic):
                 ]
             )
 
-            particle = Particle(
-                position, velocity, rank=self.rank
+            particle = Individual(
+                position, self.limits, velocity, rank=self.rank
             )  # Instantiate new particle.
 
             for index, limit in enumerate(self.limits):
@@ -592,10 +584,7 @@ class InitUniformPSO(Stochastic):
             return particle
         else:
             particle = individuals[0]
-            if isinstance(particle, Particle):
-                return particle  # Return 1st input individual w/o changes.
-            else:
-                return make_particle(particle)
+            return particle
 
 
 class StatelessPSO(Propagator):
@@ -683,17 +672,29 @@ class StatelessPSO(Propagator):
         if len(own_p) > 0:
             old_p = max(own_p, key=lambda p: p.generation)
         else:  # No own particle found in given parameters, thus creating new one.
-            old_p = Individual(0, self.rank)
+            initial_p: MutableMapping[str, float] = dict()
             for k in self.limits:
-                old_p[k] = self.rng.uniform(*self.limits[k])
+                initial_p[k] = self.rng.uniform(*self.limits[k])
+            # NOTE complains about incompatible type when it should not?
+            old_p = Individual(
+                initial_p,  # type:ignore
+                limits=self.limits,
+                generation=0,
+                rank=self.rank,
+            )
             return old_p
         g_best = min(individuals, key=lambda p: p.loss)
         p_best = min(own_p, key=lambda p: p.loss)
-        new_p = Individual(generation=old_p.generation + 1)
-        for k in self.limits:
-            new_p[k] = (
-                old_p[k]
-                + self.rng.uniform(0, self.c_cognitive) * (p_best[k] - old_p[k])
-                + self.rng.uniform(0, self.c_social) * (g_best[k] - old_p[k])
-            )
+
+        new_position = (
+            old_p.position
+            + self.rng.uniform(0, self.c_cognitive) * (p_best.position - old_p.position)
+            + self.rng.uniform(0, self.c_social) * (g_best.position - old_p.position)
+        )
+        new_p = Individual(
+            new_position,
+            limits=self.limits,
+            rank=self.rank,
+            generation=old_p.generation + 1,
+        )
         return new_p

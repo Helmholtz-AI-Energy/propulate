@@ -4,17 +4,17 @@ import random
 import pytest
 
 from propulate import Propulator
-from propulate.propagators import ActiveCMA, BasicCMA, CMAPropagator
+from propulate.propagators import ActiveCMA, BasicCMA, CMAAdapter, CMAPropagator
 from propulate.utils.benchmark_functions import get_function_search_space
 
 
 @pytest.fixture(params=[BasicCMA(), ActiveCMA()])
-def cma_adapter(request):
+def cma_adapter(request: pytest.FixtureRequest) -> CMAAdapter:
     """Iterate over CMA adapters (basic and active)."""
     return request.param
 
 
-def test_cmaes_basic(cma_adapter, mpi_tmp_path: pathlib.Path) -> None:
+def test_cmaes_basic(cma_adapter: CMAAdapter, mpi_tmp_path: pathlib.Path) -> None:
     """
     Test Propulator to optimize a benchmark function using CMA-ES propagators.
 

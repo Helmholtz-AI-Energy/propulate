@@ -1,7 +1,6 @@
 import copy
 import logging
 import random
-import time
 from pathlib import Path
 from typing import Callable, Generator, List, Optional, Tuple, Type, Union
 
@@ -127,7 +126,7 @@ class Pollinator(Propulator):
         )
         # Set class attributes.
         self.immigration_propagator = immigration_propagator  # Immigration propagator
-        self.replaced = []  # Individuals to be replaced by immigrants
+        self.replaced: List[Individual] = []  # Individuals to be replaced by immigrants
 
     def _send_emigrants(self) -> None:
         """Perform migration, i.e. island sends individuals out to other islands."""
@@ -136,6 +135,7 @@ class Pollinator(Propulator):
             f"Generation {self.generation}: EMIGRATION\n"
         )
         # Determine relevant line of migration topology.
+        assert self.migration_topology is not None
         to_migrate = self.migration_topology[self.island_idx, :]
         num_emigrants = np.amax(
             to_migrate
@@ -153,6 +153,8 @@ class Pollinator(Propulator):
                 if offspring == 0:
                     continue
                 # Determine ranks of workers on target island in the Propulate world communicator.
+                assert self.island_displs is not None
+                assert self.island_counts is not None
                 displ = self.island_displs[target_island]
                 count = self.island_counts[target_island]
                 dest_island = np.arange(displ, displ + count)
@@ -174,9 +176,9 @@ class Pollinator(Propulator):
                 departing = copy.deepcopy(emigrants)
                 # Determine new responsible worker on target island.
                 for ind in departing:
+                    assert isinstance(ind, Individual)
                     ind.current = self.rng.randrange(0, count)
                     ind.migration_history += f"-{target_island}"
-                    ind.timestamp = time.time()
                     log_string += (
                         f"{ind} with migration history {ind.migration_history}\n"
                     )
@@ -272,6 +274,7 @@ class Pollinator(Propulator):
 
                     # Deactivate individuals to be replaced in own population.
                     for individual in to_replace:
+                        assert isinstance(individual, Individual)
                         assert individual.active is True
                         individual.active = False
 
@@ -363,8 +366,8 @@ class Pollinator(Propulator):
             population, _ = self._get_active_individuals()
         else:
             population = self.population
-        unique_inds = []
-        occurrences = []
+        unique_inds: List[Individual] = []
+        occurrences: List[List[Union[Individual, int]]] = []
         for individual in population:
             considered = False
             for ind in unique_inds:
@@ -386,7 +389,7 @@ class Pollinator(Propulator):
                 occurrences.append([individual, num_copies])
         return occurrences, unique_inds
 
-    def _work(self, logging_interval: int = 10, debug: int = 1):
+    def propulate(self, logging_interval: int = 10, debug: int = 1) -> None:
         """
         Execute evolutionary algorithm using island model with pollination in parallel.
 

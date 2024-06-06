@@ -1,12 +1,11 @@
-"""Simple example script using CMA-ES."""
-
 import pathlib
 import random
 
+import numpy as np
 from mpi4py import MPI
 
 from propulate import Propulator
-from propulate.propagators import ActiveCMA, BasicCMA, CMAAdapter, CMAPropagator
+from propulate.propagators.nm import ParallelNelderMead
 from propulate.utils import set_logger_config
 from propulate.utils.benchmark_functions import (
     get_function_search_space,
@@ -23,11 +22,12 @@ if __name__ == "__main__":
             "#################################################\n"
         )
 
+    # Parse command-line arguments.
     config, _ = parse_arguments(comm)
 
     # Set up separate logger for Propulate optimization.
     set_logger_config(
-        level=config.logging_level,  # Logging level
+        level=config.logging_level,  # logging level
         log_file=f"{config.checkpoint}/{pathlib.Path(__file__).stem}.log",  # Logging path
         log_to_stdout=True,  # Print log on stdout.
         log_rank=False,  # Do not prepend MPI rank to logging messages.
@@ -37,26 +37,23 @@ if __name__ == "__main__":
     rng = random.Random(
         config.seed + comm.rank
     )  # Separate random number generator for optimization.
-    benchmark_function, limits = get_function_search_space(
+    function, limits = get_function_search_space(
         config.function
     )  # Get callable function + search-space limits.
 
-    # Set up evolutionary operator.
-    if config.adapter == "basic":
-        adapter: CMAAdapter = BasicCMA()
-    elif config.adapter == "active":
-        adapter = ActiveCMA()
-    else:
-        raise ValueError("Adapter can be either 'basic' or 'active'.")
-
-    propagator = CMAPropagator(adapter, limits, rng=rng)
-
-    # Set up propulator performing actual optimization.
+    # Randomly choose a start point from within the limits.
+    low = np.array([v[0] for v in limits.values()])
+    high = np.array([v[1] for v in limits.values()])
+    start_point = np.random.default_rng(seed=config.seed + 235231).uniform(
+        low=low, high=high
+    )
+    propagator = ParallelNelderMead(limits, rng=rng, start=start_point)
+    # Set up Propulator performing actual optimization.
     propulator = Propulator(
-        loss_fn=benchmark_function,
+        loss_fn=function,
         propagator=propagator,
         rng=rng,
-        island_comm=comm,
+        propulate_comm=comm,
         generations=config.generations,
         checkpoint_path=config.checkpoint,
     )

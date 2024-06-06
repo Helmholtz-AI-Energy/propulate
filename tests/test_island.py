@@ -15,7 +15,7 @@ from propulate.utils.benchmark_functions import get_function_search_space
 
 
 @pytest.fixture(scope="module")
-def global_variables():
+def global_variables() -> Tuple[random.Random, Callable, Dict, Propagator]:
     """Get global variables used by most of the tests in this module."""
     rng = random.Random(
         42 + MPI.COMM_WORLD.rank
@@ -28,7 +28,7 @@ def global_variables():
         limits=limits,
         rng=rng,
     )  # Set up evolutionary operator.
-    yield rng, benchmark_function, limits, propagator
+    return rng, benchmark_function, limits, propagator
 
 
 @pytest.fixture(
@@ -37,7 +37,7 @@ def global_variables():
         False,
     ]
 )
-def pollination(request):
+def pollination(request: pytest.FixtureRequest) -> bool:
     """Iterate through pollination parameter."""
     return request.param
 
@@ -78,9 +78,10 @@ def test_islands(
     )
 
     # Run actual optimization.
-    islands.evolve(
+    islands.propulate(
         debug=2,
     )
+    islands.summarize(debug=2)
 
 
 @pytest.mark.mpi(min_size=4)
@@ -115,7 +116,8 @@ def test_checkpointing_isolated(
     )
 
     # Run actual optimization.
-    islands.evolve(top_n=1, debug=2)
+    islands.propulate(debug=2)
+    islands.summarize(top_n=1, debug=2)
 
     old_population = copy.deepcopy(islands.propulator.population)
     del islands
@@ -176,10 +178,8 @@ def test_checkpointing(
     )
 
     # Run actual optimization.
-    islands.evolve(
-        top_n=1,
-        debug=2,
-    )
+    islands.propulate(debug=2)
+    islands.summarize(top_n=1, debug=2)
 
     old_population = copy.deepcopy(islands.propulator.population)
     del islands
@@ -242,10 +242,8 @@ def test_checkpointing_unequal_populations(
     )
 
     # Run actual optimization.
-    islands.evolve(
-        top_n=1,
-        debug=2,
-    )
+    islands.propulate(debug=2)
+    islands.summarize(top_n=1, debug=2)
 
     old_population = copy.deepcopy(islands.propulator.population)
     del islands

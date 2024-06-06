@@ -1,5 +1,7 @@
 import random
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Mapping, MutableMapping, Optional, Tuple, Union
+
+import numpy as np
 
 from ..population import Individual
 
@@ -121,7 +123,7 @@ class Stochastic(Propagator):
         parents: int = 0,
         offspring: int = 0,
         probability: float = 1.0,
-        rng: random.Random = None,
+        rng: Optional[random.Random] = random.Random(),
     ) -> None:
         """
         Initialize a stochastic propagator that is only applied with a specified probability.
@@ -202,7 +204,7 @@ class Conditional(Propagator):
         self.true_prop = true_prop
         self.false_prop = false_prop
 
-    def __call__(self, inds: List[Individual]) -> List[Individual]:
+    def __call__(self, inds: List[Individual]) -> Union[List[Individual], Individual]:
         """
         Apply conditional propagator.
 
@@ -277,7 +279,7 @@ class Compose(Propagator):
                 )
         self.propagators = propagators
 
-    def __call__(self, inds: List[Individual]) -> List[Individual]:
+    def __call__(self, inds: List[Individual]) -> Union[List[Individual], Individual]:
         """
         Apply the composed propagator.
 
@@ -292,7 +294,7 @@ class Compose(Propagator):
             The output individuals after application of the propagator.
         """
         for p in self.propagators:
-            inds = p(inds)
+            inds = p(inds)  # type: ignore
         return inds
 
 
@@ -347,7 +349,7 @@ class SelectMin(Propagator):
                 f"Has to have at least {self.offspring} individuals to select the {self.offspring} best ones."
             )
         # Sort elements of given iterable in specific order + return as list.
-        return sorted(inds, key=lambda ind: ind.loss)[
+        return sorted(inds, key=lambda ind: float(ind.loss))[
             : self.offspring
         ]  # Return `self.offspring` best individuals in terms of loss.
 
@@ -462,7 +464,6 @@ class SelectUniform(Propagator):
         return self.rng.sample(inds, self.offspring)
 
 
-# TODO parents should be fixed to one NOTE see utils reason why it is not right now
 class InitUniform(Stochastic):
     """
     Initialize an individual by uniformly sampling the specified limits for each trait.
@@ -483,14 +484,12 @@ class InitUniform(Stochastic):
 
     def __init__(
         self,
-        limits: Union[
-            Dict[str, Tuple[float, float]],
-            Dict[str, Tuple[int, int]],
-            Dict[str, Tuple[str, ...]],
+        limits: Mapping[
+            str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]
         ],
         parents: int = 0,
         probability: float = 1.0,
-        rng: Optional[random.Random] = None,
+        rng: Optional[random.Random] = random.Random(),
     ) -> None:
         """
         Initialize a random-initialization propagator.
@@ -509,7 +508,7 @@ class InitUniform(Stochastic):
         super().__init__(parents, 1, probability, rng)
         self.limits = limits
 
-    def __call__(self, *inds: Individual) -> Individual:
+    def __call__(self, *inds: Individual) -> Individual:  # type: ignore[override]
         """
         Apply the uniform-initialization propagator.
 
@@ -528,30 +527,77 @@ class InitUniform(Stochastic):
         ValueError
             If a parameter's type is invalid, i.e., not float (continuous), int (ordinal), or str (categorical).
         """
+        position: MutableMapping[str, Union[int, float, str]] = {}
         if (
             self.rng.random() < self.probability
         ):  # Apply only with specified probability.
-            ind = Individual()  # Instantiate new individual.
             for (
                 limit
             ) in self.limits:  # Randomly sample from specified limits for each trait.
                 if isinstance(
                     self.limits[limit][0], int
                 ):  # If ordinal trait of type integer.
-                    ind[limit] = self.rng.randint(*self.limits[limit])
+                    position[limit] = self.rng.randint(*self.limits[limit])
                 elif isinstance(
                     self.limits[limit][0], float
                 ):  # If interval trait of type float.
-                    ind[limit] = self.rng.uniform(*self.limits[limit])
+                    position[limit] = self.rng.uniform(*self.limits[limit])
                 elif isinstance(
                     self.limits[limit][0], str
                 ):  # If categorical trait of type string.
-                    ind[limit] = self.rng.choice(self.limits[limit])
+                    position[limit] = str(self.rng.choice(self.limits[limit]))
                 else:
                     raise ValueError(
                         "Unknown type of limits. Has to be float for interval, "
                         "int for ordinal, or string for categorical."
                     )
+            ind = Individual(position, self.limits)  # Instantiate new individual.
         else:  # Return first input individual w/o changes otherwise.
             ind = inds[0]
         return ind
+
+
+class Gaussian(Propagator):
+    """Sample a new individual from a multivariate gaussian distribution around an initial point."""
+
+    def __init__(
+        self,
+        limits: Dict[str, Tuple[float, float]],
+        scale: float,
+        rng: np.random.Generator,
+    ):
+        """
+        Initialize Gaussian propagator.
+
+        Parameters
+        ----------
+        limits : Dict[str, Tuple[float, float]] | Dict[str, Tuple[int, int]] | Dict[str, Tuple[str, ...]]
+            The search space, i.e., limits of (hyper-)parameters to be optimized.
+        scale : float
+            The standard deviation of the Gaussian distribution.
+        rng : random.Random
+            The separate random number generator for the Propulate optimization.
+
+        """
+        super().__init__(1, 1)
+        self.limits = limits
+        self.rng: np.random.Generator = rng  # type:ignore
+        self.scale = scale
+
+    def __call__(self, inds: List[Individual]) -> Individual:
+        """
+        Apply the Gaussian propagator.
+
+        Parameters
+        ----------
+        inds : propulate.Individual
+            The individuals the propagator is applied to.
+
+        Returns
+        -------
+        propulate.Individual
+            The output individual after application of the propagator.
+        """
+        position = np.array(inds[0].position)
+        position += self.rng.normal(scale=self.scale, size=position.shape)
+        return Individual(position, self.limits)

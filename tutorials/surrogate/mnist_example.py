@@ -312,7 +312,7 @@ def set_seeds(seed_value: int = 42) -> None:
 if __name__ == "__main__":
     num_generations = 3  # Number of generations
     pop_size = 2 * MPI.COMM_WORLD.size  # Breeding population size
-    limits = {
+    limits: Dict[str, Union[Tuple[int, int], Tuple[float, float], Tuple[str, ...]]] = {
         "conv_layers": (2, 10),
         "activation": ("relu", "sigmoid", "tanh"),
         "lr": (0.01, 0.0001),
@@ -339,8 +339,11 @@ if __name__ == "__main__":
         surrogate_factory=lambda: surrogate.StaticSurrogate(),
         # surrogate_factory=lambda: surrogate.DynamicSurrogate(limits),
     )
-    islands.evolve(  # Run evolutionary optimization.
-        top_n=1,  # Print top-n best individuals on each island in summary.
+    islands.propulate(  # Run evolutionary optimization.
         logging_interval=1,  # Logging interval
+        debug=2,  # Verbosity level
+    )
+    islands.summarize(
+        top_n=1,  # Print top-n best individuals on each island in summary.
         debug=2,  # Verbosity level
     )
