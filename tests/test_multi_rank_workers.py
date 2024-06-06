@@ -79,8 +79,8 @@ def test_multi_rank_workers(mpi_tmp_path: pathlib.Path) -> None:
     )
 
     # Run actual optimization.
-    islands.evolve(
-        top_n=1,  # Print top-n best individuals on each island in summary.
+    islands.propulate(
         logging_interval=10,  # Logging interval
         debug=1,  # Debug level
     )
+    islands.summarize(top_n=1, debug=1)

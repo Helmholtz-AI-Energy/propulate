@@ -13,7 +13,7 @@ authors = [
 ]
 description = "Massively parallel genetic optimization through asynchronous propagation of populations"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: TBD",
@@ -32,9 +32,9 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pre-commit",
-    "black",
     "coverage",
     "ruff",
+    "mypy",
     "pytest",
     "pytest-cov",
     "pytest-mpi",
@@ -57,6 +57,16 @@ tutorials = [
 [project.urls]
 Homepage = "https://github.com/Helmholtz-AI-Energy/propulate"
 Issues = "https://github.com/Helmholtz-AI-Energy/propulate/issues"
+
+[tool.mypy]
+python_version = "3.9"
+modules = ["propulate"]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+files = [
+    "tutorials/"
+]
+
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
@@ -93,8 +103,8 @@ exclude = [
 line-length = 88
 indent-width = 4
 
-# Assume Python 3.8.
-target-version = "py38"
+# Assume Python 3.9.
+target-version = "py39"
 
 [tool.ruff.lint]
 # Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`)  codes by default.

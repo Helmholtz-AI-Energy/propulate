@@ -6,7 +6,7 @@ import random
 from mpi4py import MPI
 
 from propulate import Propulator
-from propulate.propagators import ActiveCMA, BasicCMA, CMAPropagator
+from propulate.propagators import ActiveCMA, BasicCMA, CMAAdapter, CMAPropagator
 from propulate.utils import set_logger_config
 from propulate.utils.benchmark_functions import (
     get_function_search_space,
@@ -43,7 +43,7 @@ if __name__ == "__main__":
 
     # Set up evolutionary operator.
     if config.adapter == "basic":
-        adapter = BasicCMA()
+        adapter: CMAAdapter = BasicCMA()
     elif config.adapter == "active":
         adapter = ActiveCMA()
     else:

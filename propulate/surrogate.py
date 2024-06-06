@@ -1,5 +1,5 @@
 import random
-from typing import Dict, Tuple, TypeVar, Union
+from typing import Any, Dict, Tuple, TypeVar, Union
 
 import GPy
 import numpy as np
@@ -103,7 +103,7 @@ class Surrogate:
         """
         raise NotImplementedError()
 
-    def merge(self, data: T) -> None:
+    def merge(self, data: Any) -> None:
         """
         Merge the results of another surrogate model into itself.
 
@@ -113,7 +113,7 @@ class Surrogate:
 
         Parameters
         ----------
-        data : T
+        data : Any
             All relevant information to update its model to the same state as the origin of the data.
 
         Raises
@@ -123,7 +123,7 @@ class Surrogate:
         """
         raise NotImplementedError()
 
-    def data(self) -> T:
+    def data(self) -> Any:
         """
         Return all relevant information about the surrogate model for merging with another surrogate.
 
@@ -377,11 +377,7 @@ class DynamicSurrogate(Surrogate):
 
     def __init__(
         self,
-        limits: Union[
-            Dict[str, Tuple[float, float]],
-            Dict[str, Tuple[int, int]],
-            Dict[str, Tuple[str, ...]],
-        ],
+        limits: Dict[str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]],
     ) -> None:
         """
         Initialize a dynamic surrogate with the configuration space limits.
@@ -395,7 +391,6 @@ class DynamicSurrogate(Surrogate):
             The hyperparameter configuration space's limits.
         """
         self.limits = limits
-        self.encodings = self._create_encoding(limits)
 
         # History arrays to store (encoded configuration, final loss) pairs
         self.history_X: np.ndarray = np.array([[]])
@@ -411,7 +406,7 @@ class DynamicSurrogate(Surrogate):
             1, variance=1.0, lengthscale=1.0, ARD=True
         ) + GPy.kern.White(1, variance=1e-5)
 
-        self.mean_function = None
+        self.mean_function: GPy.Mapping = None
 
         # Mean loss
         self.global_gpr: GPy.models.GPRegression = None
@@ -437,7 +432,7 @@ class DynamicSurrogate(Surrogate):
         ind : propulate.population.Individual
             The individual containing the current configuration.
         """
-        self.current_encoding = self.encode_configuration(ind)
+        self.current_encoding = np.reshape(ind.position, (1, -1))
 
         if self.first_run:
             return
@@ -600,66 +595,3 @@ class DynamicSurrogate(Surrogate):
 
         # Return the latest loss value as all other values are already shared.
         return (self.history_X[-1], self.history_Y[-1])
-
-    def _create_encoding(
-        self,
-        limits: Union[
-            Dict[str, Tuple[float, float]],
-            Dict[str, Tuple[int, int]],
-            Dict[str, Tuple[str, ...]],
-        ],
-    ) -> Dict[str, Dict[str, int]]:
-        """
-        Create a mapping from categorical values to integers. Gaussian Process Regression only accepts numerical values.
-
-        Parameters
-        ----------
-        limits : Union[Dict[str, Tuple[float, float]], Dict[str, Tuple[int, int]], Dict[str, Tuple[str, ...]]
-            The hyperparameter configuration space's limits.
-
-        Returns
-        -------
-        Dict[str, Dict[str, int]]
-            The input dict but with the categorical values transformed to integers.
-        """
-        encodings = {}
-        for key, values in limits.items():
-            if isinstance(values, tuple) and isinstance(values[0], str):
-                # create a mapping for categorical values
-                encodings[key] = {v: i for i, v in enumerate(values)}
-        return encodings
-
-    def encode_configuration(
-        self,
-        config: Union[
-            Dict[str, float],
-            Dict[str, int],
-            Dict[str, str],
-        ],
-    ) -> np.ndarray:
-        """
-        Encode a configuration dictionary into a 2D array (required by the Gaussian Process Regression model).
-
-        Parameters
-        ----------
-        config : Union[Dict[str, float], Dict[str, int], Dict[str, str]]
-            The configuration dictionary to encode.
-
-        Returns
-        -------
-        np.ndarray
-            The encoded configuration.
-        """
-        # Initialize an empty array to ``limits`` size.
-        encoded_array = np.zeros((1, len(self.limits)), dtype=float)
-
-        # Fill the array with encoded values.
-        for i, key in enumerate(self.limits):
-            value = config[key]
-            if key in self.encodings:
-                # Ignore type hint as value can only be a string.
-                encoded_array[0, i] = self.encodings[key][value]
-            else:
-                encoded_array[0, i] = value
-
-        return encoded_array

@@ -1,5 +1,6 @@
 """Minimum working example showing how to use Propulate."""
 import random
+from typing import Dict
 
 from mpi4py import MPI
 
@@ -15,7 +16,7 @@ propulate.utils.set_logger_config()
 
 
 # Define the function to minimize and the search space, e.g., a 2D sphere function on (-5.12, 5.12)^2.
-def loss_fn(params):
+def loss_fn(params: Dict[str, float]) -> float:
     """Loss function to minimize."""
     return params["x"] ** 2 + params["y"] ** 2
 

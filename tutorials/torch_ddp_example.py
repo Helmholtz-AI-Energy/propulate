@@ -166,7 +166,7 @@ def get_data_loaders(
     return train_loader, val_loader
 
 
-def torch_process_group_init(subgroup_comm: MPI.Comm, method) -> None:
+def torch_process_group_init(subgroup_comm: MPI.Comm, method: str) -> None:
     """
     Create the torch process group of each multi-rank worker from a subgroup of the MPI world.
 
@@ -322,7 +322,7 @@ def ind_loss(
     optimizer = optim.Adadelta(model.parameters(), lr=lr)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=gamma)
     log_interval = 10000
-    best_val_loss = 1000000
+    best_val_loss: float = 1000000.0
     early_stopping_count, early_stopping_limit = 0, 5
     set_new_best = False
     model.train()
@@ -344,8 +344,8 @@ def ind_loss(
                 )
         # ------------ Validation loop ------------
         model.eval()
-        val_loss = 0
-        correct = 0
+        val_loss: float = 0.0
+        correct: int = 0
         with torch.no_grad():
             for data, target in val_loader:
                 data, target = data.to(device), target.to(device)
@@ -356,7 +356,7 @@ def ind_loss(
                 )  # Get the index of the max log-probability.
                 correct += pred.eq(target.view_as(pred)).sum().item()
 
-        val_loss /= len(val_loader.dataset)
+        val_loss /= float(len(val_loader.dataset))
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             set_new_best = True
@@ -391,7 +391,7 @@ if __name__ == "__main__":
         del dataset
     comm.Barrier()
     pop_size = 2 * comm.size  # Breeding population size
-    limits = {
+    limits: Dict[str, Union[Tuple[int, int], Tuple[float, float], Tuple[str, ...]]] = {
         "conv_layers": (2, 10),
         "activation": ("relu", "sigmoid", "tanh"),
         "lr": (0.01, 0.0001),
@@ -436,8 +436,11 @@ if __name__ == "__main__":
     )
 
     # Run actual optimization.
-    islands.evolve(
-        top_n=config.top_n,  # Print top-n best individuals on each island in summary.
+    islands.propulate(
         logging_interval=config.logging_interval,  # Logging interval
+        debug=config.verbosity,  # Debug level
+    )
+    islands.summarize(
+        top_n=config.top_n,  # Print top-n best individuals on each island in summary.
         debug=config.verbosity,  # Debug level
     )
