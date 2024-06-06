@@ -142,7 +142,7 @@ class Individual:
         self.mapping.__delitem__(key)
 
     def __len__(self) -> int:
-        """Give number of genes i.e. the dimension of the parameter space. Each categorical variable adds only one dimension."""
+        """Give number of genes, i.e., the dimension of the parameter space. Each categorical variable adds only one dimension."""
         return len(self.limits)
 
     def values(self) -> ValuesView:
