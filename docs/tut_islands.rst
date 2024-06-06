@@ -67,11 +67,14 @@ Now we are ready to run the optimization:
 
 .. code-block:: python
 
-    islands.evolve(  # Run actual optimization.
-        top_n=config.top_n, # Number of best individuals to print in the summary.
-        logging_interval=config.logging_int, # Logging interval
-        debug=config.verbosity)  # Debug level
-
+    islands.propulate(  # Run actual optimization.
+        logging_interval=config.logging_interval,  # Logging interval
+        debug=config.verbosity,  # Debug level
+    )
+    islands.summarize(
+        config.top_n,  # Number of best individuals to print in the summary.
+        debug=config.verbosity
+    )
 
 .. note::
     ``Propulate`` creates a separate checkpoint for each island. Checkpoints are only compatible between runs that use
