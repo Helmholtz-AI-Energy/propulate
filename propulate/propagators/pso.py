@@ -276,7 +276,7 @@ class VelocityClampingPSO(BasicPSO):
         Returns
         -------
         propulate.Individual
-            The updated particle.
+            The updated individual.
         """
         old_p, p_best, g_best = self._prepare_data(individuals)
 
