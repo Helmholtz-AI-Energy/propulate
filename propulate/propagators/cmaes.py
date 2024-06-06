@@ -802,12 +802,12 @@ class CMAPropagator(Propagator):
 
         Parameters
         ----------
-        inds : List[propulate.Individual]
+        inds : List[propulate.population.Individual]
             Available individuals.
 
         Returns
         -------
-        new_ind : propulate.Individual
+        new_ind : propulate.population.Individual
             The newly sampled individual.
         """
         num_inds = len(inds)
@@ -845,7 +845,7 @@ class CMAPropagator(Propagator):
 
         Parameters
         ----------
-        inds : list[propulate.Individual]
+        inds : list[propulate.population.Individual]
             The list of individuals.
 
         Returns
@@ -865,7 +865,7 @@ class CMAPropagator(Propagator):
 
         Returns
         -------
-        new_ind : propulate.Individual
+        new_ind : propulate.population.Individual
             The newly sampled individual.
         """
         # Generate new offspring

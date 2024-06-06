@@ -29,3 +29,4 @@ in ``Propulate``.
    eas
    pso
    cmaes
+   nm

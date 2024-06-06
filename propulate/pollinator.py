@@ -103,7 +103,7 @@ class Pollinator(Propulator):
             island with index i in the Propulate communicator.
         island_counts : numpy.ndarray, optional
             An array with the number of workers per island. Element i specifies the number of workers on island i.
-        surrogate_factory : Callable[[], Surrogate], optional
+        surrogate_factory : Callable[[], propulate.surrogate.Surrogate], optional
            Function that returns a new instance of a ``Surrogate`` model.
            Only used when ``loss_fn`` is a generator function.
         """
@@ -357,9 +357,9 @@ class Pollinator(Propulator):
 
         Returns
         -------
-        List[List[propulate.individual.Individual | int]]
+        List[List[propulate.population.Individual | int]]
             The individuals and their occurrences.
-        List[propulate.individual.Individual]
+        List[propulate.population.Individual]
             All unique individuals in the population.
         """
         if active:

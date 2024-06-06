@@ -5590,12 +5590,12 @@ input[type="checkbox"][disabled] {
 
 a {
 	color: black;
-	text-decoration: none;
+	text-decoration: underline;
 	cursor: pointer
 }
 
 a:hover {
-	color: black
+	color: var(--hred)
 }
 
 a:visited {

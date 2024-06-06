@@ -7,9 +7,11 @@ Evolutionary Optimization of a Mathematical Function
    You can find the corresponding ``Python`` script here:
    https://github.com/Helmholtz-AI-Energy/propulate/blob/master/tutorials/propulator_example.py
 
-The basic optimization mechanism in ``Propulate`` is that of Darwinian evolution, i.e., beneficial traits are selected,
+The basic optimization mechanism in ``Propulate`` |:dna:| is that of Darwinian evolution, i.e., beneficial traits are selected,
 recombined, and mutated to breed more fit individuals.
-To show you how ``Propulate`` works, we use its *basic asynchronous evolutionary optimizer* to minimize two-dimensional
+Other optimizer flavors, like particle swarm optimization (PSO), covariance matrix adaptation evolution strategy (CMA-ES),
+and Nelder-Mead, are also available.
+To show you how ``Propulate`` |:dna:| works, we use its *basic asynchronous evolutionary optimizer* to minimize two-dimensional
 mathematical functions.
 Let us consider the sphere function:
 
@@ -31,7 +33,7 @@ How to Use Propulate - A Recipe
 As the very first step, we need to define the key ingredients that define the optimization problem we want to solve:
 
 * The *search space* of the parameters to be optimized as a ``Python`` dictionary.
-  ``Propulate`` can handle three different parameter types:
+  ``Propulate`` |:dna:| can handle three different parameter types:
 
     - A tuple of ``float`` for a continuous parameter, e.g., ``{"learning_rate": (0.0001, 0.01)}``
     - A tuple of ``int`` for an ordinal parameter, e.g., ``{"conv_layers": (2, 10)}``
@@ -69,7 +71,7 @@ As the very first step, we need to define the key ingredients that define the op
 
   .. warning::
 
-     ``Propulate`` is a minimizer. If you want to maximize a fitness function, you need to choose the sign appropriately,
+     ``Propulate`` |:dna:| is a minimizer. If you want to maximize a fitness function, you need to choose the sign appropriately,
      i.e., invert your scalar fitness to a loss by multiplying it by :math:`-1`.
 
   In this example, the loss function whose minimum we want to find is the sphere function
@@ -97,13 +99,13 @@ As the very first step, we need to define the key ingredients that define the op
         return numpy.sum(numpy.array(list(params.values())) ** 2).item()
 
 Next, we need to define the evolutionary operator or propagator that we want to use to breed new individuals during the
-optimization process. ``Propulate`` provides a reasonable default propagator via a utility function,
+optimization process. ``Propulate`` |:dna:| provides a reasonable default propagator via a utility function,
 ``get_default_propagator``, that serves as a good start for the most optimization problems. You can adapt its
 hyperparameters, such as crossover and mutation probability, as you wish. In the example script, you can pass those
 hyperparameters as command-line options (this is the ``config`` in the code snippet below) or just use the default
 values. You also need to pass a separate random number generator that is used exclusively in the evolutionary
 optimization process (and not in the objective function).
-In addition, you can adapt the separate logger used to track the ``Propulate`` optimization with the utility function
+In addition, you can adapt the separate logger used to track the ``Propulate`` |:dna:| optimization with the utility function
 ``set_logger_config`` as shown below:
 
 .. code-block:: python
@@ -192,7 +194,7 @@ Do the following to run the example script:
 #. If you have not already done this, create a fresh virtual environment with ``Python``: ``$ python3 -m venv best-venv-ever``
 #. Activate it: ``$ source best-venv-ever/bin/activate``
 #. Upgrade ``pip``: ``$ pip install --upgrade pip``
-#. Install ``Propulate``: ``$ pip install propulate``
+#. Install ``Propulate`` |:dna:|: ``$ pip install propulate``
 #. Run the example script ``propulator_example.py``: ``$ mpirun --use-hwthread-cpus python propulator_example.py``
 
 Or just copy and paste:
@@ -212,7 +214,7 @@ Or just copy and paste:
 
 Checkpointing
 -------------
-``Propulate`` automatically creates checkpoints of your population in regular intervals during the optimization. You can
+``Propulate`` |:dna:| automatically creates checkpoints of your population in regular intervals during the optimization. You can
 pass the ``Propulator`` a path via its ``checkpoint_path`` argument where it should write those checkpoints to. This
 also is the path where it will look for existing checkpoint files to start an optimization run from. As a default, it
 will use your current working directory.
@@ -223,4 +225,48 @@ will use your current working directory.
 .. warning::
     If you start an optimization run from existing checkpoints, those checkpoints must be compatible with your current
     parallel computing environment. This means that if you use a checkpoint created in a setting with 20 processing
-    elements in a different computing environment with, e.g., 10 processing elements, the behaviour is undefined.
+    elements in a different computing environment with, e.g., 10 processing elements, the behavior is undefined.
+
+
+Other Optimizer Flavors
+-----------------------
+``Propulate``'s asynchronous communication scheme can not only be used with evolutionary algorithms but any type of
+population-based optimizer. In addition to ``Propulate``'s default genetic propagator, the following alternative
+optimizer flavors are available, along with example scripts showing how to use them:
+
+**Covariance Matrix Adaptation Evolution Strategy (CMA-ES)**
+  Iteratively update a population of candidate solutions using adaptive changes to the covariance matrix, guiding the
+  search towards the optimal solution by learning the problem's underlying structure. :ref:`Here<cmaes>` you can find a
+  more detailed explanation of how CMA-ES works. Check out the example script for how to use CMA-ES in ``Propulate``
+  |:dna:|:
+  https://github.com/Helmholtz-AI-Energy/propulate/blob/master/tutorials/cmaes_example.py
+
+  Two different variants of CMA-ES are available, i.e., basic [1] and active [2].
+
+**Particle Swarm Optimization (PSO)**
+  Simulate the social behavior of birds or fish to iteratively adjust candidate solutions (particles) based on their own
+  experience and the experience of their neighbors to find the optimal solution. :ref:`Here<pso>` you can find a more
+  detailed explanation of how PSO works. Check out the example script for how to use PSO in ``Propulate`` |:dna:|:
+  https://github.com/Helmholtz-AI-Energy/propulate/blob/master/tutorials/pso_example.py
+
+  Different variants of PSO are available, including basic PSO, PSO with velocity clamping, constriction PSO [3], and
+  canonical PSO.
+
+**Nelder-Mead Optimization**
+  Iteratively refine a simplex of candidate solutions by reflecting, expanding, contracting, and shrinking it to find
+  the minimum or maximum of a function. :ref:`Here<nm>` you can find a more detailed explanation of how Nelder-Mead
+  works. Check out the example script for how to use Nelder-Mead in ``Propulate`` |:dna:|:
+  https://github.com/Helmholtz-AI-Energy/propulate/blob/master/tutorials/nm_example.py
+
+
+[1] *N. Hansen and A. Ostermeier (2001), "Completely Derandomized Self-Adaptation in Evolution Strategies", Evolutionary Computation, 9(2), 159-195.*
+https://doi.org/10.1162/106365601750190398
+
+[2] *G. A. Jastrebski and D. V. Arnold (2006, July), "Improving Evolution Strategies Through Active Covariance Matrix Adaptation", In 2006 IEEE International Conference on Evolutionary Computation (pp. 2814-2821), IEEE.*
+https://doi.org/10.1109/CEC.2006.1688662
+
+[3] *M. Clerc and J. Kennedy (2002). "The Particle Swarm – Explosion, Stability, and Convergence in a Multidimensional Complex Space", IEEE transactions on Evolutionary Computation, 6(1), 58-73.*
+https://doi.org/10.1109/4235.985692
+
+[4] *J. Kennedy and R. Eberhart, (1995, November), "Particle Swarm Optimization", In Proceedings of ICNN'95 – International Conference on Neural Networks (Vol. 4, pp. 1942-1948). IEEE.*
+https://doi.org/10.1109/ICNN.1995.488968
