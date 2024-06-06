@@ -312,7 +312,7 @@ class CMAParameter:
         numpy.ndarray
             The resulting Mahalanobis distance.
         """
-        # NOTE typing seems to be broken here? mypy says this is a floating[Any], the docs sya this is float | ndarray
+        # NOTE typing seems to be broken here? mypy says this is a floating[Any], the docs say this is float | ndarray
         return np.linalg.norm(np.dot(self.covariance_inv_sqrt, dx))  # type:ignore
 
 
