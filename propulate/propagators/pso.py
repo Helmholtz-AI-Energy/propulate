@@ -262,7 +262,7 @@ class VelocityClampingPSO(BasicPSO):
         """
         Apply the standard PSO update rule with inertia, extended by cutting off too high velocities.
 
-        Return a ``Individual`` object containing the updated values of the youngest passed ``Individual`` or ``Individual``
+        Return an ``Individual`` object containing the updated values of the youngest passed ``Individual`` or ``Individual``
         that belongs to the worker the propagator is living on.
 
         Parameters
