@@ -285,6 +285,10 @@ class Propulator:
             for last in loss_gen(ind):
                 if self.surrogate is not None:
                     if self.surrogate.cancel(last):  # Check cancel for each yield.
+                        log.debug(
+                            f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: PRUNING\n"
+                            f"{ind}"
+                        )
                         break
             ind.loss = float(last)  # Set final loss as individual's loss.
         else:
@@ -508,7 +512,6 @@ class Propulator:
         # so that each of them holds the complete final population and the found optimum
         # irrespective of the order they finished.
 
-        self.propulate_comm.barrier()
         if self.propulate_comm.rank == 0:
             log.info("OPTIMIZATION DONE.\nNEXT: Final checks for incoming messages...")
         self.propulate_comm.barrier()
