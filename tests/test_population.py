@@ -102,3 +102,38 @@ def test_special_key() -> None:
     ind["cat1"] = "b"
     ind["_s"] = [1, 0.2, 3]
     assert ind.position[5] == 1.0
+
+
+def test_surrogate_key() -> None:
+    """Test that deleting surrogate information is handled correctly."""
+    limits: Dict[str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]] = {
+        "float1": (0.0, 1.0),
+        "float2": (-1.0, 1.0),
+        "int1": (0, 5),
+        "int2": (1, 8),
+        "cat1": ("a", "b", "c", "d", "e"),
+        "cat2": ("f", "g", "h"),
+    }
+    ind_map = {
+        "float1": 0.1,
+        "float2": 0.2,
+        "int1": 3,
+        "int2": 4,
+        "cat1": "e",
+        "cat2": "f",
+    }
+
+    ind = Individual(ind_map, limits)
+
+    ind["_s"] = 5.0
+    assert "_s" in ind.mapping
+    assert "_s" in ind.mapping.keys()
+    print("_s" in ind)
+    print("float1" in ind)
+    assert "_s" in ind
+    assert "_s" in ind.keys()
+    del ind["_s"]
+    assert "_s" not in ind
+    assert "_s" not in ind.keys()
+    assert "_s" not in ind.mapping
+    assert "_s" not in ind.mapping.keys()
