@@ -7,7 +7,7 @@ packages = ["propulate"]
 
 [project]
 name = "propulate"
-version = "1.2.0"
+version = "1.2.1"
 authors = [
   { name="Marie Weiel, Oskar Taubert, Helmholtz AI", email="propulate@lists.kit.edu" },
 ]
