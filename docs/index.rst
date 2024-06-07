@@ -8,7 +8,7 @@ What Propulate Can Do For You
 =============================
 |:bulb:| `Click`_ to watch our 3 min introduction video |:movie_camera:|!
 
-``Propulate`` is an HPC-tailored software for solving optimization problems in parallel.
+``Propulate`` |:dna:| is an HPC-tailored software for solving optimization problems in parallel.
 More specifically, it is an asynchronous evolutionary optimization algorithm and ``Python`` package with MPI
 parallelization.
 This makes it particularly suitable for large-scale hyperparameter optimization and neural architecture search.
@@ -20,13 +20,17 @@ This makes it particularly suitable for large-scale hyperparameter optimization 
    ISC High Performance 2023. Lecture Notes in Computer Science, vol 13948. Springer,
    Cham. doi.org/10.1007/978-3-031-32041-5_6*
 
-``Propulate`` is also listed in the `Helmholtz Research Software Directory`_.
+``Propulate`` |:dna:| is also listed in the `Helmholtz Research Software Directory`_.
 
 .. note::
    This project is under active development |:rocket:|. For any issues, features requests, or if you would like to contribute, our
    `Github page`_ page is the place to go |:fire:|.
 
-Inspired by biology, ``Propulate`` borrows mechanisms from biological evolution, such as selection, recombination, and mutation.
+   |:point_right:| If you have any questions or run into any challenges while using ``Propulate`` |:dna:|, don't
+   hesitate to post an `issue`_, reach out via GitHub `discussions`_, or contact us directly via e-mail at
+   propulate@lists.kit.edu.
+
+Inspired by biology, ``Propulate`` |:dna:| borrows mechanisms from biological evolution, such as selection, recombination, and mutation.
 Evolution begins with a population of solution candidates, each with randomly initialized genes.
 It is an iterative "survival of the fittest" process where the population at each iteration can be viewed as a generation.
 For each generation, the fitness of each candidate in the population is evaluated.
@@ -39,7 +43,7 @@ The genes of the fittest candidates are incorporated in the next generation.
    **Functional principle of evolutionary algorithms.** ``Propulate``'s basic mechanism is that of Darwinian evolution,
    i.e., beneficial traits are selected, recombined, and mutated to breed more fit individuals.
 
-Like in nature, ``Propulate`` does not wait for all compute units to finish the evaluation of the current generation.
+Like in nature, ``Propulate`` |:dna:| does not wait for all compute units to finish the evaluation of the current generation.
 Instead, the units communicate the currently available information and use that to breed the next candidate immediately.
 This avoids waiting idly for other units.
 Each unit is responsible for evaluating a single candidate.
@@ -50,13 +54,15 @@ generation using the fitness values of all candidates it evaluated and received 
 
 In More Technical Terms
 =======================
-``Propulate`` is a massively parallel evolutionary optimizer based on the island model with asynchronous propagation of
-populations and asynchronous migration. In contrast to classical parallel population-based algorithms, ``Propulate``
-maintains a continuous population of already evaluated individuals with a softened notion of the typically strictly
-separated, discrete generations. Our contributions include:
+``Propulate`` |:dna:| is a massively parallel population-based optimizer based on the island model with asynchronous
+propagation of populations and asynchronous migration. In contrast to classical parallel population-based algorithms,
+``Propulate`` |:dna:| maintains a continuous population of already evaluated individuals with a softened notion of the
+typically strictly separated, discrete generations. Our contributions include:
 
-- A novel parallel population-based algorithm based on a fully asynchronous island model with independently processing workers.
-- Massive parallelism by asynchronous propagation of continuous populations and migration via efficient communication using the message passing interface.
+- A novel parallel population-based algorithm based on a fully asynchronous island model with independently processing
+  workers.
+- Massive parallelism by asynchronous propagation of continuous populations and migration via efficient communication
+  using the message passing interface.
 - Optimized use efficiency of parallel hardware by minimizing idle times in distributed computing environments.
 
 .. figure:: images/synchronous_pop.png
@@ -97,6 +103,8 @@ New individuals are generated from a pool of currently active, already evaluated
 .. _here: https://doi.org/10.1007/978-3-031-32041-5_6
 .. _Github page: https://github.com/Helmholtz-AI-Energy/propulate
 .. _Helmholtz Research Software Directory: https://helmholtz.software/software/propulate
+.. _issue: https://github.com/Helmholtz-AI-Energy/propulate/issues
+.. _discussions: https://github.com/Helmholtz-AI-Energy/propulate/discussions
 
 Indices and Tables
 ==================

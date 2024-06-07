@@ -18,6 +18,7 @@ import torch.distributed as dist
 import torch.utils.data.distributed as datadist
 from mpi4py import MPI
 from torch import nn, optim
+from torch.nn.parallel import DistributedDataParallel as DDP  # noqa: N817
 from torch.utils.data import DataLoader
 from torchvision.datasets import MNIST
 from torchvision.transforms import Compose, Normalize, ToTensor
@@ -314,6 +315,9 @@ def ind_loss(
         model = model.to(device)
     else:
         device = "cpu"
+
+    if dist.is_initialized() and dist.get_world_size() > 1:
+        model = DDP(model)  # Wrap model with DDP.
 
     optimizer = optim.Adadelta(model.parameters(), lr=lr)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=gamma)

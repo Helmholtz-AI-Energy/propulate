@@ -51,7 +51,7 @@ class Surrogate:
 
         Parameters
         ----------
-        ind : propulate.Individual
+        ind : propulate.population.Individual
             The individual to be evaluated.
 
         Raises
@@ -220,7 +220,7 @@ class StaticSurrogate(Surrogate):
 
         Parameters
         ----------
-        ind : Individual
+        ind : propulate.population.Individual
             The individual containing the current configuration.
         """
         # Reset to new run.
@@ -429,7 +429,7 @@ class DynamicSurrogate(Surrogate):
 
         Parameters
         ----------
-        ind : propulate.Individual
+        ind : propulate.population.Individual
             The individual containing the current configuration.
         """
         self.current_encoding = np.reshape(ind.position, (1, -1))

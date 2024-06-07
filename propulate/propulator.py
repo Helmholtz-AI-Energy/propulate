@@ -55,7 +55,7 @@ class Propulator:
         The migration probability.
     migration_topology : np.ndarray
         The migration topology.
-    population : List[propulate.Individual]
+    population : List[propulate.population.Individual]
         The population list of individuals on that island.
     propagator : propulate.Propagator
         The evolutionary operator.
@@ -63,7 +63,7 @@ class Propulator:
         The Propulate world communicator, consisting of rank 0 of each worker's sub communicator.
     rng : random.Random
         The separate random number generator for the Propulate optimization.
-    surrogate : propulate.Surrogate, optional
+    surrogate : propulate.surrogate.Surrogate, optional
         The local surrogate model.
     worker_sub_comm : MPI.Comm
         The worker's internal communicator for parallelized evaluation of single individuals.
@@ -132,7 +132,7 @@ class Propulator:
         island_counts : numpy.ndarray, optional
             An array with the number of workers per island. Element i specifies the number of workers on island with
             index i.
-        surrogate_factory : Callable[[], Surrogate], optional
+        surrogate_factory : Callable[[], propulate.surrogate.Surrogate], optional
            Function that returns a new instance of a ``Surrogate`` model.
            Only used when ``loss_fn`` is a generator function.
         """
@@ -214,7 +214,7 @@ class Propulator:
 
         Returns
         -------
-        List[propulate.Individual]
+        List[propulate.population.Individual]
             All active individuals in the current population.
         int
             The number of currently active individuals.
@@ -228,7 +228,7 @@ class Propulator:
 
         Returns
         -------
-        propulate.Individual
+        propulate.population.Individual
             The newly bred individual.
         """
         if (
@@ -406,7 +406,7 @@ class Propulator:
 
         Returns
         -------
-        List[propulate.Individual]
+        List[propulate.population.Individual]
             All unique individuals in the current population.
         """
         unique_inds: List[Individual] = []
@@ -430,7 +430,7 @@ class Propulator:
 
         Parameters
         ----------
-        populations : List[List[propulate.Individual]]
+        populations : List[List[propulate.population.Individual]]
             A list of all islands' sorted population lists.
 
         Returns
@@ -593,9 +593,9 @@ class Propulator:
 
         Returns
         -------
-        List[List[propulate.Individual | int]]
+        List[List[propulate.population.Individual | int]]
             The individuals and their occurrences.
-        List[propulate.Individual]
+        List[propulate.population.Individual]
             The unique individuals in the population.
         """
         if active:
@@ -635,7 +635,7 @@ class Propulator:
 
         Returns
         -------
-        List[List[propulate.Individual] | propulate.Individual]
+        List[List[propulate.population.Individual] | propulate.population.Individual]
             The top-n best individuals on each island.
         """
         if self.propulate_comm is None:

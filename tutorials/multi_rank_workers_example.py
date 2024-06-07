@@ -1,10 +1,11 @@
 """
 Multi-rank workers in Propulate using the example of a parallel sphere function.
 
-Tested with 8 processes overall, 2 islands, and 2 ranks per worker, where each worker calculates one of the squared
+Tested with 8 processes overall, 2 islands, and 2 ranks per worker, where each rank calculates one of the squared
 terms in the (in this case) two-dimensional sphere function. In general, the parallel sphere function's dimension
 should equal the number of ranks per worker.
 """
+
 import pathlib
 import random
 from typing import Dict

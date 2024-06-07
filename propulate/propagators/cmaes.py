@@ -312,7 +312,7 @@ class CMAParameter:
         numpy.ndarray
             The resulting Mahalanobis distance.
         """
-        # NOTE typing seems to be broken here? mypy says this is a floating[Any], the docs sya this is float | ndarray
+        # NOTE typing seems to be broken here? mypy says this is a floating[Any], the docs say this is float | ndarray
         return np.linalg.norm(np.dot(self.covariance_inv_sqrt, dx))  # type:ignore
 
 
@@ -802,12 +802,12 @@ class CMAPropagator(Propagator):
 
         Parameters
         ----------
-        inds : List[propulate.Individual]
+        inds : List[propulate.population.Individual]
             Available individuals.
 
         Returns
         -------
-        new_ind : propulate.Individual
+        new_ind : propulate.population.Individual
             The newly sampled individual.
         """
         num_inds = len(inds)
@@ -845,7 +845,7 @@ class CMAPropagator(Propagator):
 
         Parameters
         ----------
-        inds : list[propulate.Individual]
+        inds : list[propulate.population.Individual]
             The list of individuals.
 
         Returns
@@ -865,7 +865,7 @@ class CMAPropagator(Propagator):
 
         Returns
         -------
-        new_ind : propulate.Individual
+        new_ind : propulate.population.Individual
             The newly sampled individual.
         """
         # Generate new offspring

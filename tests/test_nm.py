@@ -66,3 +66,4 @@ def test_cmaes(
     )
     # Run optimization and print summary of results.
     propulator.propulate()
+    propulator.summarize()

@@ -93,19 +93,19 @@ class BasicPSO(Propagator):
         """
         Apply the standard PSO update rule with inertia.
 
-        Return a ``Individual`` object containing the updated values of the youngest passed ``Individual`` or ``Individual``
+        Return an ``Individual`` object containing the updated values of the youngest passed ``Individual`` or ``Individual``
         that belongs to the worker the propagator is living on.
 
         Parameters
         ----------
-        individuals : List[propulate.Individual]
+        individuals : List[propulate.population.Individual]
             A list of individuals that must at least contain one individual that belongs to the propagator.
             This list is used to calculate personal and global best of the individual and the swarm,
             respectively, and then to update the individual based on the retrieved results.
 
         Returns
         -------
-        propulate.Individual
+        propulate.population.Individual
             The updated particle.
         """
         old_p, p_best, g_best = self._prepare_data(individuals)
@@ -131,12 +131,12 @@ class BasicPSO(Propagator):
 
         Parameters
         ----------
-        individuals : List[propulate.Individual]
+        individuals : List[propulate.population.Individual]
             ``Individual`` objects that shall be used as data basis for a PSO update step.
 
         Returns
         -------
-        Tuple[propulate.Individual, propulate.Individual, propulate.Individual]
+        Tuple[propulate.population.Individual, propulate.population.Individual, propulate.population.Individual]
             The following particles in this very order:
             1.  old_p: the current particle to be updated now
             2.  p_best: the personal best value of this particle
@@ -182,7 +182,7 @@ class BasicPSO(Propagator):
 
         Returns
         -------
-        propulate.Individual
+        propulate.population.Individual
             The new ``Individual`` object resulting from the PSO update step.
         """
         new_p = Individual(
@@ -262,21 +262,21 @@ class VelocityClampingPSO(BasicPSO):
         """
         Apply the standard PSO update rule with inertia, extended by cutting off too high velocities.
 
-        Return a ``Individual`` object containing the updated values of the youngest passed ``Individual`` or ``Individual``
+        Return an ``Individual`` object containing the updated values of the youngest passed ``Individual`` or ``Individual``
         that belongs to the worker the propagator is living on.
 
         Parameters
         ----------
-        individuals : List[propulate.Individual]
+        individuals : List[propulate.population.Individual]
             The list of individuals that must at least contain one individual that belongs to the propagator.
             This list is used to calculate personal and global best of the particle and the swarm,
-            respectively, and then to update the particle based on the retrieved results. Individuals that
+            respectively, and then to update the particle based on the retrieved results. 
             cannot be used as ``Individual`` objects are converted to particles first.
 
         Returns
         -------
-        propulate.Individual
-            The updated particle.
+        propulate.population.Individual
+            The updated individual.
         """
         old_p, p_best, g_best = self._prepare_data(individuals)
 
@@ -359,19 +359,19 @@ class ConstrictionPSO(BasicPSO):
         """
         Apply the constriction PSO update rule.
 
-        Return a ``Individual`` object containing the updated values of the youngest passed ``Individual`` or ``Individual``
+        Return an ``Individual`` object containing the updated values of the youngest passed ``Individual`` or ``Individual``
         that belongs to the worker the propagator is living on.
 
         Parameters
         ----------
-        individuals: List[propulate.Individual]
+        individuals: List[propulate.population.Individual]
             A list of individuals that must at least contain one individual that belongs to the propagator.
             This list is used to calculate personal and global best of the particle and the swarm,
             respectively, and then to update the particle based on the retrieved results.
 
         Returns
         -------
-        propulate.Individual
+        propulate.population.Individual
             The updated particle.
         """
         old_p, p_best, g_best = self._prepare_data(individuals)
@@ -448,12 +448,12 @@ class CanonicalPSO(ConstrictionPSO):
         """
         Apply the canonical PSO variant update rule.
 
-        Return a ``Individual`` object containing the updated values of the youngest passed ``Individual`` or ``Individual``
+        Return an ``Individual`` object containing the updated values of the youngest passed ``Individual`` or ``Individual``
         that belongs to the worker the propagator is living on.
 
         Parameters
         ----------
-        individuals : List[propulate.Individual]
+        individuals : List[propulate.population.Individual]
             The list of individuals that must at least contain one individual that belongs to the propagator.
             This list is used to calculate personal and global best of the particle and the swarm,
             respectively, and then to update the particle based on the retrieved results. Individuals that
@@ -461,7 +461,7 @@ class CanonicalPSO(ConstrictionPSO):
 
         Returns
         -------
-        propulate.Individual
+        propulate.population.Individual
             The updated particle.
         """
         # Abuse Constriction's update rule, so I don't have to rewrite it.
@@ -543,13 +543,13 @@ class InitUniformPSO(Stochastic):
 
         Parameters
         ----------
-        individuals : List[propulate.Individual]
+        individuals : List[propulate.population.Individual]
             The individuals the propagator is applied to.
 
         Returns
         -------
-        propulate.Individual
-            A single particle object.
+        propulate.population.Individual
+            A single individual object.
         """
         if (
             len(individuals) == 0 or self.rng.random() < self.probability
@@ -653,12 +653,12 @@ class StatelessPSO(Propagator):
 
         Parameters
         ----------
-        individuals : List[propulate.Individual]
+        individuals : List[propulate.population.Individual]
             The individuals used as data basis for the PSO update.
 
         Returns
         -------
-        propulate.Individual
+        propulate.population.Individual
             The updated individual.
 
         Raises
