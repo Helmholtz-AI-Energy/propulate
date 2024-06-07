@@ -16,7 +16,7 @@ set_logger_config(level=logging.DEBUG)
 
 def ind_loss(params: Dict[str, Union[int, float, str]]) -> Generator[float, None, None]:
     """
-    Toy iterative loss function for evolutionary optimization with Propulate.
+    Toy iterative loss function for evolutionary optimization with ``Propulate``.
 
     A decay with some noise and some bumps and an eventual increase.
 
@@ -47,7 +47,6 @@ def test_static(mpi_tmp_path: Path) -> None:
     limits: Dict[str, Union[Tuple[int, int], Tuple[float, float], Tuple[str, ...]]] = {
         "start": (0.1, 7.0),
         "limit": (-1.0, 1.0),
-        # 'num_iterations': (100, 1000),
     }  # Define search space.
     rng = random.Random(
         MPI.COMM_WORLD.rank + 100
