@@ -99,7 +99,7 @@ def test_static_island(mpi_tmp_path: Path) -> None:
         propagator=propagator,  # Evolutionary operator
         rng=rng,  # Random number generator
         generations=num_generations,  # Number of generations per worker
-        num_islands=1,  # Number of islands
+        num_islands=2,  # Number of islands
         checkpoint_path=mpi_tmp_path,
         surrogate_factory=lambda: surrogate.StaticSurrogate(),
     )
