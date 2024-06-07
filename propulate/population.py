@@ -138,12 +138,16 @@ class Individual:
     def __delitem__(self, key: str) -> None:
         """Do not implement deleting items."""
         if key in self.limits:
-            raise ValueError()
-        self.mapping.__delitem__(key)
+            raise KeyError()
+        del self.mapping[key]
 
     def __len__(self) -> int:
-        """Give number of genes, i.e., the dimension of the parameter space. Each categorical variable adds only one dimension."""
+        """Give number of genes, i.e., parameter space dimension. Each categorical variable adds only one dimension."""
         return len(self.limits)
+
+    def __contains__(self, key: str) -> bool:
+        """Check if individual contains key."""
+        return key in self.mapping
 
     def values(self) -> ValuesView:
         """Return dict values view."""
@@ -156,6 +160,14 @@ class Individual:
     def keys(self) -> KeysView:
         """Return dict keys view."""
         return self.mapping.keys()
+
+    def clear(self) -> None:
+        """Not implemented."""
+        raise NotImplementedError()
+
+    def update(self, *args: Any, **kwargs: Any) -> None:
+        """Not implemented."""
+        raise NotImplementedError()
 
     def __repr__(self) -> str:
         """Return string representation of an ``Individual`` instance."""
@@ -238,8 +250,8 @@ class Individual:
 
         Parameters
         ----------
-        other: Individual
-            other individual to compare individual under consideration to
+        other : Individual
+            The other individual to compare the individual under consideration to.
 
         Returns
         -------
