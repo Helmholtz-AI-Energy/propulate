@@ -142,11 +142,11 @@ class Individual:
         del self.mapping[key]
 
     def __len__(self) -> int:
-        """Give number of genes i.e. the dimension of the parameter space. Each categorical variable adds only one dimension."""
+        """Give number of genes, i.e., parameter space dimension. Each categorical variable adds only one dimension."""
         return len(self.limits)
 
     def __contains__(self, key: str) -> bool:
-        """Check if Individual contains key."""
+        """Check if individual contains key."""
         return key in self.mapping
 
     def values(self) -> ValuesView:
@@ -166,7 +166,7 @@ class Individual:
         raise NotImplementedError()
 
     def update(self, *args: Any, **kwargs: Any) -> None:
-        """Not Implemented."""
+        """Not implemented."""
         raise NotImplementedError()
 
     def __repr__(self) -> str:
@@ -250,8 +250,8 @@ class Individual:
 
         Parameters
         ----------
-        other: Individual
-            other individual to compare individual under consideration to
+        other : Individual
+            The other individual to compare the individual under consideration to.
 
         Returns
         -------
