@@ -16,8 +16,8 @@ readme = "README.md"
 requires-python = ">=3.9"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: TBD",
-    "Development Status :: 1 - Planning",
+    "License ::  OSI Approved :: BSD License",
+    "Development Status :: 3 - Alpha",
 ]
 dependencies = [
 	"deepdiff",
