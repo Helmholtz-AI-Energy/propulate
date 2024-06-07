@@ -3,11 +3,11 @@ requires = ["setuptools >= 61.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["propulate"]
+packages = ["propulate", "propulate.propagators", "propulate.utils"]
 
 [project]
 name = "propulate"
-version = "1.2.1"
+version = "1.2.2"
 authors = [
   { name="Marie Weiel, Oskar Taubert, Helmholtz AI", email="propulate@lists.kit.edu" },
 ]
