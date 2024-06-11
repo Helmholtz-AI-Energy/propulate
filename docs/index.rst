@@ -24,7 +24,7 @@ This makes it particularly suitable for large-scale hyperparameter optimization 
 
 .. note::
    This project is under active development |:rocket:|. For any issues, feature requests, or if you would like to contribute, our
-   `Github page`_ page is the place to go |:fire:|.
+   `Github page`_ is the place to go |:fire:|.
 
    |:point_right:| If you have any questions or run into any challenges while using ``Propulate`` |:dna:|, don't
    hesitate to post an `issue`_, reach out via GitHub `discussions`_, or contact us directly via e-mail at
