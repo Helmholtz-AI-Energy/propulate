@@ -23,7 +23,7 @@ This makes it particularly suitable for large-scale hyperparameter optimization 
 ``Propulate`` |:dna:| is also listed in the `Helmholtz Research Software Directory`_.
 
 .. note::
-   This project is under active development |:rocket:|. For any issues, features requests, or if you would like to contribute, our
+   This project is under active development |:rocket:|. For any issues, feature requests, or if you would like to contribute, our
    `Github page`_ page is the place to go |:fire:|.
 
    |:point_right:| If you have any questions or run into any challenges while using ``Propulate`` |:dna:|, don't
