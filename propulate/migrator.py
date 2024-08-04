@@ -122,7 +122,7 @@ class Migrator(Propulator):
         # Set class attributes.
         self.emigrated: List[Individual] = []  # Emigrated individuals to be deactivated on sending island
 
-    def _send_emigrants(self, hdf5_checkpoint) -> None:
+    def _send_emigrants(self, hdf5_checkpoint: h5py.File) -> None:
         """Perform migration, i.e. island sends individuals out to other islands."""
         log_string = f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: EMIGRATION\n"
         # Determine relevant line of migration topology.
@@ -208,7 +208,7 @@ class Migrator(Propulator):
                 f"to select {num_emigrants} migrants."
             )
 
-    def _receive_immigrants(self, hdf5_checkpoint) -> None:
+    def _receive_immigrants(self, hdf5_checkpoint: h5py.File) -> None:
         """
         Check for and possibly receive immigrants send by other islands.
 
@@ -367,7 +367,9 @@ class Migrator(Propulator):
         if self.propulate_comm is None:
             while self.generations <= -1 or self.generation < self.generations:
                 # Breed and evaluate individual.
-                self._evaluate_individual()
+                # TODO this should be refactored, the subworkers don't need the logfile
+                # TODO this needs to be addressed before merge, since multirank workers should fail with this
+                self._evaluate_individual(None)
                 self.generation += 1
             return
 

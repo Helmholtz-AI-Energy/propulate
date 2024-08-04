@@ -81,7 +81,7 @@ if __name__ == "__main__":
     else:
         raise ValueError("Invalid PSO propagator name given.")
     init = InitUniformPSO(limits, rng=rng, rank=MPI.COMM_WORLD.rank)
-    propagator = Conditional(config.pop_size, pso_propagator, init)
+    propagator = Conditional(limits, config.pop_size, pso_propagator, init)
 
     propulator = Propulator(
         benchmark_function,
