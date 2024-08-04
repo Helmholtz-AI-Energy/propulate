@@ -77,6 +77,7 @@ class Individual:
         self.migration_history: str = ""  # migration history
         self.evaltime = float("inf")  # evaluation time
         self.evalperiod = 0.0  # evaluation duration
+        self.island_rank = 0  # rank in the island comm
 
         # NOTE needed for PSO type propagators
         self.velocity = velocity
