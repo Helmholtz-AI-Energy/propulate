@@ -93,7 +93,9 @@ def test_pso(pso_propagator: Propagator, mpi_tmp_path: pathlib.Path) -> None:
 
 
 @pytest.mark.mpi
-def test_pso_checkpointing(pso_propagator, mpi_tmp_path: pathlib.Path):
+def test_pso_checkpointing(
+    pso_propagator: BasicPSO, mpi_tmp_path: pathlib.Path
+) -> None:
     """
     Test velocity checkpointing when using a PSO propagator.
 

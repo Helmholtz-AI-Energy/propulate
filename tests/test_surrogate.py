@@ -41,93 +41,8 @@ def ind_loss(params: Dict[str, Union[int, float, str]]) -> Generator[float, None
         )
 
 
-<<<<<<< HEAD
 def test_static(mpi_tmp_path: Path) -> None:
     """Test static surrogate using a dummy function."""
-=======
-    activations = {
-        "relu": nn.ReLU,
-        "sigmoid": nn.Sigmoid,
-        "tanh": nn.Tanh,
-    }  # Define activation function mapping.
-    activation = activations[activation]  # Get activation function.
-    loss_fn = (
-        torch.nn.CrossEntropyLoss()
-    )  # Use cross-entropy loss for multi-class classification.
-
-    model = Net(conv_layers, activation, lr, loss_fn).to(
-        device
-    )  # Set up neural network with specified hyperparameters.
-    model.best_accuracy = 0.0  # Initialize the model's best validation accuracy.
-
-    train_loader, val_loader = get_data_loaders(
-        batch_size=8, root=root
-    )  # Get training and validation data loaders.
-
-    # Configure optimizer.
-    optimizer = model.configure_optimizers()
-
-    for epoch in range(epochs):
-        model.train()
-        total_train_loss = 0
-        # Training loop
-        for batch_idx, (data, target) in enumerate(train_loader):
-            data, target = data.to(device), target.to(device)
-            # Zero out gradients.
-            optimizer.zero_grad()
-            # Forward + backward pass and optimizer step to update parameters.
-            loss = model.training_step((data, target))
-            loss.backward()
-            optimizer.step()
-            # Update loss.
-            total_train_loss += loss.item()
-
-        avg_train_loss = total_train_loss / len(train_loader)
-        log.info(f"Epoch {epoch+1}: Avg Training Loss: {avg_train_loss}")
-
-        # Validation loop
-        model.eval()
-        total_val_loss = 0
-        with torch.no_grad():
-            for batch_idx, (data, target) in enumerate(val_loader):
-                data, target = data.to(device), target.to(device)
-                # Forward pass
-                loss = model.validation_step((data, target))
-                # Update loss.
-                total_val_loss += loss.item()
-
-        avg_val_loss = total_val_loss / len(val_loader)
-        log.info(f"Epoch {epoch+1}: Avg Validation Loss: {avg_val_loss}")
-
-        yield avg_val_loss
-
-
-def set_seeds(seed_value: int = 42) -> None:
-    """
-    Set seed for reproducibility.
-
-    Parameters
-    ----------
-    seed_value : int, optional
-        The seed to use. Default is 42.
-    """
-    random.seed(seed_value)  # Python random module
-    torch.manual_seed(seed_value)  # PyTorch random number generator for CPU
-    torch.cuda.manual_seed(seed_value)  # PyTorch random number generator for all GPUs
-    torch.cuda.manual_seed_all(
-        seed_value
-    )  # PyTorch random number generator for multi-GPU
-    torch.backends.cudnn.deterministic = True  # Use deterministic algorithms.
-    torch.backends.cudnn.benchmark = False  # Disable to be deterministic.
-    os.environ["PYTHONHASHSEED"] = str(seed_value)  # Python hash seed
-
-
-@pytest.mark.mpi(min_size=4)
-def test_mnist_static(mpi_tmp_path):
-    """Test static surrogate using a torch convolutional network on the MNIST dataset."""
-    set_logger_config()
-    num_generations = 3  # Number of generations
->>>>>>> fb69169 (fixed logging output during tests and added a surrogate checkpointing test stub)
     pop_size = 2 * MPI.COMM_WORLD.size  # Breeding population size
     limits: Dict[str, Union[Tuple[int, int], Tuple[float, float], Tuple[str, ...]]] = {
         "start": (0.1, 7.0),
@@ -194,28 +109,15 @@ def test_static_island(mpi_tmp_path: Path) -> None:
     )
     islands.summarize(top_n=1, debug=2)
     MPI.COMM_WORLD.barrier()
-<<<<<<< HEAD
-=======
-    delattr(get_data_loaders, "barrier_called")
-    log.handlers.clear()
->>>>>>> fb69169 (fixed logging output during tests and added a surrogate checkpointing test stub)
 
 
 @pytest.mark.filterwarnings(
     "ignore::DeprecationWarning",
     match="Assigning the 'data' attribute is an inherently unsafe operation and will be removed in the future.",
 )
-<<<<<<< HEAD
 def test_dynamic(mpi_tmp_path: Path) -> None:
     """Test dynamic surrogate using a dummy function."""
     num_generations = 10  # Number of generations
-=======
-@pytest.mark.mpi(min_size=4)
-def test_mnist_dynamic(mpi_tmp_path):
-    """Test static surrogate using a torch convolutional network on the MNIST dataset."""
-    set_logger_config()
-    num_generations = 3  # Number of generations
->>>>>>> fb69169 (fixed logging output during tests and added a surrogate checkpointing test stub)
     pop_size = 2 * MPI.COMM_WORLD.size  # Breeding population size
     limits: Dict[str, Union[Tuple[int, int], Tuple[float, float], Tuple[str, ...]]] = {
         "start": (0.1, 7.0),
@@ -243,14 +145,4 @@ def test_mnist_dynamic(mpi_tmp_path):
         logging_interval=1,  # Logging interval
         debug=2,  # Verbosity level
     )
-<<<<<<< HEAD
     islands.summarize(top_n=1, debug=2)
-=======
-    log.handlers.clear()
-
-
-@pytest.mark.mpi(min_size=4)
-def test_mnist_dynamic_checkpointing(mpi_tmp_path):
-    """Test whether the surrogate state for pruning is checkpointed correctly."""
-    raise
->>>>>>> fb69169 (fixed logging output during tests and added a surrogate checkpointing test stub)

@@ -6,7 +6,7 @@ import random
 import time
 from operator import attrgetter
 from pathlib import Path
-from typing import Callable, Final, Generator, List, Optional, Tuple, Type, Union
+from typing import Any, Callable, Final, Generator, List, Optional, Tuple, Type, Union
 
 import deepdiff
 import h5py
@@ -177,7 +177,7 @@ class Propulator:
         # Load initial population of evaluated individuals from checkpoint if exists.
         self.checkpoint_path = self.checkpoint_path / "ckpt.hdf5"
 
-        self.population = []
+        self.population: list[Individual] = []
         # consistency check and ensure enough space is allocated
         if os.path.isfile(self.checkpoint_path):
             self.load_checkpoint()
@@ -195,7 +195,7 @@ class Propulator:
                 )
         self.set_up_checkpoint()
 
-    def load_checkpoint(self):
+    def load_checkpoint(self) -> None:
         """Load checkpoint from HDF5 file. Since this is only a read, all workers can do this in read-only mode without the mpio driver."""
         # TODO check that the island and worker setup is the same as in the checkpoint
         # NOTE each individual is only stored once at the position given by its origin island and worker, the modifications have to be put in the checkpoint file during migration  TODO test if this works as intended reliably
@@ -252,7 +252,7 @@ class Propulator:
                                 # TODO resume evaluation on this individual
                                 raise
 
-    def set_up_checkpoint(self):
+    def set_up_checkpoint(self) -> None:
         """Initialize checkpoint file or check consistenct with an existing one."""
         limit_dim = 0
         for key in self.propagator.limits:
@@ -365,21 +365,6 @@ class Propulator:
                         data=np.zeros((self.generations, num_islands), dtype=bool),
                     )
 
-    def propulate(self, logging_interval: int = 10, debug: int = 1) -> None:
-        """
-        Run asynchronous evolutionary optimization routine.
-
-        Parameters
-        ----------
-        logging_interval : int, optional
-            Print each worker's progress every ``logging_interval``-th generation. Default is 10.
-        debug : int, optional
-            The debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode). Default is 1.
-        """
-        # TODO note the propulating times in the checkpoint file for when the run is interrupted
-        self.start_time = time.time_ns()
-        self._work(logging_interval, debug)
-
     def _get_active_individuals(self) -> Tuple[List[Individual], int]:
         """
         Get active individuals in current population list.
@@ -431,12 +416,12 @@ class Propulator:
         assert isinstance(ind, Individual)
         return ind  # Return new individual.
 
-    def _evaluate_individual(self, hdf5_checkpoint) -> None:
+    def _evaluate_individual(self, hdf5_checkpoint: h5py.File) -> None:
         """Breed and evaluate individual."""
         ind = self._breed()  # Breed new individual.
         ind.island_rank = self.island_comm.Get_rank()
         start_time = time.time_ns() - self.start_time  # Start evaluation timer.
-        ind.starttime = start_time
+        # ind.starttime = start_time
         ckpt_idx = ind.generation
         hdf5_checkpoint["generations"][self.propulate_comm.Get_rank()] = ind.generation
 
@@ -448,17 +433,6 @@ class Propulator:
         group["starttime"][ckpt_idx] = start_time
         group["current"][ckpt_idx] = ind.current
 
-        ind.loss = self.loss_fn(ind)  # Evaluate its loss.
-        ind.evaltime = time.time_ns() - self.start_time  # Stop evaluation timer.
-        ind.evalperiod = ind.evaltime - start_time  # Calculate evaluation duration.
-        # TODO fix evalperiod for resumed from checkpoint individuals
-        # TODO somehow store migration history, maybe just as islands_visited
-
-        # save result for candidate
-        group["loss"][ckpt_idx] = ind.loss
-        group["evaltime"][ckpt_idx] = ind.evaltime
-        group["evalperiod"][ckpt_idx] = ind.evalperiod
-        group["active_on_island"][ckpt_idx, self.island_idx] = True
         # Signal start of run to surrogate model.
         if self.surrogate is not None:
             self.surrogate.start_run(ind)
@@ -480,6 +454,7 @@ class Propulator:
             for last in loss_gen(ind):
                 if self.surrogate is not None:
                     if self.surrogate.cancel(last):  # Check cancel for each yield.
+                        assert ind.loss == float("inf")
                         log.debug(
                             f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: PRUNING\n"
                             f"{ind}"
@@ -498,6 +473,16 @@ class Propulator:
 
             ind.loss = float(loss_fn(ind))  # Evaluate its loss.
 
+        ind.evaltime = time.time_ns() - self.start_time  # Stop evaluation timer.
+        ind.evalperiod = ind.evaltime - start_time  # Calculate evaluation duration.
+        # save result for candidate
+        group["evaltime"][ckpt_idx] = ind.evaltime
+        group["evalperiod"][ckpt_idx] = ind.evalperiod
+        group["active_on_island"][ckpt_idx, self.island_idx] = True
+        # TODO fix evalperiod for resumed from checkpoint individuals
+        # TODO somehow store migration history, maybe just as islands_visited
+
+        group["loss"][ckpt_idx] = ind.loss
         # Add final value to surrogate.
         if self.surrogate is not None:
             self.surrogate.update(ind.loss)
@@ -571,7 +556,7 @@ class Propulator:
         )
         log.debug(log_string)
 
-    def _send_emigrants(self) -> None:
+    def _send_emigrants(self, *args: Any, **kwargs: Any) -> None:
         """
         Perform migration, i.e., island sends individuals out to other islands.
 
@@ -583,7 +568,7 @@ class Propulator:
         """
         raise NotImplementedError
 
-    def _receive_immigrants(self) -> None:
+    def _receive_immigrants(self, *args: Any, **kwargs: Any) -> None:
         """
         Check for and possibly receive immigrants send by other islands.
 
@@ -664,13 +649,15 @@ class Propulator:
             If any individuals are left that should have been deactivated before (only for debug > 0).
 
         """
+        self.start_time = time.time_ns()
         if self.worker_sub_comm != MPI.COMM_SELF:
             self.generation = self.worker_sub_comm.bcast(self.generation, root=0)
         if self.propulate_comm is None:
             while self.generation < self.generations:
                 # Breed and evaluate individual.
                 # TODO this should be refactored, the subworkers don't need the logfile
-                self._evaluate_individual()
+                # TODO this needs to be addressed before merge, since multirank workers should fail with this
+                self._evaluate_individual(None)
                 self.generation += 1
             return
 
@@ -815,9 +802,9 @@ class Propulator:
                 )
         self.propulate_comm.barrier()
         if debug == 0:
-            best = min(self.population, key=attrgetter("loss"))
+            best = [min(self.population, key=attrgetter("loss"))]
             if self.island_comm.rank == 0:
-                log.info(f"Top result on island {self.island_idx}: {best}")
+                log.info(f"Top result on island {self.island_idx}: {best[0]}")
         else:
             unique_pop = self._get_unique_individuals()
             unique_pop.sort(key=lambda x: x.loss)

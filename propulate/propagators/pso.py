@@ -270,7 +270,7 @@ class VelocityClampingPSO(BasicPSO):
         individuals : List[propulate.population.Individual]
             The list of individuals that must at least contain one individual that belongs to the propagator.
             This list is used to calculate personal and global best of the particle and the swarm,
-            respectively, and then to update the particle based on the retrieved results. 
+            respectively, and then to update the particle based on the retrieved results.
             cannot be used as ``Individual`` objects are converted to particles first.
 
         Returns

@@ -122,16 +122,11 @@ def test_checkpointing_isolated(
     )
 
     # Run actual optimization.
-<<<<<<< HEAD
     islands.propulate(debug=2)
-    islands.summarize(top_n=1, debug=2)
-=======
-    islands.evolve(top_n=1, debug=2)
     assert (
         len(islands.propulator.population)
         == first_generations * islands.propulator.island_comm.Get_size()
     )
->>>>>>> c7403f4 (comments, generations, debugging stuff)
 
     old_population = copy.deepcopy(islands.propulator.population)
     del islands

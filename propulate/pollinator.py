@@ -1,6 +1,7 @@
 import copy
 import logging
 import random
+import time
 from pathlib import Path
 from typing import Callable, Generator, List, Optional, Tuple, Type, Union
 
@@ -205,7 +206,8 @@ class Pollinator(Propulator):
                 f"to select {num_emigrants} migrants."
             )
 
-    def _receive_immigrants(self) -> None:
+    # TODO implement checkpoint update
+    def _receive_immigrants(self, hdf5_checkpoint: h5py.File) -> None:
         """Check for and possibly receive immigrants send by other islands."""
         replace_num = 0
         log_string = (
@@ -401,12 +403,15 @@ class Pollinator(Propulator):
         debug : int, optional
             The debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode). Default is 1.
         """
+        self.start_time = time.time_ns()
         if self.worker_sub_comm != MPI.COMM_SELF:
             self.generation = self.worker_sub_comm.bcast(self.generation, root=0)
         if self.propulate_comm is None:
             while self.generations <= -1 or self.generation < self.generations:
                 # Breed and evaluate individual.
-                self._evaluate_individual()
+                # TODO this should be refactored, the subworkers don't need the logfile
+                # TODO this needs to be addressed before merge, since multirank workers should fail with this
+                self._evaluate_individual(None)
                 self.generation += 1
             return
         if self.island_comm.rank == 0:
@@ -439,7 +444,8 @@ class Pollinator(Propulator):
                         self._send_emigrants()
 
                     # Immigration: Island checks for incoming individuals from other islands.
-                    self._receive_immigrants()
+                    # TODO this should probably update the checkpoint so it needs to pass the handle
+                    self._receive_immigrants(None)
 
                     # Immigration: Check for individuals replaced by other intra-island workers to be deactivated.
                     self._deactivate_replaced_individuals()
@@ -462,7 +468,8 @@ class Pollinator(Propulator):
 
         if migration:
             # Final check for incoming individuals from other islands.
-            self._receive_immigrants()
+            # TODO this needs to update the checkpoint
+            self._receive_immigrants(None)
             self.propulate_comm.barrier()
 
             # Immigration: Final check for individuals replaced by other intra-island workers to be deactivated.
