@@ -419,7 +419,7 @@ class DynamicSurrogate(Surrogate):
         self.allowed_loss_margin: float = 0.8
 
         # Set seed for reproducibility.
-        rank = MPI.COMM_WORLD.Get_rank()
+        rank = MPI.COMM_WORLD.rank
         np.random.seed(42 * rank)
         random.seed(42 * rank)
 
