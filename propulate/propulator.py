@@ -7,7 +7,7 @@ import random
 import time
 from operator import attrgetter
 from pathlib import Path
-from typing import Callable, Final, Generator, Type, Union
+from typing import Callable, Final, Generator, Type
 
 import deepdiff
 import numpy as np
@@ -49,7 +49,7 @@ class Propulator:
         The island displacements.
     island_idx : int
         The island's index.
-    loss_fn : Union[Callable, Generator[float, None, None]]
+    loss_fn : Callable | Generator[float, None, None]
         The loss function to be minimized.
     migration_prob : float
         The migration probability.
@@ -78,7 +78,7 @@ class Propulator:
 
     def __init__(
         self,
-        loss_fn: Union[Callable, Generator[float, None, None]],
+        loss_fn: Callable | Generator[float, None, None],
         propagator: Propagator,
         rng: random.Random,
         island_idx: int = 0,
@@ -86,7 +86,7 @@ class Propulator:
         propulate_comm: MPI.Comm = MPI.COMM_WORLD,
         worker_sub_comm: MPI.Comm = MPI.COMM_SELF,
         generations: int = -1,
-        checkpoint_path: Union[str, Path] = Path("./"),
+        checkpoint_path: str | Path = Path("./"),
         migration_topology: np.ndarray | None = None,
         migration_prob: float = 0.0,
         emigration_propagator: Type[Propagator] = SelectMin,
@@ -622,7 +622,7 @@ class Propulator:
 
     def summarize(
         self, top_n: int = 1, debug: int = 1
-    ) -> Union[list[Union[list[Individual], Individual]], None]:
+    ) -> list[list[Individual] | Individual] | None:
         """
         Get top-n results from Propulate optimization.
 
