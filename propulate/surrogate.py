@@ -1,5 +1,5 @@
 import random
-from typing import Any, Dict, Tuple, TypeVar, Union
+from typing import Any, Mapping, TypeVar
 
 import GPy
 import numpy as np
@@ -322,9 +322,9 @@ class DynamicSurrogate(Surrogate):
 
     Attributes
     ----------
-    limits : Union[Dict[str, Tuple[float, float]], Dict[str, Tuple[int, int]], Dict[str, Tuple[str, ...]]]
+    limits : Mapping[str, tuple[float, float] | tuple[int, int] | tuple[str, ...]]
         The hyperparameter configuration space's limits.
-    encodings : Dict[str, Dict[str, int]]
+    encodings : dict[str, dict[str, int]]
         The encoding of categorical limit values to int.
     history_X : np.ndarray
         The encoded configurations.
@@ -377,7 +377,7 @@ class DynamicSurrogate(Surrogate):
 
     def __init__(
         self,
-        limits: Dict[str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]],
+        limits: Mapping[str, tuple[float, float] | tuple[int, int] | tuple[str, ...]],
     ) -> None:
         """
         Initialize a dynamic surrogate with the configuration space limits.
@@ -387,7 +387,7 @@ class DynamicSurrogate(Surrogate):
 
         Parameters
         ----------
-        limits : Union[Dict[str, Tuple[float, float]], Dict[str, Tuple[int, int]], Dict[str, Tuple[str, ...]]
+        limits : Mapping[str, tuple[float, float] | tuple[int, int] | tuple[str, ...]]
             The hyperparameter configuration space's limits.
         """
         self.limits = limits
@@ -545,13 +545,13 @@ class DynamicSurrogate(Surrogate):
 
         return False
 
-    def merge(self, data: Tuple[np.ndarray, float]) -> None:
+    def merge(self, data: tuple[np.ndarray, float]) -> None:
         """
         Merge a configuration and loss tuple into the history arrays and retrain the global GP with the new data.
 
         Parameters
         ----------
-        data : Tuple[np.ndarray, float]
+        data : tuple[np.ndarray, float]
             The configurations and final losses of the merged run.
         """
         if len(data) != 2:
@@ -580,13 +580,13 @@ class DynamicSurrogate(Surrogate):
 
         self.global_gpr.optimize()
 
-    def data(self) -> Tuple[np.ndarray, float]:
+    def data(self) -> tuple[np.ndarray, float]:
         """
         Return the latest configuration and loss from the history arrays.
 
         Returns
         -------
-        Tuple[np.ndarray, float]
+        tuple[np.ndarray, float]
             The latest configuration and loss.
         """
         # Return empty array if no data is available.

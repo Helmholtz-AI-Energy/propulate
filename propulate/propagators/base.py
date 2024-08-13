@@ -1,5 +1,5 @@
 import random
-from typing import Dict, List, Mapping, MutableMapping, Optional, Tuple, Union
+from typing import Mapping, MutableMapping
 
 import numpy as np
 
@@ -47,7 +47,7 @@ class Propagator:
     """
 
     def __init__(
-        self, parents: int = 0, offspring: int = 0, rng: Optional[random.Random] = None
+        self, parents: int = 0, offspring: int = 0, rng: random.Random | None = None
     ) -> None:
         """
         Initialize a propagator with given parameters.
@@ -74,18 +74,18 @@ class Propagator:
             rng = random.Random()
         self.rng = rng  # Random number generator
 
-    def __call__(self, inds: List[Individual]) -> Union[List[Individual], Individual]:
+    def __call__(self, inds: list[Individual]) -> list[Individual] | Individual:
         """
         Apply the propagator (not implemented for abstract base class).
 
         Parameters
         ----------
-        inds : List[propulate.population.Individual]
+        inds : list[propulate.population.Individual]
             The input individuals the propagator is applied to.
 
         Returns
         -------
-        List[propulate.population.Individual] | propulate.population.Individual
+        list[propulate.population.Individual] | propulate.population.Individual
             The individual(s) bred by applying the propagator.
             While this abstract base class method actually returns ``None``, each concrete child class of ``Propagator``
             should return an ``Individual`` instance or a list of them.
@@ -123,7 +123,7 @@ class Stochastic(Propagator):
         parents: int = 0,
         offspring: int = 0,
         probability: float = 1.0,
-        rng: Optional[random.Random] = random.Random(),
+        rng: random.Random | None = random.Random(),
     ) -> None:
         """
         Initialize a stochastic propagator that is only applied with a specified probability.
@@ -204,18 +204,18 @@ class Conditional(Propagator):
         self.true_prop = true_prop
         self.false_prop = false_prop
 
-    def __call__(self, inds: List[Individual]) -> Union[List[Individual], Individual]:
+    def __call__(self, inds: list[Individual]) -> list[Individual] | Individual:
         """
         Apply conditional propagator.
 
         Parameters
         ----------
-        inds : List[propulate.population.Individual]
+        inds : list[propulate.population.Individual]
             The input individuals the propagator is applied to.
 
         Returns
         -------
-        List[propulate.population.Individual]
+        list[propulate.population.Individual]
             The output individuals returned by the conditional propagator.
         """
         if (
@@ -232,7 +232,7 @@ class Compose(Propagator):
 
     Attributes
     ----------
-    propagators : List[propulate.propagators.Propagator]
+    propagators : list[propulate.propagators.Propagator]
         The propagators to be stacked together.
 
     Notes
@@ -244,13 +244,13 @@ class Compose(Propagator):
     :class:`Propagator` : The parent class.
     """
 
-    def __init__(self, propagators: List[Propagator]) -> None:
+    def __init__(self, propagators: list[Propagator]) -> None:
         """
         Initialize a composed propagator.
 
         Parameters
         ----------
-        propagators : List[propulate.propagators.Propagator]
+        propagators : list[propulate.propagators.Propagator]
             The propagators to be stacked together sequentially.
 
         Raises
@@ -279,18 +279,18 @@ class Compose(Propagator):
                 )
         self.propagators = propagators
 
-    def __call__(self, inds: List[Individual]) -> Union[List[Individual], Individual]:
+    def __call__(self, inds: list[Individual]) -> list[Individual] | Individual:
         """
         Apply the composed propagator.
 
         Parameters
         ----------
-        inds : List[propulate.population.Individual]
+        inds : list[propulate.population.Individual]
             The input individuals the propagator is applied to.
 
         Returns
         -------
-        List[propulate.population.Individual]
+        list[propulate.population.Individual]
             The output individuals after application of the propagator.
         """
         for p in self.propagators:
@@ -325,18 +325,18 @@ class SelectMin(Propagator):
         """
         super().__init__(-1, offspring)
 
-    def __call__(self, inds: List[Individual]) -> List[Individual]:
+    def __call__(self, inds: list[Individual]) -> list[Individual]:
         """
         Apply the elitist-selection propagator.
 
         Parameters
         ----------
-        inds : List[propulate.population.Individual]
+        inds : list[propulate.population.Individual]
             The input individuals the propagator is applied to.
 
         Returns
         -------
-        List[propulate.population.Individual]
+        list[propulate.population.Individual]
             The selected output individuals after application of the propagator.
 
         Raises
@@ -381,18 +381,18 @@ class SelectMax(Propagator):
         """
         super().__init__(-1, offspring)
 
-    def __call__(self, inds: List[Individual]) -> List[Individual]:
+    def __call__(self, inds: list[Individual]) -> list[Individual]:
         """
         Apply the anti-elitist-selection propagator.
 
         Parameters
         ----------
-        inds : List[propulate.population.Individual]
+        inds : list[propulate.population.Individual]
             The individuals the propagator is applied to.
 
         Returns
         -------
-        List[propulate.population.Individual]
+        list[propulate.population.Individual]
             The selected individuals after application of the propagator.
 
         Raises
@@ -423,7 +423,7 @@ class SelectUniform(Propagator):
     :class:`Propagator` : The parent class.
     """
 
-    def __init__(self, offspring: int, rng: Optional[random.Random] = None) -> None:
+    def __init__(self, offspring: int, rng: random.Random | None = None) -> None:
         """
         Initialize a random-selection propagator.
 
@@ -436,18 +436,18 @@ class SelectUniform(Propagator):
         """
         super().__init__(-1, offspring, rng)
 
-    def __call__(self, inds: List[Individual]) -> List[Individual]:
+    def __call__(self, inds: list[Individual]) -> list[Individual]:
         """
         Apply the uniform-selection propagator.
 
         Parameters
         ----------
-        inds : List[propulate.population.Individual]
+        inds : list[propulate.population.Individual]
             The individuals the propagator is applied to.
 
         Returns
         -------
-        List[propulate.population.Individual]
+        list[propulate.population.Individual]
             The selected individuals after application of the propagator.
 
         Raises
@@ -470,7 +470,7 @@ class InitUniform(Stochastic):
 
     Attributes
     ----------
-    limits : Dict[str, Tuple[float, float]] | Dict[str, Tuple[int, int]] | Dict[str, Tuple[str, ...]]
+    limits : Mapping[str, tuple[float, float] | tuple[int, int] | tuple[str, ...]]
         The search space, i.e., the limits of (hyper-)parameters to be optimized.
 
     Notes
@@ -484,19 +484,17 @@ class InitUniform(Stochastic):
 
     def __init__(
         self,
-        limits: Mapping[
-            str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]
-        ],
+        limits: Mapping[str, tuple[float, float] | tuple[int, int] | tuple[str, ...]],
         parents: int = 0,
         probability: float = 1.0,
-        rng: Optional[random.Random] = random.Random(),
+        rng: random.Random | None = random.Random(),
     ) -> None:
         """
         Initialize a random-initialization propagator.
 
         Parameters
         ----------
-        limits : Dict[str, Tuple[float, float]] | Dict[str, Tuple[int, int]] | Dict[str, Tuple[str, ...]]
+        limits : Mapping[str, tuple[float, float] | tuple[int, int] | tuple[str, ...]]
             The search space, i.e., the limits of (hyper-)parameters to be optimized.
         parents : int, optional
             The number of parents. Default is 0.
@@ -527,7 +525,7 @@ class InitUniform(Stochastic):
         ValueError
             If a parameter's type is invalid, i.e., not float (continuous), int (ordinal), or str (categorical).
         """
-        position: MutableMapping[str, Union[int, float, str]] = {}
+        position: MutableMapping[str, int | float | str] = {}
         if (
             self.rng.random() < self.probability
         ):  # Apply only with specified probability.
@@ -562,7 +560,7 @@ class Gaussian(Propagator):
 
     def __init__(
         self,
-        limits: Dict[str, Tuple[float, float]],
+        limits: Mapping[str, tuple[float, float] | tuple[int, int] | tuple[str, ...]],
         scale: float,
         rng: np.random.Generator,
     ):
@@ -571,7 +569,7 @@ class Gaussian(Propagator):
 
         Parameters
         ----------
-        limits : Dict[str, Tuple[float, float]] | Dict[str, Tuple[int, int]] | Dict[str, Tuple[str, ...]]
+        limits : Mapping[str, tuple[float, float] | tuple[int, int] | tuple[str, ...]]
             The search space, i.e., limits of (hyper-)parameters to be optimized.
         scale : float
             The standard deviation of the Gaussian distribution.
@@ -584,7 +582,7 @@ class Gaussian(Propagator):
         self.rng: np.random.Generator = rng  # type:ignore
         self.scale = scale
 
-    def __call__(self, inds: List[Individual]) -> Individual:
+    def __call__(self, inds: list[Individual]) -> Individual:
         """
         Apply the Gaussian propagator.
 

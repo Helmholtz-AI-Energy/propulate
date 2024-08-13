@@ -7,7 +7,7 @@ import random
 import time
 from operator import attrgetter
 from pathlib import Path
-from typing import Callable, Final, Generator, List, Optional, Tuple, Type, Union
+from typing import Callable, Final, Generator, Type, Union
 
 import deepdiff
 import numpy as np
@@ -55,7 +55,7 @@ class Propulator:
         The migration probability.
     migration_topology : np.ndarray
         The migration topology.
-    population : List[propulate.population.Individual]
+    population : list[propulate.population.Individual]
         The population list of individuals on that island.
     propagator : propulate.Propagator
         The evolutionary operator.
@@ -87,19 +87,19 @@ class Propulator:
         worker_sub_comm: MPI.Comm = MPI.COMM_SELF,
         generations: int = -1,
         checkpoint_path: Union[str, Path] = Path("./"),
-        migration_topology: Optional[np.ndarray] = None,
+        migration_topology: np.ndarray | None = None,
         migration_prob: float = 0.0,
         emigration_propagator: Type[Propagator] = SelectMin,
-        island_displs: Optional[np.ndarray] = None,
-        island_counts: Optional[np.ndarray] = None,
-        surrogate_factory: Optional[Callable[[], Surrogate]] = None,
+        island_displs: np.ndarray | None = None,
+        island_counts: np.ndarray | None = None,
+        surrogate_factory: Callable[[], Surrogate] | None = None,
     ) -> None:
         """
         Initialize Propulator with given parameters.
 
         Parameters
         ----------
-        loss_fn : Union[Callable, Generator[float, None, None]]
+        loss_fn : Callable | Generator[float, None, None]
             The loss function to be minimized.
         propagator : propulate.propagators.Propagator
             The propagator to apply for breeding.
@@ -208,13 +208,13 @@ class Propulator:
                     "No valid checkpoint file given. Initializing population randomly..."
                 )
 
-    def _get_active_individuals(self) -> Tuple[List[Individual], int]:
+    def _get_active_individuals(self) -> tuple[list[Individual], int]:
         """
         Get active individuals in current population list.
 
         Returns
         -------
-        List[propulate.population.Individual]
+        list[propulate.population.Individual]
             All active individuals in the current population.
         int
             The number of currently active individuals.
@@ -400,16 +400,16 @@ class Propulator:
         """
         raise NotImplementedError
 
-    def _get_unique_individuals(self) -> List[Individual]:
+    def _get_unique_individuals(self) -> list[Individual]:
         """
         Get unique individuals in terms of traits and loss in current population.
 
         Returns
         -------
-        List[propulate.population.Individual]
+        list[propulate.population.Individual]
             All unique individuals in the current population.
         """
-        unique_inds: List[Individual] = []
+        unique_inds: list[Individual] = []
         for individual in self.population:
             considered = False
             for ind in unique_inds:
@@ -423,14 +423,14 @@ class Propulator:
         return unique_inds
 
     def _check_intra_island_synchronization(
-        self, populations: List[List[Individual]]
+        self, populations: list[list[Individual]]
     ) -> bool:
         """
         Check synchronization of populations of workers within one island.
 
         Parameters
         ----------
-        populations : List[List[propulate.population.Individual]]
+        populations : list[list[propulate.population.Individual]]
             A list of all islands' sorted population lists.
 
         Returns
@@ -577,7 +577,7 @@ class Propulator:
 
     def _check_for_duplicates(
         self, active: bool, debug: int = 1
-    ) -> Tuple[List[List[Union[Individual, int]]], List[Individual]]:
+    ) -> tuple[list[tuple[Individual, int]], list[Individual]]:
         """
         Check for duplicates in current population.
 
@@ -593,17 +593,17 @@ class Propulator:
 
         Returns
         -------
-        List[List[propulate.population.Individual | int]]
+        list[tuple[propulate.population.Individual, int]]
             The individuals and their occurrences.
-        List[propulate.population.Individual]
+        list[propulate.population.Individual]
             The unique individuals in the population.
         """
         if active:
             population, _ = self._get_active_individuals()
         else:
             population = self.population
-        unique_inds: List[Individual] = []
-        occurrences: List[List[Union[Individual, int]]] = []
+        unique_inds: list[Individual] = []
+        occurrences: list[tuple[Individual, int]] = []
         for individual in population:
             considered = False
             for ind in unique_inds:
@@ -617,12 +617,12 @@ class Propulator:
                     f"{individual} occurs {num_copies} time(s)."
                 )
                 unique_inds.append(individual)
-                occurrences.append([individual, num_copies])
+                occurrences.append((individual, num_copies))
         return occurrences, unique_inds
 
     def summarize(
         self, top_n: int = 1, debug: int = 1
-    ) -> Union[List[Union[List[Individual], Individual]], None]:
+    ) -> Union[list[Union[list[Individual], Individual]], None]:
         """
         Get top-n results from Propulate optimization.
 
@@ -635,7 +635,7 @@ class Propulator:
 
         Returns
         -------
-        List[List[propulate.population.Individual] | propulate.population.Individual]
+        list[list[propulate.population.Individual] | propulate.population.Individual]
             The top-n best individuals on each island.
         """
         if self.propulate_comm is None:

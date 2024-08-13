@@ -2,7 +2,7 @@ import copy
 import logging
 import random
 from pathlib import Path
-from typing import Callable, Generator, List, Optional, Tuple, Type, Union
+from typing import Callable, Generator, Type
 
 import numpy as np
 from mpi4py import MPI
@@ -28,7 +28,7 @@ class Pollinator(Propulator):
     ----------
     immigration_propagator : Type[propulate.propagators.Propagator]
         The immigration propagator, i.e., how to choose individuals to be replaced by immigrants on target island.
-    replaced : List[propulate.population.Individual]
+    replaced : list[propulate.population.Individual]
         The individuals to be replaced by the immigrants.
 
     Methods
@@ -47,7 +47,7 @@ class Pollinator(Propulator):
 
     def __init__(
         self,
-        loss_fn: Union[Callable, Generator[float, None, None]],
+        loss_fn: Callable | Generator[float, None, None],
         propagator: Propagator,
         rng: random.Random,
         island_idx: int = 0,
@@ -55,21 +55,21 @@ class Pollinator(Propulator):
         propulate_comm: MPI.Comm = MPI.COMM_WORLD,
         worker_sub_comm: MPI.Comm = MPI.COMM_SELF,
         generations: int = 0,
-        checkpoint_path: Union[Path, str] = Path("./"),
-        migration_topology: Optional[np.ndarray] = None,
+        checkpoint_path: Path | str = Path("./"),
+        migration_topology: np.ndarray | None = None,
         migration_prob: float = 0.0,
         emigration_propagator: Type[Propagator] = SelectMin,
         immigration_propagator: Type[Propagator] = SelectMax,
-        island_displs: Optional[np.ndarray] = None,
-        island_counts: Optional[np.ndarray] = None,
-        surrogate_factory: Optional[Callable[[], Surrogate]] = None,
+        island_displs: np.ndarray | None = None,
+        island_counts: np.ndarray | None = None,
+        surrogate_factory: Callable[[], Surrogate] | None = None,
     ) -> None:
         """
         Initialize ``Pollinator`` with given parameters.
 
         Parameters
         ----------
-        loss_fn : Union[Callable, Generator[float, None, None]]
+        loss_fn : Callable | Generator[float, None, None]
             The loss function to be minimized.
         propagator : propulate.propagators.Propagator
             The propagator to apply for breeding.
@@ -126,7 +126,7 @@ class Pollinator(Propulator):
         )
         # Set class attributes.
         self.immigration_propagator = immigration_propagator  # Immigration propagator
-        self.replaced: List[Individual] = []  # Individuals to be replaced by immigrants
+        self.replaced: list[Individual] = []  # Individuals to be replaced by immigrants
 
     def _send_emigrants(self) -> None:
         """Perform migration, i.e. island sends individuals out to other islands."""
@@ -342,7 +342,7 @@ class Pollinator(Propulator):
 
     def _check_for_duplicates(
         self, active: bool, debug: int = 1
-    ) -> Tuple[List[List[Union[Individual, int]]], List[Individual]]:
+    ) -> tuple[list[tuple[Individual, int]], list[Individual]]:
         """
         Check for duplicates in current population.
 
@@ -357,17 +357,17 @@ class Pollinator(Propulator):
 
         Returns
         -------
-        List[List[propulate.population.Individual | int]]
+        list[tuple[propulate.population.Individual, int]]
             The individuals and their occurrences.
-        List[propulate.population.Individual]
+        list[propulate.population.Individual]
             All unique individuals in the population.
         """
         if active:
             population, _ = self._get_active_individuals()
         else:
             population = self.population
-        unique_inds: List[Individual] = []
-        occurrences: List[List[Union[Individual, int]]] = []
+        unique_inds: list[Individual] = []
+        occurrences: list[tuple[Individual, int]] = []
         for individual in population:
             considered = False
             for ind in unique_inds:
@@ -386,7 +386,7 @@ class Pollinator(Propulator):
                     f"{individual} occurs {num_copies} time(s)."
                 )
                 unique_inds.append(individual)
-                occurrences.append([individual, num_copies])
+                occurrences.append((individual, num_copies))
         return occurrences, unique_inds
 
     def propulate(self, logging_interval: int = 10, debug: int = 1) -> None:

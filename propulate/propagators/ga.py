@@ -1,6 +1,6 @@
 import copy
 import random
-from typing import Dict, List, Mapping, Optional, Tuple, Union
+from typing import Mapping
 
 import numpy as np
 
@@ -16,7 +16,7 @@ class PointMutation(Stochastic):
     ----------
     points : int
         The number of points to mutate.
-    limits : Dict[str, Tuple[float, float]] | Dict[str, Tuple[int, int]] | Dict[str, Tuple[str, ...]]
+    limits : Mapping[str, tuple[float, float] | tuple[int, int] | tuple[str, ...]]
         The search space, i.e., the limits of (hyper-)parameters to be optimized.
 
     Notes
@@ -30,19 +30,17 @@ class PointMutation(Stochastic):
 
     def __init__(
         self,
-        limits: Mapping[
-            str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]
-        ],
+        limits: Mapping[str, tuple[float, float] | tuple[int, int] | tuple[str, ...]],
         points: int = 1,
         probability: float = 1.0,
-        rng: Optional[random.Random] = None,
+        rng: random.Random | None = None,
     ) -> None:
         """
         Initialize point-mutation propagator.
 
         Parameters
         ----------
-        limits : Dict[str, Tuple[float, float]] | Dict[str, Tuple[int, int]] | Dict[str, Tuple[str, ...]]
+        limits : Mapping[str, tuple[float, float] | tuple[int, int] | tuple[str, ...]]
             The search space, i.e., the limits of the (hyper-)parameters to be optimized.
         points : int, optional
             The number of points to mutate. Default is 1.
@@ -111,7 +109,7 @@ class RandomPointMutation(Stochastic):
         The minimum number of points to mutate.
     max_points : int
         The maximum number of points to mutate.
-    limits : Dict[str, Tuple[float, float]] | Dict[str, Tuple[int, int]] | Dict[str, Tuple[str, ...]]
+    limits : Mapping[str, tuple[float, float] | tuple[int, int] | tuple[str, ...]]
         The search space, i.e., the limits of (hyper-)parameters to be optimized.
 
     Notes
@@ -125,22 +123,18 @@ class RandomPointMutation(Stochastic):
 
     def __init__(
         self,
-        limits: Union[
-            Dict[str, Tuple[float, float]],
-            Dict[str, Tuple[int, int]],
-            Dict[str, Tuple[str, ...]],
-        ],
+        limits: Mapping[str, tuple[float, float] | tuple[int, int] | tuple[str, ...]],
         min_points: int = 1,
         max_points: int = 1,
         probability: float = 1.0,
-        rng: Optional[random.Random] = None,
+        rng: random.Random | None = None,
     ) -> None:
         """
         Initialize random point-mutation propagator.
 
         Parameters
         ----------
-        limits : Dict[str, Tuple[float, float]] | Dict[str, Tuple[int, int]] | Dict[str, Tuple[str, ...]]
+        limits : Mapping[str, tuple[float, float] | tuple[int, int] | tuple[str, ...]]
             The limits of the parameters to optimize, i.e., the search space.
         min_points : int, optional
             minimum number of points to mutate. Default is 1.
@@ -225,7 +219,7 @@ class IntervalMutationNormal(Stochastic):
         The scaling factor for the interval width to obtain standard deviation.
     points : int
         The number of points to mutate.
-    limits : Dict[str, Tuple[float, float]] | Dict[str, Tuple[int, int]] | Dict[str, Tuple[str, ...]]
+    limits : Mapping[str, tuple[float, float] | tuple[int, int] | tuple[str, ...]]
         The search space, i.e., the limits of (hyper-)parameters to be optimized.
 
     Notes
@@ -239,20 +233,18 @@ class IntervalMutationNormal(Stochastic):
 
     def __init__(
         self,
-        limits: Mapping[
-            str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]
-        ],
+        limits: Mapping[str, tuple[float, float] | tuple[int, int] | tuple[str, ...]],
         sigma_factor: float = 0.1,
         points: int = 1,
         probability: float = 1.0,
-        rng: Optional[random.Random] = None,
+        rng: random.Random | None = None,
     ) -> None:
         """
         Initialize interval-mutation propagator.
 
         Parameters
         ----------
-        limits : Dict[str, Tuple[float, float]] | Dict[str, Tuple[int, int]] | Dict[str, Tuple[str, ...]]
+        limits : Mapping[str, tuple[float, float] | tuple[int, int] | tuple[str, ...]]
             The limits of the (hyper-)parameters to be optimized, i.e., the search space.
         sigma_factor : float, optional
             The scaling factor for the interval width to obtain the standard deviation. Default is 0.1.
@@ -298,11 +290,11 @@ class IntervalMutationNormal(Stochastic):
             ind = copy.deepcopy(ind)
             ind.loss = float("inf")  # Initialize individual's loss attribute.
             # Determine traits of type float.
-            interval_keys: List[str] = [
+            interval_keys: list[str] = [
                 x for x in ind.keys() if isinstance(ind[x], float)
             ]
             # Determine ´self.points` traits to mutate.
-            to_mutate: List[str] = self.rng.sample(interval_keys, self.points)
+            to_mutate: list[str] = self.rng.sample(interval_keys, self.points)
             # Mutate traits by sampling from Gaussian distribution centered around current value
             # with `sigma_factor` scaled interval width as standard distribution.
             for key in to_mutate:
@@ -343,7 +335,7 @@ class CrossoverUniform(Stochastic):  # uniform crossover
         self,
         relative_parent_contribution: float = 0.5,
         probability: float = 1.0,
-        rng: Optional[random.Random] = None,
+        rng: random.Random | None = None,
     ) -> None:
         """
         Initialize uniform crossover propagator.
@@ -369,13 +361,13 @@ class CrossoverUniform(Stochastic):  # uniform crossover
             )
         self.rel_parent_contrib = relative_parent_contribution
 
-    def __call__(self, inds: List[Individual]) -> Individual:
+    def __call__(self, inds: list[Individual]) -> Individual:
         """
         Apply the uniform-crossover propagator.
 
         Parameters
         ----------
-        inds : List[propulate.population.Individual]
+        inds : list[propulate.population.Individual]
             The individuals the propagator is applied to.
 
         Returns
@@ -412,7 +404,7 @@ class CrossoverMultiple(Stochastic):  # uniform crossover
         self,
         parents: int = -1,
         probability: float = 1.0,
-        rng: Optional[random.Random] = None,
+        rng: random.Random | None = None,
     ) -> None:
         """
         Initialize a multiple-crossover propagator.
@@ -430,7 +422,7 @@ class CrossoverMultiple(Stochastic):  # uniform crossover
             parents, 1, probability, rng
         )  # Breed 1 offspring from specified number of parents.
 
-    def __call__(self, inds: List[Individual]) -> Individual:
+    def __call__(self, inds: list[Individual]) -> Individual:
         """
         Apply the multi-crossover propagator.
 
@@ -480,7 +472,7 @@ class CrossoverSigmoid(Stochastic):
         self,
         temperature: float = 1.0,
         probability: float = 1.0,
-        rng: Optional[random.Random] = None,
+        rng: random.Random | None = None,
     ) -> None:
         """
         Initialize a sigmoid-crossover propagator.
@@ -499,13 +491,13 @@ class CrossoverSigmoid(Stochastic):
         )  # Breed 1 offspring from 2 parents.
         self.temperature = temperature
 
-    def __call__(self, inds: List[Individual]) -> Individual:
+    def __call__(self, inds: list[Individual]) -> Individual:
         """
         Apply the sigmoid-crossover propagator.
 
         Parameters
         ----------
-        inds : List[propulate.population.Individual]
+        inds : list[propulate.population.Individual]
             The individuals the propagator is applied to.
 
         Returns

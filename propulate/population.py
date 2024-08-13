@@ -6,9 +6,6 @@ from typing import (
     KeysView,
     Mapping,
     MutableMapping,
-    Optional,
-    Tuple,
-    Union,
     ValuesView,
 )
 
@@ -20,11 +17,9 @@ class Individual:
 
     def __init__(
         self,
-        position: Union[MutableMapping[str, Union[str, int, float, Any]], np.ndarray],
-        limits: Mapping[
-            str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]
-        ],
-        velocity: Optional[np.ndarray] = None,
+        position: MutableMapping[str, str | int | float | Any] | np.ndarray,
+        limits: Mapping[str, tuple[float, float] | tuple[int, int] | tuple[str, ...]],
+        velocity: np.ndarray | None = None,
         generation: int = -1,
         rank: int = -1,
     ) -> None:
@@ -33,6 +28,12 @@ class Individual:
 
         Parameters
         ----------
+        position : MutableMapping[str, str | int | float | Any] | np.ndarray
+            The position of the individual in the search space.
+        limits : Mapping[str, tuple[float, float] | tuple[int, int] | tuple[str, ...]]
+            The limits of the search space.
+        velocity : np.ndarray, optional
+            The velocity of the individual in the search space. Only relevant for particle swarm optimization.
         generation : int
             The current generation (-1 if unset).
         rank : int
@@ -40,14 +41,15 @@ class Individual:
         """
         self.limits = limits
         self.mapping: MutableMapping[
-            str, Union[str, int, float, Any]
-        ]  # NOTE the Any is here for surrogate info
+            str, str | int | float | Any
+        ]  # NOTE: The ``Any`` is here for surrogate info.
         for key in limits:
             if key.startswith("_"):
                 raise ValueError("Keys starting with '_' are reserved.")
-        # NOTE keep track of the types of variables for setting and getting
+        # NOTE: Keep track of the types of variables for setting and getting.
         self.types = {key: type(limits[key][0]) for key in limits}
-        # NOTE offsets are used to keep track of where each variable is stored in the position field, since a categorical embedding can take up more space than other types of variables
+        # NOTE: Offsets are used to keep track of where each variable is stored in the position field, since a
+        # categorical embedding can take up more space than other types of variables.
         offset = 0
         self.offsets = {}
         for key in limits:
@@ -57,7 +59,7 @@ class Individual:
             else:
                 offset += 1
 
-        # NOTE init from position array
+        # NOTE: Initialize position from array.
         if isinstance(position, np.ndarray):
             self.position = position
             if len(position) != offset:
@@ -65,7 +67,7 @@ class Individual:
                     "Individual position not compatible with given search space limits."
                 )
             self.mapping = {k: self[k] for k in self.limits}
-        # NOTE init from dict
+        # NOTE: Initialize position from dict.
         else:
             assert set(self.limits.keys()) == set(
                 key for key in position if not key.startswith("_")
@@ -76,24 +78,24 @@ class Individual:
                 self[key] = position[key]
 
         self.generation = generation  # Equals each worker's iteration for continuous population in Propulate.
-        self.rank = rank  # island rank
+        self.rank = rank  # Island rank
         self.loss: float = float("inf")
         self.active = True
-        self.island = -1  # island of origin
-        self.current = -1  # current responsible worker
-        self.migration_steps = -1  # number of migration steps performed
-        self.migration_history: str = ""  # migration history
-        self.evaltime = float("inf")  # evaluation time
-        self.evalperiod = 0.0  # evaluation duration
+        self.island = -1  # Island of origin
+        self.current = -1  # Current responsible worker
+        self.migration_steps = -1  # Number of migration steps performed
+        self.migration_history: str = ""  # Migration history
+        self.evaltime = float("inf")  # Evaluation time
+        self.evalperiod = 0.0  # Evaluation duration
 
-        # NOTE needed for PSO type propagators
+        # NOTE: Only needed for PSO type propagators
         self.velocity = velocity
         if self.velocity is not None:
             if not self.position.shape == self.velocity.shape:
                 print(self.position.shape, self.velocity.shape)
                 raise ValueError("Position and velocity shape do not match.")
 
-    def __getitem__(self, key: str) -> Union[float, int, str]:
+    def __getitem__(self, key: str) -> float | int | str:
         """Return decoded value for input key."""
         if key.startswith("_"):
             return self.mapping[key]
@@ -112,26 +114,26 @@ class Individual:
             else:
                 raise ValueError("Unknown type")
 
-    def __setitem__(self, key: str, newvalue: Union[float, int, str, Any]) -> None:
+    def __setitem__(self, key: str, new_value: float | int | str | Any) -> None:
         """Encode and set value for given key."""
-        self.mapping[key] = newvalue
+        self.mapping[key] = new_value
         if key.startswith("_"):
             pass
         else:
             if key not in self.limits:
                 raise ValueError("Unknown gene.")
             if self.types[key] == float:
-                assert isinstance(newvalue, float)
-                self.position[self.offsets[key]] = newvalue
+                assert isinstance(new_value, float)
+                self.position[self.offsets[key]] = new_value
             elif self.types[key] == int:
-                assert isinstance(newvalue, int)
-                self.position[self.offsets[key]] = float(newvalue)
+                assert isinstance(new_value, int)
+                self.position[self.offsets[key]] = float(new_value)
             elif self.types[key] == str:
-                assert newvalue in self.limits[key]
+                assert new_value in self.limits[key]
                 offset = self.offsets[key]
                 upper = len(self.limits[key])
                 self.position[offset:upper] = np.array([0])
-                self.position[offset + self.limits[key].index(newvalue)] = 1.0
+                self.position[offset + self.limits[key].index(new_value)] = 1.0
             else:
                 raise ValueError("Unknown type")
 

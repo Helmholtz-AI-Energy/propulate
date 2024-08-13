@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)  # Get logger instance.
 set_logger_config(level=logging.DEBUG)
 
 
-def ind_loss(params: Dict[str, Union[int, float, str]]) -> Generator[float, None, None]:
+def ind_loss(params: dict[str, int | float | str]) -> Generator[float, None, None]:
     """
     Toy iterative loss function for evolutionary optimization with ``Propulate``.
 

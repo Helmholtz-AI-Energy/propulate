@@ -1,5 +1,5 @@
 from random import Random
-from typing import Dict, List, Tuple
+from typing import Mapping
 
 import numpy as np
 
@@ -13,7 +13,7 @@ class ParallelNelderMead(Propagator):
 
     Attributes
     ----------
-    limits : Dict[str, Tuple[float, float]] | Dict[str, Tuple[int, int]] | Dict[str, Tuple[str, ...]]
+    limits : Mapping[str, tuple[float, float]]
         The search space, i.e., the limits of (hyper-)parameters to be optimized.
     alpha : float
         The reflection parameter.
@@ -33,7 +33,7 @@ class ParallelNelderMead(Propagator):
 
     def __init__(
         self,
-        limits: Dict[str, Tuple[float, float]],
+        limits: Mapping[str, tuple[float, float]],
         rng: Random,
         start: np.ndarray,
         alpha: float = 1.0,
@@ -47,7 +47,7 @@ class ParallelNelderMead(Propagator):
 
         Parameters
         ----------
-        limits : Dict[str, Tuple[float, float]] | Dict[str, Tuple[int, int]] | Dict[str, Tuple[str, ...]]
+        limits : Mapping[str, tuple[float, float]]
             The search space, i.e., the limits of the (hyper-)parameters to be optimized.
         rng : random.Random, optional
             The separate random number generator of the Propulate optimization.
@@ -71,7 +71,7 @@ class ParallelNelderMead(Propagator):
         self.rho = rho
         self.sigma = sigma
         self.generation = 0
-        self.simplex: List[Individual]
+        self.simplex: list[Individual]
 
         self.problem_dimension = len(start)
         self.start = start
@@ -84,7 +84,7 @@ class ParallelNelderMead(Propagator):
         )
         self.select_simplex = SelectMin(self.problem_dimension + 1)
 
-    def __call__(self, inds: List[Individual]) -> Individual:
+    def __call__(self, inds: list[Individual]) -> Individual:
         """
         Apply the Nelder-Mead propagator.
 

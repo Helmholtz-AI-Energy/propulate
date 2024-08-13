@@ -2,7 +2,7 @@ import logging
 import platform
 import random
 from pathlib import Path
-from typing import Callable, Generator, List, Optional, Type, Union
+from typing import Callable, Generator, Type
 
 import numpy as np
 from mpi4py import MPI
@@ -40,27 +40,27 @@ class Islands:
 
     def __init__(
         self,
-        loss_fn: Union[Callable, Generator[float, None, None]],
+        loss_fn: Callable | Generator[float, None, None],
         propagator: Propagator,
         rng: random.Random,
         generations: int = 0,
         num_islands: int = 1,
-        island_sizes: Optional[np.ndarray] = None,
-        migration_topology: Optional[np.ndarray] = None,
+        island_sizes: np.ndarray | None = None,
+        migration_topology: np.ndarray | None = None,
         migration_probability: float = 0.0,
         emigration_propagator: Type[Propagator] = SelectMin,
         immigration_propagator: Type[Propagator] = SelectMax,
         pollination: bool = True,
-        checkpoint_path: Union[str, Path] = Path("./"),
+        checkpoint_path: str | Path = Path("./"),
         ranks_per_worker: int = 1,
-        surrogate_factory: Optional[Callable[[], Surrogate]] = None,
+        surrogate_factory: Callable[[], Surrogate] | None = None,
     ) -> None:
         """
         Initialize an island model with the given parameters.
 
         Parameters
         ----------
-        loss_fn : Union[Callable, Generator[float, None, None]]
+        loss_fn : Callable | Generator[float, None, None]
             The loss function to be minimized.
         propagator : propulate.propagators.Propagator
             The propagator, i.e., evolutionary operator, to apply for breeding.
@@ -311,17 +311,12 @@ class Islands:
             The logging interval.
         debug : int
             The debug level.
-
-        Returns
-        -------
-        List[List[propulate.population.Individual] | propulate.population.Individual]
-            The top-n best individuals on each island.
         """
         self.propulator.propulate(logging_interval, debug)
 
     def summarize(
         self, top_n: int = 3, debug: int = 1
-    ) -> Union[List[Union[List[Individual], Individual]], None]:
+    ) -> list[list[Individual] | Individual] | None:
         """
         Summarize optimization results.
 
@@ -334,7 +329,7 @@ class Islands:
 
         Returns
         -------
-        List[List[propulate.population.Individual] | propulate.population.Individual]
+        list[list[propulate.population.Individual] | propulate.population.Individual]
             The top-n best individuals on each island.
         """
         return self.propulator.summarize(top_n, debug)

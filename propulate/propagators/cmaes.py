@@ -1,5 +1,5 @@
 import random
-from typing import Dict, List, Optional, Tuple
+from typing import Mapping
 
 import numpy as np
 
@@ -47,7 +47,7 @@ class CMAParameter:
         individuals evaluated (better runtime, more exploitation, less ``decompose_in_each_generation``).
     lambd : int
         The number of individuals considered for each generation.
-    limits : Dict[str, float]
+    limits : Mapping[str, tuple[float, float]]
         The limits of the search space.
     mean : numpy.ndarray
         The distribution's mean.
@@ -88,7 +88,7 @@ class CMAParameter:
         c_c: float,
         c_1: float,
         c_mu: float,
-        limits: Dict,
+        limits: Mapping[str, tuple[float, float] | tuple[int, int]],
         initial_mean: np.ndarray,
         exploration: bool,
     ) -> None:
@@ -113,7 +113,7 @@ class CMAParameter:
             The learning rate for the rank-one update of the covariance matrix update.
         c_mu : float
             The learning rate for the rank-mu update of the covariance matrix update.
-        limits : dict
+        limits : Mapping[str, tuple[float, float] | tuple[int, int] | tuple[str, ...]]
             The limits of the search space.
         initial_mean : np.ndarray
             The initial mean of the distribution.
@@ -394,7 +394,7 @@ class CMAAdapter:
 
     def compute_weights(
         self, mu: int, lamb: int, problem_dimension: int
-    ) -> Tuple[np.ndarray, float, float, float, float]:
+    ) -> tuple[np.ndarray, float, float, float, float]:
         """
         Abstract method for computing the recombination weights of a CMA-ES variant.
 
@@ -422,7 +422,7 @@ class CMAAdapter:
     @staticmethod
     def compute_learning_rates(
         mu_eff: float, problem_dimension: int
-    ) -> Tuple[float, float, float]:
+    ) -> tuple[float, float, float]:
         """
         Compute the learning rates for the CMA-variants.
 
@@ -470,7 +470,7 @@ class BasicCMA(CMAAdapter):
 
     def compute_weights(
         self, mu: int, lamb: int, problem_dimension: int
-    ) -> Tuple[np.ndarray, float, float, float, float]:
+    ) -> tuple[np.ndarray, float, float, float, float]:
         """
         Compute the recombination weights for basic CMA-ES.
 
@@ -571,7 +571,7 @@ class ActiveCMA(CMAAdapter):
 
     def compute_weights(
         self, mu: int, lamb: int, problem_dimension: int
-    ) -> Tuple[np.ndarray, float, float, float, float]:
+    ) -> tuple[np.ndarray, float, float, float, float]:
         """
         Compute the recombination weights for active CMA-ES.
 
@@ -719,12 +719,12 @@ class CMAPropagator(Propagator):
     def __init__(
         self,
         adapter: CMAAdapter,
-        limits: Dict,
+        limits: Mapping[str, tuple[float, float]],
         decompose_in_each_generation: bool = False,
         select_worst_all_time: bool = False,
-        pop_size: Optional[int] = None,
+        pop_size: int | None = None,
         pool_size: int = 3,
-        rng: Optional[random.Random] = None,
+        rng: random.Random | None = None,
     ) -> None:
         """
         Instantiate a CMA-ES propagator.
@@ -733,7 +733,7 @@ class CMAPropagator(Propagator):
         ----------
         adapter : CMAAdapter
             The adaptation strategy of CMA-ES.
-        limits : Dict[str, float]
+        limits : Mapping[str, tuple[float, float]]
             The limits of the search space.
         decompose_in_each_generation : bool, optional
             If True, decompose covariance matrix for each generation (worse runtime, less exploitation, more
@@ -793,7 +793,7 @@ class CMAPropagator(Propagator):
         self.select_from_pool = SelectUniform(mu - 1, rng=rng)
         self.select_single_best = SelectMin(1)
 
-    def __call__(self, inds: List[Individual]) -> Individual:
+    def __call__(self, inds: list[Individual]) -> Individual:
         """
         Define the skeleton of the CMA-ES algorithm using the template method design pattern.
 
@@ -802,7 +802,7 @@ class CMAPropagator(Propagator):
 
         Parameters
         ----------
-        inds : List[propulate.population.Individual]
+        inds : list[propulate.population.Individual]
             Available individuals.
 
         Returns
@@ -839,7 +839,7 @@ class CMAPropagator(Propagator):
             self.adapter.update_step_size(self.par)
         return new_ind
 
-    def _transform_individuals_to_matrix(self, inds: List[Individual]) -> np.ndarray:
+    def _transform_individuals_to_matrix(self, inds: list[Individual]) -> np.ndarray:
         """
         Take a list of individuals and transform it to a numpy array for easier subsequent computation.
 
