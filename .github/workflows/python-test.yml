@@ -14,7 +14,7 @@ jobs:
             - name: Set up Python
               uses: actions/setup-python@v5
               with:
-                  python-version: '3.9'
+                  python-version: '3.10'
             - name: Install dependencies
               run: |
                   python -m pip install --upgrade pip
@@ -23,9 +23,9 @@ jobs:
             - name: Lint with ruff
               run: |
                   # Stop the build if there are Python syntax errors or undefined names.
-                  ruff check --output-format=github --select=E9,F63,F7,F82 --target-version=py39 .
+                  ruff check --output-format=github --select=E9,F63,F7,F82 --target-version=py310 .
                   # Default set of ruff rules with GitHub Annotations
-                  ruff check --output-format=github --target-version=py39 .
+                  ruff check --output-format=github --target-version=py310 .
             - name: Test with pytest and measure coverage
               run: |
                 coverage run --rcfile=./pyproject.toml -m pytest
