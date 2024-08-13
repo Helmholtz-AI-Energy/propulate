@@ -324,9 +324,7 @@ def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
     return train_loader, val_loader
 
 
-def ind_loss(
-    params: Dict[str, Union[int, float, str]],
-) -> Generator[float, None, None]:
+def ind_loss(params: dict[str, int | float | str]) -> Generator[float, None, None]:
     """
     Loss function for evolutionary optimization with Propulate. Minimize the model's negative validation accuracy.
 
