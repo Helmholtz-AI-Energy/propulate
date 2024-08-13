@@ -101,11 +101,11 @@ class Individual:
             return self.mapping[key]
         else:
             # continuous variable
-            if self.types[key] == float:
+            if isinstance(self.types[key], float):
                 return float(self.position[self.offsets[key]].item())
-            elif self.types[key] == int:
+            elif isinstance(self.types[key], int):
                 return int(np.rint(self.position[self.offsets[key]]).item())
-            elif self.types[key] == str:
+            elif isinstance(self.types[key], str):
                 offset = self.offsets[key]
                 upper = self.offsets[key] + len(self.limits[key])
                 return str(
@@ -122,13 +122,13 @@ class Individual:
         else:
             if key not in self.limits:
                 raise ValueError("Unknown gene.")
-            if self.types[key] == float:
+            if isinstance(self.types[key], float):
                 assert isinstance(new_value, float)
                 self.position[self.offsets[key]] = new_value
-            elif self.types[key] == int:
+            elif isinstance(self.types[key], int):
                 assert isinstance(new_value, int)
                 self.position[self.offsets[key]] = float(new_value)
-            elif self.types[key] == str:
+            elif isinstance(self.types[key], str):
                 assert new_value in self.limits[key]
                 offset = self.offsets[key]
                 upper = len(self.limits[key])
