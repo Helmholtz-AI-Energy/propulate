@@ -351,6 +351,7 @@ class Pollinator(Propulator):
         debug : int, optional
             The debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode). Default is 1.
         """
+        # TODO setting start_time in function that is overwritten is probably not great
         self.start_time = time.time_ns()
         if self.worker_sub_comm != MPI.COMM_SELF:
             self.generation = self.worker_sub_comm.bcast(self.generation, root=0)
