@@ -1,6 +1,7 @@
 import copy
 import logging
 import random
+import time
 from pathlib import Path
 from typing import Callable, Generator, List, Optional, Type, Union
 
@@ -362,6 +363,8 @@ class Migrator(Propulator):
         ValueError
             If any individuals are left that should have been deactivated before (only for debug > 0).
         """
+        # TODO setting start_time in function that is overwritten is probably not great
+        self.start_time = time.time_ns()
         if self.worker_sub_comm != MPI.COMM_SELF:
             self.generation = self.worker_sub_comm.bcast(self.generation, root=0)
         if self.propulate_comm is None:
