@@ -159,3 +159,7 @@ testpaths = [
 
 [tool.coverage.run]
 parallel = true
+omit = ["*/tests/*"]
+
+[tool.coverage.report]
+omit = ["*/tests/*"]
