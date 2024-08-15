@@ -47,7 +47,7 @@ class Islands:
         num_islands: int = 1,
         island_sizes: Optional[np.ndarray] = None,
         migration_topology: Optional[np.ndarray] = None,
-        migration_probability: float = 0.0,
+        migration_probability: float = 0.9,
         emigration_propagator: Type[Propagator] = SelectMin,
         immigration_propagator: Type[Propagator] = SelectMax,
         pollination: bool = True,
