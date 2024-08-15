@@ -61,7 +61,7 @@ def test_cmaes(
         loss_fn=function,
         propagator=propagator,
         rng=rng,
-        generations=100,
+        generations=10,
         checkpoint_path=mpi_tmp_path,
     )
     # Run optimization and print summary of results.

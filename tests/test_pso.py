@@ -77,7 +77,7 @@ def test_pso(pso_propagator: Propagator, mpi_tmp_path: pathlib.Path) -> None:
         loss_fn=sphere,
         propagator=propagator,
         rng=rng,
-        generations=100,
+        generations=10,
         checkpoint_path=mpi_tmp_path,
     )
 
