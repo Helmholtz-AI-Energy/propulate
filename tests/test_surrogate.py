@@ -150,7 +150,7 @@ def test_dynamic(mpi_tmp_path: Path) -> None:
     MPI.COMM_WORLD.barrier()
 
 
-# @pytest.mark.mpi(min_size=8)
+@pytest.mark.mpi(min_size=8)
 @pytest.mark.filterwarnings(
     "ignore::DeprecationWarning",
     match="Assigning the 'data' attribute is an inherently unsafe operation and will be removed in the future.",
