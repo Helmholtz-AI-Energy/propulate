@@ -323,7 +323,7 @@ loss as a measure of its predictive performance. The main difference to the sing
 initial model with ``DDP`` and use the ``DistributedSampler`` when getting the train and validation dataloaders:
 
 .. code-block:: python
-    :emphasize-lines: 49-50
+    :emphasize-lines: 49-50, 66-67
 
 
     def ind_loss(
@@ -384,7 +384,15 @@ initial model with ``DDP`` and use the ``DistributedSampler`` when getting the t
         early_stopping_count, early_stopping_limit = 0, 5
         set_new_best = False
         model.train()
+
+        # Initialize history lists.
+        train_loss_history: list[float] = []
+        val_loss_history: list[float] = []
+        val_acc_history: list[float] = []
+
         for epoch in range(epochs):  # Loop over epochs.
+            train_loader.sampler.set_epoch(epoch)  # Set current epoch in samplers.
+            val_loader.sampler.set_epoch(epoch)
             # ------------ Train loop ------------
             for batch_idx, (data, target) in enumerate(
                 train_loader
@@ -395,6 +403,16 @@ initial model with ``DDP`` and use the ``DistributedSampler`` when getting the t
                 loss = loss_fn(output, target)
                 loss.backward()
                 optimizer.step()
+                torch.distributed.all_reduce(
+                    loss
+                )  # Allreduce rank-local mini-batch train losses.
+                loss /= (
+                    dist.get_world_size()
+                )  # Average all-reduced rank-local mini-batch train losses over all ranks.
+                train_loss_history.append(
+                    loss.item()
+                )  # Append globally averaged train loss of this epoch to history list.
+
                 if batch_idx % log_interval == 0 or batch_idx == len(train_loader) - 1:
                     log.info(
                         f"Train Epoch: {epoch} [{batch_idx}/{len(train_loader)} "
@@ -402,8 +420,8 @@ initial model with ``DDP`` and use the ``DistributedSampler`` when getting the t
                     )
             # ------------ Validation loop ------------
             model.eval()
-            val_loss = 0
-            correct = 0
+            val_loss: float = 0.0  # Initialize rank-local validation loss.
+            correct: int = 0  # Initialize number of correctly predicted samples in rank-local validation set.
             with torch.no_grad():
                 for data, target in val_loader:
                     data, target = data.to(device), target.to(device)
@@ -414,20 +432,43 @@ initial model with ``DDP`` and use the ``DistributedSampler`` when getting the t
                     )  # Get the index of the max log-probability.
                     correct += pred.eq(target.view_as(pred)).sum().item()
 
-            val_loss /= len(val_loader.dataset)
-            if val_loss < best_val_loss:
-                best_val_loss = val_loss
+            val_loss /= float(
+                len(val_loader.dataset)
+            )  # Average rank-local validation loss over number of samples in validation set.
+            num_val_samples = len(
+                val_loader.dataset
+            )  # Get overall number of samples in local validation set.
+            # Convert to tensors for all-reduce communication.
+            val_loss_tensor = torch.Tensor([val_loss])
+            correct_tensor = torch.Tensor([correct])
+            num_val_samples_tensor = torch.Tensor([num_val_samples])
+            # Allreduce rank-local validation losses, numbers of correctly predicted samples, and numbers of overall samples
+            # in validation dataset over all ranks.
+            torch.distributed.all_reduce(val_loss_tensor)
+            torch.distributed.all_reduce(correct_tensor)
+            torch.distributed.all_reduce(num_val_samples_tensor)
+            val_loss_tensor /= (
+                dist.get_world_size()
+            )  # Average all-reduced rank-local validation losses over all ranks.
+            val_loss_history.append(
+                val_loss_tensor.item()
+            )  # Save globally averaged validation loss of this epoch.
+            if val_loss_tensor.item() < best_val_loss:
+                best_val_loss = val_loss_tensor.item()
                 set_new_best = True
+            # Calculate global validation accuracy and save in history list.
+            val_acc = correct_tensor.item() / num_val_samples_tensor.item()
+            val_acc_history.append(val_acc)
 
             log.info(
-                f"\nTest set: Average loss: {val_loss:.4f}, Accuracy: {correct}/{len(val_loader.dataset)} "
-                f"({100. * correct / len(val_loader.dataset):.0f}%)\n"
+                f"\nValidation set: Average loss: {val_loss_tensor.item():.4f}, "
+                f"Accuracy: {100. * val_acc:.0f} %)\n"
             )
 
             if not set_new_best:
                 early_stopping_count += 1
             if early_stopping_count >= early_stopping_limit:
-                log.info("hit early stopping count, breaking")
+                log.info("Hit early stopping count, breaking.")
                 break
 
             # ------------ Scheduler step ------------
