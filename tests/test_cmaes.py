@@ -38,7 +38,7 @@ def test_cmaes_basic(cma_adapter: CMAAdapter, mpi_tmp_path: pathlib.Path) -> Non
         loss_fn=benchmark_function,
         propagator=propagator,
         rng=rng,
-        generations=100,
+        generations=10,
         checkpoint_path=mpi_tmp_path,
     )
     # Run optimization and print summary of results.

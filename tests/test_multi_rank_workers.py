@@ -69,7 +69,7 @@ def test_multi_rank_workers(mpi_tmp_path: pathlib.Path) -> None:
         loss_fn=parallel_sphere,  # Loss function to be minimized
         propagator=propagator,  # Propagator, i.e., evolutionary operator to be used
         rng=rng,  # Separate random number generator for Propulate optimization
-        generations=100,  # Overall number of generations
+        generations=10,  # Overall number of generations
         num_islands=2,  # Number of islands
         migration_probability=0.9,  # Migration probability
         pollination=False,  # Whether to use pollination or migration

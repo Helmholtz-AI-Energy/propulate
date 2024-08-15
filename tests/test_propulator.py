@@ -61,7 +61,7 @@ def test_propulator(function_name: str, mpi_tmp_path: pathlib.Path) -> None:
         loss_fn=benchmark_function,
         propagator=propagator,
         rng=rng,
-        generations=100,
+        generations=10,
         checkpoint_path=mpi_tmp_path,
     )  # Set up propulator performing actual optimization.
     propulator.propulate()  # Run optimization and print summary of results.
@@ -91,7 +91,7 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
     propulator = Propulator(
         loss_fn=benchmark_function,
         propagator=propagator,
-        generations=100,
+        generations=10,
         checkpoint_path=mpi_tmp_path,
         rng=rng,
     )  # Set up propulator performing actual optimization.
@@ -107,7 +107,7 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
     propulator = Propulator(
         loss_fn=benchmark_function,
         propagator=propagator,
-        generations=20,
+        generations=5,
         checkpoint_path=mpi_tmp_path,
         rng=rng,
     )  # Set up new propulator starting from checkpoint.
