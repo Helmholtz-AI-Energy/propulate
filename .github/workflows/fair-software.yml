@@ -2,7 +2,7 @@ name: fair-software
 
 on:
   push:
-    branches: [master]
+    branches: [main]
 
 jobs:
   verify:
