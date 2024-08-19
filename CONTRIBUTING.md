@@ -28,7 +28,7 @@ By participating, you can help improve the project and make it even better.
    git checkout -b features/your-feature-name
    ```
 
-5**Make Changes**: Make your desired changes to the codebase. Please stick to the following guidelines:
+5. **Make Changes**: Make your desired changes to the codebase. Please stick to the following guidelines:
    * `Propulate` uses [*Black*](https://black.readthedocs.io/en/stable/the_black_code_style/current_style.html) code style and so should you if you would like to contribute.
    * Please use type hints in all function definitions.
    * Please use American English for all comments and docstrings in the code.
@@ -138,10 +138,12 @@ as follows:
    git push origin your-feature-name
    ```
 
-8. **Rebase Onto Current Main:** Rebase your feature branch onto the current main branch of the original repo.
-   This will include any changes that might have been pushed into the main in the meantime and resolve possible conflicts.
+8. **Rebase Onto Current Main:** Rebase your feature branch onto the current main branch of the original repo. Leaving
+   this step out might lead to problems with the test workflow when merging your branch into the main later on. Rebasing
+   will include any changes that might have been pushed into the main in the meantime and resolve possible conflicts.
    To sync your fork with the original upstream repo, check out [this page](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/syncing-a-fork)
-   or follow the steps below. Note that before you can sync your fork with an upstream repo, you must configure a remote that points to the upstream repository in Git.
+   or follow the steps below. Note that before you can sync your fork with an upstream repo, you must configure a remote
+   that points to the upstream repository in Git.
    ```
    cd <path/to/your/local/project/fork>
    git fetch upstream
