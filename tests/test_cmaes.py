@@ -49,3 +49,6 @@ def test_cmaes_basic(cma_adapter: CMAAdapter, mpi_tmp_path: pathlib.Path) -> Non
     # Run optimization and print summary of results.
     propulator.propulate()
     log.handlers.clear()
+
+
+# TODO test with pollination
