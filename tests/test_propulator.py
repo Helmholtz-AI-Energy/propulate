@@ -4,6 +4,8 @@ import pathlib
 import random
 
 import deepdiff
+import h5py
+import numpy as np
 import pytest
 from mpi4py import MPI
 
@@ -126,4 +128,79 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
     log.handlers.clear()
 
 
-# TODO test loading a checkpoint with an unevaluated individual
+def test_propulator_checkpointing_incomplete(mpi_tmp_path: pathlib.Path) -> None:
+    """
+    Test Propulator checkpointing where the last in the checkpoint evaluation has not finished.
+
+    Parameters
+    ----------
+    mpi_tmp_path : pathlib.Path
+        The temporary checkpoint directory.
+    """
+    first_generations = 20
+    second_generations = 40
+    set_logger_config(level=logging.DEBUG)
+    rng = random.Random(
+        42 + MPI.COMM_WORLD.rank
+    )  # Separate random number generator for optimization
+    benchmark_function, limits = get_function_search_space("sphere")
+
+    propagator = get_default_propagator(  # Get default evolutionary operator.
+        pop_size=4,  # Breeding pool size
+        limits=limits,  # Search-space limits
+        rng=rng,  # Random number generator
+    )
+    propulator = Propulator(
+        loss_fn=benchmark_function,
+        propagator=propagator,
+        generations=first_generations,
+        checkpoint_path=mpi_tmp_path,
+        rng=rng,
+    )  # Set up propulator performing actual optimization.
+
+    propulator.propulate()  # Run optimization and print summary of results.
+    assert (
+        len(propulator.population)
+        == first_generations * propulator.propulate_comm.Get_size()
+    )
+    MPI.COMM_WORLD.barrier()  # Synchronize all processes.
+    # NOTE manipulate the written checkpoint, delete last result for some
+    actual_first_generations = [2, first_generations, 15, 16] + [
+        first_generations
+    ] * max(0, MPI.COMM_WORLD.size - 4)
+    actual_first_generations = actual_first_generations[0 : MPI.COMM_WORLD.size]
+
+    if MPI.COMM_WORLD.rank == 0:
+        with h5py.File(mpi_tmp_path / "ckpt.hdf5", "r+") as f:
+            for i, g in enumerate(actual_first_generations):
+                f["generations"][i] = g
+            for worker, g in enumerate(actual_first_generations[:-1]):
+                f["0"][f"{worker}"]["loss"][g:] = np.nan
+
+    MPI.COMM_WORLD.barrier()  # Synchronize all processes.
+    del propulator  # Delete propulator object.
+    MPI.COMM_WORLD.barrier()  # Synchronize all processes.
+
+    propulator = Propulator(
+        loss_fn=benchmark_function,
+        propagator=propagator,
+        generations=second_generations,
+        checkpoint_path=mpi_tmp_path,
+        rng=rng,
+    )  # Set up new propulator starting from checkpoint.
+    assert len(propulator.population) == sum(actual_first_generations)
+    assert (
+        sum([ind.loss is None for ind in propulator.population])
+        == MPI.COMM_WORLD.size - 1
+    )
+
+    propulator.propulate()
+    assert (
+        len(propulator.population)
+        == second_generations * propulator.propulate_comm.Get_size()
+    )
+    assert [ind.loss is not None for ind in propulator.population].count(True) == len(
+        propulator.population
+    )
+
+    log.handlers.clear()
