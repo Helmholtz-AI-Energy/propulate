@@ -2,14 +2,13 @@ import logging
 import platform
 import random
 from pathlib import Path
-from typing import Callable, Generator, List, Optional, Type, Union
+from typing import Callable, Generator, Optional, Type, Union
 
 import numpy as np
 from mpi4py import MPI
 
 from .migrator import Migrator
 from .pollinator import Pollinator
-from .population import Individual
 from .propagators import Propagator, SelectMax, SelectMin
 from .propulator import Propulator
 from .surrogate import Surrogate
@@ -292,21 +291,3 @@ class Islands:
             The top-n best individuals on each island.
         """
         self.propulator.propulate(logging_interval, debug)
-
-    def summarize(self, top_n: int = 3, debug: int = 1) -> Union[List[Union[List[Individual], Individual]], None]:
-        """
-        Summarize optimization results.
-
-        Parameters
-        ----------
-        top_n : int
-            The number of best results to report. Default is 3.
-        debug : int
-            The debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode). Default is 1.
-
-        Returns
-        -------
-        List[List[propulate.population.Individual] | propulate.population.Individual]
-            The top-n best individuals on each island.
-        """
-        return self.propulator.summarize(top_n, debug)

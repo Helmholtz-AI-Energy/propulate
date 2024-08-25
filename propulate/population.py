@@ -75,7 +75,8 @@ class Individual:
         self.current = -1  # current responsible worker
         self.migration_steps = -1  # number of migration steps performed
         self.migration_history: str = ""  # migration history
-        self.evaltime = float("inf")  # evaluation time
+        self.evaltime = 0  # evaluation time
+        self.start_time = 0
         self.evalperiod = 0.0  # evaluation duration
         self.island_rank = 0  # rank in the island comm
 
