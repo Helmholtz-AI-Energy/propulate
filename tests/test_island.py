@@ -78,12 +78,11 @@ def test_islands(
     islands.propulate(
         debug=2,
     )
-    islands.summarize(debug=2)
     log.handlers.clear()
 
 
 @pytest.mark.mpi(min_size=4)
-def test_checkpointing_isolated(
+def test_islands_checkpointing_isolated(
     global_variables: Tuple[random.Random, Callable, Dict[str, Tuple[float, float]], Propagator],
     mpi_tmp_path: pathlib.Path,
 ) -> None:
@@ -136,8 +135,9 @@ def test_checkpointing_isolated(
     log.handlers.clear()
 
 
+# TODO test, that there are no clones in the population
 @pytest.mark.mpi(min_size=4)
-def test_checkpointing(
+def test_islands_checkpointing(
     global_variables: Tuple[random.Random, Callable, Dict[str, Tuple[float, float]], Propagator],
     pollination: bool,
     mpi_tmp_path: pathlib.Path,
@@ -173,7 +173,6 @@ def test_checkpointing(
 
     # Run actual optimization.
     islands.propulate(debug=2)
-    islands.summarize(top_n=1, debug=2)
 
     old_population = copy.deepcopy(islands.propulator.population)
     del islands
@@ -193,8 +192,9 @@ def test_checkpointing(
     log.handlers.clear()
 
 
+# TODO test, that there are no clones in the population
 @pytest.mark.mpi(min_size=8)
-def test_checkpointing_unequal_populations(
+def test_islands_checkpointing_unequal_populations(
     global_variables: Tuple[random.Random, Callable, Dict[str, Tuple[float, float]], Propagator],
     pollination: bool,
     mpi_tmp_path: pathlib.Path,
@@ -231,7 +231,6 @@ def test_checkpointing_unequal_populations(
 
     # Run actual optimization.
     islands.propulate(debug=2)
-    islands.summarize(top_n=1, debug=2)
 
     old_population = copy.deepcopy(islands.propulator.population)
     del islands
@@ -254,3 +253,65 @@ def test_checkpointing_unequal_populations(
 
 
 # TODO start from checkpoint with unevaluated candidates
+# TODO test, that there are no clones in the population
+def test_islands_checkpointing_incomplete(
+    global_variables: Tuple[random.Random, Callable, Dict[str, Tuple[float, float]], Propagator],
+    pollination: bool,
+    mpi_tmp_path: pathlib.Path,
+) -> None:
+    """
+    Test island checkpointing where individuals in the checkpoint have not finished evaluating.
+
+    Parameters
+    ----------
+    global_variables : Tuple[random.Random, Callable, Dict[str, Tuple[float, float]], propulate.Propagator]
+        Global variables used by most of the tests in this module.
+    pollination : bool
+        Whether pollination or real migration should be used.
+    mpi_tmp_path : pathlib.Path
+        The temporary checkpoint directory.
+    """
+    first_generations = 20
+    second_generations = 40
+    set_logger_config()
+    rng, benchmark_function, limits, propagator = global_variables
+
+    # Set up island model.
+    islands = Islands(
+        loss_fn=benchmark_function,
+        propagator=propagator,
+        rng=rng,
+        generations=first_generations,
+        num_islands=2,
+        island_sizes=np.array([3, 5]),
+        migration_probability=0.9,
+        pollination=pollination,
+        checkpoint_path=mpi_tmp_path,
+    )
+
+    # Run actual optimization.
+    islands.propulate(debug=2)
+
+    old_population = copy.deepcopy(islands.propulator.population)
+    del islands
+
+    # TODO manipulate checkpoint
+    MPI.COMM_WORLD.barrier()
+
+    # Set up island model.
+    islands = Islands(
+        loss_fn=benchmark_function,
+        propagator=propagator,
+        rng=rng,
+        generations=second_generations,
+        num_islands=2,
+        island_sizes=np.array([3, 5]),
+        migration_probability=0.9,
+        pollination=pollination,
+        checkpoint_path=mpi_tmp_path,
+    )
+    islands.propulate(debug=2)
+
+    # TODO compare active only
+    assert len(deepdiff.DeepDiff(old_population, islands.propulator.population, ignore_order=True)) == 0
+    log.handlers.clear()
