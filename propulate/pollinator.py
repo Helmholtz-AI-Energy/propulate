@@ -3,7 +3,7 @@ import logging
 import random
 import time
 from pathlib import Path
-from typing import Callable, Generator, List, Optional, Tuple, Type, Union
+from typing import Callable, Generator, List, Optional, Type, Union
 
 import h5py
 import numpy as np
@@ -209,7 +209,9 @@ class Pollinator(Propulator):
                 for immigrant in immigrants:
                     immigrant.migration_steps += 1
                     assert immigrant.active is True
-                    self.population.append(copy.deepcopy(immigrant))  # Append immigrant to population.
+                    self.population[immigrant.island, immigrant.rank, immigrant.generation] = copy.deepcopy(
+                        immigrant
+                    )  # add immigrant to population
 
                     replace_num = 0
                     if self.island_comm.rank == immigrant.current:
@@ -221,7 +223,7 @@ class Pollinator(Propulator):
                 if replace_num > 0:
                     # From current population, choose `replace_num` individuals to be replaced.
                     eligible_for_replacement = [
-                        ind for ind in self.population if ind.active and ind.current == self.island_comm.rank
+                        ind for ind in self.population.values() if ind.active and ind.current == self.island_comm.rank
                     ]
 
                     immigrator = self.immigration_propagator(replace_num)  # Set up immigration propagator.
@@ -269,7 +271,7 @@ class Pollinator(Propulator):
             assert individual.active is True
             to_deactivate = [
                 idx
-                for idx, ind in enumerate(self.population)
+                for idx, ind in self.population.items()
                 if ind == individual and ind.migration_steps == individual.migration_steps
             ]
             if len(to_deactivate) == 0:
@@ -293,53 +295,6 @@ class Pollinator(Propulator):
         )
         log.debug(log_string)
 
-    def _check_for_duplicates(self, active: bool, debug: int = 1) -> Tuple[List[List[Union[Individual, int]]], List[Individual]]:
-        """
-        Check for duplicates in current population.
-
-        For pollination, duplicates are allowed as emigrants are sent as copies and not deactivated on sending island.
-
-        Parameters
-        ----------
-        active : bool
-            Whether to consider active individuals (True) or all individuals (False).
-        debug : int, optional
-            The debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode). Default is 1.
-
-        Returns
-        -------
-        List[List[propulate.population.Individual | int]]
-            The individuals and their occurrences.
-        List[propulate.population.Individual]
-            All unique individuals in the population.
-        """
-        if active:
-            population, _ = self._get_active_individuals()
-        else:
-            population = self.population
-        unique_inds: List[Individual] = []
-        occurrences: List[List[Union[Individual, int]]] = []
-        for individual in population:
-            considered = False
-            for ind in unique_inds:
-                # As copies of individuals are allowed for pollination,
-                # check for equivalence of traits and loss only when
-                # determining unique individuals. To do so, use
-                # self.equals(other) member function of Individual()
-                # class instead of `==` operator.
-                if individual.equals(ind):
-                    considered = True
-                    break
-            if not considered:
-                num_copies = population.count(individual)
-                log.debug(
-                    f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: "
-                    f"{individual} occurs {num_copies} time(s)."
-                )
-                unique_inds.append(individual)
-                occurrences.append([individual, num_copies])
-        return occurrences, unique_inds
-
     def propulate(self, logging_interval: int = 10, debug: int = 1) -> None:
         """
         Execute evolutionary algorithm using island model with pollination in parallel.
@@ -360,7 +315,8 @@ class Pollinator(Propulator):
                 # Breed and evaluate individual.
                 # TODO this should be refactored, the subworkers don't need the logfile
                 # TODO this needs to be addressed before merge, since multirank workers should fail with this
-                self._evaluate_individual(None)
+                # TODO see migrator
+                # self._evaluate_individual(None)
                 self.generation += 1
             return
         if self.island_comm.rank == 0:

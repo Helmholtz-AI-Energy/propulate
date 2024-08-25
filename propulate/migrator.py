@@ -130,7 +130,7 @@ class Migrator(Propulator):
         assert self.migration_topology is not None
         to_migrate = self.migration_topology[self.island_idx, :]
         num_emigrants = np.sum(to_migrate, dtype=int).item()  # Determine overall number of emigrants to be sent out.
-        eligible_emigrants = [ind for ind in self.population if ind.active and ind.current == self.island_comm.rank]
+        eligible_emigrants = [ind for ind in self.population.values() if ind.active and ind.current == self.island_comm.rank]
 
         # Only perform migration if overall number of emigrants to be sent
         # out is smaller than current number of eligible emigrants.
@@ -185,8 +185,8 @@ class Migrator(Propulator):
                     assert isinstance(emigrant, Individual)
                     # Look for emigrant to deactivate in original population list.
                     to_deactivate = [
-                        idx
-                        for idx, ind in enumerate(self.population)
+                        key
+                        for key, ind in self.population.items()
                         if ind == emigrant and ind.migration_steps == emigrant.migration_steps
                     ]
                     assert len(to_deactivate) == 1  # There should be exactly one!
@@ -234,7 +234,7 @@ class Migrator(Propulator):
                         len(
                             [
                                 ind
-                                for ind in self.population
+                                for ind in self.population.values()
                                 if ind == immigrant
                                 and immigrant.migration_steps == ind.migration_steps
                                 and immigrant.current == ind.current
@@ -249,7 +249,9 @@ class Migrator(Propulator):
                     hdf5_checkpoint[f"{immigrant.island}"][f"{immigrant.island_rank}"]["active_on_island"][immigrant.generation] = (
                         True
                     )
-                    self.population.append(copy.deepcopy(immigrant))  # Append immigrant to population.
+                    self.population[immigrant.island, immigrant.rank, immigrant.generation] = copy.deepcopy(
+                        immigrant
+                    )  # add immigrant to population
                     log_string += f"Added immigrant {immigrant} to population.\n"
 
                     # NOTE Do not remove obsolete individuals from population upon immigration
@@ -272,7 +274,9 @@ class Migrator(Propulator):
         check = False
         # Loop over emigrants still to be deactivated.
         for idx, emigrant in enumerate(self.emigrated):
-            existing_ind = [ind for ind in self.population if ind == emigrant and ind.migration_steps == emigrant.migration_steps]
+            existing_ind = [
+                ind for ind in self.population.values() if ind == emigrant and ind.migration_steps == emigrant.migration_steps
+            ]
             if len(existing_ind) > 0:
                 check = True
                 # Check equivalence of actual traits, i.e., (hyper-)parameter values.
@@ -321,7 +325,7 @@ class Migrator(Propulator):
                 assert emigrant.active is True
                 to_deactivate = [
                     idx
-                    for idx, ind in enumerate(self.population)
+                    for idx, ind in self.population.items()
                     if ind == emigrant and ind.migration_steps == emigrant.migration_steps
                 ]
                 if len(to_deactivate) == 0:
@@ -329,6 +333,7 @@ class Migrator(Propulator):
                     continue
                 assert len(to_deactivate) == 1
                 self.population[to_deactivate[0]].active = False
+                # NOTE emigrated is a list, population is a dict
                 to_remove = [
                     idx
                     for idx, ind in enumerate(self.emigrated)
@@ -372,18 +377,19 @@ class Migrator(Propulator):
                 # Breed and evaluate individual.
                 # TODO this should be refactored, the subworkers don't need the logfile
                 # TODO this needs to be addressed before merge, since multirank workers should fail with this
-                self._evaluate_individual(None)
+                # self._evaluate_individual(None)
                 self.generation += 1
             return
 
         if self.island_comm.rank == 0:
-            log.info(f"Island {self.island_idx} has {self.island_comm.size} workers.")
+            log.info(f"Island {self.island_idx} has {self.island_comm.size} workers with {self.worker_sub_comm.size} ranks each.")
 
         migration = True if self.migration_prob > 0 else False
         self.propulate_comm.barrier()
 
         # Loop over generations.
         # TODO this should probably be refactored, checkpointing can probably be handled in one place
+        # TODO does not work for multi rank workers
         with h5py.File(self.checkpoint_path, "a", driver="mpio", comm=self.propulate_comm) as f:
             while self.generation < self.generations:
                 if self.generation % int(logging_interval) == 0:

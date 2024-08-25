@@ -4,7 +4,6 @@ import logging
 import os
 import random
 import time
-from operator import attrgetter
 from pathlib import Path
 from typing import Any, Callable, Final, Generator, List, Optional, Tuple, Type, Union
 
@@ -174,7 +173,7 @@ class Propulator:
         # Load initial population of evaluated individuals from checkpoint if exists.
         self.checkpoint_path = self.checkpoint_path / "ckpt.hdf5"
 
-        self.population: list[Individual] = []
+        self.population: dict[Tuple[int, int, int], Individual] = {}
         # consistency check and ensure enough space is allocated
         if os.path.isfile(self.checkpoint_path):
             self.load_checkpoint()
@@ -201,9 +200,9 @@ class Propulator:
                 raise RuntimeError("Limits inconsistent with checkpoint")
             # TODO check island sizes are consistent
 
+            # NOTE generation is the index of individuals whose evaluation has begun
             self.generation = int(f["generations"][self.propulate_comm.Get_rank()])
-            if f[f"{self.island_idx}"][f"{self.island_comm.Get_rank()}"]["evalperiod"][self.generation] > 0.0:
-                self.generation += 1
+
             # NOTE load individuals, since they might have migrated, every worker has to check each dataset
             num_islands = len(self.island_counts)
             for i in range(num_islands):
@@ -215,7 +214,6 @@ class Propulator:
                                 islandgroup[f"{rank}"]["x"][generation, 0],
                                 self.propagator.limits,
                             )
-                            # TODO check what rank was used for, i think it was the rank in the propulator_comm
                             ind.rank = rank
                             ind.island = self.island_idx
                             ind.current = islandgroup[f"{rank}"]["current"][generation]
@@ -228,10 +226,7 @@ class Propulator:
                             ind.evalperiod = islandgroup[f"{rank}"]["evalperiod"][generation]
                             ind.generation = generation
                             ind.island_rank = rank
-                            self.population.append(ind)
-                            if ind.loss is None:
-                                # TODO resume evaluation on this individual
-                                raise
+                            self.population[(i, rank, generation)] = ind
 
     def set_up_checkpoint(self) -> None:
         """Initialize checkpoint file or check consistenct with an existing one."""
@@ -290,13 +285,21 @@ class Propulator:
                         dtype=np.float32,
                         chunks=True,
                         maxshape=(None, xdim, limit_dim),
+                        data=np.full(
+                            (self.generations, xdim, limit_dim),
+                            np.nan,
+                            dtype=np.float32,
+                        ),
+                        fillvalue=np.nan,
                     )
                     group.require_dataset(
                         "loss",
                         (self.generations,),
                         np.float32,
+                        data=np.array([np.nan] * self.generations),
                         chunks=True,
                         maxshape=(None,),
+                        fillvalue=np.nan,
                     )
                     group.require_dataset(
                         "current",
@@ -354,7 +357,8 @@ class Propulator:
         int
             The number of currently active individuals.
         """
-        active_pop = [ind for ind in self.population if ind.active]
+        active_pop = [ind for ind in self.population.values() if ind.active]
+        # TODO simplify
         return active_pop, len(active_pop)
 
     def _breed(self) -> Individual:
@@ -390,27 +394,13 @@ class Propulator:
         assert isinstance(ind, Individual)
         return ind  # Return new individual.
 
-    def _evaluate_individual(self, hdf5_checkpoint: h5py.File) -> None:
-        """Breed and evaluate individual."""
-        ind = self._breed()  # Breed new individual.
-        ind.island_rank = self.island_comm.Get_rank()
-        start_time = time.time_ns() - self.start_time  # Start evaluation timer.
-        # ind.starttime = start_time
-        ckpt_idx = ind.generation
-        hdf5_checkpoint["generations"][self.propulate_comm.Get_rank()] = ind.generation
-
-        group = hdf5_checkpoint[f"{self.island_idx}"][f"{self.island_comm.Get_rank()}"]
-        # save candidate
-        group["x"][ckpt_idx, 0, :] = ind.position[:]
-        if ind.velocity is not None:
-            group["x"][ckpt_idx, 1, :] = ind.velocity[:]
-        group["starttime"][ckpt_idx] = start_time
-        group["current"][ckpt_idx] = ind.current
-
+    def _evaluate_individual(self, ind: Individual) -> None:
+        """Evaluate individual."""
         # Signal start of run to surrogate model.
         if self.surrogate is not None:
             self.surrogate.start_run(ind)
 
+        # TODO check whenever the loss_fn is called, that it returns not NaN, infinities are allowed
         # Check if ``loss_fn`` is generator, prerequisite for surrogate model.
         if inspect.isgeneratorfunction(self.loss_fn):
 
@@ -449,33 +439,28 @@ class Propulator:
 
             ind.loss = float(loss_fn(ind))  # Evaluate its loss.
 
-        ind.evaltime = time.time_ns() - self.start_time  # Stop evaluation timer.
-        ind.evalperiod = ind.evaltime - start_time  # Calculate evaluation duration.
-        # save result for candidate
-        group["evaltime"][ckpt_idx] = ind.evaltime
-        group["evalperiod"][ckpt_idx] = ind.evalperiod
-        group["active_on_island"][ckpt_idx, self.island_idx] = True
-        # TODO fix evalperiod for resumed from checkpoint individuals
-        # TODO somehow store migration history, maybe just as islands_visited
-
-        group["loss"][ckpt_idx] = ind.loss
         # Add final value to surrogate.
         if self.surrogate is not None:
             self.surrogate.update(ind.loss)
         if self.propulate_comm is None:
             return
-        ind.evaltime = time.time_ns() - self.start_time  # Stop evaluation timer.
-        ind.evalperiod = ind.evaltime - start_time  # Calculate evaluation duration.
-        self.population.append(ind)  # Add evaluated individual to worker-local population.
+        self.population[(self.island_idx, self.island_comm.rank, ind.generation)] = (
+            ind  # Add evaluated individual to worker-local population.
+        )
         log.debug(
             f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: BREEDING\n"
             f"Bred and evaluated individual {ind}."
         )
 
+    def _sub_rank_evaluate_individual(self) -> None:
+        """Receive parameters from worker rank 0 and evaluate."""
+        pass
+
+    def _send_intra_island_individuals(self, ind: Individual) -> None:
+        """Send evaluated individual to other workers within own island."""
         if self.surrogate is not None:
             # Add surrogate model data to individual for synchronization.
             ind[SURROGATE_KEY] = self.surrogate.data()
-
         # Tell other workers in own island about results to synchronize their populations.
         for r in range(self.island_comm.size):  # Loop over ranks in intra-island communicator.
             if r == self.island_comm.rank:
@@ -511,7 +496,9 @@ class Propulator:
                 if SURROGATE_KEY in ind_temp:
                     del ind_temp[SURROGATE_KEY]
 
-                self.population.append(ind_temp)  # Add received individual to own worker-local population.
+                self.population[(ind_temp.island, ind_temp.rank, ind_temp.generation)] = (
+                    ind_temp  # Add received individual to own worker-local population.
+                )
 
                 log_string += f"Added individual {ind_temp} from W{stat.Get_source()} to own population.\n"
         _, n_active = self._get_active_individuals()
@@ -542,6 +529,55 @@ class Propulator:
         """
         raise NotImplementedError
 
+    def _pre_eval_checkpoint(self, ind: Individual, f: h5py.File) -> None:
+        """
+        Write a bred but not yet evaluated individual to the checkpoint file.
+
+        Parameters
+        ----------
+        ind : Individual
+            Individual to be stored.
+        f : h5py.File
+            Open and initialized hdf5 file to be written to.
+        """
+        ind.island_rank = self.island_comm.Get_rank()
+        start_time = time.time_ns() - self.start_time  # Start evaluation timer.
+        ind.start_time = start_time
+        ckpt_idx = ind.generation
+        f["generations"][self.propulate_comm.Get_rank()] = ind.generation
+
+        group = f[f"{self.island_idx}"][f"{self.island_comm.Get_rank()}"]
+        # save candidate
+        group["x"][ckpt_idx, 0, :] = ind.position[:]
+        if ind.velocity is not None:
+            group["x"][ckpt_idx, 1, :] = ind.velocity[:]
+        group["starttime"][ckpt_idx] = start_time
+        group["current"][ckpt_idx] = ind.current
+
+    def _post_eval_checkpoint(self, ind: Individual, f: h5py.File) -> None:
+        """
+        Update an evaluated individual previously written to the checkpoint file.
+
+        Parameters
+        ----------
+        ind : Individual
+            Individual to be stored.
+        f : h5py.File
+            Open and initialized hdf5 file to be written to.
+        """
+        ckpt_idx = ind.generation
+        group = f[f"{self.island_idx}"][f"{self.island_comm.Get_rank()}"]
+        ind.evaltime = time.time_ns() - self.start_time  # Stop evaluation timer.
+        ind.evalperiod = ind.evaltime - ind.start_time  # Calculate evaluation duration.
+        # save result for candidate
+        group["evaltime"][ckpt_idx] = ind.evaltime
+        group["evalperiod"][ckpt_idx] = ind.evalperiod
+        group["active_on_island"][ckpt_idx, self.island_idx] = True
+        # TODO fix evalperiod for resumed from checkpoint individuals
+        # TODO somehow store migration history, maybe just as islands_visited
+
+        group["loss"][ckpt_idx] = ind.loss
+
     def _get_unique_individuals(self) -> List[Individual]:
         """
         Get unique individuals in terms of traits and loss in current population.
@@ -552,7 +588,7 @@ class Propulator:
             All unique individuals in the current population.
         """
         unique_inds: List[Individual] = []
-        for individual in self.population:
+        for individual in self.population.values():
             considered = False
             for ind in unique_inds:
                 # Check for equivalence of traits only when determining unique individuals. To do so, use
@@ -607,12 +643,13 @@ class Propulator:
         self.start_time = time.time_ns()
         if self.worker_sub_comm != MPI.COMM_SELF:
             self.generation = self.worker_sub_comm.bcast(self.generation, root=0)
+        # NOTE if true, this rank is a worker sub rank, so it does not breeding and checkpointing, just evaluation
         if self.propulate_comm is None:
             while self.generation < self.generations:
                 # Breed and evaluate individual.
                 # TODO this should be refactored, the subworkers don't need the logfile
                 # TODO this needs to be addressed before merge, since multirank workers should fail with this
-                self._evaluate_individual(None)
+                self._sub_rank_evaluate_individual()
                 self.generation += 1
             return
 
@@ -620,14 +657,40 @@ class Propulator:
             log.info(f"Island {self.island_idx} has {self.island_comm.size} workers.")
 
         # Loop over generations.
+        # NOTE there is an implicit barrier when closing the file in parallel mode
         with h5py.File(self.checkpoint_path, "a", driver="mpio", comm=self.propulate_comm) as f:
+            # NOTE check if there is an individual still to evaluate
+            # TODO for now we write a loss to the checkpoint only if the evaluation has completed
+            # TODO how do we save the surrogate model?
+            current_idx = (self.island_idx, self.island_comm.rank, self.generation)
+            if current_idx in self.population:
+                print(self.population)
+                print(f["0"]["0"]["loss"][:])
+                ind = self.population[current_idx]
+                if np.isnan(ind.loss):
+                    log.info(f"Continuing evaluation of individual {current_idx} loaded from checkpoint.")
+                    self._evaluate_individual(ind)
+                    self._post_eval_checkpoint(ind, f)
+                    self._send_intra_island_individuals(ind)
+                self.generation += 1
+
             while self.generation < self.generations:
                 if self.generation % int(logging_interval) == 0:
                     log.info(f"Island {self.island_idx} Worker {self.island_comm.rank}: In generation {self.generation}...")
 
                 # Breed and evaluate individual.
                 log.debug(f"breeding and evaluating {self.generation}")
-                self._evaluate_individual(f)
+
+                ind = self._breed()  # Breed new individual.
+                # NOTE write started individual to file
+                self._pre_eval_checkpoint(ind, f)
+
+                # NOTE start evaluation
+                self._evaluate_individual(ind)
+
+                # NOTE update finished individual in checkpoint
+                self._post_eval_checkpoint(ind, f)
+                self._send_intra_island_individuals(ind)
 
                 # Check for and possibly receive incoming individuals from other intra-island workers.
                 log.debug(f"receive intra island {self.generation}")
@@ -638,6 +701,7 @@ class Propulator:
                 # Go to next generation.
                 self.generation += 1
 
+        # TODO final sync should not be needed anymore with new checkpointing
         # Having completed all generations, the workers have to wait for each other.
         # Once all workers are done, they should check for incoming messages once again
         # so that each of them holds the complete final population and the found optimum
@@ -661,105 +725,3 @@ class Propulator:
         # Remove requests and buffers of complete send operations.
         self.intra_requests = [r for i, r in enumerate(self.intra_requests) if i not in completed]
         self.intra_buffers = [b for i, b in enumerate(self.intra_buffers) if i not in completed]
-
-    def _check_for_duplicates(self, active: bool, debug: int = 1) -> Tuple[List[List[Union[Individual, int]]], List[Individual]]:
-        """
-        Check for duplicates in current population.
-
-        For pollination, duplicates are allowed as emigrants are sent as copies
-        and not deactivated on sending island.
-
-        Parameters
-        ----------
-        active : bool
-            Whether to consider active individuals (True) or all individuals (False).
-        debug : int, optional
-            The debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode). Default is 1.
-
-        Returns
-        -------
-        List[List[propulate.population.Individual | int]]
-            The individuals and their occurrences.
-        List[propulate.population.Individual]
-            The unique individuals in the population.
-        """
-        if active:
-            population, _ = self._get_active_individuals()
-        else:
-            population = self.population
-        unique_inds: List[Individual] = []
-        occurrences: List[List[Union[Individual, int]]] = []
-        for individual in population:
-            considered = False
-            for ind in unique_inds:
-                if individual == ind:
-                    considered = True
-                    break
-            if not considered:
-                num_copies = population.count(individual)
-                log.debug(
-                    f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: "
-                    f"{individual} occurs {num_copies} time(s)."
-                )
-                unique_inds.append(individual)
-                occurrences.append([individual, num_copies])
-        return occurrences, unique_inds
-
-    def summarize(self, top_n: int = 1, debug: int = 1) -> Union[List[Union[List[Individual], Individual]], None]:
-        """
-        Get top-n results from Propulate optimization.
-
-        Parameters
-        ----------
-        top_n : int, optional
-            The number of best results to report. Default is 1.
-        debug : int, optional
-            The debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode). Default is 1.
-
-        Returns
-        -------
-        List[List[propulate.population.Individual] | propulate.population.Individual]
-            The top-n best individuals on each island.
-        """
-        if self.propulate_comm is None:
-            return None
-        active_pop, num_active = self._get_active_individuals()
-        assert np.all(np.array(self.island_comm.allgather(num_active), dtype=int) == num_active)
-        if self.island_counts is not None:
-            num_active = int(self.propulate_comm.allreduce(num_active / self.island_counts[self.island_idx]))
-
-        self.propulate_comm.barrier()
-        if self.propulate_comm.rank == 0:
-            log.info(
-                "###########\n# SUMMARY #\n###########\n"
-                f"Number of currently active individuals is {num_active}.\n"
-                f"Expected overall number of evaluations is {self.generations * self.propulate_comm.size}."
-            )
-        # Only double-check number of occurrences of each individual for DEBUG level 2.
-        if debug == 2:
-            populations = self.island_comm.gather(self.population, root=0)
-            occurrences, _ = self._check_for_duplicates(True, debug)
-            if self.island_comm.rank == 0:
-                if self._check_intra_island_synchronization(populations):
-                    log.info(f"Island {self.island_idx}: Populations among workers synchronized.")
-                else:
-                    log.info(f"Island {self.island_idx}: Populations among workers not synchronized:\n{populations}")
-                log.info(
-                    f"Island {self.island_idx}: {len(active_pop)}/{len(self.population)} "
-                    f"individuals active ({len(occurrences)} unique)"
-                )
-        self.propulate_comm.barrier()
-        if debug == 0:
-            best = [min(self.population, key=attrgetter("loss"))]
-            if self.island_comm.rank == 0:
-                log.info(f"Top result on island {self.island_idx}: {best[0]}")
-        else:
-            unique_pop = self._get_unique_individuals()
-            unique_pop.sort(key=lambda x: x.loss)
-            best = unique_pop[:top_n]
-            if self.island_comm.rank == 0:
-                res_str = f"Top {top_n} result(s) on island {self.island_idx}:\n"
-                for i in range(top_n):
-                    res_str += f"({i + 1}): {unique_pop[i]}\n"
-                log.info(res_str)
-        return self.propulate_comm.allgather(best)

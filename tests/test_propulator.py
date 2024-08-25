@@ -121,7 +121,7 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
     assert len(deepdiff.DeepDiff(old_population, propulator.population, ignore_order=True)) == 0
     propulator.propulate()
     # NOTE make sure nothing was overwritten
-    seniors = [ind for ind in propulator.population if ind.generation < first_generations]
+    seniors = {k: v for (k, v) in propulator.population.items() if v.generation < first_generations}
     assert len(deepdiff.DeepDiff(old_population, seniors, ignore_order=True)) == 0
     assert len(propulator.population) == second_generations * propulator.propulate_comm.Get_size()
 
@@ -140,9 +140,7 @@ def test_propulator_checkpointing_incomplete(mpi_tmp_path: pathlib.Path) -> None
     first_generations = 20
     second_generations = 40
     set_logger_config(level=logging.DEBUG)
-    rng = random.Random(
-        42 + MPI.COMM_WORLD.rank
-    )  # Separate random number generator for optimization
+    rng = random.Random(42 + MPI.COMM_WORLD.rank)  # Separate random number generator for optimization
     benchmark_function, limits = get_function_search_space("sphere")
 
     propagator = get_default_propagator(  # Get default evolutionary operator.
@@ -159,25 +157,29 @@ def test_propulator_checkpointing_incomplete(mpi_tmp_path: pathlib.Path) -> None
     )  # Set up propulator performing actual optimization.
 
     propulator.propulate()  # Run optimization and print summary of results.
-    assert (
-        len(propulator.population)
-        == first_generations * propulator.propulate_comm.Get_size()
-    )
+    assert len(propulator.population) == first_generations * propulator.propulate_comm.Get_size()
     MPI.COMM_WORLD.barrier()  # Synchronize all processes.
     # NOTE manipulate the written checkpoint, delete last result for some
-    actual_first_generations = [2, first_generations, 15, 16] + [
-        first_generations
-    ] * max(0, MPI.COMM_WORLD.size - 4)
-    actual_first_generations = actual_first_generations[0 : MPI.COMM_WORLD.size]
+    # NOTE this is an index, so e.g. [0, 1, 2] are present not just [0, 1]
+    started_first_generations = [
+        2,
+        first_generations - 1,
+        first_generations // 2,
+        first_generations // 3,
+    ] + [first_generations - 1] * max(0, MPI.COMM_WORLD.size - 4)
+    started_first_generations = started_first_generations[0 : MPI.COMM_WORLD.size]
 
     if MPI.COMM_WORLD.rank == 0:
         with h5py.File(mpi_tmp_path / "ckpt.hdf5", "r+") as f:
-            for i, g in enumerate(actual_first_generations):
+            for i, g in enumerate(started_first_generations):
                 f["generations"][i] = g
-            for worker, g in enumerate(actual_first_generations[:-1]):
+            for worker, g in enumerate(started_first_generations[:-1]):  # NOTE last worker has fully evaluated last ind
                 f["0"][f"{worker}"]["loss"][g:] = np.nan
 
     MPI.COMM_WORLD.barrier()  # Synchronize all processes.
+    # NOTE without a final synch these might be incomplete on some ranks
+    # NOTE that's why we only compare against the ones that are present
+    old_population = copy.deepcopy(propulator.population)  # Save population list from the last run.
     del propulator  # Delete propulator object.
     MPI.COMM_WORLD.barrier()  # Synchronize all processes.
 
@@ -188,19 +190,34 @@ def test_propulator_checkpointing_incomplete(mpi_tmp_path: pathlib.Path) -> None
         checkpoint_path=mpi_tmp_path,
         rng=rng,
     )  # Set up new propulator starting from checkpoint.
-    assert len(propulator.population) == sum(actual_first_generations)
-    assert (
-        sum([ind.loss is None for ind in propulator.population])
-        == MPI.COMM_WORLD.size - 1
-    )
+    # NOTE check that only the correct number of individuals were read
+    assert len(propulator.population) == sum(started_first_generations) + len(started_first_generations)
+    # NOTE check that in the loaded population all ranks but one have an unevaluated individual
+    for rank in range(MPI.COMM_WORLD.size - 1):
+        pop_key = (0, rank, started_first_generations[rank])
+        # print(pop_key, propulator.population[pop_key].loss)
+        assert np.isnan(propulator.population[pop_key].loss)
+    assert sum([np.isnan(ind.loss) for ind in propulator.population.values()]) == MPI.COMM_WORLD.size - 1
 
     propulator.propulate()
-    assert (
-        len(propulator.population)
-        == second_generations * propulator.propulate_comm.Get_size()
-    )
-    assert [ind.loss is not None for ind in propulator.population].count(True) == len(
-        propulator.population
-    )
+    # NOTE check that the total number is correct
+    assert len(propulator.population) == second_generations * propulator.propulate_comm.Get_size()
+    # NOTE check there are no unevaluated individuals anymore
+    assert [ind.loss is not None for ind in propulator.population.values()].count(True) == len(propulator.population)
+
+    # NOTE check that loss for entire population is written to disk
+    if MPI.COMM_WORLD.rank == 0:
+        with h5py.File(mpi_tmp_path / "ckpt.hdf5", "r") as f:
+            for worker in range(MPI.COMM_WORLD.size):
+                assert not np.isnan(f["0"][f"{worker}"]["loss"][:]).any()
+
+    # NOTE check that no started individuals have been overwritten
+    # NOTE old_population might be incomplete without final synch, so we only compare the ones we have.
+    # NOTE over all ranks, each ind should be checked on at least once.
+    for rank in range(MPI.COMM_WORLD.size):
+        for g in range(started_first_generations[rank] + 1):
+            pop_key = (0, rank, started_first_generations[rank])
+            if pop_key in old_population:
+                assert old_population[pop_key].position == pytest.approx(propulator.population[pop_key].position)
 
     log.handlers.clear()
