@@ -201,9 +201,10 @@ def test_propulator_checkpointing_incomplete(mpi_tmp_path: pathlib.Path) -> None
 
     propulator.propulate()
     # NOTE check that the total number is correct
+    # TODO this needs final synch
     assert len(propulator.population) == second_generations * propulator.propulate_comm.Get_size()
     # NOTE check there are no unevaluated individuals anymore
-    assert [ind.loss is not None for ind in propulator.population.values()].count(True) == len(propulator.population)
+    assert [np.isnan(ind.loss) for ind in propulator.population.values()].count(False) == len(propulator.population)
 
     # NOTE check that loss for entire population is written to disk
     if MPI.COMM_WORLD.rank == 0:
@@ -219,5 +220,6 @@ def test_propulator_checkpointing_incomplete(mpi_tmp_path: pathlib.Path) -> None
             pop_key = (0, rank, started_first_generations[rank])
             if pop_key in old_population:
                 assert old_population[pop_key].position == pytest.approx(propulator.population[pop_key].position)
+    # TODO check the one that got finished
 
     log.handlers.clear()
