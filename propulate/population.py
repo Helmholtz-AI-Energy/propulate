@@ -68,10 +68,13 @@ class Individual:
                 self[key] = position[key]
 
         self.generation = generation  # Equals each worker's iteration for continuous population in Propulate.
+        # TODO this is birth rank on original island?
+        # TODO what's the difference between rank and island rank?
         self.rank = rank  # island rank
         self.loss: float = float("inf")
         self.active = True
         self.island = -1  # island of origin
+        # TODO current is not a good name
         self.current = -1  # current responsible worker
         self.migration_steps = -1  # number of migration steps performed
         self.migration_history: str = ""  # migration history

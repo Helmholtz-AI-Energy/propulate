@@ -638,8 +638,8 @@ class Propulator:
         ------
         ValueError
             If any individuals are left that should have been deactivated before (only for debug > 0).
-
         """
+        # TODO refactor timing
         self.start_time = time.time_ns()
         if self.worker_sub_comm != MPI.COMM_SELF:
             self.generation = self.worker_sub_comm.bcast(self.generation, root=0)
@@ -691,7 +691,6 @@ class Propulator:
                 # NOTE update finished individual in checkpoint
                 self._post_eval_checkpoint(ind, f)
                 self._send_intra_island_individuals(ind)
-
                 # Check for and possibly receive incoming individuals from other intra-island workers.
                 log.debug(f"receive intra island {self.generation}")
                 self._receive_intra_island_individuals()
@@ -701,12 +700,11 @@ class Propulator:
                 # Go to next generation.
                 self.generation += 1
 
-        # TODO final sync should not be needed anymore with new checkpointing
+        # TODO final sync only needed for testing with new checkpointing
         # Having completed all generations, the workers have to wait for each other.
         # Once all workers are done, they should check for incoming messages once again
         # so that each of them holds the complete final population and the found optimum
         # irrespective of the order they finished.
-        log.debug("barrier")
 
         log.debug(f"Island {self.island_idx} Worker {self.island_comm.rank}: Waiting on final synchronization barrier...")
         self.propulate_comm.barrier()
@@ -714,7 +712,6 @@ class Propulator:
             log.info("OPTIMIZATION DONE.\nNEXT: Final checks for incoming messages...")
 
         # Final check for incoming individuals evaluated by other intra-island workers.
-        log.debug("final sync")
         self._receive_intra_island_individuals()
         self.propulate_comm.barrier()
 
