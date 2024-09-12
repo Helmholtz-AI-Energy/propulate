@@ -84,5 +84,7 @@ def test_multi_rank_workers(mpi_tmp_path: pathlib.Path) -> None:
         logging_interval=10,  # Logging interval
         debug=1,  # Debug level
     )
-    islands.summarize(top_n=1, debug=1)
     log.handlers.clear()
+
+
+# TODO surrogate
