@@ -456,6 +456,7 @@ class Propulator:
             # Check for and possibly receive incoming individuals from other intra-island workers.
             self._receive_intra_island_individuals()
 
+            # Clean up requests and buffers.
             self._intra_send_cleanup()
 
             if dump:  # Dump checkpoint.
