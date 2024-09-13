@@ -10,10 +10,14 @@ from mpi4py import MPI
 from propulate import Islands, Propulator, surrogate
 from propulate.utils import get_default_propagator, set_logger_config
 
-pytestmark = pytest.mark.filterwarnings(
-    "ignore::DeprecationWarning",
-    match="Assigning the 'data' attribute is an inherently unsafe operation and will be removed in the future.",
-)
+pytestmark = [
+    pytest.mark.filterwarnings(
+        "ignore::DeprecationWarning",
+        match="Assigning the 'data' attribute is an inherently unsafe operation and will be removed in the future.",
+    ),
+    pytest.mark.filterwarnings("ignore::RuntimeWarning", match="invalid value encountered in multiply"),
+    pytest.mark.filterwarnings("ignore::RuntimeWarning", match="overflow encountered in expm1"),
+]
 
 log = logging.getLogger(__name__)  # Get logger instance.
 set_logger_config(level=logging.DEBUG)
@@ -36,14 +40,9 @@ def ind_loss(params: Dict[str, Union[int, float, str]]) -> Generator[float, None
         Yields the current loss.
     """
     rng = np.random.default_rng(seed=MPI.COMM_WORLD.rank)
-    num_iterations = 20
+    num_iterations = 450
     for i in range(num_iterations):
-        yield (
-            10 * params["start"] * np.exp(-i / 10)
-            + rng.standard_normal() / 100
-            + params["limit"]
-            + 1 / 10000 * i**2
-        )
+        yield (10 * params["start"] * np.exp(-i / 10) + rng.standard_normal() / 100 + params["limit"] + 1 / 10000 * i**2)
 
 
 def test_static(mpi_tmp_path: Path) -> None:
@@ -53,9 +52,7 @@ def test_static(mpi_tmp_path: Path) -> None:
         "start": (0.1, 7.0),
         "limit": (-1.0, 1.0),
     }  # Define search space.
-    rng = random.Random(
-        MPI.COMM_WORLD.rank + 100
-    )  # Set up separate random number generator for evolutionary optimizer.
+    rng = random.Random(MPI.COMM_WORLD.rank + 100)  # Set up separate random number generator for evolutionary optimizer.
     num_generations = 4
 
     propagator = get_default_propagator(  # Get default evolutionary operator.
@@ -75,7 +72,7 @@ def test_static(mpi_tmp_path: Path) -> None:
         surrogate_factory=lambda: surrogate.StaticSurrogate(),
     )  # Set up propulator performing actual optimization.
 
-    propulator.propulate()  # Run optimization and print summary of results.
+    propulator.propulate(debug=1)  # Run optimization and print summary of results.
     MPI.COMM_WORLD.barrier()
 
 
@@ -87,9 +84,7 @@ def test_static_island(mpi_tmp_path: Path) -> None:
         "start": (0.1, 7.0),
         "limit": (-1.0, 1.0),
     }  # Define search space.
-    rng = random.Random(
-        MPI.COMM_WORLD.rank + 100
-    )  # Set up separate random number generator for evolutionary optimizer.
+    rng = random.Random(MPI.COMM_WORLD.rank + 100)  # Set up separate random number generator for evolutionary optimizer.
     num_generations = 4
 
     propagator = get_default_propagator(  # Get default evolutionary operator.
@@ -124,9 +119,7 @@ def test_dynamic(mpi_tmp_path: Path) -> None:
         "start": (0.1, 7.0),
         "limit": (-1.0, 1.0),
     }  # Define search space.
-    rng = random.Random(
-        MPI.COMM_WORLD.rank + 100
-    )  # Set up separate random number generator for evolutionary optimizer.
+    rng = random.Random(MPI.COMM_WORLD.rank + 100)  # Set up separate random number generator for evolutionary optimizer.
     num_generations = 4
 
     propagator = get_default_propagator(  # Get default evolutionary operator.
@@ -146,7 +139,7 @@ def test_dynamic(mpi_tmp_path: Path) -> None:
         surrogate_factory=lambda: surrogate.DynamicSurrogate(limits),
     )  # Set up propulator performing actual optimization.
 
-    propulator.propulate()  # Run optimization and print summary of results.
+    propulator.propulate(logging_interval=1)  # Run optimization and print summary of results.
     MPI.COMM_WORLD.barrier()
 
 
@@ -164,9 +157,7 @@ def test_dynamic_island(mpi_tmp_path: Path) -> None:
         "limit": (-1.0, 1.0),
         "num_iterations": (100, 1000),
     }  # Define search space.
-    rng = random.Random(
-        MPI.COMM_WORLD.rank + 100
-    )  # Set up separate random number generator for evolutionary optimizer.
+    rng = random.Random(MPI.COMM_WORLD.rank + 100)  # Set up separate random number generator for evolutionary optimizer.
     propagator = get_default_propagator(  # Get default evolutionary operator.
         pop_size=pop_size,  # Breeding population size
         limits=limits,  # Search space
