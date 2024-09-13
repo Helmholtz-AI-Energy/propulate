@@ -36,7 +36,7 @@ def ind_loss(params: Dict[str, Union[int, float, str]]) -> Generator[float, None
         Yields the current loss.
     """
     rng = np.random.default_rng(seed=MPI.COMM_WORLD.rank)
-    num_iterations = 20
+    num_iterations = 500
     for i in range(num_iterations):
         yield (
             10 * params["start"] * np.exp(-i / 10)
@@ -75,7 +75,7 @@ def test_static(mpi_tmp_path: Path) -> None:
         surrogate_factory=lambda: surrogate.StaticSurrogate(),
     )  # Set up propulator performing actual optimization.
 
-    propulator.propulate()  # Run optimization and print summary of results.
+    propulator.propulate(debug=1)  # Run optimization and print summary of results.
     MPI.COMM_WORLD.barrier()
 
 

@@ -537,10 +537,12 @@ class InitUniform(Stochastic):
                 if isinstance(
                     self.limits[limit][0], int
                 ):  # If ordinal trait of type integer.
-                    if len(self.limits[limit]) == 2:  # Selecting one value in range of ordinal parameter
+                    if (
+                        len(self.limits[limit]) == 2
+                    ):  # Selecting one value in range of ordinal parameter
                         position[limit] = self.rng.randint(*self.limits[limit])
                     else:  # Selecting one distinct value from ordinal parameters
-                        position[limit] = self.rng.choice(self.limits[limit])
+                        position[limit] = self.rng.choice(self.limits[limit])  # type: ignore
                 elif isinstance(
                     self.limits[limit][0], float
                 ):  # If interval trait of type float.
