@@ -489,6 +489,7 @@ class Propulator:
     def _intra_send_cleanup(self) -> None:
         """Delete all send buffers, that have been sent."""
         completed = MPI.Request.Testsome(self.intra_requests)
+        # Remove requests and buffers of complete send operations.
         self.intra_requests = [r for i, r in enumerate(self.intra_requests) if i not in completed]
         self.intra_buffers = [b for i, b in enumerate(self.intra_buffers) if i not in completed]
 
