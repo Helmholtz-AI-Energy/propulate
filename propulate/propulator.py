@@ -163,7 +163,7 @@ class Propulator:
         self.island_displs = island_displs  # Propulate world rank of each island's worker
         self.island_counts = island_counts  # Number of workers on each island
         self.emigration_propagator = emigration_propagator  # Emigration propagator
-        self.rng = rng  # Generatior for inter island communication
+        self.rng = rng  # Generator for inter-island communication
 
         self.intra_requests: list[MPI.Request] = []  # Keep track of intra island send requests.
         self.intra_buffers: list[Individual] = []  # send buffers for intra island communication
