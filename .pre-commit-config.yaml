@@ -18,4 +18,3 @@ repos:
     rev: v1.10.0 # Use the sha / tag you want to point at
     hooks:
       - id: mypy
-        additional_dependencies: [types-all]
