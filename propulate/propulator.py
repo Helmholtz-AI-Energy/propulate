@@ -165,8 +165,8 @@ class Propulator:
         self.emigration_propagator = emigration_propagator  # Emigration propagator
         self.rng = rng  # Generator for inter-island communication
 
-        self.intra_requests: list[MPI.Request] = []  # Keep track of intra island send requests.
-        self.intra_buffers: list[Individual] = []  # send buffers for intra island communication
+        self.intra_requests: list[MPI.Request] = []  # Keep track of intra-island send requests.
+        self.intra_buffers: list[Individual] = []  # Send buffers for intra-island communication
 
         # Load initial population of evaluated individuals from checkpoint if exists.
         load_ckpt_file = self.checkpoint_path / f"island_{self.island_idx}_ckpt.pickle"
