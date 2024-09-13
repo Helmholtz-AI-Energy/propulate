@@ -36,7 +36,7 @@ def ind_loss(params: Dict[str, Union[int, float, str]]) -> Generator[float, None
         Yields the current loss.
     """
     rng = np.random.default_rng(seed=MPI.COMM_WORLD.rank)
-    num_iterations = 300
+    num_iterations = 450
     for i in range(num_iterations):
         yield (10 * params["start"] * np.exp(-i / 10) + rng.standard_normal() / 100 + params["limit"] + 1 / 10000 * i**2)
 
