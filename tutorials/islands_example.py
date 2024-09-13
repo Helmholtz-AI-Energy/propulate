@@ -29,12 +29,8 @@ if __name__ == "__main__":
         colors=True,  # Use colors.
     )
 
-    rng = random.Random(
-        config.seed + comm.rank
-    )  # Separate random number generator for optimization.
-    benchmark_function, limits = get_function_search_space(
-        config.function
-    )  # Get callable function + search-space limits.
+    rng = random.Random(config.seed + comm.rank)  # Separate random number generator for optimization.
+    benchmark_function, limits = get_function_search_space(config.function)  # Get callable function + search-space limits.
 
     # Set up evolutionary operator.
     propagator = get_default_propagator(  # Get default evolutionary operator.
@@ -47,15 +43,10 @@ if __name__ == "__main__":
     )
 
     # Set up migration topology.
-    migration_topology = (
-        config.num_migrants
-        * np.ones(  # Set up fully connected migration topology.
-            (config.num_islands, config.num_islands), dtype=int
-        )
+    migration_topology = config.num_migrants * np.ones(  # Set up fully connected migration topology.
+        (config.num_islands, config.num_islands), dtype=int
     )
-    np.fill_diagonal(
-        migration_topology, 0
-    )  # An island does not send migrants to itself.
+    np.fill_diagonal(migration_topology, 0)  # An island does not send migrants to itself.
 
     # Set up island model.
     islands = Islands(

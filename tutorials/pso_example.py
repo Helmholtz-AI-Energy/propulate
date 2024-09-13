@@ -45,12 +45,8 @@ if __name__ == "__main__":
         colors=True,  # Use colors.
     )
 
-    rng = random.Random(
-        config.seed + comm.rank
-    )  # Separate random number generator for optimization.
-    benchmark_function, limits = get_function_search_space(
-        config.function
-    )  # Get callable function + search-space limits.
+    rng = random.Random(config.seed + comm.rank)  # Separate random number generator for optimization.
+    benchmark_function, limits = get_function_search_space(config.function)  # Get callable function + search-space limits.
 
     if config.variant in ("Constriction", "Canonical"):
         if not hp_set["cognitive"]:
@@ -79,13 +75,9 @@ if __name__ == "__main__":
             config.clamping_factor,
         )
     elif config.variant == "Constriction":
-        pso_propagator = ConstrictionPSO(
-            config.cognitive, config.social, MPI.COMM_WORLD.rank, limits, rng
-        )
+        pso_propagator = ConstrictionPSO(config.cognitive, config.social, MPI.COMM_WORLD.rank, limits, rng)
     elif config.variant == "Canonical":
-        pso_propagator = CanonicalPSO(
-            config.cognitive, config.social, MPI.COMM_WORLD.rank, limits, rng
-        )
+        pso_propagator = CanonicalPSO(config.cognitive, config.social, MPI.COMM_WORLD.rank, limits, rng)
     else:
         raise ValueError("Invalid PSO propagator name given.")
     init = InitUniformPSO(limits, rng=rng, rank=MPI.COMM_WORLD.rank)
@@ -99,7 +91,5 @@ if __name__ == "__main__":
         generations=config.generations,
         checkpoint_path=config.checkpoint,
     )
-    propulator.propulate(
-        logging_interval=config.logging_interval, debug=config.verbosity
-    )
+    propulator.propulate(logging_interval=config.logging_interval, debug=config.verbosity)
     propulator.summarize(top_n=config.top_n, debug=config.verbosity)

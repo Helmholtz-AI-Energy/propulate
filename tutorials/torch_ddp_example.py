@@ -28,9 +28,7 @@ from propulate.utils import get_default_propagator, set_logger_config
 from propulate.utils.benchmark_functions import parse_arguments
 
 GPUS_PER_NODE: int = 4  # This example script was tested on a single node with 4 GPUs.
-NUM_WORKERS: int = (
-    2  # Set this to the recommended number of workers in the PyTorch dataloader.
-)
+NUM_WORKERS: int = 2  # Set this to the recommended number of workers in the PyTorch dataloader.
 SUBGROUP_COMM_METHOD = "nccl-slurm"
 log_path = "torch_ckpts"
 log = logging.getLogger("propulate")  # Get logger instance.
@@ -109,9 +107,7 @@ class Net(nn.Module):
         return output
 
 
-def get_data_loaders(
-    batch_size: int, subgroup_comm: MPI.Comm
-) -> Tuple[DataLoader, DataLoader]:
+def get_data_loaders(batch_size: int, subgroup_comm: MPI.Comm) -> Tuple[DataLoader, DataLoader]:
     """
     Get MNIST train and validation dataloaders.
 
@@ -130,13 +126,9 @@ def get_data_loaders(
         The validation dataloader.
     """
     data_transform = Compose([ToTensor(), Normalize((0.1307,), (0.3081,))])
-    train_dataset = MNIST(
-        download=False, root=".", transform=data_transform, train=True
-    )
+    train_dataset = MNIST(download=False, root=".", transform=data_transform, train=True)
     val_dataset = MNIST(download=False, root=".", transform=data_transform, train=False)
-    if (
-        subgroup_comm.size > 1
-    ):  # Make the samplers use the torch world to distribute data
+    if subgroup_comm.size > 1:  # Make the samplers use the torch world to distribute data
         train_sampler = datadist.DistributedSampler(train_dataset)
         val_sampler = datadist.DistributedSampler(val_dataset)
     else:
@@ -248,9 +240,7 @@ def torch_process_group_init(subgroup_comm: MPI.Comm, method: str) -> None:
             rank=comm_rank,
         )
     else:
-        raise NotImplementedError(
-            f"Given 'method' ({method}) not in [nccl-openmpi, nccl-slurm, gloo]!"
-        )
+        raise NotImplementedError(f"Given 'method' ({method}) not in [nccl-openmpi, nccl-slurm, gloo]!")
 
     # Call a barrier here in order for sharp to use the default comm.
     if dist.is_initialized():
@@ -263,14 +253,10 @@ def torch_process_group_init(subgroup_comm: MPI.Comm, method: str) -> None:
         assert disttest[0] == comm_size, "Failed test of dist!"
     else:
         disttest = None
-    log.info(
-        f"Finish subgroup torch.dist init: world size: {dist.get_world_size()}, rank: {dist.get_rank()}"
-    )
+    log.info(f"Finish subgroup torch.dist init: world size: {dist.get_world_size()}, rank: {dist.get_rank()}")
 
 
-def ind_loss(
-    params: Dict[str, Union[int, float, str]], subgroup_comm: MPI.Comm
-) -> float:
+def ind_loss(params: Dict[str, Union[int, float, str]], subgroup_comm: MPI.Comm) -> float:
     """
     Loss function for evolutionary optimization with Propulate. Minimize the model's negative validation accuracy.
 
@@ -336,24 +322,16 @@ def ind_loss(
         train_loader.sampler.set_epoch(epoch)  # Set current epoch in samplers.
         val_loader.sampler.set_epoch(epoch)
         # ------------ Train loop ------------
-        for batch_idx, (data, target) in enumerate(
-            train_loader
-        ):  # Loop over training batches.
+        for batch_idx, (data, target) in enumerate(train_loader):  # Loop over training batches.
             data, target = data.to(device), target.to(device)
             optimizer.zero_grad()
             output = model(data)
             loss = loss_fn(output, target)
             loss.backward()
             optimizer.step()
-            torch.distributed.all_reduce(
-                loss
-            )  # Allreduce rank-local mini-batch train losses.
-            loss /= (
-                dist.get_world_size()
-            )  # Average all-reduced rank-local mini-batch train losses over all ranks.
-            train_loss_history.append(
-                loss.item()
-            )  # Append globally averaged train loss of this epoch to history list.
+            torch.distributed.all_reduce(loss)  # Allreduce rank-local mini-batch train losses.
+            loss /= dist.get_world_size()  # Average all-reduced rank-local mini-batch train losses over all ranks.
+            train_loss_history.append(loss.item())  # Append globally averaged train loss of this epoch to history list.
 
             if batch_idx % log_interval == 0 or batch_idx == len(train_loader) - 1:
                 log.info(
@@ -369,17 +347,11 @@ def ind_loss(
                 data, target = data.to(device), target.to(device)
                 output = model(data)
                 val_loss += loss_fn(output, target).item()  # Sum up batch loss.
-                pred = output.argmax(
-                    dim=1, keepdim=True
-                )  # Get the index of the max log-probability.
+                pred = output.argmax(dim=1, keepdim=True)  # Get the index of the max log-probability.
                 correct += pred.eq(target.view_as(pred)).sum().item()
 
-        val_loss /= float(
-            len(val_loader.dataset)
-        )  # Average rank-local validation loss over number of samples in validation set.
-        num_val_samples = len(
-            val_loader.dataset
-        )  # Get overall number of samples in local validation set.
+        val_loss /= float(len(val_loader.dataset))  # Average rank-local validation loss over number of samples in validation set.
+        num_val_samples = len(val_loader.dataset)  # Get overall number of samples in local validation set.
         # Convert to tensors for all-reduce communication.
         val_loss_tensor = torch.Tensor([val_loss])
         correct_tensor = torch.Tensor([correct])
@@ -389,12 +361,8 @@ def ind_loss(
         torch.distributed.all_reduce(val_loss_tensor)
         torch.distributed.all_reduce(correct_tensor)
         torch.distributed.all_reduce(num_val_samples_tensor)
-        val_loss_tensor /= (
-            dist.get_world_size()
-        )  # Average all-reduced rank-local validation losses over all ranks.
-        val_loss_history.append(
-            val_loss_tensor.item()
-        )  # Save globally averaged validation loss of this epoch.
+        val_loss_tensor /= dist.get_world_size()  # Average all-reduced rank-local validation losses over all ranks.
+        val_loss_history.append(val_loss_tensor.item())  # Save globally averaged validation loss of this epoch.
         if val_loss_tensor.item() < best_val_loss:
             best_val_loss = val_loss_tensor.item()
             set_new_best = True
@@ -402,10 +370,7 @@ def ind_loss(
         val_acc = correct_tensor.item() / num_val_samples_tensor.item()
         val_acc_history.append(val_acc)
 
-        log.info(
-            f"\nValidation set: Average loss: {val_loss_tensor.item():.4f}, "
-            f"Accuracy: {100. * val_acc:.0f} %)\n"
-        )
+        log.info(f"\nValidation set: Average loss: {val_loss_tensor.item():.4f}, " f"Accuracy: {100. * val_acc:.0f} %)\n")
 
         if not set_new_best:
             early_stopping_count += 1
@@ -437,9 +402,7 @@ if __name__ == "__main__":
         "lr": (0.01, 0.0001),
         "gamma": (0.5, 0.999),
     }  # Define search space.
-    rng = random.Random(
-        comm.rank
-    )  # Set up separate random number generator for evolutionary optimizer.
+    rng = random.Random(comm.rank)  # Set up separate random number generator for evolutionary optimizer.
 
     # Set up separate logger for Propulate optimization.
     set_logger_config(

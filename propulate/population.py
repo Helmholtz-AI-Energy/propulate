@@ -21,9 +21,7 @@ class Individual:
     def __init__(
         self,
         position: Union[MutableMapping[str, Union[str, int, float, Any]], np.ndarray],
-        limits: Mapping[
-            str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]
-        ],
+        limits: Mapping[str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]],
         velocity: Optional[np.ndarray] = None,
         generation: int = -1,
         rank: int = -1,
@@ -39,9 +37,7 @@ class Individual:
             The rank (-1 if unset).
         """
         self.limits = limits
-        self.mapping: MutableMapping[
-            str, Union[str, int, float, Any]
-        ]  # NOTE the Any is here for surrogate info
+        self.mapping: MutableMapping[str, Union[str, int, float, Any]]  # NOTE the Any is here for surrogate info
         for key in limits:
             if key.startswith("_"):
                 raise ValueError("Keys starting with '_' are reserved.")
@@ -61,15 +57,11 @@ class Individual:
         if isinstance(position, np.ndarray):
             self.position = position
             if len(position) != offset:
-                raise ValueError(
-                    "Individual position not compatible with given search space limits."
-                )
+                raise ValueError("Individual position not compatible with given search space limits.")
             self.mapping = {k: self[k] for k in self.limits}
         # NOTE init from dict
         else:
-            assert set(self.limits.keys()) == set(
-                key for key in position if not key.startswith("_")
-            )
+            assert set(self.limits.keys()) == set(key for key in position if not key.startswith("_"))
             self.mapping = position
             self.position = np.zeros(offset)
             for key in position:
@@ -106,9 +98,7 @@ class Individual:
             elif self.types[key] is str:
                 offset = self.offsets[key]
                 upper = self.offsets[key] + len(self.limits[key])
-                return str(
-                    self.limits[key][np.argmax(self.position[offset:upper]).item()]
-                )
+                return str(self.limits[key][np.argmax(self.position[offset:upper]).item()])
             else:
                 raise ValueError("Unknown type")
 
@@ -172,11 +162,7 @@ class Individual:
     def __repr__(self) -> str:
         """Return string representation of an ``Individual`` instance."""
         rep = {
-            key: (
-                f"{Decimal(self[key]):.2E}"
-                if isinstance(self[key], float)
-                else self[key]
-            )
+            key: (f"{Decimal(self[key]):.2E}" if isinstance(self[key], float) else self[key])
             # NOTE this seems to be a mypy bug?
             for key in self  # type: ignore
         }
@@ -184,12 +170,7 @@ class Individual:
             loss_str = f"{self.loss}"
         else:
             loss_str = f"{Decimal(float(self.loss)):.2E}"
-        return (
-            f"[{rep}, loss "
-            + loss_str
-            + f", island {self.island}, worker {self.rank}, "
-            f"generation {self.generation}]"
-        )
+        return f"[{rep}, loss " + loss_str + f", island {self.island}, worker {self.rank}, " f"generation {self.generation}]"
 
     def __iter__(self) -> Generator[str, None, None]:
         """Return standard iterator."""
@@ -220,9 +201,7 @@ class Individual:
         """
         # Check if object to compare to is of the same class.
         if not isinstance(other, self.__class__):
-            raise TypeError(
-                f"{other} not an instance of `Individual` but {type(other)}."
-            )
+            raise TypeError(f"{other} not an instance of `Individual` but {type(other)}.")
 
         # Check equivalence of actual traits, i.e., hyperparameter values.
         compare_traits = True
@@ -265,9 +244,7 @@ class Individual:
         """
         # Check if object to compare to is of the same class.
         if not isinstance(other, self.__class__):
-            raise TypeError(
-                f"{other} not an instance of `Individual` but {type(other)}."
-            )
+            raise TypeError(f"{other} not an instance of `Individual` but {type(other)}.")
         # Check equivalence of traits, i.e., hyperparameter values.
         compare_traits = True
         for key in self.keys():

@@ -34,19 +34,13 @@ if __name__ == "__main__":
         colors=True,  # Use colors.
     )
 
-    rng = random.Random(
-        config.seed + comm.rank
-    )  # Separate random number generator for optimization.
-    function, limits = get_function_search_space(
-        config.function
-    )  # Get callable function + search-space limits.
+    rng = random.Random(config.seed + comm.rank)  # Separate random number generator for optimization.
+    function, limits = get_function_search_space(config.function)  # Get callable function + search-space limits.
 
     # Randomly choose a start point from within the limits.
     low = np.array([v[0] for v in limits.values()])
     high = np.array([v[1] for v in limits.values()])
-    start_point = np.random.default_rng(seed=config.seed + 235231).uniform(
-        low=low, high=high
-    )
+    start_point = np.random.default_rng(seed=config.seed + 235231).uniform(low=low, high=high)
     propagator = ParallelNelderMead(limits, rng=rng, start=start_point)
     # Set up Propulator performing actual optimization.
     propulator = Propulator(
@@ -59,7 +53,5 @@ if __name__ == "__main__":
     )
 
     # Run optimization and print summary of results.
-    propulator.propulate(
-        logging_interval=config.logging_interval, debug=config.verbosity
-    )
+    propulator.propulate(logging_interval=config.logging_interval, debug=config.verbosity)
     propulator.summarize(top_n=config.top_n, debug=config.verbosity)

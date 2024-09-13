@@ -16,9 +16,7 @@ from propulate import Islands, surrogate
 from propulate.utils import get_default_propagator
 
 GPUS_PER_NODE: int = 1
-NUM_WORKERS: int = (
-    2  # Set this to the recommended number of workers in the PyTorch dataloader.
-)
+NUM_WORKERS: int = 2  # Set this to the recommended number of workers in the PyTorch dataloader.
 
 log_path = "torch_ckpts"
 log = logging.getLogger(__name__)  # Get logger instance.
@@ -29,9 +27,7 @@ sys.path.append(os.path.abspath("../../"))
 class Net(nn.Module):
     """Convolutional neural network class."""
 
-    def __init__(
-        self, conv_layers: int, activation: nn.Module, lr: float, loss_fn: nn.Module
-    ) -> None:
+    def __init__(self, conv_layers: int, activation: nn.Module, lr: float, loss_fn: nn.Module) -> None:
         """
         Set up neural network.
 
@@ -163,9 +159,7 @@ def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
 
     # Note that the MNIST dataset has already been downloaded before globally by rank 0 in the main part.
     train_loader = DataLoader(
-        dataset=MNIST(
-            download=False, root=".", transform=data_transform, train=True
-        ),  # Use MNIST training dataset.
+        dataset=MNIST(download=False, root=".", transform=data_transform, train=True),  # Use MNIST training dataset.
         batch_size=batch_size,  # Batch size
         num_workers=num_workers,
         pin_memory=True,
@@ -173,9 +167,7 @@ def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
         shuffle=True,  # Shuffle data.
     )
     val_loader = DataLoader(
-        dataset=MNIST(
-            download=False, root=".", transform=data_transform, train=False
-        ),  # Use MNIST testing dataset.
+        dataset=MNIST(download=False, root=".", transform=data_transform, train=False),  # Use MNIST testing dataset.
         num_workers=num_workers,
         pin_memory=True,
         persistent_workers=True,
@@ -215,9 +207,7 @@ def ind_loss(
         device = torch.device("cpu")
     else:
         device_index = rank % num_gpus
-        device = torch.device(
-            f"cuda:{device_index}" if torch.cuda.is_available() else "cpu"
-        )
+        device = torch.device(f"cuda:{device_index}" if torch.cuda.is_available() else "cpu")
 
     log.info(f"Rank: {rank}, Using device: {device}")
 
@@ -227,18 +217,12 @@ def ind_loss(
         "tanh": nn.Tanh,
     }  # Define activation function mapping.
     activation = activations[activation]  # Get activation function.
-    loss_fn = (
-        torch.nn.CrossEntropyLoss()
-    )  # Use cross-entropy loss for multi-class classification.
+    loss_fn = torch.nn.CrossEntropyLoss()  # Use cross-entropy loss for multi-class classification.
 
-    model = Net(conv_layers, activation, lr, loss_fn).to(
-        device
-    )  # Set up neural network with specified hyperparameters.
+    model = Net(conv_layers, activation, lr, loss_fn).to(device)  # Set up neural network with specified hyperparameters.
     model.best_accuracy = 0.0  # Initialize the model's best validation accuracy.
 
-    train_loader, val_loader = get_data_loaders(
-        batch_size=8
-    )  # Get training and validation dataloaders.
+    train_loader, val_loader = get_data_loaders(batch_size=8)  # Get training and validation dataloaders.
 
     # Configure optimizer.
     optimizer = model.configure_optimizers()
@@ -290,9 +274,7 @@ def set_seeds(seed_value: int = 42) -> None:
     random.seed(seed_value)  # Python random module
     torch.manual_seed(seed_value)  # PyTorch random number generator for CPU
     torch.cuda.manual_seed(seed_value)  # PyTorch random number generator for all GPUs
-    torch.cuda.manual_seed_all(
-        seed_value
-    )  # PyTorch random number generator for multi-GPU
+    torch.cuda.manual_seed_all(seed_value)  # PyTorch random number generator for multi-GPU
     torch.backends.cudnn.deterministic = True  # Use deterministic algorithms.
     torch.backends.cudnn.benchmark = False  # Disable to be deterministic.
     os.environ["PYTHONHASHSEED"] = str(seed_value)  # Python hash seed
@@ -312,9 +294,7 @@ if __name__ == "__main__":
         "activation": ("relu", "sigmoid", "tanh"),
         "lr": (0.01, 0.0001),
     }  # Define search space.
-    rng = random.Random(
-        comm.rank
-    )  # Set up separate random number generator for evolutionary optimizer.
+    rng = random.Random(comm.rank)  # Set up separate random number generator for evolutionary optimizer.
     set_seeds(42 * comm.rank)  # Set seed for torch.
     propagator = get_default_propagator(  # Get default evolutionary operator.
         pop_size=pop_size,  # Breeding population size

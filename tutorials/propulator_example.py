@@ -33,12 +33,8 @@ if __name__ == "__main__":
         colors=True,  # Use colors.
     )
 
-    rng = random.Random(
-        config.seed + comm.rank
-    )  # Separate random number generator for optimization.
-    benchmark_function, limits = get_function_search_space(
-        config.function
-    )  # Get callable function + search-space limits.
+    rng = random.Random(config.seed + comm.rank)  # Separate random number generator for optimization.
+    benchmark_function, limits = get_function_search_space(config.function)  # Get callable function + search-space limits.
     # Set up evolutionary operator.
     propagator = get_default_propagator(  # Get default evolutionary operator.
         pop_size=config.pop_size,  # Breeding pool size

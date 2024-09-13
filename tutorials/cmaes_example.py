@@ -34,12 +34,8 @@ if __name__ == "__main__":
         colors=True,  # Use colors.
     )
 
-    rng = random.Random(
-        config.seed + comm.rank
-    )  # Separate random number generator for optimization.
-    benchmark_function, limits = get_function_search_space(
-        config.function
-    )  # Get callable function + search-space limits.
+    rng = random.Random(config.seed + comm.rank)  # Separate random number generator for optimization.
+    benchmark_function, limits = get_function_search_space(config.function)  # Get callable function + search-space limits.
 
     # Set up evolutionary operator.
     if config.adapter == "basic":
@@ -62,7 +58,5 @@ if __name__ == "__main__":
     )
 
     # Run optimization and print summary of results.
-    propulator.propulate(
-        logging_interval=config.logging_interval, debug=config.verbosity
-    )
+    propulator.propulate(logging_interval=config.logging_interval, debug=config.verbosity)
     propulator.summarize(top_n=config.top_n, debug=config.verbosity)

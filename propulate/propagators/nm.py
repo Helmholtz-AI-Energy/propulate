@@ -217,7 +217,5 @@ class ParallelNelderMead(Propagator):
         """
         i = self.rng.randrange(1, len(self.simplex))
 
-        position = self.simplex[i].position + self.sigma * (
-            self.simplex[i].position - self.simplex[0].position
-        )
+        position = self.simplex[i].position + self.sigma * (self.simplex[i].position - self.simplex[0].position)
         return Individual(position, self.limits)

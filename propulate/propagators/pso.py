@@ -120,9 +120,7 @@ class BasicPSO(Propagator):
 
         return self._make_new_particle(new_position, new_velocity, old_p.generation + 1)
 
-    def _prepare_data(
-        self, individuals: List[Individual]
-    ) -> Tuple[Individual, Individual, Individual]:
+    def _prepare_data(self, individuals: List[Individual]) -> Tuple[Individual, Individual, Individual]:
         """
         Get the particle to be updated on this rank, its current personal best, and the swarm's current global best.
 
@@ -145,29 +143,21 @@ class BasicPSO(Propagator):
         if len(individuals) < self.offspring:
             raise ValueError("Not enough Particles")
 
-        own_p = [
-            x
-            for x in individuals
-            if (isinstance(x, Individual) and x.rank == self.rank)
-        ]
+        own_p = [x for x in individuals if (isinstance(x, Individual) and x.rank == self.rank)]
         if len(own_p) > 0:
             old_p: Individual = max(own_p, key=lambda p: p.generation)
 
         else:
             victim = max(individuals, key=lambda p: p.generation)
             assert victim.velocity is not None
-            old_p = self._make_new_particle(
-                victim.position, victim.velocity, victim.generation
-            )
+            old_p = self._make_new_particle(victim.position, victim.velocity, victim.generation)
 
         g_best = min(individuals, key=lambda p: p.loss)
         p_best = min(own_p, key=lambda p: p.loss)
 
         return old_p, p_best, g_best
 
-    def _make_new_particle(
-        self, position: np.ndarray, velocity: np.ndarray, generation: int
-    ) -> Individual:
+    def _make_new_particle(self, position: np.ndarray, velocity: np.ndarray, generation: int) -> Individual:
         """
         Create a new ``Individual`` with the position dictionary set to the values provided by the numpy array.
 
@@ -347,9 +337,7 @@ class ConstrictionPSO(BasicPSO):
             If ``c_social`` and ``c_cognitive`` do not sum up to a number greater than 4.
         """
         if c_cognitive + c_social <= 4:
-            raise ValueError(
-                "c_cognitive + c_social < 4 but should sum up to a number > 4!"
-            )
+            raise ValueError("c_cognitive + c_social < 4 but should sum up to a number > 4!")
         phi: float = c_cognitive + c_social
         chi: float = 2.0 / (phi - 2.0 + np.sqrt(phi * (phi - 4.0)))
         super().__init__(chi, c_cognitive, c_social, rank, limits, rng)
@@ -550,32 +538,18 @@ class InitUniformPSO(Stochastic):
         propulate.population.Individual
             A single individual object.
         """
-        if (
-            len(individuals) == 0 or self.rng.random() < self.probability
-        ):  # Apply only with specified `probability`.
-            position = np.array(
-                [
-                    self.rng.uniform(*self.limits_as_array[..., i])
-                    for i in range(self.limits_as_array.shape[-1])
-                ]
-            )
+        if len(individuals) == 0 or self.rng.random() < self.probability:  # Apply only with specified `probability`.
+            position = np.array([self.rng.uniform(*self.limits_as_array[..., i]) for i in range(self.limits_as_array.shape[-1])])
             velocity = np.array(
-                [
-                    self.rng.uniform(*(self.v_limits * self.limits_as_array)[..., i])
-                    for i in range(self.limits_as_array.shape[-1])
-                ]
+                [self.rng.uniform(*(self.v_limits * self.limits_as_array)[..., i]) for i in range(self.limits_as_array.shape[-1])]
             )
 
-            particle = Individual(
-                position, self.limits, velocity, rank=self.rank
-            )  # Instantiate new particle.
+            particle = Individual(position, self.limits, velocity, rank=self.rank)  # Instantiate new particle.
 
             for index, limit in enumerate(self.limits):
                 # Since Py 3.7, iterating over dicts is stable, so we can do the following.
 
-                if not isinstance(
-                    self.limits[limit][0], float
-                ):  # Check search space for validity
+                if not isinstance(self.limits[limit][0], float):  # Check search space for validity
                     raise TypeError("PSO only works on continuous search spaces!")
 
                 # Randomly sample from specified limits for each trait.

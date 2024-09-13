@@ -399,12 +399,8 @@ class DynamicSurrogate(Surrogate):
         self.current_run_data: np.ndarray = np.array([[]])
         self.current_encoding: np.ndarray = np.array([[]])
 
-        self.global_kernel = GPy.kern.Matern32(input_dim=len(limits)) + GPy.kern.White(
-            input_dim=len(limits)
-        )
-        self.local_kernel = GPy.kern.Matern52(
-            1, variance=1.0, lengthscale=1.0, ARD=True
-        ) + GPy.kern.White(1, variance=1e-5)
+        self.global_kernel = GPy.kern.Matern32(input_dim=len(limits)) + GPy.kern.White(input_dim=len(limits))
+        self.local_kernel = GPy.kern.Matern52(1, variance=1.0, lengthscale=1.0, ARD=True) + GPy.kern.White(1, variance=1e-5)
 
         self.mean_function: GPy.Mapping = None
 
@@ -469,9 +465,7 @@ class DynamicSurrogate(Surrogate):
                 self.history_Y = np.vstack([self.history_Y, [loss]])
 
             # Create global model and fit with the new data.
-            self.global_gpr = GPy.models.GPRegression(
-                self.history_X, self.history_Y, self.global_kernel
-            )
+            self.global_gpr = GPy.models.GPRegression(self.history_X, self.history_Y, self.global_kernel)
             self.global_gpr.optimize()
 
             self.first_run = False
@@ -538,9 +532,7 @@ class DynamicSurrogate(Surrogate):
         # Predict the final loss.
         final_loss, final_variance = self.local_gpr.predict(np.array([[self.max_idx]]))
         # Check if the final loss is lower than the best loss with margin so far.
-        if ((final_loss - final_variance) * self.allowed_loss_margin) > max(
-            self.history_Y
-        )[0]:
+        if ((final_loss - final_variance) * self.allowed_loss_margin) > max(self.history_Y)[0]:
             return True
 
         return False
@@ -572,9 +564,7 @@ class DynamicSurrogate(Surrogate):
 
         # Fit global model with the new data.
         if self.global_gpr is None:
-            self.global_gpr = GPy.models.GPRegression(
-                self.history_X, self.history_Y, self.global_kernel
-            )
+            self.global_gpr = GPy.models.GPRegression(self.history_X, self.history_Y, self.global_kernel)
         else:
             self.global_gpr.set_XY(self.history_X, self.history_Y)
 

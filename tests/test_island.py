@@ -17,12 +17,8 @@ from propulate.utils.benchmark_functions import get_function_search_space
 @pytest.fixture(scope="module")
 def global_variables() -> Tuple[random.Random, Callable, Dict, Propagator]:
     """Get global variables used by most of the tests in this module."""
-    rng = random.Random(
-        42 + MPI.COMM_WORLD.rank
-    )  # Set up separate random number generator for optimization.
-    benchmark_function, limits = get_function_search_space(
-        "sphere"
-    )  # Get function and search space to optimize.
+    rng = random.Random(42 + MPI.COMM_WORLD.rank)  # Set up separate random number generator for optimization.
+    benchmark_function, limits = get_function_search_space("sphere")  # Get function and search space to optimize.
     propagator = get_default_propagator(
         pop_size=4,
         limits=limits,
@@ -44,9 +40,7 @@ def pollination(request: pytest.FixtureRequest) -> bool:
 
 @pytest.mark.mpi(min_size=4)
 def test_islands(
-    global_variables: Tuple[
-        random.Random, Callable, Dict[str, Tuple[float, float]], Propagator
-    ],
+    global_variables: Tuple[random.Random, Callable, Dict[str, Tuple[float, float]], Propagator],
     pollination: bool,
     mpi_tmp_path: pathlib.Path,
 ) -> None:
@@ -86,9 +80,7 @@ def test_islands(
 
 @pytest.mark.mpi(min_size=4)
 def test_checkpointing_isolated(
-    global_variables: Tuple[
-        random.Random, Callable, Dict[str, Tuple[float, float]], Propagator
-    ],
+    global_variables: Tuple[random.Random, Callable, Dict[str, Tuple[float, float]], Propagator],
     mpi_tmp_path: pathlib.Path,
 ) -> None:
     """
@@ -132,21 +124,12 @@ def test_checkpointing_isolated(
         checkpoint_path=mpi_tmp_path,
     )
 
-    assert (
-        len(
-            deepdiff.DeepDiff(
-                old_population, islands.propulator.population, ignore_order=True
-            )
-        )
-        == 0
-    )
+    assert len(deepdiff.DeepDiff(old_population, islands.propulator.population, ignore_order=True)) == 0
 
 
 @pytest.mark.mpi(min_size=4)
 def test_checkpointing(
-    global_variables: Tuple[
-        random.Random, Callable, Dict[str, Tuple[float, float]], Propagator
-    ],
+    global_variables: Tuple[random.Random, Callable, Dict[str, Tuple[float, float]], Propagator],
     pollination: bool,
     mpi_tmp_path: pathlib.Path,
 ) -> None:
@@ -195,21 +178,12 @@ def test_checkpointing(
         checkpoint_path=mpi_tmp_path,
     )
 
-    assert (
-        len(
-            deepdiff.DeepDiff(
-                old_population, islands.propulator.population, ignore_order=True
-            )
-        )
-        == 0
-    )
+    assert len(deepdiff.DeepDiff(old_population, islands.propulator.population, ignore_order=True)) == 0
 
 
 @pytest.mark.mpi(min_size=8)
 def test_checkpointing_unequal_populations(
-    global_variables: Tuple[
-        random.Random, Callable, Dict[str, Tuple[float, float]], Propagator
-    ],
+    global_variables: Tuple[random.Random, Callable, Dict[str, Tuple[float, float]], Propagator],
     pollination: bool,
     mpi_tmp_path: pathlib.Path,
 ) -> None:
@@ -260,11 +234,4 @@ def test_checkpointing_unequal_populations(
         checkpoint_path=mpi_tmp_path,
     )
 
-    assert (
-        len(
-            deepdiff.DeepDiff(
-                old_population, islands.propulator.population, ignore_order=True
-            )
-        )
-        == 0
-    )
+    assert len(deepdiff.DeepDiff(old_population, islands.propulator.population, ignore_order=True)) == 0

@@ -41,9 +41,7 @@ def parallel_sphere(params: Dict[str, float], comm: MPI.Comm = MPI.COMM_SELF) ->
         The function value.
     """
     if comm != MPI.COMM_SELF:
-        term = (
-            list(params.values())[comm.rank] ** 2
-        )  # Each rank squares one of the inputs.
+        term = list(params.values())[comm.rank] ** 2  # Each rank squares one of the inputs.
         return comm.allreduce(term)  # Return the sum over all squared inputs.
     else:
         return np.sum(np.array(list(params.values())) ** 2).item()
@@ -63,9 +61,7 @@ if __name__ == "__main__":
         colors=True,  # Use colors.
     )
 
-    rng = random.Random(
-        config.seed + full_world_comm.rank
-    )  # Separate random number generator for optimization.
+    rng = random.Random(config.seed + full_world_comm.rank)  # Separate random number generator for optimization.
     # Set callable function + search-space limits.
     limits = {
         "a": (-5.12, 5.12),
@@ -84,15 +80,10 @@ if __name__ == "__main__":
     )
 
     # Set up migration topology.
-    migration_topology = (
-        config.num_migrants
-        * np.ones(  # Set up fully connected migration topology.
-            (config.num_islands, config.num_islands), dtype=int
-        )
+    migration_topology = config.num_migrants * np.ones(  # Set up fully connected migration topology.
+        (config.num_islands, config.num_islands), dtype=int
     )
-    np.fill_diagonal(
-        migration_topology, 0
-    )  # An island does not send migrants to itself.
+    np.fill_diagonal(migration_topology, 0)  # An island does not send migrants to itself.
 
     # Set up island model.
     islands = Islands(

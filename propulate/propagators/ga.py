@@ -30,9 +30,7 @@ class PointMutation(Stochastic):
 
     def __init__(
         self,
-        limits: Mapping[
-            str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]
-        ],
+        limits: Mapping[str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]],
         points: int = 1,
         probability: float = 1.0,
         rng: Optional[random.Random] = None,
@@ -60,9 +58,7 @@ class PointMutation(Stochastic):
         self.points = points
         self.limits = limits
         if len(limits) < points:
-            raise ValueError(
-                f"Too many points to mutate for individual with {len(limits)} traits."
-            )
+            raise ValueError(f"Too many points to mutate for individual with {len(limits)} traits.")
 
     def __call__(self, ind: Individual) -> Individual:  # type: ignore[override]
         """
@@ -78,9 +74,7 @@ class PointMutation(Stochastic):
         propulate.population.Individual
             The possibly point-mutated individual after application of the propagator.
         """
-        if (
-            self.rng.random() < self.probability
-        ):  # Apply propagator only with specified probability
+        if self.rng.random() < self.probability:  # Apply propagator only with specified probability
             ind = copy.deepcopy(ind)
             ind.loss = float("inf")  # Initialize individual's loss attribute.
             # Determine traits to mutate via random sampling.
@@ -160,13 +154,9 @@ class RandomPointMutation(Stochastic):
         """
         super().__init__(1, 1, probability, rng)
         if min_points <= 0:
-            raise ValueError(
-                f"Minimum number of points to mutate must be > 0 but was {min_points}."
-            )
+            raise ValueError(f"Minimum number of points to mutate must be > 0 but was {min_points}.")
         if len(limits) < max_points:
-            raise ValueError(
-                f"Too many points to mutate for individual with {len(limits)} traits."
-            )
+            raise ValueError(f"Too many points to mutate for individual with {len(limits)} traits.")
         if min_points > max_points:
             raise ValueError(
                 f"Minimum number of traits to mutate must be <= respective maximum number "
@@ -190,9 +180,7 @@ class RandomPointMutation(Stochastic):
         propulate.population.Individual
             The possibly point-mutated individual after application of the propagator.
         """
-        if (
-            self.rng.random() < self.probability
-        ):  # Apply propagator only with specified probability.
+        if self.rng.random() < self.probability:  # Apply propagator only with specified probability.
             ind = copy.deepcopy(ind)
             ind.loss = float("inf")  # Initialize individual's loss attribute.
             # Determine traits to mutate via random sampling.
@@ -239,9 +227,7 @@ class IntervalMutationNormal(Stochastic):
 
     def __init__(
         self,
-        limits: Mapping[
-            str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]
-        ],
+        limits: Mapping[str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]],
         sigma_factor: float = 0.1,
         points: int = 1,
         probability: float = 1.0,
@@ -274,9 +260,7 @@ class IntervalMutationNormal(Stochastic):
         self.sigma_factor = sigma_factor
         n_interval_traits = len([x for x in limits if isinstance(limits[x][0], float)])
         if n_interval_traits < points:
-            raise ValueError(
-                f"Too many points to mutate ({points}) for individual with {n_interval_traits} continuous traits."
-            )
+            raise ValueError(f"Too many points to mutate ({points}) for individual with {n_interval_traits} continuous traits.")
 
     def __call__(self, ind: Individual) -> Individual:  # type: ignore[override]
         """
@@ -292,15 +276,11 @@ class IntervalMutationNormal(Stochastic):
         propulate.population.Individual
             The possibly interval-mutated output individual after application of the propagator.
         """
-        if (
-            self.rng.random() < self.probability
-        ):  # Apply propagator only with specified probability.
+        if self.rng.random() < self.probability:  # Apply propagator only with specified probability.
             ind = copy.deepcopy(ind)
             ind.loss = float("inf")  # Initialize individual's loss attribute.
             # Determine traits of type float.
-            interval_keys: List[str] = [
-                x for x in ind.keys() if isinstance(ind[x], float)
-            ]
+            interval_keys: List[str] = [x for x in ind.keys() if isinstance(ind[x], float)]
             # Determine ´self.points` traits to mutate.
             to_mutate: List[str] = self.rng.sample(interval_keys, self.points)
             # Mutate traits by sampling from Gaussian distribution centered around current value
@@ -308,14 +288,10 @@ class IntervalMutationNormal(Stochastic):
             for key in to_mutate:
                 min_val, max_val = self.limits[key]  # Determine interval boundaries.
                 sigma = (
-                    (float(max_val) - float(min_val)) * self.sigma_factor
-                )  # Determine std from interval boundaries and sigma factor.
-                ind[key] = self.rng.gauss(
-                    float(ind[key]), sigma
-                )  # Sample new value from Gaussian centered around current value.
-                ind[key] = min(
-                    max_val, ind[key]
-                )  # Make sure new value is within specified limits.
+                    float(max_val) - float(min_val)
+                ) * self.sigma_factor  # Determine std from interval boundaries and sigma factor.
+                ind[key] = self.rng.gauss(float(ind[key]), sigma)  # Sample new value from Gaussian centered around current value.
+                ind[key] = min(max_val, ind[key])  # Make sure new value is within specified limits.
                 ind[key] = max(min_val, ind[key])
 
         return ind  # Return point-mutated individual.
@@ -364,9 +340,7 @@ class CrossoverUniform(Stochastic):  # uniform crossover
         """
         super().__init__(2, 1, probability, rng)  # Breed 1 offspring from 2 parents.
         if relative_parent_contribution <= 0 or relative_parent_contribution >= 1:
-            raise ValueError(
-                f"Relative parent contribution must be within (0, 1) but was {relative_parent_contribution}."
-            )
+            raise ValueError(f"Relative parent contribution must be within (0, 1) but was {relative_parent_contribution}.")
         self.rel_parent_contrib = relative_parent_contribution
 
     def __call__(self, inds: List[Individual]) -> Individual:
@@ -385,9 +359,7 @@ class CrossoverUniform(Stochastic):  # uniform crossover
         """
         ind = copy.deepcopy(inds[0])  # Consider 1st parent.
         ind.loss = float("inf")  # Initialize individual's loss attribute.
-        if (
-            self.rng.random() < self.probability
-        ):  # Apply propagator only with specified `probability`.
+        if self.rng.random() < self.probability:  # Apply propagator only with specified `probability`.
             # Replace traits in first parent with values of second parent with specified relative parent contribution.
             for k in ind.keys():
                 if self.rng.random() > self.rel_parent_contrib:
@@ -426,9 +398,7 @@ class CrossoverMultiple(Stochastic):  # uniform crossover
         rng : random.Random, optional
             The separate random number generator for the Propulate optimization.
         """
-        super().__init__(
-            parents, 1, probability, rng
-        )  # Breed 1 offspring from specified number of parents.
+        super().__init__(parents, 1, probability, rng)  # Breed 1 offspring from specified number of parents.
 
     def __call__(self, inds: List[Individual]) -> Individual:
         """
@@ -446,9 +416,7 @@ class CrossoverMultiple(Stochastic):  # uniform crossover
         """
         ind = copy.deepcopy(inds[0])  # Consider 1st parent.
         ind.loss = float("inf")  # Initialize individual's loss attribute.
-        if (
-            self.rng.random() < self.probability
-        ):  # Apply propagator only with specified `probability`.
+        if self.rng.random() < self.probability:  # Apply propagator only with specified `probability`.
             # Choose traits from all parents with uniform probability.
             for k in ind.keys():
                 ind[k] = self.rng.choice([parent[k] for parent in inds])
@@ -494,9 +462,7 @@ class CrossoverSigmoid(Stochastic):
         rng : random.Random, optional
             The separate random number generator for the Propulate optimization.
         """
-        super(CrossoverSigmoid, self).__init__(
-            2, 1, probability, rng
-        )  # Breed 1 offspring from 2 parents.
+        super(CrossoverSigmoid, self).__init__(2, 1, probability, rng)  # Breed 1 offspring from 2 parents.
         self.temperature = temperature
 
     def __call__(self, inds: List[Individual]) -> Individual:
@@ -522,9 +488,7 @@ class CrossoverSigmoid(Stochastic):
             delta = inds[1].loss - inds[0].loss
             fraction = 1 - 1 / (1 + np.exp(-delta / self.temperature))
 
-        if (
-            self.rng.random() < self.probability
-        ):  # Apply propagator only with specified `probability`.
+        if self.rng.random() < self.probability:  # Apply propagator only with specified `probability`.
             # Replace traits in 1st parent with values of 2nd parent with Boltzmann probability.
             for k in inds[1].keys():
                 if self.rng.random() > fraction:

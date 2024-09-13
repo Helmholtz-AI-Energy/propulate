@@ -46,9 +46,7 @@ rng = random.Random(42 + rank)
             limits=limits,
             rng=rng,
         ),
-        CanonicalPSO(
-            c_cognitive=2.05, c_social=2.05, rank=rank, limits=limits, rng=rng
-        ),
+        CanonicalPSO(c_cognitive=2.05, c_social=2.05, rank=rank, limits=limits, rng=rng),
     ]
 )
 def pso_propagator(request: pytest.FixtureRequest) -> Propagator:

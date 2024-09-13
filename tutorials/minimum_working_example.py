@@ -24,9 +24,7 @@ def loss_fn(params: Dict[str, float]) -> float:
 limits = {"x": (-5.12, 5.12), "y": (-5.12, 5.12)}
 
 # Initialize the propagator and propulator with default parameters.
-propagator = propulate.utils.get_default_propagator(
-    pop_size=population_size, limits=limits, rng=rng
-)
+propagator = propulate.utils.get_default_propagator(pop_size=population_size, limits=limits, rng=rng)
 propulator = propulate.Propulator(
     loss_fn=loss_fn,
     propagator=propagator,

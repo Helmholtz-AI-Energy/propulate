@@ -106,11 +106,7 @@ def conv_block(
         The ResNet convolution block.
     """
     # Adjust when batch normalization is called before convolution.
-    batch_norm_in = (
-        out_channels
-        if perm in [Permutation.ABC, Permutation.ACB, Permutation.CAB]
-        else in_channels
-    )
+    batch_norm_in = out_channels if perm in [Permutation.ABC, Permutation.ACB, Permutation.CAB] else in_channels
 
     # Shuffle layers to sometimes get bad performance.
     layers = shuffle_array(
@@ -168,19 +164,13 @@ class Net(nn.Module):
 
         self.conv1 = conv_block(in_channels, 64, perm)
         self.conv2 = conv_block(64, 128, perm, pool=True)
-        self.res1 = nn.Sequential(
-            conv_block(128, 128, perm), conv_block(128, 128, perm)
-        )
+        self.res1 = nn.Sequential(conv_block(128, 128, perm), conv_block(128, 128, perm))
 
         self.conv3 = conv_block(128, 256, perm, pool=True)
         self.conv4 = conv_block(256, 512, perm, pool=True)
-        self.res2 = nn.Sequential(
-            conv_block(512, 512, perm), conv_block(512, 512, perm)
-        )
+        self.res2 = nn.Sequential(conv_block(512, 512, perm), conv_block(512, 512, perm))
 
-        self.classifier = nn.Sequential(
-            nn.MaxPool2d(4), nn.Flatten(), nn.Linear(512, num_classes)
-        )
+        self.classifier = nn.Sequential(nn.MaxPool2d(4), nn.Flatten(), nn.Linear(512, num_classes))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -205,9 +195,7 @@ class Net(nn.Module):
         out = self.classifier(out)
         return out
 
-    def training_step(
-        self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int
-    ) -> torch.Tensor:
+    def training_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor:
         """
         Calculate loss for training step in Lightning train loop.
 
@@ -228,9 +216,7 @@ class Net(nn.Module):
         loss_val = self.loss_fn(pred, y)
         return loss_val
 
-    def validation_step(
-        self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int
-    ) -> torch.Tensor:
+    def validation_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor:
         """
         Calculate loss for validation step in Lightning validation loop during training.
 
@@ -261,9 +247,7 @@ class Net(nn.Module):
             An instance of the Adam optimizer with the specified learning rate and weight decay.
 
         """
-        return torch.optim.Adam(
-            self.parameters(), lr=self.lr, weight_decay=self.weight_decay
-        )
+        return torch.optim.Adam(self.parameters(), lr=self.lr, weight_decay=self.weight_decay)
 
 
 def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
@@ -293,9 +277,7 @@ def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
 
     if MPI.COMM_WORLD.Get_rank() == 0:  # Only root downloads data.
         train_loader = DataLoader(
-            dataset=CIFAR10(
-                download=True, root=".", transform=data_transform, train=True
-            ),  # Use CIFAR10 training dataset.
+            dataset=CIFAR10(download=True, root=".", transform=data_transform, train=True),  # Use CIFAR10 training dataset.
             batch_size=batch_size,  # Batch size
             shuffle=True,  # Shuffle data.
         )
@@ -308,16 +290,12 @@ def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
 
     if MPI.COMM_WORLD.Get_rank() != 0:
         train_loader = DataLoader(
-            dataset=CIFAR10(
-                download=False, root=".", transform=data_transform, train=True
-            ),  # Use CIFAR10 training dataset.
+            dataset=CIFAR10(download=False, root=".", transform=data_transform, train=True),  # Use CIFAR10 training dataset.
             batch_size=batch_size,  # Batch size
             shuffle=True,  # Shuffle data.
         )
     val_loader = DataLoader(
-        dataset=CIFAR10(
-            download=False, root=".", transform=data_transform, train=False
-        ),  # Use CIFAR testing dataset.
+        dataset=CIFAR10(download=False, root=".", transform=data_transform, train=False),  # Use CIFAR testing dataset.
         batch_size=1,  # Batch size
         shuffle=False,  # Do not shuffle data.
     )
@@ -353,9 +331,7 @@ def ind_loss(
         device = torch.device("cpu")
     else:
         device_index = rank % num_gpus
-        device = torch.device(
-            f"cuda:{device_index}" if torch.cuda.is_available() else "cpu"
-        )
+        device = torch.device(f"cuda:{device_index}" if torch.cuda.is_available() else "cpu")
 
     log.info(f"Rank: {rank}, Using device: {device}")
 
@@ -373,9 +349,7 @@ def ind_loss(
     num_classes: int = 10  # Number of classes in CIFAR10 dataset.
     in_channels: int = 3  # Number of channels in CIFAR10 images.
 
-    loss_fn = (
-        torch.nn.CrossEntropyLoss()
-    )  # Use cross-entropy loss for multi-class classification.
+    loss_fn = torch.nn.CrossEntropyLoss()  # Use cross-entropy loss for multi-class classification.
 
     # Use non-null weight decay.
     weight_decay = 1e-4
@@ -386,9 +360,7 @@ def ind_loss(
     )  # Set up neural network with specified hyperparameters.
     model.best_accuracy = 0.0  # Initialize the model's best validation accuracy.
 
-    train_loader, val_loader = get_data_loaders(
-        batch_size=8
-    )  # Get training and validation data loaders.
+    train_loader, val_loader = get_data_loaders(batch_size=8)  # Get training and validation data loaders.
 
     # Configure optimizer.
     optimizer = model.configure_optimizers()
@@ -453,9 +425,7 @@ if __name__ == "__main__":
         "lr": (0.01, 0.0001),
         "perm": ("ABC", "ACB", "BAC", "BCA", "CAB", "CBA"),
     }  # Define search space.
-    rng = random.Random(
-        MPI.COMM_WORLD.rank
-    )  # Set up separate random number generator for evolutionary optimizer.
+    rng = random.Random(MPI.COMM_WORLD.rank)  # Set up separate random number generator for evolutionary optimizer.
     set_seeds(42 * MPI.COMM_WORLD.Get_rank())  # set seed for torch
     propagator = get_default_propagator(  # Get default evolutionary operator.
         pop_size=pop_size,  # Breeding population size

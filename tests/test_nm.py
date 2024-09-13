@@ -33,9 +33,7 @@ def function_parameters(request: pytest.FixtureRequest) -> Tuple[str, float]:
     return request.param
 
 
-def test_cmaes(
-    function_parameters: Tuple[str, float], mpi_tmp_path: pathlib.Path
-) -> None:
+def test_cmaes(function_parameters: Tuple[str, float], mpi_tmp_path: pathlib.Path) -> None:
     """
     Test Propulator to optimize a benchmark function using a Nelder-Mead propagator.
 

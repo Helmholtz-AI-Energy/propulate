@@ -46,9 +46,7 @@ class Propagator:
         Apply the propagator.
     """
 
-    def __init__(
-        self, parents: int = 0, offspring: int = 0, rng: Optional[random.Random] = None
-    ) -> None:
+    def __init__(self, parents: int = 0, offspring: int = 0, rng: Optional[random.Random] = None) -> None:
         """
         Initialize a propagator with given parameters.
 
@@ -218,9 +216,7 @@ class Conditional(Propagator):
         List[propulate.population.Individual]
             The output individuals returned by the conditional propagator.
         """
-        if (
-            len(inds) >= self.pop_size
-        ):  # If number of evaluated individuals >= `pop_size`, apply `true_prop`.
+        if len(inds) >= self.pop_size:  # If number of evaluated individuals >= `pop_size`, apply `true_prop`.
             return self.true_prop(inds)
         else:  # Else apply `false_prop`.
             return self.false_prop(inds)
@@ -259,23 +255,18 @@ class Compose(Propagator):
             If the propagators to stack are incompatible in terms of number of input and output individuals.
         """
         if len(propagators) < 1:
-            raise ValueError(
-                f"Not enough propagators given ({len(propagators)}). At least 1 is required."
-            )
+            raise ValueError(f"Not enough propagators given ({len(propagators)}). At least 1 is required.")
         super().__init__(propagators[0].parents, propagators[-1].offspring)
         for i in range(len(propagators) - 1):
             # Check compatibility of consecutive propagators in terms of number of parents + offsprings.
-            if not _check_compatible(
-                propagators[i].offspring, propagators[i + 1].parents
-            ):
+            if not _check_compatible(propagators[i].offspring, propagators[i + 1].parents):
                 outp = propagators[i]
                 inp = propagators[i + 1]
                 outd = outp.offspring
                 ind = inp.parents
 
                 raise ValueError(
-                    f"Incompatible combination of {outd} output individuals "
-                    f"of {outp} and {ind} input individuals of {inp}."
+                    f"Incompatible combination of {outd} output individuals " f"of {outp} and {ind} input individuals of {inp}."
                 )
         self.propagators = propagators
 
@@ -345,9 +336,7 @@ class SelectMin(Propagator):
             If more individuals than put in shall be selected.
         """
         if len(inds) < self.offspring:
-            raise ValueError(
-                f"Has to have at least {self.offspring} individuals to select the {self.offspring} best ones."
-            )
+            raise ValueError(f"Has to have at least {self.offspring} individuals to select the {self.offspring} best ones.")
         # Sort elements of given iterable in specific order + return as list.
         return sorted(inds, key=lambda ind: float(ind.loss))[
             : self.offspring
@@ -401,9 +390,7 @@ class SelectMax(Propagator):
             If more individuals than put in shall be selected.
         """
         if len(inds) < self.offspring:
-            raise ValueError(
-                f"Has to have at least {self.offspring} individuals to select the {self.offspring} worst ones."
-            )
+            raise ValueError(f"Has to have at least {self.offspring} individuals to select the {self.offspring} worst ones.")
         # Sort elements of given iterable in specific order + return as list.
         return sorted(inds, key=lambda ind: -ind.loss)[
             : self.offspring
@@ -456,9 +443,7 @@ class SelectUniform(Propagator):
             If more individuals than put in shall be selected.
         """
         if len(inds) < self.offspring:
-            raise ValueError(
-                f"Has to have at least {self.offspring} individuals to select {self.offspring} from them."
-            )
+            raise ValueError(f"Has to have at least {self.offspring} individuals to select {self.offspring} from them.")
         # Return a `self.offspring` length list of unique elements chosen from `particles`.
         # Used for random sampling without replacement.
         return self.rng.sample(inds, self.offspring)
@@ -484,9 +469,7 @@ class InitUniform(Stochastic):
 
     def __init__(
         self,
-        limits: Mapping[
-            str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]
-        ],
+        limits: Mapping[str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]],
         parents: int = 0,
         probability: float = 1.0,
         rng: Optional[random.Random] = random.Random(),
@@ -528,33 +511,20 @@ class InitUniform(Stochastic):
             If a parameter's type is invalid, i.e., not float (continuous), int (ordinal), or str (categorical).
         """
         position: MutableMapping[str, Union[int, float, str]] = {}
-        if (
-            self.rng.random() < self.probability
-        ):  # Apply only with specified probability.
-            for (
-                limit
-            ) in self.limits:  # Randomly sample from specified limits for each trait.
-                if isinstance(
-                    self.limits[limit][0], int
-                ):  # If ordinal trait of type integer.
-                    if (
-                        len(self.limits[limit]) == 2
-                    ):  # Selecting one value in range of ordinal parameter
+        if self.rng.random() < self.probability:  # Apply only with specified probability.
+            for limit in self.limits:  # Randomly sample from specified limits for each trait.
+                if isinstance(self.limits[limit][0], int):  # If ordinal trait of type integer.
+                    if len(self.limits[limit]) == 2:  # Selecting one value in range of ordinal parameter
                         position[limit] = self.rng.randint(*self.limits[limit])
                     else:  # Selecting one distinct value from ordinal parameters
                         position[limit] = self.rng.choice(self.limits[limit])  # type: ignore
-                elif isinstance(
-                    self.limits[limit][0], float
-                ):  # If interval trait of type float.
+                elif isinstance(self.limits[limit][0], float):  # If interval trait of type float.
                     position[limit] = self.rng.uniform(*self.limits[limit])
-                elif isinstance(
-                    self.limits[limit][0], str
-                ):  # If categorical trait of type string.
+                elif isinstance(self.limits[limit][0], str):  # If categorical trait of type string.
                     position[limit] = str(self.rng.choice(self.limits[limit]))
                 else:
                     raise ValueError(
-                        "Unknown type of limits. Has to be float for interval, "
-                        "int for ordinal, or string for categorical."
+                        "Unknown type of limits. Has to be float for interval, " "int for ordinal, or string for categorical."
                     )
             ind = Individual(position, self.limits)  # Instantiate new individual.
         else:  # Return first input individual w/o changes otherwise.

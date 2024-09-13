@@ -229,9 +229,7 @@ def birastrigin(params: Dict[str, float]) -> float:
     s = 1 - np.sqrt(1 / (2 * np.sqrt(n + 20) - 8.2))
     mu1 = 2.5
     mu2 = -np.sqrt((mu1**2 - d) / s)
-    return min(
-        np.sum((x - mu1) ** 2), d * n + s * np.sum((x - mu2) ** 2)
-    ) + 10 * np.sum(1 - np.cos(2 * np.pi * (x - mu1)))
+    return min(np.sum((x - mu1) ** 2), d * n + s * np.sum((x - mu2) ** 2)) + 10 * np.sum(1 - np.cos(2 * np.pi * (x - mu1)))
 
 
 def bukin_n6(params: Dict[str, float]) -> float:
@@ -315,11 +313,7 @@ def keane(params: Dict[str, float]) -> float:
         The function value.
     """
     x = np.array(list(params.values()))
-    return (
-        -(np.sin(x[0] - x[1]) ** 2)
-        * np.sin(x[0] + x[1]) ** 2
-        / np.sqrt(x[0] ** 2 + x[1] ** 2)
-    )
+    return -(np.sin(x[0] - x[1]) ** 2) * np.sin(x[0] + x[1]) ** 2 / np.sqrt(x[0] ** 2 + x[1] ** 2)
 
 
 def leon(params: Dict[str, float]) -> float:
@@ -636,37 +630,21 @@ def parse_arguments(
         ],
         default="sphere",
     )
-    parser.add_argument(
-        "--generations", type=int, default=1000
-    )  # Number of generations
-    parser.add_argument(
-        "--seed", type=int, default=0
-    )  # Seed for Propulate random number generator
+    parser.add_argument("--generations", type=int, default=1000)  # Number of generations
+    parser.add_argument("--seed", type=int, default=0)  # Seed for Propulate random number generator
     parser.add_argument("--verbosity", type=int, default=1)  # Verbosity level
-    parser.add_argument(
-        "--checkpoint", type=str, default="./"
-    )  # Path for loading and writing checkpoints.
-    parser.add_argument(
-        "--pop_size", type=int, default=2 * propulate_comm.size
-    )  # Breeding pool size
-    parser.add_argument(
-        "--crossover_probability", type=float, default=0.7
-    )  # Crossover probability
-    parser.add_argument(
-        "--mutation_probability", type=float, default=0.4
-    )  # Mutation probability
+    parser.add_argument("--checkpoint", type=str, default="./")  # Path for loading and writing checkpoints.
+    parser.add_argument("--pop_size", type=int, default=2 * propulate_comm.size)  # Breeding pool size
+    parser.add_argument("--crossover_probability", type=float, default=0.7)  # Crossover probability
+    parser.add_argument("--mutation_probability", type=float, default=0.4)  # Mutation probability
     parser.add_argument("--random_init_probability", type=float, default=0.1)
     parser.add_argument("--top_n", type=int, default=1)
     parser.add_argument("--logging_interval", type=int, default=10)
     parser.add_argument("--logging_level", type=int, default=logging.INFO)
 
     # -------- Island-model specific arguments (ignored if not needed) --------
-    parser.add_argument(
-        "--num_islands", type=int, default=2
-    )  # Number of separate evolutionary islands
-    parser.add_argument(
-        "--migration_probability", type=float, default=0.9
-    )  # Migration probability
+    parser.add_argument("--num_islands", type=int, default=2)  # Number of separate evolutionary islands
+    parser.add_argument("--migration_probability", type=float, default=0.9)  # Migration probability
     parser.add_argument("--num_migrants", type=int, default=1)
     parser.add_argument("--pollination", action="store_true")
 
@@ -690,25 +668,15 @@ def parse_arguments(
             hp_set[self.dest] = True
             super().__call__(parser, namespace, values, option_string)
 
-    parser.add_argument(
-        "--inertia", type=float, default=0.729, action=ParamSettingCatcher
-    )  # Inertia weight
-    parser.add_argument(
-        "--cognitive", type=float, default=1.49445, action=ParamSettingCatcher
-    )  # Cognitive factor
-    parser.add_argument(
-        "--social", type=float, default=1.49445, action=ParamSettingCatcher
-    )  # Social factor
-    parser.add_argument(
-        "--clamping_factor", type=float, default=0.6
-    )  # Velocity clamping factor
+    parser.add_argument("--inertia", type=float, default=0.729, action=ParamSettingCatcher)  # Inertia weight
+    parser.add_argument("--cognitive", type=float, default=1.49445, action=ParamSettingCatcher)  # Cognitive factor
+    parser.add_argument("--social", type=float, default=1.49445, action=ParamSettingCatcher)  # Social factor
+    parser.add_argument("--clamping_factor", type=float, default=0.6)  # Velocity clamping factor
 
     # -------- CMA-ES specific arguments (ignored if not needed)
     parser.add_argument("--adapter", type=str, default="basic")
 
     # -------- Multi-rank worker specific arguments (ignored if not needed)
-    parser.add_argument(
-        "--ranks_per_worker", type=int, default=2
-    )  # Number of sub ranks that each worker will use
+    parser.add_argument("--ranks_per_worker", type=int, default=2)  # Number of sub ranks that each worker will use
 
     return parser.parse_args(), hp_set

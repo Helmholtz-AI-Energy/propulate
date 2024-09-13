@@ -56,9 +56,7 @@ class LogSurrogate(Surrogate):
             The individual containing the current configuration.
         """
         self.synthetic_id = 0
-        print(
-            f"LogSurrogate - Start run called on individual with keys: {ind.keys()} and values: {ind.values()}"
-        )
+        print(f"LogSurrogate - Start run called on individual with keys: {ind.keys()} and values: {ind.values()}")
 
     def update(self, loss: float) -> None:
         """
@@ -71,9 +69,7 @@ class LogSurrogate(Surrogate):
         """
         if loss < self.best_loss:
             self.best_loss = loss
-        print(
-            f"LogSurrogate - Updated on id {self.synthetic_id} with loss: {loss} and best loss: {self.best_loss}"
-        )
+        print(f"LogSurrogate - Updated on id {self.synthetic_id} with loss: {loss} and best loss: {self.best_loss}")
 
     def cancel(self, loss: float) -> bool:
         """
@@ -89,9 +85,7 @@ class LogSurrogate(Surrogate):
         bool
             Always False.
         """
-        print(
-            f"LogSurrogate - Cancel called on id {self.synthetic_id} with loss: {loss}"
-        )
+        print(f"LogSurrogate - Cancel called on id {self.synthetic_id} with loss: {loss}")
         self.synthetic_id += 1
         return False
 
@@ -104,9 +98,7 @@ class LogSurrogate(Surrogate):
         data : float
             The best loss of the merged run.
         """
-        print(
-            f"LogSurrogate - Merge called with best loss: {self.best_loss} and data: {data}"
-        )
+        print(f"LogSurrogate - Merge called with best loss: {self.best_loss} and data: {data}")
         if data < self.best_loss:
             self.best_loss = data
 

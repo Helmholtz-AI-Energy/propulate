@@ -47,9 +47,7 @@ def test_propulator(function_name: str, mpi_tmp_path: pathlib.Path) -> None:
     mpi_tmp_path : pathlib.Path
         The temporary checkpoint directory.
     """
-    rng = random.Random(
-        42 + MPI.COMM_WORLD.rank
-    )  # Random number generator for optimization
+    rng = random.Random(42 + MPI.COMM_WORLD.rank)  # Random number generator for optimization
     benchmark_function, limits = get_function_search_space(function_name)
     set_logger_config(log_file=mpi_tmp_path / "log.log")
     propagator = get_default_propagator(
@@ -78,9 +76,7 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
     mpi_tmp_path : pathlib.Path
         The temporary checkpoint directory.
     """
-    rng = random.Random(
-        42 + MPI.COMM_WORLD.rank
-    )  # Separate random number generator for optimization
+    rng = random.Random(42 + MPI.COMM_WORLD.rank)  # Separate random number generator for optimization
     benchmark_function, limits = get_function_search_space("sphere")
 
     propagator = get_default_propagator(  # Get default evolutionary operator.
@@ -98,9 +94,7 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
 
     propulator.propulate()  # Run optimization and print summary of results.
 
-    old_population = copy.deepcopy(
-        propulator.population
-    )  # Save population list from the last run.
+    old_population = copy.deepcopy(propulator.population)  # Save population list from the last run.
     del propulator  # Delete propulator object.
     MPI.COMM_WORLD.barrier()  # Synchronize all processes.
 
@@ -114,7 +108,4 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
 
     # As the number of requested generations is smaller than the number of generations from the run before,
     # no new evaluations are performed. Thus, the length of both Propulators' populations must be equal.
-    assert (
-        len(deepdiff.DeepDiff(old_population, propulator.population, ignore_order=True))
-        == 0
-    )
+    assert len(deepdiff.DeepDiff(old_population, propulator.population, ignore_order=True)) == 0

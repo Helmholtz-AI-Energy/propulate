@@ -136,26 +136,18 @@ class Islands:
                 f"The number of overall ranks, i.e., {full_world_size}, should be evenly divisible by "
                 f"the number of ranks per worker, i.e., {ranks_per_worker}."
             )
-        worker_idx = (
-            full_world_rank // ranks_per_worker
-        )  # This is the same for full world ranks belonging to the same worker.
+        worker_idx = full_world_rank // ranks_per_worker  # This is the same for full world ranks belonging to the same worker.
         if ranks_per_worker > 1:
             # Create new communicators by splitting MPI.COMM_WORLD into group of sub-communicators based on
             # input values `color` and `key`. `color` determines to which new communicator each processes will belong.
             # `key` determines the ordering (rank) within each new communicator.
-            worker_sub_comm = MPI.COMM_WORLD.Split(
-                color=worker_idx, key=full_world_rank
-            )
+            worker_sub_comm = MPI.COMM_WORLD.Split(color=worker_idx, key=full_world_rank)
 
         else:
             worker_sub_comm = MPI.COMM_SELF
 
         # Create the Propulate world communicator, consisting of rank 0 of each worker's sub communicator.
-        worker_root_ranks = [
-            rank
-            for rank in list(range(full_world_size))
-            if rank % ranks_per_worker == 0
-        ]
+        worker_root_ranks = [rank for rank in list(range(full_world_size)) if rank % ranks_per_worker == 0]
         propulate_world_group = MPI.COMM_WORLD.group.Incl(worker_root_ranks)
         propulate_world_comm = MPI.COMM_WORLD.Create_group(propulate_world_group)
 
@@ -175,19 +167,11 @@ class Islands:
             # Homogeneous case with equal island sizes (differences of +-1 possible due to load balancing).
             if island_sizes is None:
                 if num_islands < 1:
-                    raise ValueError(
-                        f"Invalid number of evolutionary islands, needs to be >= 1 but was {num_islands}."
-                    )
-                base_size = (
-                    propulate_world_size // num_islands
-                )  # Base number of workers of each island
-                remainder = (
-                    propulate_world_size % num_islands
-                )  # Number of remaining workers to be distributed
+                    raise ValueError(f"Invalid number of evolutionary islands, needs to be >= 1 but was {num_islands}.")
+                base_size = propulate_world_size // num_islands  # Base number of workers of each island
+                remainder = propulate_world_size % num_islands  # Number of remaining workers to be distributed
                 island_sizes = base_size * np.ones(num_islands, dtype=int)
-                island_sizes[
-                    :remainder
-                ] += 1  # Distribute remaining workers equally for balanced load.
+                island_sizes[:remainder] += 1  # Distribute remaining workers equally for balanced load.
 
             # Heterogeneous case with user-defined island sizes.
             if np.sum(island_sizes) != propulate_world_size:
@@ -198,12 +182,8 @@ class Islands:
             num_islands = island_sizes.size  # Determine number of islands.
 
             #  Set up intra-island communicator for communication within each island.
-            island_colors = np.concatenate(
-                [idx * np.ones(el, dtype=int) for idx, el in enumerate(island_sizes)]
-            ).ravel()
-            island_idx = island_colors[
-                propulate_world_rank
-            ]  # Determine island index (which is also each rank's intra color).
+            island_colors = np.concatenate([idx * np.ones(el, dtype=int) for idx, el in enumerate(island_sizes)]).ravel()
+            island_idx = island_colors[propulate_world_rank]  # Determine island index (which is also each rank's intra color).
             island_key = propulate_world_rank
 
             # Determine displacements as positions of unique elements, where # unique elements equals number of islands.
@@ -222,14 +202,10 @@ class Islands:
                 migration_topology = np.ones((num_islands, num_islands), dtype=int)
                 np.fill_diagonal(migration_topology, 0)  # No island self-talk.
                 if full_world_rank == 0:
-                    log.info(
-                        "NOTE: No migration topology given, using fully connected top-1 topology."
-                    )
+                    log.info("NOTE: No migration topology given, using fully connected top-1 topology.")
 
             if full_world_rank == 0:
-                log.info(
-                    f"Migration topology {migration_topology} has shape {migration_topology.shape}."
-                )
+                log.info(f"Migration topology {migration_topology} has shape {migration_topology.shape}.")
 
             if migration_topology.shape != (num_islands, num_islands):
                 raise ValueError(
@@ -238,9 +214,7 @@ class Islands:
                 )
 
             if migration_probability > 1.0:
-                raise ValueError(
-                    f"Migration probability must be in [0, 1] but was set to {migration_probability}."
-                )
+                raise ValueError(f"Migration probability must be in [0, 1] but was set to {migration_probability}.")
             migration_prob_rank = migration_probability / island_comm.size
 
             if full_world_rank == 0:
@@ -319,9 +293,7 @@ class Islands:
         """
         self.propulator.propulate(logging_interval, debug)
 
-    def summarize(
-        self, top_n: int = 3, debug: int = 1
-    ) -> Union[List[Union[List[Individual], Individual]], None]:
+    def summarize(self, top_n: int = 3, debug: int = 1) -> Union[List[Union[List[Individual], Individual]], None]:
         """
         Summarize optimization results.
 

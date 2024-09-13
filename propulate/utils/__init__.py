@@ -64,18 +64,14 @@ def get_default_propagator(
         A basic evolutionary optimization propagator.
     """
     propagator: Propagator
-    if any(
-        isinstance(limits[x][0], float) for x in limits
-    ):  # Check for existence of at least one continuous trait.
+    if any(isinstance(limits[x][0], float) for x in limits):  # Check for existence of at least one continuous trait.
         propagator = Compose(
             [  # Compose propagator out of basic evolutionary operators with Compose(...).
                 SelectMin(pop_size),
                 SelectUniform(offspring=2, rng=rng),
                 CrossoverUniform(crossover_prob, rng=rng),
                 PointMutation(limits, probability=mutation_prob, rng=rng),
-                IntervalMutationNormal(
-                    limits, sigma_factor=sigma_factor, probability=1.0, rng=rng
-                ),
+                IntervalMutationNormal(limits, sigma_factor=sigma_factor, probability=1.0, rng=rng),
                 InitUniform(limits, parents=1, probability=random_init_prob, rng=rng),
             ]
         )
@@ -91,9 +87,7 @@ def get_default_propagator(
         )
 
     init = InitUniform(limits, rng=rng)
-    propagator = Conditional(
-        pop_size, propagator, init
-    )  # Initialize random if population size < specified `pop_size`.
+    propagator = Conditional(pop_size, propagator, init)  # Initialize random if population size < specified `pop_size`.
     return propagator
 
 
@@ -123,9 +117,7 @@ def set_logger_config(
     rank = f"{MPI.COMM_WORLD.Get_rank()}:" if log_rank else ""
     # Get base logger for Propulate.
     base_logger = logging.getLogger("propulate")
-    simple_formatter = logging.Formatter(
-        f"{rank}:[%(asctime)s][%(name)s][%(levelname)s] - %(message)s"
-    )
+    simple_formatter = logging.Formatter(f"{rank}:[%(asctime)s][%(name)s][%(levelname)s] - %(message)s")
     if colors:
         formatter = colorlog.ColoredFormatter(
             fmt=f"{rank}[%(cyan)s%(asctime)s%(reset)s][%(blue)s%(name)s%(reset)s]"
