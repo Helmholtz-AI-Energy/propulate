@@ -12,6 +12,7 @@
 [![](https://img.shields.io/badge/Contact-propulate%40lists.kit.edu-orange)](mailto:propulate@lists.kit.edu)
 [![Documentation Status](https://readthedocs.org/projects/propulate/badge/?version=latest)](https://propulate.readthedocs.io/en/latest/?badge=latest)
 ![](./coverage.svg)
+[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/Helmholtz-AI-Energy/propulate/main.svg)](https://results.pre-commit.ci/latest/github/Helmholtz-AI-Energy/propulate/main)
 
 # **Click [here](https://www.scc.kit.edu/en/aboutus/16956.php) to watch our 3 min introduction video!**
 
