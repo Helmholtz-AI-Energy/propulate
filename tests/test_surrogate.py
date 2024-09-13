@@ -10,10 +10,14 @@ from mpi4py import MPI
 from propulate import Islands, Propulator, surrogate
 from propulate.utils import get_default_propagator, set_logger_config
 
-pytestmark = pytest.mark.filterwarnings(
-    "ignore::DeprecationWarning",
-    match="Assigning the 'data' attribute is an inherently unsafe operation and will be removed in the future.",
-)
+pytestmark = [
+    pytest.mark.filterwarnings(
+        "ignore::DeprecationWarning",
+        match="Assigning the 'data' attribute is an inherently unsafe operation and will be removed in the future.",
+    ),
+    pytest.mark.filterwarnings("ignore::RuntimeWarning", match="invalid value encountered in multiply"),
+    pytest.mark.filterwarnings("ignore::RuntimeWarning", match="overflow encountered in expm1"),
+]
 
 log = logging.getLogger(__name__)  # Get logger instance.
 set_logger_config(level=logging.DEBUG)
