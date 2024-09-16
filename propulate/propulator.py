@@ -263,7 +263,10 @@ class Propulator:
                         yield x
 
             last = float("inf")
-            for last in loss_gen(ind):
+            for idx, last in enumerate(loss_gen(ind)):
+                log.debug(
+                    f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation} -- Individual loss iteration {idx}: Value {last}"
+                )
                 if self.surrogate is not None:
                     if self.surrogate.cancel(last):  # Check cancel for each yield.
                         log.debug(
@@ -472,9 +475,10 @@ class Propulator:
         # so that each of them holds the complete final population and the found optimum
         # irrespective of the order they finished.
 
+        log.debug(f"Island {self.island_idx} Worker {self.island_comm.rank}: Waiting on final synchronization barrier...")
+        self.propulate_comm.barrier()
         if self.propulate_comm.rank == 0:
             log.info("OPTIMIZATION DONE.\nNEXT: Final checks for incoming messages...")
-        self.propulate_comm.barrier()
 
         # Final check for incoming individuals evaluated by other intra-island workers.
         self._receive_intra_island_individuals()
