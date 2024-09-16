@@ -1,4 +1,5 @@
 """Minimum working example showing how to use Propulate."""
+
 import random
 from typing import Dict
 

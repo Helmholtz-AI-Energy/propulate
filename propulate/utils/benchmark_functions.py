@@ -1,4 +1,5 @@
 """Benchmark function module."""
+
 import argparse
 import logging
 from typing import Callable, Dict, Tuple
