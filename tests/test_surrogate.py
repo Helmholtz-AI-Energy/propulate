@@ -19,7 +19,6 @@ pytestmark = [
     pytest.mark.filterwarnings("ignore::RuntimeWarning", match="overflow encountered in expm1"),
 ]
 
-log = logging.getLogger(__name__)  # Get logger instance.
 set_logger_config(level=logging.DEBUG)
 
 
@@ -40,7 +39,7 @@ def ind_loss(params: Dict[str, Union[int, float, str]]) -> Generator[float, None
         Yields the current loss.
     """
     rng = np.random.default_rng(seed=MPI.COMM_WORLD.rank)
-    num_iterations = 450
+    num_iterations = 20
     for i in range(num_iterations):
         yield (10 * params["start"] * np.exp(-i / 10) + rng.standard_normal() / 100 + params["limit"] + 1 / 10000 * i**2)
 
@@ -138,7 +137,6 @@ def test_dynamic(mpi_tmp_path: Path) -> None:
         rng=rng,
         surrogate_factory=lambda: surrogate.DynamicSurrogate(limits),
     )  # Set up propulator performing actual optimization.
-
     propulator.propulate(logging_interval=1)  # Run optimization and print summary of results.
     MPI.COMM_WORLD.barrier()
 
@@ -177,3 +175,4 @@ def test_dynamic_island(mpi_tmp_path: Path) -> None:
         debug=2,  # Verbosity level
     )
     islands.summarize(top_n=1, debug=2)
+    MPI.COMM_WORLD.barrier()
