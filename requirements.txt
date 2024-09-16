@@ -1,6 +1,0 @@
-deepdiff
-mpi4py
-numpy
-colorlog
-GPy
-h5py
