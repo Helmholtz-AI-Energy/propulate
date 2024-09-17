@@ -15,8 +15,6 @@ from propulate.propagators import Propagator
 from propulate.utils import get_default_propagator, set_logger_config
 from propulate.utils.benchmark_functions import get_function_search_space
 
-log = logging.getLogger("propulate")  # Get logger instance.
-
 
 @pytest.fixture(scope="module")
 def global_variables() -> Tuple[random.Random, Callable, Dict, Propagator]:
@@ -60,6 +58,7 @@ def test_islands(
     mpi_tmp_path : pathlib.Path
         The temporary checkpoint directory.
     """
+    log = logging.getLogger("propulate")  # Get logger instance.
     set_logger_config(level=logging.DEBUG)
     rng, benchmark_function, limits, propagator = global_variables
 
@@ -99,6 +98,7 @@ def test_islands_checkpointing_isolated(
     """
     first_generations = 20
     second_generations = 40
+    log = logging.getLogger("propulate")  # Get logger instance.
     set_logger_config(level=logging.DEBUG)
     rng, benchmark_function, limits, propagator = global_variables
 
@@ -157,6 +157,7 @@ def test_islands_checkpointing(
     """
     first_generations = 20
     second_generations = 40
+    log = logging.getLogger("propulate")  # Get logger instance.
     set_logger_config()
     rng, benchmark_function, limits, propagator = global_variables
 
@@ -214,6 +215,7 @@ def test_islands_checkpointing_unequal_populations(
     """
     first_generations = 20
     second_generations = 40
+    log = logging.getLogger("propulate")  # Get logger instance.
     set_logger_config()
     rng, benchmark_function, limits, propagator = global_variables
 
@@ -273,6 +275,7 @@ def test_islands_checkpointing_incomplete(
     """
     first_generations = 20
     second_generations = 40
+    log = logging.getLogger("propulate")  # Get logger instance.
     set_logger_config()
     rng, benchmark_function, limits, propagator = global_variables
 
