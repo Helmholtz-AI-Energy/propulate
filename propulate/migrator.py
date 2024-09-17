@@ -150,7 +150,7 @@ class Migrator(Propulator):
                 assert self.island_counts is not None
                 displ = self.island_displs[target_island]
                 count = self.island_counts[target_island]
-                dest_island = np.arange(displ, displ + count)
+                dest_island_workers = np.arange(displ, displ + count)
 
                 # Worker sends *different* individuals to each target island.
                 emigrants = all_emigrants[offsprings_sent : offsprings_sent + offspring]  # Choose `offspring` eligible emigrants.
@@ -170,18 +170,18 @@ class Migrator(Propulator):
                 departing = copy.deepcopy(emigrants)
                 for ind in departing:
                     # NOTE deactivate on source island in checkpoint
-                    hdf5_checkpoint[f"{ind.island}"][f"{ind.island_rank}"]["active_on_island"][ind.generation, self.island_idx] = (
-                        False
-                    )
+                    hdf5_checkpoint[f"{ind.island}"][f"{ind.island_rank}"]["active_on_island"][
+                        ind.generation, self.island_idx
+                    ] = False
 
                     # NOTE Determine new responsible worker on target island.
                     ind.current = self.rng.randrange(0, count)
                     # NOTE activate on target island in checkpoint
-                    hdf5_checkpoint[f"{ind.island}"][f"{ind.island_rank}"]["active_on_island"][ind.generation, dest_island] = True
+                    hdf5_checkpoint[f"{ind.island}"][f"{ind.island_rank}"]["active_on_island"][ind.generation, target_island] = True
 
                 # TODO isnt the same set of individuals sent to all islands here?
                 # TODO for migration that does not seem right?
-                for r in dest_island:  # Loop over self.propulate_comm destination ranks.
+                for r in dest_island_workers:  # Loop over self.propulate_comm destination ranks.
                     self.propulate_comm.send(copy.deepcopy(departing), dest=r, tag=MIGRATION_TAG)
 
                     log_string += (
@@ -402,8 +402,6 @@ class Migrator(Propulator):
             # TODO how do we save the surrogate model?
             current_idx = (self.island_idx, self.island_comm.rank, self.generation)
             if current_idx in self.population:
-                print(self.population)
-                print(f["0"]["0"]["loss"][:])
                 ind = self.population[current_idx]
                 if np.isnan(ind.loss):
                     log.info(f"Continuing evaluation of individual {current_idx} loaded from checkpoint.")
