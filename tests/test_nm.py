@@ -67,7 +67,5 @@ def test_cmaes(function_parameters: Tuple[str, float], mpi_tmp_path: pathlib.Pat
         generations=10,
         checkpoint_path=mpi_tmp_path,
     )
-    # Run optimization and print summary of results.
     propulator.propulate()
-    propulator.summarize()
     log.handlers.clear()
