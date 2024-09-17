@@ -317,28 +317,51 @@ class Pollinator(Propulator):
                 # TODO this needs to be addressed before merge, since multirank workers should fail with this
                 # TODO see migrator
                 # self._evaluate_individual(None)
+                self._sub_rank_evaluate_individual()
                 self.generation += 1
             return
-        if self.island_comm.rank == 0:
-            log.info(f"Island {self.island_idx} has {self.island_comm.size} workers.")
 
-        migration = True if self.migration_prob > 0 else False
-        self.propulate_comm.barrier()
+        if self.island_comm.rank == 0:
+            log.info(f"Island {self.island_idx} has {self.island_comm.size} workers with {self.worker_sub_comm.size} ranks each.")
 
         # Loop over generations.
         # TODO this should probably be refactored, checkpointing can probably be handled in one place
+        # TODO does not work for multi rank workers
         with h5py.File(self.checkpoint_path, "a", driver="mpio", comm=self.propulate_comm) as f:
+            # NOTE check if there is an individual still to evaluate
+            # TODO for now we write a loss to the checkpoint only if the evaluation has completed
+            # TODO how do we save the surrogate model?
+            current_idx = (self.island_idx, self.island_comm.rank, self.generation)
+            if current_idx in self.population:
+                ind = self.population[current_idx]
+                if np.isnan(ind.loss):
+                    log.info(f"Continuing evaluation of individual {current_idx} loaded from checkpoint.")
+                    self._evaluate_individual(ind)
+                    self._post_eval_checkpoint(ind, f)
+                    self._send_intra_island_individuals(ind)
+                self.generation += 1
+
             while self.generation < self.generations:
                 if self.generation % int(logging_interval) == 0:
                     log.info(f"Island {self.island_idx} Worker {self.island_comm.rank}: In generation {self.generation}...")
 
                 # Breed and evaluate individual.
-                self._evaluate_individual(f)
+                log.debug(f"breeding and evaluating {self.generation}")
 
+                ind = self._breed()
+                # NOTE write started individual to file
+                self._pre_eval_checkpoint(ind, f)
+
+                self._evaluate_individual(ind)
+
+                # NOTE update finished individual in checkpoint
+                self._post_eval_checkpoint(ind, f)
+                self._send_intra_island_individuals(ind)
                 # Check for and possibly receive incoming individuals from other intra-island workers.
+                log.debug(f"receive intra island {self.generation}")
                 self._receive_intra_island_individuals()
 
-                if migration:
+                if self.migration_prob > 0.0:
                     # Emigration: Island sends individuals out.
                     # Happens on per-worker basis with certain probability.
                     if self.rng.random() < self.migration_prob:
@@ -349,6 +372,7 @@ class Pollinator(Propulator):
                     self._receive_immigrants(None)
 
                     # Immigration: Check for individuals replaced by other intra-island workers to be deactivated.
+                    # TODO update checkpoint accordingly
                     self._deactivate_replaced_individuals()
 
                 self.generation += 1  # Go to next generation.
@@ -367,7 +391,7 @@ class Pollinator(Propulator):
         self._receive_intra_island_individuals()
         self.propulate_comm.barrier()
 
-        if migration:
+        if self.migration_prob > 0.0:
             # Final check for incoming individuals from other islands.
             # TODO this needs to update the checkpoint
             self._receive_immigrants(None)
