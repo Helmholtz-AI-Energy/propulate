@@ -212,6 +212,10 @@ class Pollinator(Propulator):
                     self.population[immigrant.island, immigrant.rank, immigrant.generation] = copy.deepcopy(
                         immigrant
                     )  # add immigrant to population
+                    # NOTE update checkpoint
+                    hdf5_checkpoint[f"{immigrant.island}"][f"{immigrant.island_rank}"]["active_on_island"][
+                        immigrant.generation, self.island_idx
+                    ] = True
 
                     replace_num = 0
                     if self.island_comm.rank == immigrant.current:
@@ -243,6 +247,9 @@ class Pollinator(Propulator):
                         assert isinstance(individual, Individual)
                         assert individual.active is True
                         individual.active = False
+                        hdf5_checkpoint[f"{individual.island}"][f"{individual.island_rank}"]["active_on_island"][
+                            individual.generation, self.island_idx
+                        ] = False
 
         _, num_active = self._get_active_individuals()
         log_string += f"After immigration: {num_active}/{len(self.population)} active."
@@ -369,41 +376,40 @@ class Pollinator(Propulator):
 
                     # Immigration: Island checks for incoming individuals from other islands.
                     # TODO this should probably update the checkpoint so it needs to pass the handle
-                    self._receive_immigrants(None)
+                    self._receive_immigrants(f)
 
                     # Immigration: Check for individuals replaced by other intra-island workers to be deactivated.
-                    # TODO update checkpoint accordingly
                     self._deactivate_replaced_individuals()
 
                 self.generation += 1  # Go to next generation.
 
-        # Having completed all generations, the workers have to wait for each other.
-        # Once all workers are done, they should check for incoming messages once again
-        # so that each of them holds the complete final population and the found optimum
-        # irrespective of the order they finished.
+            # Having completed all generations, the workers have to wait for each other.
+            # Once all workers are done, they should check for incoming messages once again
+            # so that each of them holds the complete final population and the found optimum
+            # irrespective of the order they finished.
 
-        self.propulate_comm.barrier()
-        if self.propulate_comm.rank == 0:
-            log.info("OPTIMIZATION DONE.\nNEXT: Final checks for incoming messages...")
-        self.propulate_comm.barrier()
-
-        # Final check for incoming individuals evaluated by other intra-island workers.
-        self._receive_intra_island_individuals()
-        self.propulate_comm.barrier()
-
-        if self.migration_prob > 0.0:
-            # Final check for incoming individuals from other islands.
-            # TODO this needs to update the checkpoint
-            self._receive_immigrants(None)
+            self.propulate_comm.barrier()
+            if self.propulate_comm.rank == 0:
+                log.info("OPTIMIZATION DONE.\nNEXT: Final checks for incoming messages...")
             self.propulate_comm.barrier()
 
-            # Immigration: Final check for individuals replaced by other intra-island workers to be deactivated.
-            self._deactivate_replaced_individuals()
+            # Final check for incoming individuals evaluated by other intra-island workers.
+            self._receive_intra_island_individuals()
             self.propulate_comm.barrier()
 
-            if len(self.replaced) > 0:
-                log.info(
-                    f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: "
-                    f"Finally {len(self.replaced)} individual(s) in replaced: {self.replaced}:\n{self.population}"
-                )
+            if self.migration_prob > 0.0:
+                # Final check for incoming individuals from other islands.
+                # TODO this needs to update the checkpoint
+                self._receive_immigrants(f)
+                self.propulate_comm.barrier()
+
+                # Immigration: Final check for individuals replaced by other intra-island workers to be deactivated.
                 self._deactivate_replaced_individuals()
+                self.propulate_comm.barrier()
+
+                if len(self.replaced) > 0:
+                    log.info(
+                        f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: "
+                        f"Finally {len(self.replaced)} individual(s) in replaced: {self.replaced}:\n{self.population}"
+                    )
+                    self._deactivate_replaced_individuals()
