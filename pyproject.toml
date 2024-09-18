@@ -49,8 +49,6 @@ dev = [
 
 test = [
     "coverage",
-    "genbadge[coverage]",
-    "ruff",
     "pytest",
     "pytest-cov",
     "pytest-mpi",
