@@ -71,7 +71,7 @@ def test_static(mpi_tmp_path: Path) -> None:
         surrogate_factory=lambda: surrogate.StaticSurrogate(),
     )  # Set up propulator performing actual optimization.
 
-    propulator.propulate(debug=1)  # Run optimization and print summary of results.
+    propulator.propulate()  # Run optimization and print summary of results.
     MPI.COMM_WORLD.barrier()
 
 
@@ -107,7 +107,6 @@ def test_static_island(mpi_tmp_path: Path) -> None:
         logging_interval=1,  # Logging interval
         debug=2,  # Verbosity level
     )
-    islands.summarize(top_n=1, debug=2)
     MPI.COMM_WORLD.barrier()
 
 
@@ -175,17 +174,16 @@ def test_dynamic_island(mpi_tmp_path: Path) -> None:
         logging_interval=1,  # Logging interval
         debug=2,  # Verbosity level
     )
-    islands.summarize(top_n=1, debug=2)
     MPI.COMM_WORLD.barrier()
 
 
 @pytest.mark.mpi(min_size=4)
-def test_static_checkpointing(mpi_tmp_path):
+def test_static_checkpointing(mpi_tmp_path: Path) -> None:
     """Test whether the surrogate state for pruning is checkpointed correctly."""
     raise
 
 
 @pytest.mark.mpi(min_size=4)
-def test_dynamic_checkpointing(mpi_tmp_path):
+def test_dynamic_checkpointing(mpi_tmp_path: Path) -> None:
     """Test whether the surrogate state for pruning is checkpointed correctly."""
     raise
