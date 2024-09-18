@@ -284,10 +284,5 @@ class Islands:
             The logging interval.
         debug : int
             The debug level.
-
-        Returns
-        -------
-        List[List[propulate.population.Individual] | propulate.population.Individual]
-            The top-n best individuals on each island.
         """
         self.propulator.propulate(logging_interval, debug)
