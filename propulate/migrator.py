@@ -177,6 +177,7 @@ class Migrator(Propulator):
                     # NOTE Determine new responsible worker on target island.
                     ind.current = self.rng.randrange(0, count)
                     # NOTE activate on target island in checkpoint
+                    # NOTE this happens here, so that if the message does not arrive, individuals are still loaded on an island from the checkpoint
                     hdf5_checkpoint[f"{ind.island}"][f"{ind.island_rank}"]["active_on_island"][ind.generation, target_island] = True
 
                 # TODO isnt the same set of individuals sent to all islands here?
@@ -200,14 +201,14 @@ class Migrator(Propulator):
                     ]
                     # TODO move this to a test
                     assert len(to_deactivate) == 1  # There should be exactly one!
-                    _, n_active_before = self._get_active_individuals()
+                    n_active_before = len(self._get_active_individuals())
                     self.population[to_deactivate[0]].active = False  # Deactivate emigrant in population.
-                    _, n_active_after = self._get_active_individuals()
+                    n_active_after = len(self._get_active_individuals())
                     log_string += (
                         f"Deactivated own emigrant {self.population[to_deactivate[0]]}. "
                         + f"Active before/after: {n_active_before}/{n_active_after}\n"
                     )
-            _, n_active = self._get_active_individuals()
+            n_active = len(self._get_active_individuals())
             log_string += f"After emigration: {n_active}/{len(self.population)} active.\n"
 
             log.debug(log_string)
@@ -264,7 +265,7 @@ class Migrator(Propulator):
                     # NOTE Do not remove obsolete individuals from population upon immigration
                     # as they should be deactivated in the next step anyway.
 
-        _, n_active = self._get_active_individuals()
+        n_active = len(self._get_active_individuals())
         log_string += f"After immigration: {n_active}/{len(self.population)} active.\n"
 
         log.debug(log_string)
@@ -351,7 +352,7 @@ class Migrator(Propulator):
                 log_string += (
                     f"Deactivated {self.population[to_deactivate[0]]}.\n" + f"{len(self.emigrated)} individuals in emigrated.\n"
                 )
-        _, n_active = self._get_active_individuals()
+        n_active = len(self._get_active_individuals())
         log_string += (
             "After synchronization: "
             + f"{n_active}/{len(self.population)} active.\n"
@@ -478,8 +479,7 @@ class Migrator(Propulator):
                 if len(self.emigrated) > 0:
                     log.info(
                         f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: "
-                        f"Finally {len(self.emigrated)} individual(s) in emigrated: {self.emigrated}:\n"
-                        f"{self.population}"
+                        f"Finally {len(self.emigrated)} individual(s) in emigrated: {self.emigrated}"
                     )
                     self._deactivate_emigrants()
                     if self._check_emigrants_to_deactivate():

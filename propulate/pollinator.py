@@ -140,7 +140,7 @@ class Pollinator(Propulator):
         # For pollination, an emigration-responsible worker is not necessary as emigrating individuals are not
         # deactivated and copies are allowed.
         # All active individuals are eligible emigrants.
-        eligible_emigrants, _ = self._get_active_individuals()
+        eligible_emigrants = self._get_active_individuals()
 
         # Only perform migration if maximum number of emigrants to be sent out at once is smaller than current number
         # of eligible emigrants.
@@ -180,7 +180,7 @@ class Pollinator(Propulator):
                         f"on target island {target_island}.\n"
                     )
 
-            _, num_active = self._get_active_individuals()
+            num_active = len(self._get_active_individuals())
             log_string += f"After emigration: {num_active}/{len(self.population)} active.\n"
             log.debug(log_string)
 
@@ -251,7 +251,7 @@ class Pollinator(Propulator):
                             individual.generation, self.island_idx
                         ] = False
 
-        _, num_active = self._get_active_individuals()
+        num_active = len(self._get_active_individuals())
         log_string += f"After immigration: {num_active}/{len(self.population)} active."
         log.debug(log_string)
 
@@ -286,17 +286,17 @@ class Pollinator(Propulator):
                 continue
             # NOTE As copies are allowed, len(to_deactivate) can be greater than 1.
             # However, only one of the copies should be replaced / deactivated.
-            _, num_active_before = self._get_active_individuals()
+            num_active_before = len(self._get_active_individuals())
             self.population[to_deactivate[0]].active = False
             self.replaced.remove(individual)
-            _, num_active_after = self._get_active_individuals()
+            num_active_after = len(self._get_active_individuals())
             log_string += (
                 f"Before deactivation: {num_active_before}/{len(self.population)} active.\n"
                 f"Deactivated {self.population[to_deactivate[0]]}.\n"
                 f"{len(self.replaced)} individuals in replaced.\n"
                 f"After deactivation: {num_active_after}/{len(self.population)} active.\n"
             )
-        _, num_active = self._get_active_individuals()
+        num_active = len(self._get_active_individuals())
         log_string += (
             f"After synchronization: {num_active}/{len(self.population)} active.\n{len(self.replaced)} individuals in replaced.\n"
         )

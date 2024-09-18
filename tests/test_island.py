@@ -176,7 +176,7 @@ def test_islands_checkpointing(
     # Run actual optimization.
     islands.propulate(debug=2)
 
-    old_population = copy.deepcopy(islands.propulator._get_active_individuals()[0])
+    old_population = copy.deepcopy(islands.propulator._get_active_individuals())
     del islands
 
     islands = Islands(

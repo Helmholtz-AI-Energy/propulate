@@ -346,7 +346,7 @@ class Propulator:
                         data=np.zeros((self.generations, num_islands), dtype=bool),
                     )
 
-    def _get_active_individuals(self) -> Tuple[List[Individual], int]:
+    def _get_active_individuals(self) -> List[Individual]:
         """
         Get active individuals in current population list.
 
@@ -358,8 +358,7 @@ class Propulator:
             The number of currently active individuals.
         """
         active_pop = [ind for ind in self.population.values() if ind.active]
-        # TODO simplify
-        return active_pop, len(active_pop)
+        return active_pop
 
     def _breed(self) -> Individual:
         """
@@ -374,7 +373,7 @@ class Propulator:
             self.propulate_comm is not None
         ):  # Only processes in the Propulate world communicator, consisting of rank 0 of each worker's sub
             # communicator, are involved in the actual optimization routine.
-            active_pop, _ = self._get_active_individuals()
+            active_pop = self._get_active_individuals()
             ind = self.propagator(active_pop)  # Breed new individual from active population.
             assert isinstance(ind, Individual)
             ind.generation = self.generation  # Set generation.
@@ -444,9 +443,9 @@ class Propulator:
             self.surrogate.update(ind.loss)
         if self.propulate_comm is None:
             return
-        self.population[(self.island_idx, self.island_comm.rank, ind.generation)] = (
-            ind  # Add evaluated individual to worker-local population.
-        )
+        self.population[
+            (self.island_idx, self.island_comm.rank, ind.generation)
+        ] = ind  # Add evaluated individual to worker-local population.
         log.debug(
             f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: BREEDING\n"
             f"Bred and evaluated individual {ind}."
@@ -496,12 +495,12 @@ class Propulator:
                 if SURROGATE_KEY in ind_temp:
                     del ind_temp[SURROGATE_KEY]
 
-                self.population[(ind_temp.island, ind_temp.rank, ind_temp.generation)] = (
-                    ind_temp  # Add received individual to own worker-local population.
-                )
+                self.population[
+                    (ind_temp.island, ind_temp.rank, ind_temp.generation)
+                ] = ind_temp  # Add received individual to own worker-local population.
 
                 log_string += f"Added individual {ind_temp} from W{stat.Get_source()} to own population.\n"
-        _, n_active = self._get_active_individuals()
+        n_active = len(self._get_active_individuals())
         log_string += f"After probing within island: {n_active}/{len(self.population)} active."
         log.debug(log_string)
 
