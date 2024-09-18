@@ -176,7 +176,7 @@ def test_islands_checkpointing(
     # Run actual optimization.
     islands.propulate(debug=2)
 
-    old_population = copy.deepcopy(islands.propulator.population)
+    old_population = copy.deepcopy(islands.propulator._get_active_individuals()[0])
     del islands
 
     islands = Islands(
@@ -190,7 +190,7 @@ def test_islands_checkpointing(
         checkpoint_path=mpi_tmp_path,
     )
 
-    assert len(deepdiff.DeepDiff(old_population, islands.propulator.population, ignore_order=True)) == 0
+    assert len(deepdiff.DeepDiff(old_population, list(islands.propulator.population.values()), ignore_order=True)) == 0
     islands.propulate()
     log.handlers.clear()
 
