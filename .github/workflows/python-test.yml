@@ -45,10 +45,15 @@ jobs:
               coverage run --rcfile=./pyproject.toml -m pytest
               mpirun -n 8 coverage run --rcfile=./pyproject.toml -m mpi4py -m pytest --with-mpi
               coverage combine
-              coverage report -m
+              coverage report -m --format markdown > cov_report.txt
               coverage xml
 
           - name: Upload coverage reports to Codecov
             uses: codecov/codecov-action@v4.0.1
             with:
               token: ${{ secrets.CODECOV_TOKEN }}
+
+          - name: Post coverage report to PR
+            uses: marocchino/sticky-pull-request-comment@v2
+            with:
+              path: cov_report.txt
