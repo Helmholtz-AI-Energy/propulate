@@ -40,17 +40,27 @@ next generation using the fitness values of all candidates it evaluated and rece
 It was already successfully applied in several accepted scientific publications. Applications include grid load
 forecasting, remote sensing, and structural molecular biology:
 
->
-> A. Weyrauch, T. Steens, O. Taubert, et al. **ReCycle: Fast and Efficient Long Time Series Forecasting with Residual
-> Cyclic Transformers**. arXiv preprint (2024). https://doi.org/10.48550/arXiv.2405.03429
+> J. Debus, C. Debus, G. Dissertori, et al. **PETNet–Coincident Particle Event Detection using Spiking Neural Networks**.
+> 2024 Neuro Inspired Computational Elements Conference (NICE), La Jolla, CA, USA, pp. 1-9 ( 2024).
+> https://doi.org/10.1109/NICE61972.2024.10549584
 
-> O. Taubert, F. von der Lehr, A. Bazarova, et al. **RNA contact prediction by data efficient deep learning**. Commun
-> Biol 6, 913 (2023). https://doi.org/10.1038/s42003-023-05244-9
+> D. Coquelin, K. Flügel, M. Weiel, et al. **AB-Training: A Communication-Efficient Approach for Distributed Low-Rank
+> Learning**. arXiv preprint (2024). https://doi.org/10.48550/arXiv.2405.01067
+
+> D. Coquelin, K. Flügel, M. Weiel, et al. **Harnessing Orthogonality to Train Low-Rank Neural Networks**. arXiv
+> preprint (2024). https://doi.org/10.48550/arXiv.2401.08505
+
+> A. Weyrauch, T. Steens, O. Taubert, et al. **ReCycle: Fast and Efficient Long Time Series Forecasting with Residual
+> Cyclic Transformers**. 2024 IEEE Conference on Artificial Intelligence (CAI), Singapore, pp. 1187-1194 (2024).
+> https://doi.org/10.1109/CAI59869.2024.00212
+
+> O. Taubert, F. von der Lehr, A. Bazarova, et al. **RNA contact prediction by data efficient deep learning**.
+> Communications Biology 6(1), 913 (2023). https://doi.org/10.1038/s42003-023-05244-9
 
 > D. Coquelin, K. Flügel, M. Weiel, et al. **Harnessing Orthogonality to Train Low-Rank Neural Networks**. arXiv
 > preprint (2023). https://doi.org/10.48550/arXiv.2401.08505
 
-> Y. Funk, M. Götz, & H. Anzt. **Prediction of optimal solvers for sparse linear systems using deep learning**.
+> Y. Funk, M. Götz, and H. Anzt. **Prediction of optimal solvers for sparse linear systems using deep learning**.
 > Proceedings of the 2022 SIAM Conference on Parallel Processing for Scientific Computing (pp. 14-24). Society for
 > Industrial and Applied Mathematics (2022). https://doi.org/10.1137/1.9781611977141.2
 
