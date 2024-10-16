@@ -1,4 +1,4 @@
-![Propulate Logo](https://raw.githubusercontent.com/Helmholtz-AI-Energy/propulate/master/LOGO.svg)
+![Propulate Logo](https://raw.githubusercontent.com/Helmholtz-AI-Energy/propulate/master/LOGO.svg#gh-light-mode-only)
 
 # Parallel Propagator of Populations
 
