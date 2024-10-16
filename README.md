@@ -3,7 +3,7 @@
 # Parallel Propagator of Populations
 
 [![DOI](https://zenodo.org/badge/495731357.svg)](https://zenodo.org/badge/latestdoi/495731357)
-[![fair-software.eu](https://img.shields.io/badge/fair--software.eu-%E2%97%8F%20%20%E2%97%8F%20%20%E2%97%8F%20%20%E2%97%8F%20%20%E2%97%8B-yellow)](https://fair-software.eu)
+[![fair-software.eu](https://img.shields.io/badge/fair--software.eu-%E2%97%8F%20%20%E2%97%8F%20%20%E2%97%8F%20%20%E2%97%8F%20%20%E2%97%8F-green)](https://fair-software.eu)
 [![License: BSD-3](https://img.shields.io/badge/License-BSD--3-blue)](https://opensource.org/licenses/BSD-3-Clause)
 ![PyPI](https://img.shields.io/pypi/v/propulate)
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/propulate)
