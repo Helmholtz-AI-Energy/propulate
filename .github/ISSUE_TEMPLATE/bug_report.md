@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Create a report to help fix problems in ARTIST
+about: Create a report to help fix problems in Propulate
 title: ''
 labels: ''
 assignees: ''
