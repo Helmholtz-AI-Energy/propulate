@@ -20,6 +20,7 @@ By participating, you can help improve the project and make it even better.
    python3 -m venv <insert/path/to/your/venv>
    source <insert/path/to/your/venv/bin/activate>
    python -m pip install -e ".[dev]"
+   pre-commit install
    ```
 
 4. **Create a Branch**: Create a new branch for your contribution. Choose a descriptive name. Depending on what you want
