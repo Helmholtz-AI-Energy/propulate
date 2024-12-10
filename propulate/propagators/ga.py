@@ -85,7 +85,11 @@ class PointMutation(Stochastic):
             for i in to_mutate:
                 if isinstance(ind[i], int):
                     # Return randomly selected element from int range(start, stop, step).
-                    ind[i] = self.rng.randint(*self.limits[i])
+                    if len(self.limits[i]) == 2:
+                        ind[i] = self.rng.randint(*self.limits[i])
+                    # Return randomly selected element from given tuple of elements.
+                    else:
+                        ind[i] = self.rng.choice(self.limits[i])
                 elif isinstance(ind[i], float):
                     # Return random floating point number within limits.
                     ind[i] = self.rng.uniform(*self.limits[i])
