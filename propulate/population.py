@@ -170,7 +170,7 @@ class Individual:
             loss_str = f"{self.loss}"
         else:
             loss_str = f"{Decimal(float(self.loss)):.2E}"
-        return f"[{rep}, loss " + loss_str + f", island {self.island}, worker {self.rank}, " f"generation {self.generation}]"
+        return f"[{rep}, loss " + loss_str + f", island {self.island}, worker {self.rank}, generation {self.generation}]"
 
     def __iter__(self) -> Generator[str, None, None]:
         """Return standard iterator."""

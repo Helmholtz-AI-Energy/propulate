@@ -388,7 +388,7 @@ def ind_loss(
             total_train_loss += loss.item()
 
         avg_train_loss = total_train_loss / len(train_loader)
-        log.info(f"Epoch {epoch+1}: Avg Training Loss: {avg_train_loss}")
+        log.info(f"Epoch {epoch + 1}: Avg Training Loss: {avg_train_loss}")
 
         # Validation loop
         model.eval()
@@ -402,7 +402,7 @@ def ind_loss(
                 total_val_loss += loss.item()
 
         avg_val_loss = total_val_loss / len(val_loader)
-        log.info(f"Epoch {epoch+1}: Avg Validation Loss: {avg_val_loss}")
+        log.info(f"Epoch {epoch + 1}: Avg Validation Loss: {avg_val_loss}")
 
         yield avg_val_loss
 
