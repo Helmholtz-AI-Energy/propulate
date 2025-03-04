@@ -91,5 +91,4 @@ if __name__ == "__main__":
         generations=config.generations,
         checkpoint_path=config.checkpoint,
     )
-    propulator.propulate(logging_interval=config.logging_interval, debug=config.verbosity)
-    propulator.summarize(top_n=config.top_n, debug=config.verbosity)
+    propulator.propulate(logging_interval=config.logging_interval)

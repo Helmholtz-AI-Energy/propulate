@@ -9,6 +9,7 @@ from mpi4py import MPI
 
 from propulate import Islands, Propulator, surrogate
 from propulate.utils import get_default_propagator, set_logger_config
+from propulate.utils.consistency_checks import final_synch, population_consistency_check
 
 pytestmark = [
     pytest.mark.filterwarnings(
@@ -72,6 +73,8 @@ def test_static(mpi_tmp_path: Path) -> None:
     )  # Set up propulator performing actual optimization.
 
     propulator.propulate()  # Run optimization and print summary of results.
+    final_synch(propulator)
+    population_consistency_check(propulator)
     MPI.COMM_WORLD.barrier()
 
 
@@ -105,7 +108,6 @@ def test_static_island(mpi_tmp_path: Path) -> None:
     )
     islands.propulate(  # Run evolutionary optimization.
         logging_interval=1,  # Logging interval
-        debug=2,  # Verbosity level
     )
     MPI.COMM_WORLD.barrier()
 
@@ -172,7 +174,6 @@ def test_dynamic_island(mpi_tmp_path: Path) -> None:
     )
     islands.propulate(  # Run evolutionary optimization.
         logging_interval=1,  # Logging interval
-        debug=2,  # Verbosity level
     )
     MPI.COMM_WORLD.barrier()
 

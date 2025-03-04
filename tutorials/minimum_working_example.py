@@ -1,4 +1,5 @@
 """Minimum working example showing how to use Propulate."""
+
 import random
 from typing import Dict
 
@@ -36,4 +37,3 @@ propulator = propulate.Propulator(
 
 # Run optimization and get summary of results.
 propulator.propulate()
-propulator.summarize()

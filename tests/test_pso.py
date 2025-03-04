@@ -18,6 +18,7 @@ from propulate.propagators.pso import (
 )
 from propulate.utils import set_logger_config
 from propulate.utils.benchmark_functions import get_function_search_space, sphere
+from propulate.utils.consistency_checks import final_synch, population_consistency_check
 
 log = logging.getLogger("propulate")  # Get logger instance.
 limits = get_function_search_space("sphere")[1]
@@ -87,13 +88,13 @@ def test_pso(pso_propagator: Propagator, mpi_tmp_path: pathlib.Path) -> None:
 
     # Run optimization and print summary of results.
     propulator.propulate()
+    final_synch(propulator)
+    population_consistency_check(propulator)
     log.handlers.clear()
 
 
 @pytest.mark.mpi
-def test_pso_checkpointing(
-    pso_propagator: BasicPSO, mpi_tmp_path: pathlib.Path
-) -> None:
+def test_pso_checkpointing(pso_propagator: BasicPSO, mpi_tmp_path: pathlib.Path) -> None:
     """
     Test velocity checkpointing when using a PSO propagator.
 
@@ -120,10 +121,10 @@ def test_pso_checkpointing(
 
     # Run optimization and print summary of results.
     propulator.propulate()
+    final_synch(propulator)
+    population_consistency_check(propulator)
 
-    old_population = copy.deepcopy(
-        propulator.population
-    )  # Save population list from the last run.
+    old_population = copy.deepcopy(propulator.population)  # Save population list from the last run.
     del propulator  # Delete propulator object.
     MPI.COMM_WORLD.barrier()  # Synchronize all processes.
 
@@ -137,10 +138,7 @@ def test_pso_checkpointing(
 
     # As the number of requested generations is smaller than the number of generations from the run before,
     # no new evaluations are performed. Thus, the length of both Propulators' populations must be equal.
-    assert (
-        len(deepdiff.DeepDiff(old_population, propulator.population, ignore_order=True))
-        == 0
-    )
+    assert len(deepdiff.DeepDiff(old_population, propulator.population, ignore_order=True)) == 0
     log.handlers.clear()
 
 

@@ -8,6 +8,7 @@ from propulate import Propulator
 from propulate.propagators import ActiveCMA, BasicCMA, CMAAdapter, CMAPropagator
 from propulate.utils import set_logger_config
 from propulate.utils.benchmark_functions import get_function_search_space
+from propulate.utils.consistency_checks import final_synch, population_consistency_check
 
 log = logging.getLogger("propulate")  # Get logger instance.
 
@@ -48,6 +49,8 @@ def test_cmaes_basic(cma_adapter: CMAAdapter, mpi_tmp_path: pathlib.Path) -> Non
     )
     # Run optimization and print summary of results.
     propulator.propulate()
+    final_synch(propulator)
+    population_consistency_check(propulator)
     log.handlers.clear()
 
 

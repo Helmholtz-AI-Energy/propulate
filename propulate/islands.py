@@ -274,7 +274,7 @@ class Islands:
                 surrogate_factory=surrogate_factory,
             )
 
-    def propulate(self, logging_interval: int = 10, debug: int = 1) -> None:
+    def propulate(self, logging_interval: int = 10) -> None:
         """
         Run Propulate optimization.
 
@@ -285,4 +285,4 @@ class Islands:
         debug : int
             The debug level.
         """
-        self.propulator.propulate(logging_interval, debug)
+        self.propulator.propulate(logging_interval)
