@@ -14,6 +14,7 @@ from propulate import Islands
 from propulate.propagators import Propagator
 from propulate.utils import get_default_propagator, set_logger_config
 from propulate.utils.benchmark_functions import get_function_search_space
+from propulate.utils.consistency_checks import final_synch, population_consistency_check
 
 
 @pytest.fixture(scope="module")
@@ -41,7 +42,7 @@ def pollination(request: pytest.FixtureRequest) -> bool:
 
 
 @pytest.mark.mpi(min_size=4)
-def test_islands(
+def test_islands_simple(
     global_variables: Tuple[random.Random, Callable, Dict[str, Tuple[float, float]], Propagator],
     pollination: bool,
     mpi_tmp_path: pathlib.Path,
@@ -75,10 +76,12 @@ def test_islands(
     )
 
     # Run actual optimization.
-    islands.propulate(
-        debug=2,
-    )
+    islands.propulate()
+    MPI.COMM_WORLD.barrier()
+    final_synch(islands.propulator)
+    population_consistency_check(islands.propulator)
     log.handlers.clear()
+    MPI.COMM_WORLD.barrier()
 
 
 @pytest.mark.mpi(min_size=4)
@@ -114,7 +117,9 @@ def test_islands_checkpointing_isolated(
     )
 
     # Run actual optimization.
-    islands.propulate(debug=2)
+    islands.propulate()
+    final_synch(islands.propulator)
+    population_consistency_check(islands.propulator)
     assert len(islands.propulator.population) == first_generations * islands.propulator.island_comm.Get_size()
 
     old_population = copy.deepcopy(islands.propulator.population)
@@ -134,6 +139,8 @@ def test_islands_checkpointing_isolated(
 
     assert len(deepdiff.DeepDiff(old_population, islands.propulator.population, ignore_order=True)) == 0
     log.handlers.clear()
+
+    MPI.COMM_WORLD.barrier()
 
 
 # TODO test, that there are no clones in the population
@@ -158,7 +165,7 @@ def test_islands_checkpointing(
     first_generations = 20
     second_generations = 40
     log = logging.getLogger("propulate")  # Get logger instance.
-    set_logger_config()
+    set_logger_config(level=logging.DEBUG)
     rng, benchmark_function, limits, propagator = global_variables
 
     # Set up island model.
@@ -174,7 +181,9 @@ def test_islands_checkpointing(
     )
 
     # Run actual optimization.
-    islands.propulate(debug=2)
+    islands.propulate()
+    final_synch(islands.propulator)
+    population_consistency_check(islands.propulator)
 
     old_population = copy.deepcopy(islands.propulator._get_active_individuals())
     del islands
@@ -192,7 +201,11 @@ def test_islands_checkpointing(
 
     assert len(deepdiff.DeepDiff(old_population, list(islands.propulator.population.values()), ignore_order=True)) == 0
     islands.propulate()
+    final_synch(islands.propulator)
+    population_consistency_check(islands.propulator)
     log.handlers.clear()
+
+    MPI.COMM_WORLD.barrier()
 
 
 @pytest.mark.mpi(min_size=8)
@@ -216,7 +229,7 @@ def test_islands_checkpointing_unequal_populations(
     first_generations = 20
     second_generations = 40
     log = logging.getLogger("propulate")  # Get logger instance.
-    set_logger_config()
+    set_logger_config(level=logging.DEBUG)
     rng, benchmark_function, limits, propagator = global_variables
 
     # Set up island model.
@@ -233,9 +246,11 @@ def test_islands_checkpointing_unequal_populations(
     )
 
     # Run actual optimization.
-    islands.propulate(debug=2)
+    islands.propulate()
+    final_synch(islands.propulator)
+    population_consistency_check(islands.propulator)
 
-    old_population = copy.deepcopy(islands.propulator.population)
+    old_population = copy.deepcopy(islands.propulator._get_active_individuals())
     del islands
 
     islands = Islands(
@@ -250,9 +265,10 @@ def test_islands_checkpointing_unequal_populations(
         checkpoint_path=mpi_tmp_path,
     )
 
-    assert len(deepdiff.DeepDiff(old_population, islands.propulator.population, ignore_order=True)) == 0
-    # TODO compare active only
+    assert len(deepdiff.DeepDiff(old_population, list(islands.propulator.population.values()), ignore_order=True)) == 0
     log.handlers.clear()
+
+    MPI.COMM_WORLD.barrier()
 
 
 @pytest.mark.mpi(min_size=8)
@@ -276,7 +292,7 @@ def test_islands_checkpointing_incomplete(
     first_generations = 20
     second_generations = 40
     log = logging.getLogger("propulate")  # Get logger instance.
-    set_logger_config()
+    set_logger_config(level=logging.DEBUG)
     rng, benchmark_function, limits, propagator = global_variables
 
     island_sizes = np.array([3, 5])
@@ -294,7 +310,9 @@ def test_islands_checkpointing_incomplete(
     )
 
     # Run actual optimization.
-    islands.propulate(debug=2)
+    islands.propulate()
+    final_synch(islands.propulator)
+    population_consistency_check(islands.propulator)
     MPI.COMM_WORLD.barrier()
     # NOTE manipulate checkpoint
     # NOTE this is the index of the last started generation
@@ -308,7 +326,7 @@ def test_islands_checkpointing_incomplete(
         3,
         first_generations // 2,
     ]
-    assert started_first_generations == MPI.COMM_WORLD.size
+    assert len(started_first_generations) == MPI.COMM_WORLD.size
     island_colors = np.concatenate([idx * np.ones(el, dtype=int) for idx, el in enumerate(island_sizes)]).ravel()
 
     if MPI.COMM_WORLD.rank == 0:
@@ -318,11 +336,15 @@ def test_islands_checkpointing_incomplete(
             for worker, g in enumerate(started_first_generations):
                 island_idx = island_colors[worker]
                 # Worker_idx is the island rank
-                worker_idx = worker - np.concatenate(np.array([0]), island_sizes)[island_idx - 1]
+                # [0, 1, 2, 3, 4, 5, 6, 7]
+                # [0, 1, 2, 0, 1, 2, 3, 4]
+                # [0, 0, 0, 1, 1, 1, 1, 1]
+                # island_worker_idx = worker - np.concatenate((np.array([0]), np.cumsum(island_sizes)))[worker]
+                island_worker_idx = worker - np.cumsum(np.concatenate((np.array([0]), island_sizes)))[island_idx]
                 if worker == 2 or worker == 5:
                     # skip some workers who finished their last evaluation
                     continue
-                f[f"{island_idx}"][f"{worker_idx}"]["loss"][g:] = np.nan
+                f[f"{island_idx}"][f"{island_worker_idx}"]["loss"][g:] = np.nan
 
     old_population = copy.deepcopy(islands.propulator.population)
     del islands
@@ -343,7 +365,8 @@ def test_islands_checkpointing_incomplete(
 
     # NOTE check that only the correct number of individuals were read
     island_idx = islands.propulator.island_idx
-    assert len(islands.propulator.population) == sum(started_first_generations[: island_sizes[island_idx]]) + len(
+    # TODO make generic, for arbitrary number of islands
+    assert len(islands.propulator._get_active_individuals()) == sum(started_first_generations[: island_sizes[island_idx]]) + len(
         started_first_generations[: island_sizes[island_idx]]
     )
 
@@ -355,7 +378,9 @@ def test_islands_checkpointing_incomplete(
         if islands.propulator.propulate_comm.rank not in {2, 5}:
             assert np.isnan(islands.propulator.population[pop_key].loss)
 
-    islands.propulate(debug=2)
+    islands.propulate()
+    final_synch(islands.propulator)
+    population_consistency_check(islands.propulator)
     # NOTE check that the total number is correct
     # NOTE because of migration it only has to be summed over all islands
     MPI.COMM_WORLD.barrier()

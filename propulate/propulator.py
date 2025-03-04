@@ -169,6 +169,8 @@ class Propulator:
 
         self.intra_requests: list[MPI.Request] = []  # Keep track of intra-island send requests.
         self.intra_buffers: list[Individual] = []  # Send buffers for intra-island communication
+        self.inter_requests: list[MPI.Request] = []  # Keep track of inter-island send requests.
+        self.inter_buffers: list[Individual] = []  # Send buffers for inter-island communication
 
         # Load initial population of evaluated individuals from checkpoint if exists.
         self.checkpoint_path = self.checkpoint_path / "ckpt.hdf5"
@@ -273,7 +275,6 @@ class Propulator:
                         group["x"].resize(self.generations, axis=0)
                         group["loss"].resize(self.generations, axis=0)
                         group["current"].resize(self.generations, axis=0)
-                        group["migration_steps"].resize(self.generations, axis=0)
                         group["starttime"].resize(self.generations, axis=0)
                         group["evaltime"].resize(self.generations, axis=0)
                         group["evalperiod"].resize(self.generations, axis=0)
@@ -305,13 +306,6 @@ class Propulator:
                         "current",
                         (self.generations,),
                         np.int16,
-                        chunks=True,
-                        maxshape=(None,),
-                    )
-                    group.require_dataset(
-                        "migration_steps",
-                        (self.generations,),
-                        np.int32,
                         chunks=True,
                         maxshape=(None,),
                     )
@@ -381,7 +375,6 @@ class Propulator:
             ind.active = True  # If True, individual is active for breeding.
             ind.island = self.island_idx  # Set birth island.
             ind.current = self.island_comm.rank  # Set worker responsible for migration.
-            ind.migration_steps = 0  # Set number of migration steps performed.
             ind.migration_history = str(self.island_idx)
         else:  # The other processes do not breed themselves.
             ind = None
@@ -622,7 +615,7 @@ class Propulator:
             synchronized = False
         return synchronized
 
-    def propulate(self, logging_interval: int = 10, debug: int = -1) -> None:
+    def propulate(self, logging_interval: int = 10) -> None:
         """
         Execute evolutionary algorithm in parallel.
 
@@ -678,41 +671,22 @@ class Propulator:
                     log.info(f"Island {self.island_idx} Worker {self.island_comm.rank}: In generation {self.generation}...")
 
                 # Breed and evaluate individual.
-                log.debug(f"breeding and evaluating {self.generation}")
-
                 ind = self._breed()  # Breed new individual.
                 # NOTE write started individual to file
                 self._pre_eval_checkpoint(ind, f)
-
                 # NOTE start evaluation
                 self._evaluate_individual(ind)
-
                 # NOTE update finished individual in checkpoint
                 self._post_eval_checkpoint(ind, f)
                 self._send_intra_island_individuals(ind)
                 # Check for and possibly receive incoming individuals from other intra-island workers.
-                log.debug(f"receive intra island {self.generation}")
                 self._receive_intra_island_individuals()
-
                 # Clean up requests and buffers.
                 self._intra_send_cleanup()
                 # Go to next generation.
                 self.generation += 1
 
-        # TODO final sync only needed for testing with new checkpointing
-        # Having completed all generations, the workers have to wait for each other.
-        # Once all workers are done, they should check for incoming messages once again
-        # so that each of them holds the complete final population and the found optimum
-        # irrespective of the order they finished.
-
-        log.debug(f"Island {self.island_idx} Worker {self.island_comm.rank}: Waiting on final synchronization barrier...")
-        self.propulate_comm.barrier()
-        if self.propulate_comm.rank == 0:
-            log.info("OPTIMIZATION DONE.\nNEXT: Final checks for incoming messages...")
-
-        # Final check for incoming individuals evaluated by other intra-island workers.
-        self._receive_intra_island_individuals()
-        self.propulate_comm.barrier()
+        log.info(f"Island {self.island_idx} Worker {self.island_comm.rank}: OPTIMIZATION DONE!")
 
     def _intra_send_cleanup(self) -> None:
         """Delete all send buffers that have been sent."""
@@ -721,3 +695,11 @@ class Propulator:
         # Remove requests and buffers of complete send operations.
         self.intra_requests = [r for i, r in enumerate(self.intra_requests) if i not in completed]
         self.intra_buffers = [b for i, b in enumerate(self.intra_buffers) if i not in completed]
+
+    def _inter_send_cleanup(self) -> None:
+        """Delete all send buffers that have been sent."""
+        # Test for requests to complete.
+        completed = MPI.Request.Testsome(self.inter_requests)
+        # Remove requests and buffers of complete send operations.
+        self.inter_requests = [r for i, r in enumerate(self.inter_requests) if i not in completed]
+        self.inter_buffers = [b for i, b in enumerate(self.inter_buffers) if i not in completed]

@@ -76,7 +76,6 @@ class Individual:
         self.island = -1  # island of origin
         # TODO current is not a good name
         self.current = -1  # current responsible worker
-        self.migration_steps = -1  # number of migration steps performed
         self.migration_history: str = ""  # migration history
         self.evaltime = 0  # evaluation time
         self.start_time = 0

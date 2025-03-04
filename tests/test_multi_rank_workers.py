@@ -82,7 +82,6 @@ def test_multi_rank_workers(mpi_tmp_path: pathlib.Path) -> None:
     # Run actual optimization.
     islands.propulate(
         logging_interval=10,  # Logging interval
-        debug=1,  # Debug level
     )
     log.handlers.clear()
 

@@ -12,8 +12,7 @@ from mpi4py import MPI
 from propulate import Propulator
 from propulate.utils import get_default_propagator, set_logger_config
 from propulate.utils.benchmark_functions import get_function_search_space
-
-log = logging.getLogger("propulate")  # Get logger instance.
+from propulate.utils.consistency_checks import final_synch, population_consistency_check
 
 
 @pytest.fixture(
@@ -39,7 +38,7 @@ def function_name(request: pytest.FixtureRequest) -> str:
     return request.param
 
 
-def test_propulator(function_name: str, mpi_tmp_path: pathlib.Path) -> None:
+def test_propulator_simple(function_name: str, mpi_tmp_path: pathlib.Path) -> None:
     """
     Test standard Propulator to optimize the benchmark functions using the default genetic propagator.
 
@@ -53,6 +52,8 @@ def test_propulator(function_name: str, mpi_tmp_path: pathlib.Path) -> None:
         The temporary checkpoint directory.
     """
     rng = random.Random(42 + MPI.COMM_WORLD.rank)  # Random number generator for optimization
+
+    log = logging.getLogger("propulate")  # Get logger instance.
     set_logger_config()
     benchmark_function, limits = get_function_search_space(function_name)
     propagator = get_default_propagator(
@@ -68,6 +69,9 @@ def test_propulator(function_name: str, mpi_tmp_path: pathlib.Path) -> None:
         checkpoint_path=mpi_tmp_path,
     )  # Set up propulator performing actual optimization.
     propulator.propulate()  # Run optimization and print summary of results.
+    final_synch(propulator)
+    population_consistency_check(propulator)
+
     log.handlers.clear()
 
 
@@ -84,6 +88,7 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
     """
     first_generations = 20
     second_generations = 40
+    log = logging.getLogger("propulate")  # Get logger instance.
     set_logger_config(level=logging.DEBUG)
     rng = random.Random(42 + MPI.COMM_WORLD.rank)  # Separate random number generator for optimization
     benchmark_function, limits = get_function_search_space("sphere")
@@ -102,6 +107,8 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
     )  # Set up propulator performing actual optimization.
 
     propulator.propulate()  # Run optimization and print summary of results.
+    final_synch(propulator)
+    population_consistency_check(propulator)
     assert len(propulator.population) == first_generations * propulator.propulate_comm.Get_size()
 
     old_population = copy.deepcopy(propulator.population)  # Save population list from the last run.
@@ -120,6 +127,8 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
     # no new evaluations are performed. Thus, the length of both Propulators' populations must be equal.
     assert len(deepdiff.DeepDiff(old_population, propulator.population, ignore_order=True)) == 0
     propulator.propulate()
+    final_synch(propulator)
+    population_consistency_check(propulator)
     # NOTE make sure nothing was overwritten
     seniors = {k: v for (k, v) in propulator.population.items() if v.generation < first_generations}
     assert len(deepdiff.DeepDiff(old_population, seniors, ignore_order=True)) == 0
@@ -139,6 +148,7 @@ def test_propulator_checkpointing_incomplete(mpi_tmp_path: pathlib.Path) -> None
     """
     first_generations = 20
     second_generations = 40
+    log = logging.getLogger("propulate")  # Get logger instance.
     set_logger_config(level=logging.DEBUG)
     rng = random.Random(42 + MPI.COMM_WORLD.rank)  # Separate random number generator for optimization
     benchmark_function, limits = get_function_search_space("sphere")
@@ -157,6 +167,8 @@ def test_propulator_checkpointing_incomplete(mpi_tmp_path: pathlib.Path) -> None
     )  # Set up propulator performing actual optimization.
 
     propulator.propulate()  # Run optimization and print summary of results.
+    final_synch(propulator)
+    population_consistency_check(propulator)
     assert len(propulator.population) == first_generations * propulator.propulate_comm.Get_size()
     MPI.COMM_WORLD.barrier()  # Synchronize all processes.
     # NOTE manipulate the written checkpoint, delete last result for some
@@ -201,7 +213,9 @@ def test_propulator_checkpointing_incomplete(mpi_tmp_path: pathlib.Path) -> None
 
     propulator.propulate()
     # NOTE check that the total number is correct
-    # TODO this needs final synch
+    final_synch(propulator)
+    population_consistency_check(propulator)
+
     assert len(propulator.population) == second_generations * propulator.propulate_comm.Get_size()
     # NOTE check there are no unevaluated individuals anymore
     assert [np.isnan(ind.loss) for ind in propulator.population.values()].count(False) == len(propulator.population)
