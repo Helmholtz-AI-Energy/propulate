@@ -130,7 +130,7 @@ class Pollinator(Propulator):
 
     def _send_emigrants(self) -> None:
         """Perform migration, i.e. island sends individuals out to other islands."""
-        log_string = f"Island {self.island_idx} Worker {self.island_comm.rank} " f"Generation {self.generation}: EMIGRATION\n"
+        log_string = f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: EMIGRATION\n"
         # Determine relevant line of migration topology.
         assert self.migration_topology is not None
         to_migrate = self.migration_topology[self.island_idx, :]
@@ -174,7 +174,7 @@ class Pollinator(Propulator):
                 for r in dest_island:  # Loop through Propulate world destination ranks.
                     self.propulate_comm.send(copy.deepcopy(departing), dest=r, tag=MIGRATION_TAG)
                     log_string += (
-                        f"Sent {len(departing)} individual(s) to worker {r-self.island_displs[target_island]} "
+                        f"Sent {len(departing)} individual(s) to worker {r - self.island_displs[target_island]} "
                         f"on target island {target_island}.\n"
                     )
 
@@ -192,7 +192,7 @@ class Pollinator(Propulator):
     def _receive_immigrants(self) -> None:
         """Check for and possibly receive immigrants send by other islands."""
         replace_num = 0
-        log_string = f"Island {self.island_idx} Worker {self.island_comm.rank} " f"Generation {self.generation}: IMMIGRATION\n"
+        log_string = f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: IMMIGRATION\n"
         probe_migrants = True
         while probe_migrants:
             stat = MPI.Status()
@@ -200,7 +200,7 @@ class Pollinator(Propulator):
             log_string += f"Immigrant(s) to receive?...{probe_migrants}\n"
             if probe_migrants:
                 immigrants = self.propulate_comm.recv(source=stat.Get_source(), tag=MIGRATION_TAG)
-                log_string += f"Received {len(immigrants)} immigrant(s) from global " f"worker {stat.Get_source()}: {immigrants}\n"
+                log_string += f"Received {len(immigrants)} immigrant(s) from global worker {stat.Get_source()}: {immigrants}\n"
 
                 # Add immigrants to own population.
                 for immigrant in immigrants:
@@ -211,7 +211,7 @@ class Pollinator(Propulator):
                     replace_num = 0
                     if self.island_comm.rank == immigrant.current:
                         replace_num += 1
-                    log_string += f"Responsible for choosing {replace_num} individual(s) " f"to be replaced by immigrants.\n"
+                    log_string += f"Responsible for choosing {replace_num} individual(s) to be replaced by immigrants.\n"
 
                 # Check whether rank equals responsible worker's rank so different intra-island workers
                 # cannot choose the same individual independently for replacement and thus deactivation.
@@ -230,7 +230,7 @@ class Pollinator(Propulator):
                             continue  # No self-talk.
                         self.island_comm.send(copy.deepcopy(to_replace), dest=r, tag=SYNCHRONIZATION_TAG)
                         log_string += (
-                            f"Sent {len(to_replace)} individual(s) {to_replace} to " f"intra-island worker {r} for replacement.\n"
+                            f"Sent {len(to_replace)} individual(s) {to_replace} to intra-island worker {r} for replacement.\n"
                         )
 
                     # Deactivate individuals to be replaced in own population.
@@ -245,7 +245,7 @@ class Pollinator(Propulator):
 
     def _deactivate_replaced_individuals(self) -> None:
         """Check for and receive individuals from other intra-island workers to be deactivated due to immigration."""
-        log_string = f"Island {self.island_idx} Worker {self.island_comm.rank} " f"Generation {self.generation}: REPLACEMENT\n"
+        log_string = f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: REPLACEMENT\n"
         probe_sync = True
         while probe_sync:
             stat = MPI.Status()
@@ -286,8 +286,7 @@ class Pollinator(Propulator):
             )
         _, num_active = self._get_active_individuals()
         log_string += (
-            f"After synchronization: {num_active}/{len(self.population)} active.\n"
-            f"{len(self.replaced)} individuals in replaced.\n"
+            f"After synchronization: {num_active}/{len(self.population)} active.\n{len(self.replaced)} individuals in replaced.\n"
         )
         log.debug(log_string)
 

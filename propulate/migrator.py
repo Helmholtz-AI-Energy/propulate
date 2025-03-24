@@ -123,7 +123,7 @@ class Migrator(Propulator):
 
     def _send_emigrants(self) -> None:
         """Perform migration, i.e. island sends individuals out to other islands."""
-        log_string = f"Island {self.island_idx} Worker {self.island_comm.rank} " f"Generation {self.generation}: EMIGRATION\n"
+        log_string = f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: EMIGRATION\n"
         # Determine relevant line of migration topology.
         assert self.migration_topology is not None
         to_migrate = self.migration_topology[self.island_idx, :]
@@ -160,7 +160,7 @@ class Migrator(Propulator):
                     if r == self.island_comm.rank:
                         continue  # No self-talk.
                     self.island_comm.send(copy.deepcopy(emigrants), dest=r, tag=SYNCHRONIZATION_TAG)
-                    log_string += f"Sent {len(emigrants)} individual(s) {emigrants} to " f"intra-island worker {r} to deactivate.\n"
+                    log_string += f"Sent {len(emigrants)} individual(s) {emigrants} to intra-island worker {r} to deactivate.\n"
 
                 # Send emigrants to target island.
                 departing = copy.deepcopy(emigrants)
@@ -170,7 +170,7 @@ class Migrator(Propulator):
                 for r in dest_island:  # Loop over self.propulate_comm destination ranks.
                     self.propulate_comm.send(copy.deepcopy(departing), dest=r, tag=MIGRATION_TAG)
                     log_string += (
-                        f"Sent {len(departing)} individual(s) to worker {r-self.island_displs[target_island]} "
+                        f"Sent {len(departing)} individual(s) to worker {r - self.island_displs[target_island]} "
                         + f"on target island {target_island}.\n"
                     )
 
@@ -212,7 +212,7 @@ class Migrator(Propulator):
         RuntimeError
             If identical immigrant is already active on target island for real migration.
         """
-        log_string = f"Island {self.island_idx} Worker {self.island_comm.rank} " f"Generation {self.generation}: IMMIGRATION\n"
+        log_string = f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: IMMIGRATION\n"
         probe_migrants = True
         while probe_migrants:
             stat = MPI.Status()
@@ -220,7 +220,7 @@ class Migrator(Propulator):
             log_string += f"Immigrant(s) to receive?...{probe_migrants}\n"
             if probe_migrants:
                 immigrants = self.propulate_comm.recv(source=stat.Get_source(), tag=MIGRATION_TAG)
-                log_string += f"Received {len(immigrants)} immigrant(s) from global " f"worker {stat.Get_source()}: {immigrants}\n"
+                log_string += f"Received {len(immigrants)} immigrant(s) from global worker {stat.Get_source()}: {immigrants}\n"
                 for immigrant in immigrants:
                     immigrant.migration_steps += 1
                     assert immigrant.active is True
@@ -291,7 +291,7 @@ class Migrator(Propulator):
 
     def _deactivate_emigrants(self) -> None:
         """Check for and possibly receive emigrants from other intra-island workers to be deactivated."""
-        log_string = f"Island {self.island_idx} Worker {self.island_comm.rank} " f"Generation {self.generation}: DEACTIVATION\n"
+        log_string = f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: DEACTIVATION\n"
         probe_sync = True
         while probe_sync:
             stat = MPI.Status()

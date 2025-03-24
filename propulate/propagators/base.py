@@ -266,7 +266,7 @@ class Compose(Propagator):
                 ind = inp.parents
 
                 raise ValueError(
-                    f"Incompatible combination of {outd} output individuals " f"of {outp} and {ind} input individuals of {inp}."
+                    f"Incompatible combination of {outd} output individuals of {outp} and {ind} input individuals of {inp}."
                 )
         self.propagators = propagators
 
@@ -524,7 +524,7 @@ class InitUniform(Stochastic):
                     position[limit] = str(self.rng.choice(self.limits[limit]))
                 else:
                     raise ValueError(
-                        "Unknown type of limits. Has to be float for interval, " "int for ordinal, or string for categorical."
+                        "Unknown type of limits. Has to be float for interval, int for ordinal, or string for categorical."
                     )
             ind = Individual(position, self.limits)  # Instantiate new individual.
         else:  # Return first input individual w/o changes otherwise.
