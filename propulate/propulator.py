@@ -181,9 +181,7 @@ class Propulator:
                         max([x.generation for x in self.population if x.rank == self.island_comm.rank]) + 1
                     )  # Determine generation to be evaluated next from population checkpoint.
                     if self.island_comm.rank == 0:
-                        log.info(
-                            "Valid checkpoint file found. " f"Resuming from generation {self.generation} of loaded population..."
-                        )
+                        log.info(f"Valid checkpoint file found. Resuming from generation {self.generation} of loaded population...")
                 except OSError:
                     self.population = []
                     if self.island_comm.rank == 0:
@@ -270,8 +268,7 @@ class Propulator:
                 if self.surrogate is not None:
                     if self.surrogate.cancel(last):  # Check cancel for each yield.
                         log.debug(
-                            f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: PRUNING\n"
-                            f"{ind}"
+                            f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: PRUNING\n{ind}"
                         )
                         break
             ind.loss = float(last)  # Set final loss as individual's loss.
@@ -318,8 +315,7 @@ class Propulator:
     def _receive_intra_island_individuals(self) -> None:
         """Check for and possibly receive incoming individuals evaluated by other workers within own island."""
         log_string = (
-            f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: "
-            f"INTRA-ISLAND SYNCHRONIZATION\n"
+            f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: INTRA-ISLAND SYNCHRONIZATION\n"
         )
         probe_ind = True
         while probe_ind:
@@ -412,7 +408,7 @@ class Propulator:
             difference = deepdiff.DeepDiff(population, populations[0], ignore_order=True)
             if len(difference) == 0:
                 continue
-            log.info(f"Island {self.island_idx} Worker {self.island_comm.rank}: Population not synchronized:\n" f"{difference}")
+            log.info(f"Island {self.island_idx} Worker {self.island_comm.rank}: Population not synchronized:\n{difference}")
             synchronized = False
         return synchronized
 
@@ -501,9 +497,7 @@ class Propulator:
 
     def _dump_checkpoint(self) -> None:
         """Dump checkpoint to file."""
-        log.debug(
-            f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: " f"Dumping checkpoint..."
-        )
+        log.debug(f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: Dumping checkpoint...")
         save_ckpt_file = self.checkpoint_path / f"island_{self.island_idx}_ckpt.pickle"
         if os.path.isfile(save_ckpt_file):
             try:
@@ -611,7 +605,7 @@ class Propulator:
             log.info(
                 "###########\n# SUMMARY #\n###########\n"
                 f"Number of currently active individuals is {num_active}.\n"
-                f"Expected overall number of evaluations is {self.generations*self.propulate_comm.size}."
+                f"Expected overall number of evaluations is {self.generations * self.propulate_comm.size}."
             )
         # Only double-check number of occurrences of each individual for DEBUG level 2.
         if debug == 2:
@@ -638,6 +632,6 @@ class Propulator:
             if self.island_comm.rank == 0:
                 res_str = f"Top {top_n} result(s) on island {self.island_idx}:\n"
                 for i in range(top_n):
-                    res_str += f"({i+1}): {unique_pop[i]}\n"
+                    res_str += f"({i + 1}): {unique_pop[i]}\n"
                 log.info(res_str)
         return self.propulate_comm.allgather(best)

@@ -336,7 +336,7 @@ def ind_loss(params: Dict[str, Union[int, float, str]], subgroup_comm: MPI.Comm)
             if batch_idx % log_interval == 0 or batch_idx == len(train_loader) - 1:
                 log.info(
                     f"Train Epoch: {epoch} [{batch_idx}/{len(train_loader)} "
-                    f"({100. * batch_idx / len(train_loader):.0f}%)]\tLoss: {loss.item():.6f}"
+                    f"({100.0 * batch_idx / len(train_loader):.0f}%)]\tLoss: {loss.item():.6f}"
                 )
         # ------------ Validation loop ------------
         model.eval()
@@ -370,7 +370,7 @@ def ind_loss(params: Dict[str, Union[int, float, str]], subgroup_comm: MPI.Comm)
         val_acc = correct_tensor.item() / num_val_samples_tensor.item()
         val_acc_history.append(val_acc)
 
-        log.info(f"\nValidation set: Average loss: {val_loss_tensor.item():.4f}, " f"Accuracy: {100. * val_acc:.0f} %)\n")
+        log.info(f"\nValidation set: Average loss: {val_loss_tensor.item():.4f}, Accuracy: {100.0 * val_acc:.0f} %)\n")
 
         if not set_new_best:
             early_stopping_count += 1
