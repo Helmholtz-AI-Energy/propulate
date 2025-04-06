@@ -53,6 +53,7 @@ class Migrator(Propulator):
         island_comm: MPI.Comm = MPI.COMM_WORLD,
         propulate_comm: MPI.Comm = MPI.COMM_WORLD,
         worker_sub_comm: MPI.Comm = MPI.COMM_SELF,
+        # TODO generations have to be set with new checkpointing, see propulator and adapt here and pollinator
         generations: int = -1,
         checkpoint_path: Union[str, Path] = Path("./"),
         migration_topology: Optional[np.ndarray] = None,
@@ -133,7 +134,7 @@ class Migrator(Propulator):
         eligible_emigrants = [ind for ind in self.population.values() if ind.active and ind.current == self.island_comm.rank]
 
         # Only perform migration if overall number of emigrants to be sent
-        # out is smaller than current number of eligible emigrants.
+        # out is smaller than current number of eligible potential emigrants.
         if num_emigrants <= len(eligible_emigrants):
             # Select all migrants to be sent out in this migration step.
             emigrator = self.emigration_propagator(num_emigrants)  # Set up emigration propagator.
@@ -181,7 +182,7 @@ class Migrator(Propulator):
                     hdf5_checkpoint[f"{ind.island}"][f"{ind.island_rank}"]["active_on_island"][ind.generation, target_island] = True
 
                 for r in dest_island_workers:  # Loop over self.propulate_comm destination ranks.
-                    self.inter_buffers += copy.deepcopy(departing)
+                    self.inter_buffers.append(copy.deepcopy(departing))
                     self.inter_requests.append(self.propulate_comm.isend(self.inter_buffers[-1], dest=r, tag=MIGRATION_TAG))
 
                     log_string += (
@@ -217,7 +218,7 @@ class Migrator(Propulator):
 
     def _receive_immigrants(self) -> None:
         """
-        Check for and possibly receive immigrants send by other islands.
+        Check for and possibly receive immigrants sent by other islands.
 
         Raises
         ------
