@@ -170,7 +170,7 @@ class Propulator:
         self.intra_requests: list[MPI.Request] = []  # Keep track of intra-island send requests.
         self.intra_buffers: list[Individual] = []  # Send buffers for intra-island communication
         self.inter_requests: list[MPI.Request] = []  # Keep track of inter-island send requests.
-        self.inter_buffers: list[Individual] = []  # Send buffers for inter-island communication
+        self.inter_buffers: list[list[Individual]] = []  # Send buffers for inter-island communication
 
         # Load initial population of evaluated individuals from checkpoint if exists.
         self.checkpoint_path = self.checkpoint_path / "ckpt.hdf5"
@@ -693,6 +693,7 @@ class Propulator:
         # Test for requests to complete.
         completed = MPI.Request.Testsome(self.intra_requests)
         # Remove requests and buffers of complete send operations.
+        assert len(self.intra_requests) == len(self.intra_buffers)
         self.intra_requests = [r for i, r in enumerate(self.intra_requests) if i not in completed]
         self.intra_buffers = [b for i, b in enumerate(self.intra_buffers) if i not in completed]
 
@@ -701,5 +702,6 @@ class Propulator:
         # Test for requests to complete.
         completed = MPI.Request.Testsome(self.inter_requests)
         # Remove requests and buffers of complete send operations.
+        assert len(self.inter_requests) == len(self.inter_buffers)
         self.inter_requests = [r for i, r in enumerate(self.inter_requests) if i not in completed]
         self.inter_buffers = [b for i, b in enumerate(self.inter_buffers) if i not in completed]
