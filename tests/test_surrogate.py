@@ -23,6 +23,17 @@ pytestmark = [
 set_logger_config(level=logging.DEBUG)
 
 
+@pytest.fixture(
+    params=[
+        True,
+        False,
+    ]
+)
+def pollination(request: pytest.FixtureRequest) -> bool:
+    """Iterate through pollination parameter."""
+    return request.param
+
+
 def ind_loss(params: Dict[str, Union[int, float, str]]) -> Generator[float, None, None]:
     """
     Toy iterative loss function for evolutionary optimization with ``Propulate``.
@@ -79,7 +90,7 @@ def test_static(mpi_tmp_path: Path) -> None:
 
 
 @pytest.mark.mpi(min_size=8)
-def test_static_island(mpi_tmp_path: Path) -> None:
+def test_static_island(mpi_tmp_path: Path, pollination: bool) -> None:
     """Test static surrogate using a dummy function."""
     pop_size = 2 * MPI.COMM_WORLD.size  # Breeding population size
     limits: Dict[str, Union[Tuple[int, int], Tuple[float, float], Tuple[str, ...]]] = {
@@ -147,7 +158,7 @@ def test_dynamic(mpi_tmp_path: Path) -> None:
     "ignore::DeprecationWarning",
     match="Assigning the 'data' attribute is an inherently unsafe operation and will be removed in the future.",
 )
-def test_dynamic_island(mpi_tmp_path: Path) -> None:
+def test_dynamic_island(mpi_tmp_path: Path, pollination: bool) -> None:
     """Test dynamic surrogate using a dummy function."""
     num_generations = 4  # Number of generations
     set_logger_config()
