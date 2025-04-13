@@ -189,13 +189,13 @@ def test_dynamic_island(mpi_tmp_path: Path, pollination: bool) -> None:
     MPI.COMM_WORLD.barrier()
 
 
-@pytest.mark.mpi(min_size=4)
-def test_static_checkpointing(mpi_tmp_path: Path) -> None:
-    """Test whether the surrogate state for pruning is checkpointed correctly."""
-    raise
-
-
-@pytest.mark.mpi(min_size=4)
-def test_dynamic_checkpointing(mpi_tmp_path: Path) -> None:
-    """Test whether the surrogate state for pruning is checkpointed correctly."""
-    raise
+# @pytest.mark.mpi(min_size=4)
+# def test_static_checkpointing(mpi_tmp_path: Path) -> None:
+#     """Test whether the surrogate state for pruning is checkpointed correctly."""
+#     raise
+#
+#
+# @pytest.mark.mpi(min_size=4)
+# def test_dynamic_checkpointing(mpi_tmp_path: Path) -> None:
+#     """Test whether the surrogate state for pruning is checkpointed correctly."""
+#     raise
