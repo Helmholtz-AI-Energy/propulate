@@ -49,16 +49,16 @@ class Migrator(Propulator):
         loss_fn: Union[Callable, Generator[float, None, None]],
         propagator: Propagator,
         rng: random.Random,
+        generations: int,
         island_idx: int = 0,
         island_comm: MPI.Comm = MPI.COMM_WORLD,
         propulate_comm: MPI.Comm = MPI.COMM_WORLD,
         worker_sub_comm: MPI.Comm = MPI.COMM_SELF,
-        # TODO generations have to be set with new checkpointing, see propulator and adapt here and pollinator
-        generations: int = -1,
         checkpoint_path: Union[str, Path] = Path("./"),
         migration_topology: Optional[np.ndarray] = None,
         migration_prob: float = 0.0,
         emigration_propagator: Type[Propagator] = SelectMin,
+        immigration_propagator: Optional[Type[Propagator]] = None,
         island_displs: Optional[np.ndarray] = None,
         island_counts: Optional[np.ndarray] = None,
         surrogate_factory: Optional[Callable[[], Surrogate]] = None,
@@ -95,6 +95,9 @@ class Migrator(Propulator):
         emigration_propagator : Type[propulate.propagators.Propagator]
             The emigration propagator, i.e., how to choose individuals for emigration that are sent to the destination
             island. Should be some kind of selection operator. Default is ``SelectMin``.
+        immigration_propagator : Type[propulate.propagators.Propagator], optional
+            The immigration propagator, i.e., how to choose individuals to be replaced by immigrants on a target island.
+            Should be some kind of selection operator. Default is ``None``.
         island_displs : numpy.ndarray, optional
             An array with ``propulate_comm`` rank of each island's worker 0. Element i specifies the rank of worker 0 on
             island with index i in the Propulate communicator.
@@ -105,21 +108,22 @@ class Migrator(Propulator):
            Only used when ``loss_fn`` is a generator function.
         """
         super().__init__(
-            loss_fn,
-            propagator,
-            rng,
-            island_idx,
-            island_comm,
-            propulate_comm,
-            worker_sub_comm,
-            generations,
-            checkpoint_path,
-            migration_topology,
-            migration_prob,
-            emigration_propagator,
-            island_displs,
-            island_counts,
-            surrogate_factory,
+            loss_fn=loss_fn,
+            propagator=propagator,
+            rng=rng,
+            generations=generations,
+            island_idx=island_idx,
+            island_comm=island_comm,
+            propulate_comm=propulate_comm,
+            worker_sub_comm=worker_sub_comm,
+            checkpoint_path=checkpoint_path,
+            migration_topology=migration_topology,
+            migration_prob=migration_prob,
+            emigration_propagator=emigration_propagator,
+            immigration_propagator=immigration_propagator,
+            island_displs=island_displs,
+            island_counts=island_counts,
+            surrogate_factory=surrogate_factory,
         )
         # Set class attributes.
         self.emigrated: List[Individual] = []  # Emigrated individuals to be deactivated on sending island

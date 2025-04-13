@@ -42,7 +42,7 @@ class Islands:
         loss_fn: Union[Callable, Generator[float, None, None]],
         propagator: Propagator,
         rng: random.Random,
-        generations: int = 0,
+        generations: int,
         num_islands: int = 1,
         island_sizes: Optional[np.ndarray] = None,
         migration_topology: Optional[np.ndarray] = None,

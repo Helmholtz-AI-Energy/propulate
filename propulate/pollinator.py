@@ -52,11 +52,11 @@ class Pollinator(Propulator):
         loss_fn: Union[Callable, Generator[float, None, None]],
         propagator: Propagator,
         rng: random.Random,
+        generations: int,
         island_idx: int = 0,
         island_comm: MPI.Comm = MPI.COMM_WORLD,
         propulate_comm: MPI.Comm = MPI.COMM_WORLD,
         worker_sub_comm: MPI.Comm = MPI.COMM_SELF,
-        generations: int = 0,
         checkpoint_path: Union[Path, str] = Path("./"),
         migration_topology: Optional[np.ndarray] = None,
         migration_prob: float = 0.0,
@@ -110,21 +110,22 @@ class Pollinator(Propulator):
            Only used when ``loss_fn`` is a generator function.
         """
         super().__init__(
-            loss_fn,
-            propagator,
-            rng,
-            island_idx,
-            island_comm,
-            propulate_comm,
-            worker_sub_comm,
-            generations,
-            checkpoint_path,
-            migration_topology,
-            migration_prob,
-            emigration_propagator,
-            island_displs,
-            island_counts,
-            surrogate_factory,
+            loss_fn=loss_fn,
+            propagator=propagator,
+            rng=rng,
+            generations=generations,
+            island_idx=island_idx,
+            island_comm=island_comm,
+            propulate_comm=propulate_comm,
+            worker_sub_comm=worker_sub_comm,
+            checkpoint_path=checkpoint_path,
+            migration_topology=migration_topology,
+            migration_prob=migration_prob,
+            emigration_propagator=emigration_propagator,
+            immigration_propagator=immigration_propagator,
+            island_displs=island_displs,
+            island_counts=island_counts,
+            surrogate_factory=surrogate_factory,
         )
         # Set class attributes.
         self.immigration_propagator = immigration_propagator  # Immigration propagator
@@ -229,6 +230,7 @@ class Pollinator(Propulator):
                         ind for ind in self.population.values() if ind.active and ind.current == self.island_comm.rank
                     ]
 
+                    assert isinstance(self.immigration_propagator, Propagator)
                     immigrator = self.immigration_propagator(replace_num)  # Set up immigration propagator.
                     to_replace = immigrator(eligible_for_replacement)  # Choose individual to be replaced by immigrant.
 
