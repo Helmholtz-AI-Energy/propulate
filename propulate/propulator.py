@@ -80,15 +80,16 @@ class Propulator:
         loss_fn: Union[Callable, Generator[float, None, None]],
         propagator: Propagator,
         rng: random.Random,
+        generations: int,
         island_idx: int = 0,
         island_comm: MPI.Comm = MPI.COMM_WORLD,
         propulate_comm: MPI.Comm = MPI.COMM_WORLD,
         worker_sub_comm: MPI.Comm = MPI.COMM_SELF,
-        generations: int = -1,
         checkpoint_path: Union[str, Path] = Path("./"),
         migration_topology: Optional[np.ndarray] = None,
         migration_prob: float = 0.0,
         emigration_propagator: Type[Propagator] = SelectMin,
+        immigration_propagator: Optional[Type[Propagator]] = None,
         island_displs: Optional[np.ndarray] = None,
         island_counts: Optional[np.ndarray] = None,
         surrogate_factory: Optional[Callable[[], Surrogate]] = None,
@@ -125,6 +126,9 @@ class Propulator:
         emigration_propagator : Type[propulate.propagators.Propagator], optional
             The emigration propagator, i.e., how to choose individuals for emigration that are sent to destination
             island. Should be some kind of selection operator. Default is ``SelectMin``.
+        immigration_propagator : Type[propulate.propagators.Propagator], optional
+            The immigration propagator, i.e., how to choose individuals to be replaced by immigrants on a target island.
+            Should be some kind of selection operator. Default is ``None``.
         island_displs : numpy.ndarray, optional
             An array with ``propulate_comm`` rank of each island's worker 0. Element i specifies the rank of worker 0 on
             island with index i in the Propulate communicator.
@@ -165,6 +169,7 @@ class Propulator:
         else:
             self.island_counts = island_counts  # Number of workers on each island
         self.emigration_propagator = emigration_propagator  # Emigration propagator
+        self.immigration_propagator = immigration_propagator  # Immigration propagator
         self.rng = rng  # Generator for inter-island communication
 
         self.intra_requests: list[MPI.Request] = []  # Keep track of intra-island send requests.
@@ -241,7 +246,6 @@ class Propulator:
 
         num_islands = len(self.island_counts)
 
-        # TODO this can probably be done without mpi just on rank 0
         with h5py.File(self.checkpoint_path, "a", driver="mpio", comm=self.propulate_comm) as f:
             # limits
             limitsgroup = f.require_group("limits")
