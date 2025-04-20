@@ -166,7 +166,7 @@ def test_propulator_checkpointing_incomplete(mpi_tmp_path: pathlib.Path) -> None
         rng=rng,
     )  # Set up propulator performing actual optimization.
 
-    propulator.propulate()  # Run optimization and print summary of results.
+    propulator.propulate()  # Run optimization and
     final_synch(propulator)
     population_consistency_check(propulator)
     assert len(propulator.population) == first_generations * propulator.propulate_comm.Get_size()

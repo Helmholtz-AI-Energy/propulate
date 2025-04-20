@@ -16,7 +16,7 @@ from propulate.propagators.pso import (
     InitUniformPSO,
     VelocityClampingPSO,
 )
-from propulate.utils import set_logger_config
+from propulate.utils import get_default_propagator, set_logger_config
 from propulate.utils.benchmark_functions import get_function_search_space, sphere
 from propulate.utils.consistency_checks import final_synch, population_consistency_check
 
@@ -143,3 +143,55 @@ def test_pso_checkpointing(pso_propagator: BasicPSO, mpi_tmp_path: pathlib.Path)
 
 
 # TODO test resuming pso run from a non-pso checkpoint
+@pytest.mark.mpi
+def test_load_from_different_propagator(mpi_tmp_path: pathlib.Path) -> None:
+    """
+    Test loading a checkpoint that was created using a propagator not using velocity.
+
+    Parameters
+    ----------
+    mpi_tmp_path : pathlib.Path
+        The temporary checkpoint directory.
+    """
+    set_logger_config()
+
+    # Set up evolutionary operator.
+    propagator = get_default_propagator(
+        pop_size=4,
+        limits=limits,
+        rng=rng,
+    )
+
+    # Set up propulator performing actual optimization.
+    propulator = Propulator(
+        loss_fn=sphere,
+        propagator=propagator,
+        rng=rng,
+        generations=20,
+        checkpoint_path=mpi_tmp_path,
+    )
+
+    # Run optimization
+    propulator.propulate()
+    final_synch(propulator)
+    population_consistency_check(propulator)
+
+    del propulator  # Delete propulator object.
+    MPI.COMM_WORLD.barrier()  # Synchronize all processes.
+
+    # Set up pso propagator.
+    init = InitUniformPSO(limits, rng=rng, rank=rank)
+    pso_propagator = CanonicalPSO(c_cognitive=2.05, c_social=2.05, rank=rank, limits=limits, rng=rng)
+    propagator = Conditional(limits, 1, pso_propagator, init)
+
+    propulator = Propulator(
+        loss_fn=sphere,
+        propagator=propagator,
+        generations=40,
+        checkpoint_path=mpi_tmp_path,
+        rng=rng,
+    )  # Set up new propulator starting from checkpoint.
+
+    final_synch(propulator)
+    population_consistency_check(propulator)
+    log.handlers.clear()
