@@ -127,8 +127,6 @@ class Pollinator(Propulator):
             island_counts=island_counts,
             surrogate_factory=surrogate_factory,
         )
-        # Set class attributes.
-        self.immigration_propagator = immigration_propagator  # Immigration propagator
         self.replaced: List[Individual] = []  # Individuals to be replaced by immigrants
 
     def _send_emigrants(self) -> None:
@@ -230,8 +228,9 @@ class Pollinator(Propulator):
                         ind for ind in self.population.values() if ind.active and ind.current == self.island_comm.rank
                     ]
 
-                    assert isinstance(self.immigration_propagator, Propagator)
+                    assert self.immigration_propagator is not None
                     immigrator = self.immigration_propagator(replace_num)  # Set up immigration propagator.
+                    assert isinstance(immigrator, Propagator)
                     to_replace = immigrator(eligible_for_replacement)  # Choose individual to be replaced by immigrant.
 
                     # Send individuals to be replaced to other intra-island workers for deactivation.

@@ -185,7 +185,7 @@ class Propulator:
         if os.path.isfile(self.checkpoint_path):
             self.load_checkpoint()
             if self.propulate_comm.rank == 0:
-                log.info("Valid checkpoint file found. " f"Resuming from generation {self.generation} of loaded population...")
+                log.info("Checkpoint loaded. " f"Resuming from generation {self.generation} of loaded population...")
                 # TODO it says resuming from generation 0, so something is not right
                 # TODO also each worker might be on a different generation so this message probably does not make all of the sense
         else:
@@ -199,6 +199,7 @@ class Propulator:
         # NOTE each individual is only stored once at the position given by its origin island and worker, the modifications have to be put in the checkpoint file during migration  TODO test if this works as intended reliably
         # TODO get the started but not yet completed ones from the difference in start time and evaltime
         # TODO only load an incomplete one, if you're then going to evaluate it
+        log.info(f"Loading checkpoint from {self.checkpoint_path}.")
 
         with h5py.File(self.checkpoint_path, "r", driver=None) as f:
             # NOTE check limits are consistent
@@ -237,6 +238,7 @@ class Propulator:
 
     def set_up_checkpoint(self) -> None:
         """Initialize checkpoint file or check consistenct with an existing one."""
+        log.info(f"Initializing checkpoint in {self.checkpoint_path}")
         limit_dim = 0
         for key in self.propagator.limits:
             if isinstance(self.propagator.limits[key][0], str):
