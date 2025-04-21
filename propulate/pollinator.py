@@ -230,7 +230,6 @@ class Pollinator(Propulator):
 
                     assert self.immigration_propagator is not None
                     immigrator = self.immigration_propagator(replace_num)  # Set up immigration propagator.
-                    assert isinstance(immigrator, Propagator)
                     to_replace = immigrator(eligible_for_replacement)  # Choose individual to be replaced by immigrant.
 
                     # Send individuals to be replaced to other intra-island workers for deactivation.
