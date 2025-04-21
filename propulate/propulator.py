@@ -256,6 +256,7 @@ class Propulator:
 
             xdim = 1
             # TODO clean this up when reorganizing propagators
+            # TODO store velocity in its own dataset?
             if isinstance(self.propagator, BasicPSO) or (
                 isinstance(self.propagator, Conditional) and isinstance(self.propagator.true_prop, BasicPSO)
             ):
@@ -285,13 +286,15 @@ class Propulator:
                         group["evaltime"].resize(self.generations, axis=0)
                         group["evalperiod"].resize(self.generations, axis=0)
                         group["active_on_island"].resize(self.generations, axis=0)
+                        if xdim == 2:
+                            group["x"].resize(xdim, axis=1)
 
                     group.require_dataset(
                         "x",
                         (self.generations, xdim, limit_dim),
                         dtype=np.float32,
                         chunks=True,
-                        maxshape=(None, xdim, limit_dim),
+                        maxshape=(None, 2, limit_dim),
                         data=np.full(
                             (self.generations, xdim, limit_dim),
                             np.nan,
