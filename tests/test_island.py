@@ -41,6 +41,8 @@ def pollination(request: pytest.FixtureRequest) -> bool:
     return request.param
 
 
+# TODO fix stall on second test starting issue
+# TODO fix occasional duplicate immigrant on final sync
 @pytest.mark.mpi(min_size=4)
 def test_islands_simple(
     global_variables: Tuple[random.Random, Callable, Dict[str, Tuple[float, float]], Propagator],
@@ -60,7 +62,9 @@ def test_islands_simple(
         The temporary checkpoint directory.
     """
     log = logging.getLogger("propulate")  # Get logger instance.
+
     set_logger_config(level=logging.DEBUG)
+
     rng, benchmark_function, limits, propagator = global_variables
 
     # Set up island model.
@@ -68,7 +72,7 @@ def test_islands_simple(
         loss_fn=benchmark_function,
         propagator=propagator,
         rng=rng,
-        generations=10,
+        generations=50,
         num_islands=2,
         migration_probability=0.9,
         pollination=pollination,
@@ -82,6 +86,7 @@ def test_islands_simple(
     population_consistency_check(islands.propulator)
     log.handlers.clear()
     MPI.COMM_WORLD.barrier()
+    print(f"Finished simple island test, pollination: {pollination}")
 
 
 @pytest.mark.mpi(min_size=4)

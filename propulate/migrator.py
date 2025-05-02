@@ -57,6 +57,7 @@ class Migrator(Propulator):
         checkpoint_path: Union[str, Path] = Path("./"),
         migration_topology: Optional[np.ndarray] = None,
         migration_prob: float = 0.0,
+        # TODO call tis a class, also in other propulators
         emigration_propagator: Type[Propagator] = SelectMin,
         immigration_propagator: Optional[Type[Propagator]] = None,
         island_displs: Optional[np.ndarray] = None,
@@ -167,6 +168,7 @@ class Migrator(Propulator):
                 for r in range(self.island_comm.size):  # Send emigrants to other intra-island workers for deactivation.
                     if r == self.island_comm.rank:
                         continue  # No self-talk.
+                    # TODO isend
                     self.island_comm.send(copy.deepcopy(emigrants), dest=r, tag=SYNCHRONIZATION_TAG)
                     log_string += f"Sent {len(emigrants)} individual(s) {emigrants} to intra-island worker {r} to deactivate.\n"
 
@@ -186,6 +188,7 @@ class Migrator(Propulator):
                     hdf5_checkpoint[f"{ind.island}"][f"{ind.island_rank}"]["active_on_island"][ind.generation, target_island] = True
 
                 for r in dest_island_workers:  # Loop over self.propulate_comm destination ranks.
+                    # TODO check types, list[inds] or ind?
                     self.inter_buffers.append(copy.deepcopy(departing))
                     self.inter_requests.append(self.propulate_comm.isend(self.inter_buffers[-1], dest=r, tag=MIGRATION_TAG))
 
@@ -195,6 +198,7 @@ class Migrator(Propulator):
                     )
 
                 # Deactivate emigrants for sending worker.
+                # TODO something is going wrong, sometimes an ind is sent twice
                 for emigrant in emigrants:
                     assert isinstance(emigrant, Individual)
                     # Look for emigrant to deactivate in original population list.
