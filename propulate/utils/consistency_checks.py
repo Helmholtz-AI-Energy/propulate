@@ -1,3 +1,4 @@
+import logging
 from typing import Union
 
 import h5py
@@ -5,6 +6,8 @@ import numpy as np
 
 from propulate import Migrator, Pollinator, Propulator
 from propulate.population import Individual
+
+log = logging.getLogger(__name__)
 
 
 def final_synch(propulator: Propulator) -> None:
@@ -20,6 +23,7 @@ def final_synch(propulator: Propulator) -> None:
 
     if propulator.migration_prob > 0.0:
         if isinstance(propulator, Migrator):
+            # TODO sometimes receives duplicates here
             propulator._receive_immigrants()
             propulator.propulate_comm.barrier()
 
@@ -37,6 +41,8 @@ def final_synch(propulator: Propulator) -> None:
             # Immigration: Final check for individuals replaced by other intra-island workers to be deactivated.
             propulator._deactivate_replaced_individuals()
             propulator.propulate_comm.barrier()
+            if len(propulator.replaced) > 0:
+                log.error(f"{propulator.replaced}")
             assert len(propulator.replaced) == 0
 
 
@@ -46,7 +52,10 @@ def population_consistency_check(propulator: Propulator) -> None:
     num_active = len(active_pop)
 
     # NOTE check that all workers on one island have the same number of individuals
-    assert np.all(np.array(propulator.island_comm.allgather(num_active), dtype=int) == num_active)
+    all_num_active = np.array(propulator.island_comm.allgather(num_active), dtype=int)
+    if not np.all(all_num_active == num_active):
+        log.error(f"Inconsistent number of total individuals: {all_num_active}")
+        assert False
 
     if propulator.island_counts is not None:
         num_active = int(propulator.propulate_comm.allreduce(num_active / propulator.island_counts[propulator.island_idx]))
