@@ -508,10 +508,13 @@ class Propulator:
             pickle.dump(self.population, f)
 
         dest = self.island_comm.rank + 1 if self.island_comm.rank + 1 < self.island_comm.size else 0
-        self.island_comm.send(True, dest=dest, tag=DUMP_TAG)
+        if self.island_comm.size > 1:
+            self.island_comm.send(True, dest=dest, tag=DUMP_TAG)
 
     def _determine_worker_dumping_next(self) -> bool:
         """Determine the worker who dumps the checkpoint in the next generation."""
+        if self.island_comm.size == 1:
+            return True
         dump = False
         stat = MPI.Status()
         probe_dump = self.island_comm.iprobe(source=MPI.ANY_SOURCE, tag=DUMP_TAG, status=stat)
