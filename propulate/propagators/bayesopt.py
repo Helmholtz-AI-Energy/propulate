@@ -75,7 +75,6 @@ class ExpectedImprovement(AcquisitionFunction):
         model,
         f_best: float,
     ) -> float:
-        x = np.atleast_2d(x)
         mu, sigma = self._predict(x, model)
         ei = expected_improvement(mu, sigma, f_best, minimize=True, xi=self.xi)
         return float(ei[0])
@@ -94,8 +93,7 @@ class ProbabilityImprovement(AcquisitionFunction):
         model,
         f_best: float,
     ) -> float:
-        x = np.atleast_2d(x)
-        mu, sigma = model.predict(x, return_std=True)
+        mu, sigma = self._predict(x, model)
         imp = f_best - mu - self.xi
         Z = imp / sigma
         pi = norm.cdf(Z)
@@ -115,8 +113,7 @@ class UpperConfidenceBound(AcquisitionFunction):
         model,
         f_best: float,
     ) -> float:
-        x = np.atleast_2d(x)
-        mu, sigma = model.predict(x, return_std=True)
+        mu, sigma = self._predict(x, model)
         ucb = mu - self.kappa * sigma
         return float(-ucb[0])
 
