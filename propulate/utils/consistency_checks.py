@@ -3,6 +3,7 @@ from typing import Union
 
 import h5py
 import numpy as np
+from mpi4py import MPI
 
 from propulate import Migrator, Pollinator, Propulator
 from propulate.population import Individual
@@ -116,3 +117,22 @@ def _check_for_duplicates(propulator: Propulator) -> tuple[list[list[Union[Indiv
             unique_inds.append(individual)
             occurrences.append([individual, num_copies])
     return occurrences, unique_inds
+
+
+def mpi_assert_equal(value, target) -> None:
+    """
+    Allgather comparison assertions to all ranks, so not only one rank fails.
+    """
+    MPI.COMM_WORLD.barrier()
+    test = MPI.COMM_WORLD.allgather(value)
+    target = MPI.COMM_WORLD.allgather(value)
+    assert all(test) == all(target)
+
+
+def mpi_assert(value) -> None:
+    """
+    Allgather assertions to all ranks, so not only one rank fails.
+    """
+    MPI.COMM_WORLD.barrier()
+    test = MPI.COMM_WORLD.allgather(value)
+    assert all(test)
