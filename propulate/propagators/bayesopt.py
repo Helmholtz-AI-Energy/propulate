@@ -126,10 +126,20 @@ class AcquisitionType(Enum):
 
 def create_acquisition(
     acq_type: str,
+    *,
+    rank_stretch: bool = False,
+    rank: Optional[int] = None,
+    size: Optional[int] = None,
+    # NEW: how far below/above to stretch (defaults 0.5× → 2×)
+    factor_min: float = 0.5,
+    factor_max: float = 2.0,
+    # any plain acquisition params (“xi”, “kappa”)
     **params
 ) -> AcquisitionFunction:
     """
     Factory to create an acquisition function by name.
+    If rank_stretch=True and size>1, linearly rescales “xi” (for EI/PI)
+    or “kappa” (for UCB) by factor_min→factor_max across ranks 0…size-1.
     """
     try:
         at = AcquisitionType(acq_type.upper())
@@ -137,15 +147,24 @@ def create_acquisition(
         valid = [e.value for e in AcquisitionType]
         raise ValueError(f"Unknown acquisition type '{acq_type}'. Valid types: {valid}")
 
+    # only do per-rank stretch if requested
+    if rank_stretch and rank is not None and size and size > 1:
+        rel = rank / (size - 1)  # goes 0.0 … 1.0
+        stretch = factor_min + rel * (factor_max - factor_min)
+        if at in (AcquisitionType.EI, AcquisitionType.PI):
+            xi0 = params.get("xi", 0.01)
+            params["xi"] = xi0 * stretch
+        elif at == AcquisitionType.UCB:
+            k0 = params.get("kappa", 1.96)
+            params["kappa"] = k0 * stretch
+
+    # instantiate the right class
     if at == AcquisitionType.EI:
         return ExpectedImprovement(**params)
     elif at == AcquisitionType.PI:
         return ProbabilityImprovement(**params)
-    elif at == AcquisitionType.UCB:
+    else:  # at == AcquisitionType.UCB
         return UpperConfidenceBound(**params)
-    else:
-        valid = [e.value for e in AcquisitionType]
-        raise ValueError(f"Unknown acquisition type '{acq_type}'. Valid types: {valid}")
 
 
 def serialize_gpr(gpr):
@@ -176,6 +195,7 @@ def deserialize_gpr(state):
         gpr._y_train_std  = state["y_std"]
     return gpr
 
+
 class SurrogateFitter(ABC):
     """
     Base class for surrogate model fitters leveraging different compute backends.
@@ -197,7 +217,9 @@ class SingleCPUFitter(SurrogateFitter):
     """
     Fits a GaussianProcessRegressor on a single CPU using scikit-learn.
     """
-    def fit(self, kernel: Kernel, X: np.ndarray, y: np.ndarray) -> GaussianProcessRegressor:
+    def fit(self, kernel: Kernel, 
+            X: np.ndarray, 
+            y: np.ndarray) -> GaussianProcessRegressor:
         opt = "fmin_l_bfgs_b"
         model = GaussianProcessRegressor(
             kernel=kernel,
@@ -274,6 +296,7 @@ class SingleGPUFitter(SurrogateFitter):
         """
         self.learning_rate = learning_rate
         self.num_epochs = num_epochs
+        # TODO: Add test import of optional dependencies: gpytorch, torch
 
 
     def fit(self, kernel: Kernel, X: np.ndarray, y: np.ndarray) -> 'GPyTorchModel':
@@ -292,6 +315,7 @@ class SingleGPUFitter(SurrogateFitter):
                     self.mean_module(x), self.covar_module(x)
                 )
 
+        # TODO: make device configurable
         device = torch.device("cuda:0")
         train_x = torch.from_numpy(X).to(device)
         train_y = torch.from_numpy(y).to(device)
@@ -352,13 +376,7 @@ def create_fitter(
         raise ValueError(f"Unsupported fitter type '{fitter_type}'.")
 
 
-class BayesOpt(Propagator):
-    """
-    Asynchronous Bayesian Optimization propagator for Propulate.
-
-    Plug in compute-specific surrogate fitters and acquisition functions.
-    """
-
+class BayesianOptimizer(Propagator):
     def __init__(
         self,
         limits: Dict[str, Tuple[float, float]],
@@ -369,6 +387,9 @@ class BayesOpt(Propagator):
         optimize_hyperparameters: bool = True,
         acquisition_type: str = "EI",
         acquisition_params: Optional[Dict[str, float]] = None,
+        rank_stretch: bool = True,
+        factor_min: float = 0.5,
+        factor_max: float = 2.0,
         sparse: bool = False,
         sparse_params: Optional[Dict[str, int]] = None,
         rng: Optional[random.Random] = None,
@@ -389,7 +410,13 @@ class BayesOpt(Propagator):
 
         # Instantiate acquisition
         self.acquisition = create_acquisition(
-            acquisition_type, **(acquisition_params or {})
+            acquisition_type,
+            rank_stretch=rank_stretch,
+            rank=self.rank,
+            size=getattr(self.fitter, "size", None),
+            factor_min=factor_min,
+            factor_max=factor_max,
+            **(acquisition_params or {})
         )
 
     def __call__(
