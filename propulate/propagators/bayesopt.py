@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import random
 from enum import Enum
+import importlib
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -287,51 +288,95 @@ class MultiCPUFitter(SurrogateFitter):
 
 class SingleGPUFitter(SurrogateFitter):
     """
-    Uses GPyTorch to train a GP surrogate on a single GPU.
+    Uses GPyTorch to train a GP surrogate on a single GPU (or CPU fallback if allowed).
     """
-    def __init__(self, learning_rate: float = 0.1, num_epochs: int = 50):
+    def __init__(
+        self,
+        learning_rate: float = 0.1,
+        num_epochs: int = 50,
+        device: Optional[str] = None,
+        require_cuda: bool = True,
+    ):
         """
-        learning_rate: Learning rate for Adam optimizer
-        num_epochs: Number of training epochs
+        learning_rate: Learning rate for Adam optimizer.
+        num_epochs: Number of training epochs.
+        device: Torch device string (e.g., 'cuda:0' or 'cpu'). If None, chooses
+                'cuda:0' if available, else 'cpu' (unless require_cuda=True).
+        require_cuda: If True and CUDA isn't available, raise a RuntimeError.
         """
         self.learning_rate = learning_rate
         self.num_epochs = num_epochs
-        # TODO: Add test import of optional dependencies: gpytorch, torch
+        try:
+            self._torch = importlib.import_module("torch")
+            self._gpytorch = importlib.import_module("gpytorch")
+        except ImportError as e:
+            raise ImportError(
+                "SingleGPUFitter requires optional dependencies 'torch' and 'gpytorch'. "
+                "Install them with: pip install torch gpytorch"
+            ) from e
 
+        # Configure device
+        torch = self._torch
+        if device is None:
+            if torch.cuda.is_available():
+                device = "cuda:0"
+            else:
+                if require_cuda:
+                    raise RuntimeError(
+                        "CUDA is not available but a GPU is required. "
+                        "Install a CUDA-enabled PyTorch build or pass device='cpu' or require_cuda=False."
+                    )
+                device = "cpu"
+        self.device = torch.device(device)
 
     def fit(self, kernel: Kernel, X: np.ndarray, y: np.ndarray) -> 'GPyTorchModel':
-        import torch
-        import gpytorch
-        # Construct a GP model in GPyTorch, move data and model to GPU
-        # Train with Adam or LBFGS on cuda
+        torch = self._torch
+        gpytorch = self._gpytorch
+
+        # Ensure tensors are the right dtype/shape and on the configured device
+        train_x = torch.as_tensor(X, dtype=torch.float32, device=self.device)
+        if y.ndim > 1:
+            y = y.squeeze(-1)
+        train_y = torch.as_tensor(y, dtype=torch.float32, device=self.device)
+
+        # Inner model definition
         class GPyTorchModel(gpytorch.models.ExactGP):
-            def __init__(self, train_x, train_y, likelihood, kernel):
+            def __init__(self, train_x, train_y, likelihood, kernel_mod):
                 super().__init__(train_x, train_y, likelihood)
                 self.mean_module = gpytorch.means.ConstantMean()
-                self.covar_module = kernel
+                self.covar_module = kernel_mod
 
             def forward(self, x):
                 return gpytorch.distributions.MultivariateNormal(
                     self.mean_module(x), self.covar_module(x)
                 )
 
-        # TODO: make device configurable
-        device = torch.device("cuda:0")
-        train_x = torch.from_numpy(X).to(device)
-        train_y = torch.from_numpy(y).to(device)
-        likelihood = gpytorch.likelihoods.GaussianLikelihood().to(device)
-        model = GPyTorchModel(train_x, train_y, likelihood, kernel.to(device))
-        model.train(); likelihood.train()
+        # Move kernel if it supports .to(...)
+        kernel_mod = kernel.to(self.device) if hasattr(kernel, "to") else kernel
+
+        likelihood = gpytorch.likelihoods.GaussianLikelihood().to(self.device)
+        model = GPyTorchModel(train_x, train_y, likelihood, kernel_mod).to(self.device)
+
+        model.train()
+        likelihood.train()
+
         optimizer = torch.optim.Adam(model.parameters(), lr=self.learning_rate)
         mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
+
         for _ in range(self.num_epochs):
-            optimizer.zero_grad()
+            optimizer.zero_grad(set_to_none=True)
             output = model(train_x)
             loss = -mll(output, train_y)
             loss.backward()
             optimizer.step()
-        model.eval(); likelihood.eval()
+
+        model.eval()
+        likelihood.eval()
+
+        # Make likelihood accessible to callers if they need posterior predictions
+        model.likelihood = likelihood
         return model
+
 
 
 class MultiGPUFitter(SurrogateFitter):
