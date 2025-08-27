@@ -494,13 +494,16 @@ class BayesianOptimizer(Propagator):
         
         lows, highs = self.limits_arr
         Xs = (X - lows) / (highs - lows)  # scale to unit cube
-        n, d = X.shape
-        optimize_hyperparameters_now = self.optimize_hyperparameters and (n >= 5 * d) # rule of thumb
+        enough_samples = (X.shape[0] >= 5 * X.shape[1])
+        current_generation = max(ind.generation for ind in inds)
+        optimize_hyperparameters_now = self.optimize_hyperparameters and enough_samples and (current_generation % 3 == 0) # rule of thumb
         model = self.fitter.fit(kernel=self.kernel, 
                                 X=Xs,
                                 y=y,
                                 optimize_hyperparameters=optimize_hyperparameters_now)
-        
+        # Warm-start next fit (sklearn clones & uses .kernel_ as init)
+        if hasattr(model, "kernel_"):
+            self.kernel = model.kernel_
 
         # Determine current best
         f_best = float(np.min(y))
