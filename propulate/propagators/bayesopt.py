@@ -2,16 +2,30 @@ from abc import ABC, abstractmethod
 import random
 from enum import Enum
 import importlib
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union, Protocol
 
 import numpy as np
 from scipy.stats import norm
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import Kernel, RBF
+from sklearn.gaussian_process.kernels import Kernel, RBF, ConstantKernel as C, WhiteKernel
 from mpi4py import MPI
 
 from ..propagators import Propagator
 from ..population import Individual
+
+
+def get_default_kernel(dim: int) -> Kernel:
+    kernel = (
+        C(1.0, (1e-2, 1e2)) *
+        RBF(length_scale=np.ones(dim), length_scale_bounds=(1e-2, 10.0))
+        + WhiteKernel(noise_level=1e-6, noise_level_bounds=(1e-8, 1e-2))
+    )
+    return kernel
+
+class SupportsPredict(Protocol):
+    def predict(self, X: np.ndarray, return_std: bool = True) -> Tuple[np.ndarray, np.ndarray]: ...
+
+
 
 def expected_improvement(
     mu: np.ndarray,
@@ -88,16 +102,17 @@ class ProbabilityImprovement(AcquisitionFunction):
     def __init__(self, xi: float = 0.01):
         self.xi = xi
 
-    def evaluate(
-        self,
-        x: np.ndarray,
-        model,
-        f_best: float,
-    ) -> float:
+    def evaluate(self, x: np.ndarray, model, f_best: float) -> float:
         mu, sigma = self._predict(x, model)
         imp = f_best - mu - self.xi
-        Z = imp / sigma
-        pi = norm.cdf(Z)
+
+        # Safe Z with explicit sigma==0 handling
+        with np.errstate(divide="ignore", invalid="ignore"):
+            Z = np.divide(imp, sigma, out=np.full_like(imp, np.inf), where=sigma > 0)
+            pi = norm.cdf(Z)
+            # If sigma == 0, PI is 1 when improvement>0 else 0
+            pi = np.where(sigma == 0, (imp > 0).astype(float), pi)
+
         return float(pi[0])
 
 
@@ -131,10 +146,8 @@ def create_acquisition(
     rank_stretch: bool = False,
     rank: Optional[int] = None,
     size: Optional[int] = None,
-    # NEW: how far below/above to stretch (defaults 0.5× → 2×)
     factor_min: float = 0.5,
     factor_max: float = 2.0,
-    # any plain acquisition params (“xi”, “kappa”)
     **params
 ) -> AcquisitionFunction:
     """
@@ -207,7 +220,7 @@ class SurrogateFitter(ABC):
         kernel: Kernel,
         X: np.ndarray,
         y: np.ndarray,
-    ) -> Union[GaussianProcessRegressor, 'GPyTorchModel']:
+    ) -> Union[GaussianProcessRegressor, SupportsPredict]:
         """
         Fit and return a surrogate model trained on (X, y).
         """
@@ -215,51 +228,45 @@ class SurrogateFitter(ABC):
 
 
 class SingleCPUFitter(SurrogateFitter):
-    """
-    Fits a GaussianProcessRegressor on a single CPU using scikit-learn.
-    """
-    def fit(self, kernel: Kernel, 
-            X: np.ndarray, 
-            y: np.ndarray) -> GaussianProcessRegressor:
-        opt = "fmin_l_bfgs_b"
-        model = GaussianProcessRegressor(
-            kernel=kernel,
-            optimizer=opt,
-            normalize_y=True,
-        )
-        model.fit(X, y)
-        return model
+    def __init__(self, optimize_hyperparameters: bool = True,
+                 n_restarts: int = 0, random_state: Optional[int] = None,
+                 alpha: float = 1e-6):
+        self.optimize_hyperparameters = optimize_hyperparameters
+        self.n_restarts = n_restarts
+        self.random_state = random_state
+        self.alpha = alpha
 
+    def fit(self, kernel, X, y, **kwargs):
+        flag = kwargs.get("optimize_hyperparameters", self.optimize_hyperparameters)
+        opt = "fmin_l_bfgs_b" if flag else None
+        nre = self.n_restarts if flag else 0
+        gp = GaussianProcessRegressor(
+            kernel=kernel, optimizer=opt, n_restarts_optimizer=nre,
+            normalize_y=True, random_state=self.random_state, alpha=self.alpha
+        )
+        gp.fit(X, y)
+        return gp
 
 class MultiCPUFitter(SurrogateFitter):
-    """
-    Parallel hyperparameter optimization across MPI ranks.
-    Each rank does a subset of random restarts, then they
-    all reduce to pick the best model.
-    """
-    def __init__(self, comm: MPI.Comm, n_restarts_per_rank: int = 1, seed: int = 42) -> None:
-        """
-        comm: an mpi4py communicator (e.g. MPI.COMM_WORLD)
-        n_restarts_per_rank: number of random restarts per rank
-        """
+    def __init__(self, comm, n_restarts_per_rank: int = 1, seed: int = 42,
+                 optimize_hyperparameters: bool = True, alpha: float = 1e-6):
         self.comm = comm
-        self.rank = comm.Get_rank()
-        self.size = comm.Get_size()
-        self.seed = seed + self.rank  # Ensure different seeds per rank
+        self.rank = comm.Get_rank(); self.size = comm.Get_size()
+        self.seed = seed + self.rank
         self.n_restarts_per_rank = n_restarts_per_rank
+        self.optimize_hyperparameters = optimize_hyperparameters
+        self.alpha = alpha
 
-    def fit(self, kernel: Kernel, X: np.ndarray, y: np.ndarray) -> GaussianProcessRegressor:
+    def fit(self, kernel, X, y, **kwargs):
         best_ll = -float("inf")
         best_model = None
-
-        # Each rank fits its subset
         
+        flag = kwargs.get("optimize_hyperparameters", self.optimize_hyperparameters)
+        opt = "fmin_l_bfgs_b" if flag else None
+        nre = self.n_restarts_per_rank if flag else 0
         gp = GaussianProcessRegressor(
-            kernel=kernel,
-            optimizer="fmin_l_bfgs_b",
-            normalize_y=True,
-            n_restarts_optimizer=self.n_restarts_per_rank,
-            random_state=self.seed
+            kernel=kernel, optimizer=opt, n_restarts_optimizer=nre,
+            normalize_y=True, random_state=self.seed, alpha=self.alpha
         )
         gp.fit(X, y)
         ll = gp.log_marginal_likelihood_value_
@@ -428,7 +435,7 @@ class BayesianOptimizer(Propagator):
         optimizer,
         rank: int,
         fitter: SurrogateFitter,
-        kernel: Kernel = RBF(),
+        kernel: Optional[Kernel] = None,
         optimize_hyperparameters: bool = True,
         acquisition_type: str = "EI",
         acquisition_params: Optional[Dict[str, float]] = None,
@@ -451,6 +458,8 @@ class BayesianOptimizer(Propagator):
         self.rank = rank
 
         # Kernel for surrogate
+        if kernel is None:
+            kernel = get_default_kernel(self.dim)
         self.kernel = kernel
 
         # Instantiate acquisition
@@ -482,20 +491,24 @@ class BayesianOptimizer(Propagator):
         # Prepare training data
         X = np.vstack([ind.position for ind in inds])
         y = np.array([ind.loss for ind in inds])
-
-        # Fit surrogate with appropriate resource
-        model = self.fitter.fit(
-            kernel=self.kernel,
-            X=X,
-            y=y
-        )
+        
+        lows, highs = self.limits_arr
+        Xs = (X - lows) / (highs - lows)  # scale to unit cube
+        n, d = X.shape
+        optimize_hyperparameters_now = self.optimize_hyperparameters and (n >= 5 * d) # rule of thumb
+        model = self.fitter.fit(kernel=self.kernel, 
+                                X=Xs,
+                                y=y,
+                                optimize_hyperparameters=optimize_hyperparameters_now)
+        
 
         # Determine current best
         f_best = float(np.min(y))
 
         # Acquisition wrapper
         def acq_func(x: np.ndarray) -> float:
-            return self.acquisition.evaluate(x, model, f_best)
+            xs = (x - lows) / (highs - lows)
+            return self.acquisition.evaluate(xs, model, f_best)
 
         # Optimize acquisition
         x_new = self.optimizer.optimize(

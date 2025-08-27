@@ -2,15 +2,168 @@
 import copy
 import pathlib
 import random
+from typing import Callable
 
+import deepdiff
 import numpy as np
 import pytest
-from mpi4py import MPI  # Kept for style consistency
+from mpi4py import MPI
+from sklearn.gaussian_process.kernels import RBF
 
-from propulate.propagators.bayes_opt import (
+from propulate import Propulator
+from propulate.utils import set_logger_config
+from propulate.utils.benchmark_functions import get_function_search_space
+from propulate.propagators.bayesopt import (
+    BayesianOptimizer,
+    SingleCPUFitter,
+    MultiCPUFitter,
     expected_improvement,
     create_acquisition,
+    get_default_kernel
 )
+
+
+class RandomBoxSearch:
+    """Simple random search to optimize the acquisition function."""
+    def __init__(self, n_samples: int = 128) -> None:
+        self.n_samples = n_samples
+
+    def optimize(
+        self,
+        acq_func: Callable[[np.ndarray], float],
+        bounds: np.ndarray,
+        rng: random.Random,
+    ) -> np.ndarray:
+        lows, highs = bounds
+        dim = lows.shape[0]
+        best_x = None
+        best_v = float("inf")
+        for _ in range(self.n_samples):
+            x = np.array([rng.uniform(l, u) for l, u in zip(lows, highs)], dtype=float)
+            v = acq_func(x)
+            if v < best_v:
+                best_v = v
+                best_x = x
+        return best_x
+
+
+@pytest.fixture(
+    params=[
+        "rosenbrock",
+        "step",
+        "quartic",
+        "rastrigin",
+        "griewank",
+        "schwefel",
+        "bisphere",
+        "birastrigin",
+        "bukin",
+        "eggcrate",
+        "himmelblau",
+        "keane",
+        "leon",
+        "sphere",
+    ]
+)
+def function_name(request: pytest.FixtureRequest) -> str:
+    """Define benchmark function parameter sets as used in tests."""
+    return request.param
+
+
+def _make_bayes_propagator(limits, rng: random.Random) -> BayesianOptimizer:
+    """Helper to build a BayesianOptimizer with MPI-aware fitter and simple acq optimizer."""
+    dim = len(limits)
+    fitter = MultiCPUFitter(comm=MPI.COMM_WORLD, n_restarts_per_rank=1, seed=7)
+    acq_optimizer = RandomBoxSearch(n_samples=96)
+    kernel = get_default_kernel(dim)
+    return BayesianOptimizer(
+        limits=limits,
+        optimizer=acq_optimizer,
+        rank=MPI.COMM_WORLD.rank,
+        fitter=fitter,
+        kernel=kernel,
+        acquisition_type="EI",
+        acquisition_params={"xi": 0.01},
+        rank_stretch=True,          # diversify across ranks
+        factor_min=0.5,
+        factor_max=2.0,
+        sparse=True,                # keep training sets light in tests
+        sparse_params={"max_points": 200},
+        rng=rng,
+    )
+
+
+def test_bayes_propagator(function_name: str, mpi_tmp_path: pathlib.Path) -> None:
+    """
+    Test Propulator to optimize the benchmark functions using the Bayesian optimizer propagator.
+
+    This test is run both sequentially and in parallel.
+
+    Parameters
+    ----------
+    function_name : str
+        The function name.
+    mpi_tmp_path : pathlib.Path
+        The temporary checkpoint directory.
+    """
+    rng = random.Random(42 + MPI.COMM_WORLD.rank)  # Random number generator for optimization
+    benchmark_function, limits = get_function_search_space(function_name)
+    set_logger_config(log_file=mpi_tmp_path / "log.log")
+
+    propagator = _make_bayes_propagator(limits, rng)
+
+    propulator = Propulator(
+        loss_fn=benchmark_function,
+        propagator=propagator,
+        rng=rng,
+        generations=10,
+        checkpoint_path=mpi_tmp_path,
+    )  # Set up propulator performing actual optimization.
+
+    propulator.propulate()  # Run optimization and print summary of results.
+
+
+def test_bayes_propagator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
+    """
+    Test Propulator checkpointing for the sphere benchmark function with the Bayesian optimizer.
+
+    This test is run both sequentially and in parallel.
+
+    Parameters
+    ----------
+    mpi_tmp_path : pathlib.Path
+        The temporary checkpoint directory.
+    """
+    rng = random.Random(42 + MPI.COMM_WORLD.rank)  # Separate random number generator for optimization
+    benchmark_function, limits = get_function_search_space("sphere")
+
+    propagator = _make_bayes_propagator(limits, rng)
+
+    propulator = Propulator(
+        loss_fn=benchmark_function,
+        propagator=propagator,
+        generations=10,
+        checkpoint_path=mpi_tmp_path,
+        rng=rng,
+    )  # Set up propulator performing actual optimization.
+
+    propulator.propulate()  # Run optimization and print summary of results.
+
+    old_population = copy.deepcopy(propulator.population)  # Save population list from the last run.
+    del propulator  # Delete propulator object.
+    MPI.COMM_WORLD.barrier()  # Synchronize all processes.
+
+    propulator = Propulator(
+        loss_fn=benchmark_function,
+        propagator=propagator,
+        generations=5,
+        checkpoint_path=mpi_tmp_path,
+        rng=rng,
+    )  # Set up new propulator starting from checkpoint.
+
+    # As the number of requested generations is smaller than the number of generations from the run before,
+    # no new evaluations are performed. Thus, the length of both Propulators' populations must be equal.
+    assert len(deepdiff.DeepDiff(old_population, propulator.population, ignore_order=True)) == 0
 
 
 class _DummyModel:
