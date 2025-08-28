@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Tuple, Union, Protocol
 import numpy as np
 from scipy.stats import norm
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import Kernel, RBF, ConstantKernel as C, WhiteKernel
+from sklearn.gaussian_process.kernels import Kernel, RBF, ConstantKernel as C, WhiteKernel, Matern
 from mpi4py import MPI
 
 from ..propagators import Propagator
@@ -17,8 +17,8 @@ from ..population import Individual
 def get_default_kernel(dim: int) -> Kernel:
     kernel = (
         C(1.0, (1e-2, 1e2)) *
-        RBF(length_scale=np.ones(dim), length_scale_bounds=(1e-2, 10.0))
-        + WhiteKernel(noise_level=1e-6, noise_level_bounds=(1e-8, 1e-2))
+        Matern(length_scale=np.ones(dim), length_scale_bounds=(1e-2, 10.0))
+        #+ WhiteKernel(noise_level=1e-6, noise_level_bounds=(1e-8, 1e-2))
     )
     return kernel
 
