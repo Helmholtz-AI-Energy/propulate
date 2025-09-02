@@ -5,6 +5,7 @@ import importlib
 from typing import Dict, List, Optional, Tuple, Union, Protocol
 
 import numpy as np
+from scipy.optimize import fmin_l_bfgs_b, minimize
 from scipy.stats import norm
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import Kernel, RBF, ConstantKernel as C, WhiteKernel, Matern
@@ -14,18 +15,39 @@ from ..propagators import Propagator
 from ..population import Individual
 
 
-def get_default_kernel(dim: int) -> Kernel:
+def get_default_kernel_sklearn(dim: int) -> Kernel:
     kernel = (
         C(1.0, (1e-2, 1e2)) *
         Matern(length_scale=np.ones(dim), length_scale_bounds=(1e-2, 10.0))
         #+ WhiteKernel(noise_level=1e-6, noise_level_bounds=(1e-8, 1e-2))
     )
     return kernel
+    
+def get_default_kernel_gpytorch(dim: int):
+    import gpytorch
+    return gpytorch.kernels.ScaleKernel(
+        gpytorch.kernels.MaternKernel(nu=1.5, ard_num_dims=dim)
+    )
 
 class SupportsPredict(Protocol):
     def predict(self, X: np.ndarray, return_std: bool = True) -> Tuple[np.ndarray, np.ndarray]: ...
 
-
+class _GPyTorchPredictAdapter:
+    def __init__(self, model, device):
+        self.model = model
+        self.likelihood = model.likelihood
+        self.device = device
+    def predict(self, X: np.ndarray, return_std: bool = True):
+        import torch
+        self.model.eval(); self.likelihood.eval()
+        with torch.no_grad():
+            xt = torch.as_tensor(np.atleast_2d(X), dtype=torch.float32, device=self.device)
+            post = self.likelihood(self.model(xt))
+            mu = post.mean.detach().cpu().numpy()
+            if not return_std:
+                return mu, None
+            var = post.variance.clamp_min(0.0).detach().cpu().numpy()
+            return mu, np.sqrt(var)
 
 def expected_improvement(
     mu: np.ndarray,
@@ -42,7 +64,8 @@ def expected_improvement(
     else:
         improvement = mu - f_best - xi
     with np.errstate(divide="ignore", invalid="ignore"):
-        Z = improvement / sigma
+        eps = 1e-12
+        Z = improvement / np.maximum(sigma, eps)
         ei = improvement * norm.cdf(Z) + sigma * norm.pdf(Z)
         ei[sigma == 0] = np.maximum(improvement[sigma == 0], 0)
     return ei
@@ -56,7 +79,7 @@ class AcquisitionFunction(ABC):
     def evaluate(
         self,
         x: np.ndarray,
-        model: Union[GaussianProcessRegressor, 'GPyTorchModel'],
+        model: Union[GaussianProcessRegressor, SupportsPredict],
         f_best: float,
     ) -> float:
         """
@@ -67,7 +90,7 @@ class AcquisitionFunction(ABC):
     def _predict(
         self,
         x: np.ndarray,
-        model: Union[GaussianProcessRegressor, 'GPyTorchModel'],
+        model: Union[GaussianProcessRegressor, SupportsPredict],
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Predict mean and std at x using the surrogate model.
@@ -131,7 +154,7 @@ class UpperConfidenceBound(AcquisitionFunction):
     ) -> float:
         mu, sigma = self._predict(x, model)
         ucb = mu - self.kappa * sigma
-        return float(-ucb[0])
+        return float(ucb[0])
 
 
 class AcquisitionType(Enum):
@@ -210,6 +233,41 @@ def deserialize_gpr(state):
     return gpr
 
 
+
+def _robust_lbfgs(obj_func, initial_theta, bounds):
+    """
+    Replacement for sklearn's default optimizer.
+    Tries L-BFGS-B with friendlier options; if line search still fails,
+    falls back to a bounded Powell step (gradient-free).
+    Returns (theta_opt, f_min).
+    """
+    def f_and_g(theta):
+        # sklearn passes obj_func(theta, eval_gradient=True) -> (f, g)
+        return obj_func(theta, eval_gradient=True)
+
+    # 1) Two attempts with progressively looser / longer line search
+    attempts = [
+        dict(maxiter=200, maxls=50,  factr=1e7, pgtol=1e-8),
+        dict(maxiter=400, maxls=100, factr=1e9, pgtol=1e-6),
+    ]
+    best = (None, np.inf)
+    for opts in attempts:
+        theta, fval, info = fmin_l_bfgs_b(f_and_g, initial_theta, bounds=bounds, **opts)
+        if fval < best[1]:
+            best = (theta, fval)
+        if info.get("warnflag", 1) == 0:  # converged
+            return theta, fval  # success -> no warnings
+
+    # 2) Fallback: gradient-free Powell within bounds (stable, slower)
+    def f_only(theta):
+        return obj_func(theta, eval_gradient=False)
+
+    res = minimize(f_only, best[0] if best[0] is not None else initial_theta,
+                   method="Powell", bounds=bounds,
+                   options={"maxiter": 1000, "xtol": 1e-4, "ftol": 1e-4, "disp": False})
+    return res.x, res.fun
+    
+    
 class SurrogateFitter(ABC):
     """
     Base class for surrogate model fitters leveraging different compute backends.
@@ -220,6 +278,7 @@ class SurrogateFitter(ABC):
         kernel: Kernel,
         X: np.ndarray,
         y: np.ndarray,
+        **kwargs
     ) -> Union[GaussianProcessRegressor, SupportsPredict]:
         """
         Fit and return a surrogate model trained on (X, y).
@@ -238,7 +297,7 @@ class SingleCPUFitter(SurrogateFitter):
 
     def fit(self, kernel, X, y, **kwargs):
         flag = kwargs.get("optimize_hyperparameters", self.optimize_hyperparameters)
-        opt = "fmin_l_bfgs_b" if flag else None
+        opt = _robust_lbfgs if flag else None
         nre = self.n_restarts if flag else 0
         gp = GaussianProcessRegressor(
             kernel=kernel, optimizer=opt, n_restarts_optimizer=nre,
@@ -257,12 +316,12 @@ class MultiCPUFitter(SurrogateFitter):
         self.optimize_hyperparameters = optimize_hyperparameters
         self.alpha = alpha
 
-    def fit(self, kernel, X, y, **kwargs):
+    def fit(self, kernel: Kernel, X: np.ndarray, y: np.ndarray, **kwargs):
         best_ll = -float("inf")
         best_model = None
         
         flag = kwargs.get("optimize_hyperparameters", self.optimize_hyperparameters)
-        opt = "fmin_l_bfgs_b" if flag else None
+        opt = _robust_lbfgs if flag else None
         nre = self.n_restarts_per_rank if flag else 0
         gp = GaussianProcessRegressor(
             kernel=kernel, optimizer=opt, n_restarts_optimizer=nre,
@@ -336,7 +395,7 @@ class SingleGPUFitter(SurrogateFitter):
                 device = "cpu"
         self.device = torch.device(device)
 
-    def fit(self, kernel: Kernel, X: np.ndarray, y: np.ndarray) -> 'GPyTorchModel':
+    def fit(self, kernel: Kernel, X: np.ndarray, y: np.ndarray, **kwargs) -> SupportsPredict:
         torch = self._torch
         gpytorch = self._gpytorch
 
@@ -382,7 +441,7 @@ class SingleGPUFitter(SurrogateFitter):
 
         # Make likelihood accessible to callers if they need posterior predictions
         model.likelihood = likelihood
-        return model
+        return _GPyTorchPredictAdapter(model, self.device)
 
 
 
@@ -390,7 +449,7 @@ class MultiGPUFitter(SurrogateFitter):
     """
     Distributed GP training across multiple GPUs using PyTorch Distributed or DataParallel.
     """
-    def fit(self, kernel: Kernel, X: np.ndarray, y: np.ndarray, learning_rate: float = 0.1, num_epochs: int = 50) -> 'GPyTorchModel':
+    def fit(self, kernel: Kernel, X: np.ndarray, y: np.ndarray, learning_rate: float = 0.1, num_epochs: int = 50, **kwargs) -> SupportsPredict:
         """
         Placeholder: multi-GPU surrogate fitting not implemented.
         """
@@ -417,13 +476,13 @@ def create_fitter(
         raise ValueError(f"Unknown fitter type '{fitter_type}'. Valid types: {valid}")
 
     if ft == FitterType.SINGLE_CPU:
-        return SingleCPUFitter()
+        return SingleCPUFitter(**kwargs)
     elif ft == FitterType.MULTI_CPU:
         return MultiCPUFitter(**kwargs)
     elif ft == FitterType.SINGLE_GPU:
-        return SingleGPUFitter()
+        return SingleGPUFitter(**kwargs)
     elif ft == FitterType.MULTI_GPU:
-        return MultiGPUFitter()
+        return MultiGPUFitter(**kwargs)
     else:
         raise ValueError(f"Unsupported fitter type '{fitter_type}'.")
 
@@ -459,7 +518,12 @@ class BayesianOptimizer(Propagator):
 
         # Kernel for surrogate
         if kernel is None:
-            kernel = get_default_kernel(self.dim)
+            if isinstance(fitter, (SingleCPUFitter, MultiCPUFitter)):
+                kernel = get_default_kernel_sklearn(self.dim)
+            elif isinstance(fitter, (SingleGPUFitter, MultiGPUFitter)):
+                kernel = get_default_kernel_gpytorch(self.dim)
+            else:
+                raise ValueError(f"Unsupported fitter type: {type(fitter)}") 
         self.kernel = kernel
 
         # Instantiate acquisition
@@ -490,10 +554,25 @@ class BayesianOptimizer(Propagator):
 
         # Prepare training data
         X = np.vstack([ind.position for ind in inds])
-        y = np.array([ind.loss for ind in inds])
+        y = np.array([ind.loss for ind in inds], dtype=float)
         
+        mask = np.isfinite(y)
+        if not np.all(mask):
+            X, y = X[mask], y[mask]
+
+        if self.sparse and len(X) > self.max_points:
+            # keep the best point always
+            best_idx = np.argmin(y)
+            keep = {best_idx}
+            others = [i for i in range(len(X)) if i != best_idx]
+            sample = set(self.rng.sample(others, self.max_points - 1))
+            X = np.vstack([X[best_idx], X[list(sample)]])
+            y = np.hstack([y[best_idx], y[list(sample)]])
+
         lows, highs = self.limits_arr
-        Xs = (X - lows) / (highs - lows)  # scale to unit cube
+        scale = np.where((highs - lows) == 0.0, 1.0, (highs - lows))
+        Xs = (X - lows) / scale
+        
         enough_samples = (X.shape[0] >= 5 * X.shape[1])
         current_generation = max(ind.generation for ind in inds)
         optimize_hyperparameters_now = self.optimize_hyperparameters and enough_samples and (current_generation % 3 == 0) # rule of thumb

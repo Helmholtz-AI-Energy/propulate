@@ -18,8 +18,7 @@ from propulate.propagators.bayesopt import (
     SingleCPUFitter,
     MultiCPUFitter,
     expected_improvement,
-    create_acquisition,
-    get_default_kernel
+    create_acquisition
 )
 
 
@@ -75,13 +74,11 @@ def _make_bayes_propagator(limits, rng: random.Random) -> BayesianOptimizer:
     dim = len(limits)
     fitter = MultiCPUFitter(comm=MPI.COMM_WORLD, n_restarts_per_rank=1, seed=7)
     acq_optimizer = RandomBoxSearch(n_samples=96)
-    kernel = get_default_kernel(dim)
     return BayesianOptimizer(
         limits=limits,
         optimizer=acq_optimizer,
         rank=MPI.COMM_WORLD.rank,
         fitter=fitter,
-        kernel=kernel,
         acquisition_type="EI",
         acquisition_params={"xi": 0.01},
         rank_stretch=True,          # diversify across ranks
@@ -116,7 +113,7 @@ def test_bayes_propagator(function_name: str, mpi_tmp_path: pathlib.Path) -> Non
         loss_fn=benchmark_function,
         propagator=propagator,
         rng=rng,
-        generations=10,
+        generations=50,
         checkpoint_path=mpi_tmp_path,
     )  # Set up propulator performing actual optimization.
 
@@ -282,13 +279,13 @@ def test_upper_confidence_bound_matches_formula() -> None:
     acq = create_acquisition("UCB", kappa=kappa)
     v = acq.evaluate(x, model, f_best=-123.0)  # f_best is unused for UCB
 
-    expected = -(mu - kappa * sigma)
+    expected = mu - kappa * sigma
     assert v == pytest.approx(expected, rel=1e-12, abs=1e-12)
 
     # Increasing kappa should increase the returned value (-mu + kappa*sigma)
     acq2 = create_acquisition("UCB", kappa=kappa * 2)
     v2 = acq2.evaluate(x, model, f_best=0.0)
-    assert v2 > v
+    assert v2 < v
 
 
 def test_rank_stretching_parameters_across_all_acquisitions() -> None:
