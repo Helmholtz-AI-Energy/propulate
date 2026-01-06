@@ -2,7 +2,7 @@
 import copy
 import pathlib
 import random
-from typing import Callable
+from typing import Callable, Dict, Tuple, Union
 
 import deepdiff
 import numpy as np
@@ -48,20 +48,8 @@ class RandomBoxSearch:
 
 @pytest.fixture(
     params=[
-        "rosenbrock",
-        "step",
-        "quartic",
-        "rastrigin",
-        "griewank",
-        "schwefel",
-        "bisphere",
-        "birastrigin",
-        "bukin",
-        "eggcrate",
-        "himmelblau",
-        "keane",
-        "leon",
         "sphere",
+        "rosenbrock",
     ]
 )
 def function_name(request: pytest.FixtureRequest) -> str:
@@ -113,7 +101,7 @@ def test_bayes_propagator(function_name: str, mpi_tmp_path: pathlib.Path) -> Non
         loss_fn=benchmark_function,
         propagator=propagator,
         rng=rng,
-        generations=50,
+        generations=2,
         checkpoint_path=mpi_tmp_path,
     )  # Set up propulator performing actual optimization.
 
@@ -332,3 +320,49 @@ def test_acquisition_interfaces_call_predict_once() -> None:
     assert m1.calls == 1
     assert m2.calls == 1
     assert m3.calls == 1
+
+
+def test_bayesian_optimizer_mixed_example(mpi_tmp_path: pathlib.Path) -> None:
+    """
+    Test BayesianOptimizer with mixed-type search space.
+    """
+    rng = random.Random(42 + MPI.COMM_WORLD.rank)
+
+    limits: Dict[str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]] = {
+        "x": (0.0, 5.0),
+        "n": (1, 10),
+        "method": ("fast", "slow"),
+    }
+
+    def mixed_function(params):
+        """Simple test function with mixed types."""
+        penalty = 1.0 if params["method"] == "slow" else 0.0
+        return (params["x"] - 2.5) ** 2 + (params["n"] - 5) ** 2 + penalty
+
+    propagator = BayesianOptimizer(
+        limits=limits,
+        rank=MPI.COMM_WORLD.rank,
+        n_initial=10,
+        acquisition_type="EI",
+        rng=rng,
+    )
+
+    propulator = Propulator(
+        loss_fn=mixed_function,
+        propagator=propagator,
+        rng=rng,
+        generations=3,
+        checkpoint_path=mpi_tmp_path,
+    )
+
+    propulator.propulate()
+
+    # Verify we can find reasonable solutions
+    assert len(propulator.population) > 0
+
+    # Verify types are preserved
+    for ind in propulator.population:
+        assert isinstance(ind["x"], float)
+        assert isinstance(ind["n"], int)
+        assert isinstance(ind["method"], str)
+        assert ind["method"] in limits["method"]

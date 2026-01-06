@@ -1,53 +1,133 @@
 from abc import ABC, abstractmethod
 import random
 from enum import Enum
-import importlib
-from typing import Dict, List, Optional, Tuple, Union, Protocol
+from typing import Any, Dict, List, Optional, Tuple, Union, Protocol, cast
 
 import numpy as np
 from scipy.optimize import fmin_l_bfgs_b, minimize
-from scipy.stats import norm
+from scipy.stats import norm, qmc
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import Kernel, RBF, ConstantKernel as C, WhiteKernel, Matern
-from mpi4py import MPI
 
 from ..propagators import Propagator
 from ..population import Individual
 
 
 def get_default_kernel_sklearn(dim: int) -> Kernel:
+    """
+    Get default Matern kernel for sklearn GaussianProcessRegressor.
+
+    Parameters
+    ----------
+    dim : int
+        Position array dimension (accounts for one-hot encoding of categoricals).
+        This may be larger than the number of parameters due to categorical encoding.
+
+    Returns
+    -------
+    Kernel
+        Default kernel combining Constant, Matern, and WhiteKernel.
+    """
     kernel = (
-        C(1.0, (1e-2, 1e2)) *
-        Matern(length_scale=np.ones(dim), length_scale_bounds=(1e-2, 10.0))
-        #+ WhiteKernel(noise_level=1e-6, noise_level_bounds=(1e-8, 1e-2))
+        C(1.0, (1e-3, 1e5)) *
+        Matern(length_scale=np.ones(dim), length_scale_bounds=(1e-3, 100.0))
+        + WhiteKernel(noise_level=1e-6, noise_level_bounds=(1e-8, 1e1))
     )
     return kernel
     
-def get_default_kernel_gpytorch(dim: int):
-    import gpytorch
-    return gpytorch.kernels.ScaleKernel(
-        gpytorch.kernels.MaternKernel(nu=1.5, ard_num_dims=dim)
-    )
+# --- Sparse selection helpers -------------------------------------------------
+def _sparse_select_indices(
+    X: np.ndarray,
+    y: np.ndarray,
+    lows: np.ndarray,
+    highs: np.ndarray,
+    max_points: int,
+    top_m: int = 150,
+) -> np.ndarray:
+    """
+    Select up to ``max_points`` indices from (X, y) using a deterministic strategy:
+    - Always keep the top-M best points by y (lower is better).
+    - Fill the remaining budget with greedy farthest-point sampling in a
+      whitened feature space for better geometric spread.
 
+    Whitened space here means:
+      1) scale each dimension to [0, 1] via bounds lows/highs
+      2) standardize to zero-mean and unit-variance across the dataset
+
+    Returns
+    -------
+    idx : np.ndarray (k,)
+        Selected indices into X/y (k <= max_points).
+    """
+    n = X.shape[0]
+    if n == 0:
+        return np.array([], dtype=int)
+
+    # Cap parameters
+    k_budget = min(max_points, n)
+    m = max(0, min(top_m, k_budget))
+
+    # Sort by objective (ascending, best first) and keep top-M
+    order = np.argsort(y)
+    selected = list(order[:m])
+    if len(selected) >= k_budget:
+        return np.array(selected[:k_budget], dtype=int)
+
+    # Whiten X: bounds -> [0,1], then z-score
+    scale = np.where((highs - lows) == 0.0, 1.0, (highs - lows))
+    X01 = (X - lows) / scale
+    mean = X01.mean(axis=0)
+    std = X01.std(axis=0)
+    std[std < 1e-12] = 1.0
+    Xw = (X01 - mean) / std
+
+    # Pool are non-selected indices
+    all_idx = np.arange(n)
+    mask_sel = np.zeros(n, dtype=bool)
+    mask_sel[selected] = True
+    pool = all_idx[~mask_sel]
+
+    if pool.size == 0:
+        return np.array(selected, dtype=int)
+
+    # Initialize min-distance-to-selected for all candidates in pool
+    # Use squared Euclidean distances (cheaper, preserves ordering).
+    dist_min = np.full(pool.shape[0], np.inf, dtype=float)
+    if selected:
+        Xw_pool = Xw[pool]
+        for s in selected:
+            ds = np.sum((Xw_pool - Xw[s]) ** 2, axis=1)
+            dist_min = np.minimum(dist_min, ds)
+    else:
+        # If nothing selected yet (m == 0), seed with the best point to anchor
+        # and continue normally.
+        s0 = int(order[0])
+        selected.append(s0)
+        mask_sel[s0] = True
+        pool = all_idx[~mask_sel]
+        Xw_pool = Xw[pool]
+        dist_min = np.sum((Xw_pool - Xw[s0]) ** 2, axis=1)
+
+    # Greedy farthest-point until budget is met
+    while len(selected) < k_budget and pool.size > 0:
+        k = int(np.argmax(dist_min))
+        j = int(pool[k])
+        selected.append(j)
+
+        # Remove chosen j from pool and its distance entry
+        pool = np.delete(pool, k)
+        if pool.size == 0:
+            break
+        Xw_pool = Xw[pool]
+        # Update min-distance using the newly selected point
+        dnew = np.sum((Xw_pool - Xw[j]) ** 2, axis=1)
+        dist_min = np.delete(dist_min, k)
+        dist_min = np.minimum(dist_min, dnew)
+
+    return np.array(selected[:k_budget], dtype=int)
+    
 class SupportsPredict(Protocol):
     def predict(self, X: np.ndarray, return_std: bool = True) -> Tuple[np.ndarray, np.ndarray]: ...
-
-class _GPyTorchPredictAdapter:
-    def __init__(self, model, device):
-        self.model = model
-        self.likelihood = model.likelihood
-        self.device = device
-    def predict(self, X: np.ndarray, return_std: bool = True):
-        import torch
-        self.model.eval(); self.likelihood.eval()
-        with torch.no_grad():
-            xt = torch.as_tensor(np.atleast_2d(X), dtype=torch.float32, device=self.device)
-            post = self.likelihood(self.model(xt))
-            mu = post.mean.detach().cpu().numpy()
-            if not return_std:
-                return mu, None
-            var = post.variance.clamp_min(0.0).detach().cpu().numpy()
-            return mu, np.sqrt(var)
 
 def expected_improvement(
     mu: np.ndarray,
@@ -96,7 +176,7 @@ class AcquisitionFunction(ABC):
         Predict mean and std at x using the surrogate model.
         """
         x = np.atleast_2d(x)
-        mu, sigma = model.predict(x, return_std=True)
+        mu, sigma = cast(Tuple[np.ndarray, np.ndarray], model.predict(x, return_std=True))
         return mu, sigma
 
 
@@ -140,8 +220,11 @@ class ProbabilityImprovement(AcquisitionFunction):
 
 
 class UpperConfidenceBound(AcquisitionFunction):
-    """
-    Upper Confidence Bound acquisition (minimization via negative UCB).
+    """Lower Confidence Bound (named UCB here for legacy reasons) for minimization.
+
+    We define ``ucb = mu - kappa * sigma`` so that *minimizing* this value trades off
+    exploitation (low mean) and exploration (high uncertainty). This is effectively
+    the Lower Confidence Bound (LCB) formulation used for minimization problems.
     """
     def __init__(self, kappa: float = 1.96):
         self.kappa = kappa
@@ -204,34 +287,110 @@ def create_acquisition(
         return UpperConfidenceBound(**params)
 
 
-def serialize_gpr(gpr):
-    return {
-        "kernel":       gpr.kernel_,
-        "X_train":      gpr.X_train_,
-        "alpha":        gpr.alpha_,
-        "L":            gpr.L_,
-        "normalize_y":  gpr.normalize_y,
-        # only include these if normalize_y is True
-        "y_mean":       getattr(gpr, "_y_train_mean", None),
-        "y_std":        getattr(gpr, "_y_train_std",  None),
-    }
+class MultiStartAcquisitionOptimizer:
+    """Multi-start L-BFGS-B optimizer for acquisition functions."""
 
-def deserialize_gpr(state):
-    gpr = GaussianProcessRegressor(
-        kernel=state["kernel"],
-        optimizer=None,
-        normalize_y=state["normalize_y"],
-        copy_X_train=True,
-    )
-    gpr.kernel_ = state["kernel"]
-    gpr.X_train_ = state["X_train"]
-    gpr.alpha_   = state["alpha"]
-    gpr.L_       = state["L"]
-    if state["normalize_y"]:
-        gpr._y_train_mean = state["y_mean"]
-        gpr._y_train_std  = state["y_std"]
-    return gpr
+    def __init__(
+        self,
+        n_candidates: int = 256,
+        n_restarts: int = 5,
+        polish: bool = True,
+        minimize_options: Optional[Dict[str, Union[int, float]]] = None,
+    ) -> None:
+        if n_candidates <= 0:
+            raise ValueError("n_candidates must be positive")
+        if n_restarts < 0:
+            raise ValueError("n_restarts must be non-negative")
+        self.n_candidates = n_candidates
+        self.n_restarts = n_restarts
+        self.polish = polish
+        self.minimize_options: Dict[str, Union[int, float]] = (
+            {"maxiter": 200, "maxfun": 2000, "ftol": 1e-9, "gtol": 1e-6}
+            if minimize_options is None
+            else dict(minimize_options)
+        )
 
+    @staticmethod
+    def _make_generator(rng: Optional[random.Random], dim: int) -> np.random.Generator:
+        if isinstance(rng, random.Random):
+            seed = rng.randrange(0, 2**32 - 1)
+            return np.random.default_rng(seed)
+        if isinstance(rng, np.random.Generator):  # type: ignore[arg-type]
+            return rng
+        # fall back to default generator seeded from entropy
+        return np.random.default_rng()
+
+    def _sample_candidates(
+        self,
+        lows: np.ndarray,
+        highs: np.ndarray,
+        rng: Optional[random.Random],
+        n_points: int,
+    ) -> np.ndarray:
+        generator = self._make_generator(rng, len(lows))
+        # Generator.uniform supports vector bounds via broadcasting
+        samples = generator.uniform(lows, highs, size=(n_points, len(lows)))
+        return samples
+
+    def optimize(
+        self,
+        acq_func,
+        bounds: np.ndarray,
+        rng: Optional[random.Random] = None,
+    ) -> np.ndarray:
+        lows, highs = bounds
+        dim = lows.shape[0]
+        n_candidates = max(self.n_candidates, max(1, self.n_restarts))
+        candidates = self._sample_candidates(lows, highs, rng, n_candidates)
+
+        # Be robust to occasional numerical issues in acquisition evaluation
+        vals: List[float] = []
+        for x in candidates:
+            try:
+                v = float(acq_func(x))
+                if not np.isfinite(v):
+                    v = np.inf
+            except Exception:
+                # Treat any failure as an invalid candidate
+                v = np.inf
+            vals.append(v)
+        values = np.array(vals, dtype=float)
+        finite_mask = np.isfinite(values)
+        if not np.any(finite_mask):
+            # fall back to random point if everything failed
+            return candidates[0]
+
+        candidates = candidates[finite_mask]
+        values = values[finite_mask]
+
+        order = np.argsort(values)
+        best_idx = order[0]
+        best_x = candidates[best_idx]
+        best_val = values[best_idx]
+
+        if self.polish and self.n_restarts > 0:
+            bounds_pairs = list(zip(lows, highs))
+            for idx in order[: min(self.n_restarts, len(order))]:
+                x0 = candidates[idx]
+                try:
+                    res = minimize(
+                        acq_func,
+                        x0,
+                        method="L-BFGS-B",
+                        bounds=bounds_pairs,
+                        options=self.minimize_options,
+                    )
+                except Exception:
+                    continue
+
+                if not np.isfinite(res.fun):
+                    continue
+
+                if res.fun < best_val:
+                    best_val = float(res.fun)
+                    best_x = np.clip(res.x, lows, highs)
+
+        return best_x
 
 
 def _robust_lbfgs(obj_func, initial_theta, bounds):
@@ -252,7 +411,10 @@ def _robust_lbfgs(obj_func, initial_theta, bounds):
     ]
     best = (None, np.inf)
     for opts in attempts:
-        theta, fval, info = fmin_l_bfgs_b(f_and_g, initial_theta, bounds=bounds, **opts)
+        # Cast to Any to silence strict type checks from stubs; runtime accepts these options.
+        theta, fval, info = cast(Any, fmin_l_bfgs_b)(
+            f_and_g, initial_theta, bounds=bounds, **opts
+        )
         if fval < best[1]:
             best = (theta, fval)
         if info.get("warnflag", 1) == 0:  # converged
@@ -289,7 +451,7 @@ class SurrogateFitter(ABC):
 class SingleCPUFitter(SurrogateFitter):
     def __init__(self, optimize_hyperparameters: bool = True,
                  n_restarts: int = 0, random_state: Optional[int] = None,
-                 alpha: float = 1e-6):
+                 alpha: float = 1e-10):
         self.optimize_hyperparameters = optimize_hyperparameters
         self.n_restarts = n_restarts
         self.random_state = random_state
@@ -307,153 +469,49 @@ class SingleCPUFitter(SurrogateFitter):
         return gp
 
 class MultiCPUFitter(SurrogateFitter):
-    def __init__(self, comm, n_restarts_per_rank: int = 1, seed: int = 42,
-                 optimize_hyperparameters: bool = True, alpha: float = 1e-6):
-        self.comm = comm
-        self.rank = comm.Get_rank(); self.size = comm.Get_size()
-        self.seed = seed + self.rank
-        self.n_restarts_per_rank = n_restarts_per_rank
-        self.optimize_hyperparameters = optimize_hyperparameters
-        self.alpha = alpha
+    """Stub for a parallel CPU fitter (not yet implemented in this PR)."""
 
-    def fit(self, kernel: Kernel, X: np.ndarray, y: np.ndarray, **kwargs):
-        best_ll = -float("inf")
-        best_model = None
-        
-        flag = kwargs.get("optimize_hyperparameters", self.optimize_hyperparameters)
-        opt = _robust_lbfgs if flag else None
-        nre = self.n_restarts_per_rank if flag else 0
-        gp = GaussianProcessRegressor(
-            kernel=kernel, optimizer=opt, n_restarts_optimizer=nre,
-            normalize_y=True, random_state=self.seed, alpha=self.alpha
+    def __init__(self, *args, **kwargs) -> None:
+        raise NotImplementedError(
+            "MultiCPUFitter is not supported in this Bayesian Optimizer PR. "
+            "Please use SingleCPUFitter for now."
         )
-        gp.fit(X, y)
-        ll = gp.log_marginal_likelihood_value_
-        if ll > best_ll:
-            best_ll = ll
-            best_model = gp
 
-        # Gather (ll, model) from all ranks to rank 0
-        # Serialize the model to avoid issues with MPI
-        best_model = serialize_gpr(best_model)
-        all_results = self.comm.gather((best_ll, best_model), root=0 )
-
-        if self.rank == 0:
-            # pick the overall best
-            global_best_model = max(all_results, key=lambda t: t[0])[1]
-        else:
-            global_best_model = None
-
-        # Broadcast the chosen model to all ranks
-        global_best_model = self.comm.bcast(global_best_model, root=0)
-        # Deserialize the model back to GaussianProcessRegressor
-        global_best_model = deserialize_gpr(global_best_model)
-
-        return global_best_model
+    def fit(self, kernel: Kernel, X: np.ndarray, y: np.ndarray, **kwargs):  # pragma: no cover - stub
+        raise NotImplementedError(
+            "MultiCPUFitter.fit is not implemented. Use SingleCPUFitter instead."
+        )
 
 
 class SingleGPUFitter(SurrogateFitter):
-    """
-    Uses GPyTorch to train a GP surrogate on a single GPU (or CPU fallback if allowed).
-    """
-    def __init__(
-        self,
-        learning_rate: float = 0.1,
-        num_epochs: int = 50,
-        device: Optional[str] = None,
-        require_cuda: bool = True,
-    ):
-        """
-        learning_rate: Learning rate for Adam optimizer.
-        num_epochs: Number of training epochs.
-        device: Torch device string (e.g., 'cuda:0' or 'cpu'). If None, chooses
-                'cuda:0' if available, else 'cpu' (unless require_cuda=True).
-        require_cuda: If True and CUDA isn't available, raise a RuntimeError.
-        """
-        self.learning_rate = learning_rate
-        self.num_epochs = num_epochs
-        try:
-            self._torch = importlib.import_module("torch")
-            self._gpytorch = importlib.import_module("gpytorch")
-        except ImportError as e:
-            raise ImportError(
-                "SingleGPUFitter requires optional dependencies 'torch' and 'gpytorch'. "
-                "Install them with: pip install torch gpytorch"
-            ) from e
+    """Stub for a single-GPU fitter (not yet implemented in this PR)."""
 
-        # Configure device
-        torch = self._torch
-        if device is None:
-            if torch.cuda.is_available():
-                device = "cuda:0"
-            else:
-                if require_cuda:
-                    raise RuntimeError(
-                        "CUDA is not available but a GPU is required. "
-                        "Install a CUDA-enabled PyTorch build or pass device='cpu' or require_cuda=False."
-                    )
-                device = "cpu"
-        self.device = torch.device(device)
+    def __init__(self, *args, **kwargs) -> None:
+        raise NotImplementedError(
+            "SingleGPUFitter is not supported in this Bayesian Optimizer PR. "
+            "Please use SingleCPUFitter for now."
+        )
 
-    def fit(self, kernel: Kernel, X: np.ndarray, y: np.ndarray, **kwargs) -> SupportsPredict:
-        torch = self._torch
-        gpytorch = self._gpytorch
-
-        # Ensure tensors are the right dtype/shape and on the configured device
-        train_x = torch.as_tensor(X, dtype=torch.float32, device=self.device)
-        if y.ndim > 1:
-            y = y.squeeze(-1)
-        train_y = torch.as_tensor(y, dtype=torch.float32, device=self.device)
-
-        # Inner model definition
-        class GPyTorchModel(gpytorch.models.ExactGP):
-            def __init__(self, train_x, train_y, likelihood, kernel_mod):
-                super().__init__(train_x, train_y, likelihood)
-                self.mean_module = gpytorch.means.ConstantMean()
-                self.covar_module = kernel_mod
-
-            def forward(self, x):
-                return gpytorch.distributions.MultivariateNormal(
-                    self.mean_module(x), self.covar_module(x)
-                )
-
-        # Move kernel if it supports .to(...)
-        kernel_mod = kernel.to(self.device) if hasattr(kernel, "to") else kernel
-
-        likelihood = gpytorch.likelihoods.GaussianLikelihood().to(self.device)
-        model = GPyTorchModel(train_x, train_y, likelihood, kernel_mod).to(self.device)
-
-        model.train()
-        likelihood.train()
-
-        optimizer = torch.optim.Adam(model.parameters(), lr=self.learning_rate)
-        mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
-
-        for _ in range(self.num_epochs):
-            optimizer.zero_grad(set_to_none=True)
-            output = model(train_x)
-            loss = -mll(output, train_y)
-            loss.backward()
-            optimizer.step()
-
-        model.eval()
-        likelihood.eval()
-
-        # Make likelihood accessible to callers if they need posterior predictions
-        model.likelihood = likelihood
-        return _GPyTorchPredictAdapter(model, self.device)
+    def fit(self, kernel: Kernel, X: np.ndarray, y: np.ndarray, **kwargs) -> SupportsPredict:  # pragma: no cover - stub
+        raise NotImplementedError(
+            "SingleGPUFitter.fit is not implemented. Use SingleCPUFitter instead."
+        )
 
 
 
 class MultiGPUFitter(SurrogateFitter):
-    """
-    Distributed GP training across multiple GPUs using PyTorch Distributed or DataParallel.
-    """
-    def fit(self, kernel: Kernel, X: np.ndarray, y: np.ndarray, learning_rate: float = 0.1, num_epochs: int = 50, **kwargs) -> SupportsPredict:
-        """
-        Placeholder: multi-GPU surrogate fitting not implemented.
-        """
-        raise NotImplementedError("MultiGPUFitter is not implemented yet.")
+    """Stub for a multi-GPU fitter (not yet implemented in this PR)."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        raise NotImplementedError(
+            "MultiGPUFitter is not supported in this Bayesian Optimizer PR. "
+            "Please use SingleCPUFitter for now."
+        )
+
+    def fit(self, kernel: Kernel, X: np.ndarray, y: np.ndarray, **kwargs) -> SupportsPredict:  # pragma: no cover - stub
+        raise NotImplementedError(
+            "MultiGPUFitter.fit is not implemented. Use SingleCPUFitter instead."
+        )
 
 class FitterType(Enum):
     SINGLE_CPU = "single_cpu"
@@ -487,13 +545,77 @@ def create_fitter(
         raise ValueError(f"Unsupported fitter type '{fitter_type}'.")
 
 
+def _project_to_discrete(
+    x: np.ndarray,
+    limits: Dict[str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]],
+    param_types: Dict[str, type],
+) -> np.ndarray:
+    """
+    Project continuous position array to valid discrete/categorical values.
+
+    This function handles:
+    - Integer parameters: rounds to nearest integer and clips to bounds
+    - Categorical parameters: projects one-hot vectors to valid one-hot encoding
+    - Float parameters: passes through unchanged (with bounds clipping)
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Continuous position array from acquisition optimization
+    limits : Dict[str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]]
+        Search space limits
+    param_types : Dict[str, type]
+        Type of each parameter
+
+    Returns
+    -------
+    np.ndarray
+        Projected position array with valid discrete/categorical values
+    """
+    x_proj = x.copy()
+    offset = 0
+
+    for key in limits:
+        if param_types[key] is str:
+            # Categorical: project to valid one-hot encoding
+            n_categories = len(limits[key])
+            one_hot_vec = x[offset:offset + n_categories]
+
+            # Use softmax to get probabilities, then argmax for winner-takes-all
+            # This handles negative values and out-of-bounds gracefully
+            exp_vals = np.exp(one_hot_vec - np.max(one_hot_vec))  # numerical stability
+            probs = exp_vals / np.sum(exp_vals)
+            winner_idx = np.argmax(probs)
+
+            # Set to valid one-hot encoding
+            x_proj[offset:offset + n_categories] = 0.0
+            x_proj[offset + winner_idx] = 1.0
+
+            offset += n_categories
+
+        elif param_types[key] is int:
+            # Integer: round and clip to bounds
+            low, high = limits[key]
+            rounded_val = np.rint(x[offset])
+            x_proj[offset] = float(np.clip(rounded_val, low, high))
+            offset += 1
+
+        else:  # float
+            # Float: just clip to bounds (already done by optimizer)
+            low, high = limits[key]
+            x_proj[offset] = np.clip(x[offset], low, high)
+            offset += 1
+
+    return x_proj
+
+
 class BayesianOptimizer(Propagator):
     def __init__(
         self,
-        limits: Dict[str, Tuple[float, float]],
-        optimizer,
+        limits: Dict[str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]],
         rank: int,
-        fitter: SurrogateFitter,
+        fitter: Optional[SurrogateFitter] = None,
+        optimizer: Optional[Any] = None,
         kernel: Optional[Kernel] = None,
         optimize_hyperparameters: bool = True,
         acquisition_type: str = "EI",
@@ -504,53 +626,286 @@ class BayesianOptimizer(Propagator):
         sparse: bool = False,
         sparse_params: Optional[Dict[str, int]] = None,
         rng: Optional[random.Random] = None,
+        # Initial design parameters
+        n_initial: Optional[int] = None,
+        initial_design: str = "sobol",  # "sobol" | "random" | "lhs" (lhs falls back to sobol-like behavior per-call)
+        # Exploration schedule (epsilon-greedy) parameters
+        p_explore_start: float = 0.2,
+        p_explore_end: float = 0.02,
+        p_explore_tau: float = 150.0,
+        anneal_acquisition: bool = True,
+        # Optional dynamic acquisition switching
+        second_acquisition_type: Optional[str] = None,
+        acq_switch_generation: Optional[int] = None,
+        second_acquisition_params: Optional[Dict[str, float]] = None,
     ) -> None:
+        """
+        Initialize Bayesian Optimizer with Gaussian Process surrogate.
+
+        Supports mixed search spaces with float, integer, and categorical parameters
+        through continuous relaxation and projection.
+
+        Parameters
+        ----------
+        limits : Dict[str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]]
+            Search space limits. Each parameter can be:
+            - Float: Tuple of (low, high) floats for continuous parameters
+            - Int: Tuple of (low, high) ints for discrete parameters
+            - Categorical: Tuple of strings for categorical parameters
+
+            Example:
+                {
+                    "learning_rate": (0.001, 0.1),           # continuous
+                    "num_layers": (1, 10),                    # discrete
+                    "activation": ("relu", "tanh", "sigmoid") # categorical
+                }
+
+        rank : int
+            MPI rank of this optimizer instance for parallel optimization
+        fitter : SurrogateFitter, optional
+            Surrogate model fitter (default: SingleCPUFitter)
+        optimizer : Any, optional
+            Acquisition function optimizer (default: MultiStartAcquisitionOptimizer)
+        kernel : Kernel, optional
+            GP kernel (default: Constant * Matern + WhiteKernel)
+        optimize_hyperparameters : bool, optional
+            Whether to optimize GP hyperparameters (default: True)
+        acquisition_type : str, optional
+            Acquisition function type: "EI", "PI", or "UCB" (default: "EI")
+        acquisition_params : Dict[str, float], optional
+            Acquisition function parameters (e.g., {"xi": 0.01} for EI/PI, {"kappa": 1.96} for UCB)
+        rank_stretch : bool, optional
+            Scale acquisition parameters across MPI ranks for diversity (default: True)
+        factor_min : float, optional
+            Minimum scaling factor for rank stretching (default: 0.5)
+        factor_max : float, optional
+            Maximum scaling factor for rank stretching (default: 2.0)
+        sparse : bool, optional
+            Enable sparse GP fitting for large datasets (default: False)
+        sparse_params : Dict[str, int], optional
+            Sparse fitting parameters: {"max_points": int, "top_m": int}
+        rng : random.Random, optional
+            Random number generator
+        n_initial : int, optional
+            Number of initial design points (default: min(10, 10 * num_params))
+        initial_design : str, optional
+            Initial design method: "sobol", "random", or "lhs" (default: "sobol")
+        p_explore_start : float, optional
+            Initial epsilon-greedy exploration probability (default: 0.2)
+        p_explore_end : float, optional
+            Final epsilon-greedy exploration probability (default: 0.02)
+        p_explore_tau : float, optional
+            Decay rate for exploration probability (default: 150.0)
+        anneal_acquisition : bool, optional
+            Anneal acquisition parameters over time (default: True)
+        second_acquisition_type : str, optional
+            Second acquisition function to switch to after acq_switch_generation
+        acq_switch_generation : int, optional
+            Generation at which to switch acquisition functions
+        second_acquisition_params : Dict[str, float], optional
+            Parameters for second acquisition function
+
+        Notes
+        -----
+        Integer and categorical parameters are handled via continuous relaxation:
+        - Integers: Optimized as continuous, then rounded to nearest integer
+        - Categoricals: One-hot encoded, optimized continuously, projected via argmax
+
+        The GP surrogate operates in position space, which may have higher dimension
+        than the number of parameters due to one-hot encoding of categorical variables.
+
+        Examples
+        --------
+        >>> # Float-only optimization
+        >>> limits = {"x": (0.0, 10.0), "y": (-5.0, 5.0)}
+        >>> opt = BayesianOptimizer(limits=limits, rank=0)
+
+        >>> # Mixed-type optimization
+        >>> limits = {
+        ...     "learning_rate": (0.001, 0.1),           # continuous
+        ...     "num_layers": (1, 10),                    # discrete
+        ...     "activation": ("relu", "tanh", "sigmoid") # categorical
+        ... }
+        >>> opt = BayesianOptimizer(limits=limits, rank=0, n_initial=20)
+        """
         super().__init__(parents=-1, offspring=1, rng=rng)
         self.limits = limits
+
+        # Type detection for mixed-type support
+        self.param_types = {key: type(limits[key][0]) for key in limits}
+
+        # Calculate position dimension (accounting for one-hot encoding)
+        self.position_dim = sum(
+            len(limits[k]) if isinstance(limits[k][0], str) else 1
+            for k in limits
+        )
+
+        # Number of parameters (not position dimensions)
         self.dim = len(limits)
-        self.limits_arr = np.array(list(limits.values())).T
+
+        # Create continuous bounds for L-BFGS-B optimization
+        # Float/int: use actual bounds
+        # Categorical: [0, 1] for each one-hot dimension
+        self._continuous_lows = []
+        self._continuous_highs = []
+        for key in limits:
+            if isinstance(limits[key][0], str):
+                # Categorical: bounds [0, 1] for each one-hot dimension
+                self._continuous_lows.extend([0.0] * len(limits[key]))
+                self._continuous_highs.extend([1.0] * len(limits[key]))
+            else:
+                # Numeric (int or float): use actual bounds
+                self._continuous_lows.append(float(limits[key][0]))
+                self._continuous_highs.append(float(limits[key][1]))
+
+        self._continuous_lows = np.array(self._continuous_lows, dtype=float)
+        self._continuous_highs = np.array(self._continuous_highs, dtype=float)
+
+        # Use continuous bounds for internal optimization
+        self.limits_arr = np.array([self._continuous_lows, self._continuous_highs])
+
+        # Validate limits
+        if not limits:
+            raise ValueError("limits cannot be empty")
+
+        for key, bounds in limits.items():
+            if len(bounds) < 2:
+                raise ValueError(f"Parameter '{key}' must have at least 2 bounds/categories")
+
+            if isinstance(bounds[0], (int, float)):
+                if len(bounds) != 2:
+                    raise ValueError(f"Numeric parameter '{key}' must have exactly 2 bounds")
+                if bounds[0] >= bounds[1]:
+                    raise ValueError(f"Parameter '{key}': lower bound must be < upper bound")
+            elif isinstance(bounds[0], str):
+                if len(set(bounds)) != len(bounds):
+                    raise ValueError(f"Categorical parameter '{key}' has duplicate categories")
+            else:
+                raise TypeError(f"Parameter '{key}' has unsupported type: {type(bounds[0])}")
+
+        # Warn about high-dimensional position spaces
+        if self.position_dim > 100:
+            import warnings
+            warnings.warn(
+                f"Position dimension ({self.position_dim}) is large due to one-hot encoding. "
+                f"This may impact GP performance. Consider reducing categorical cardinality "
+                f"or enabling sparse selection (sparse=True).",
+                UserWarning
+            )
+
+        if optimizer is None:
+            # dimension-aware defaults for acquisition search
+            optimizer = MultiStartAcquisitionOptimizer(
+                n_candidates=max(256, 64 * self.position_dim),
+                n_restarts=max(5, min(20, 2 * self.position_dim)),
+            )
         self.optimizer = optimizer
-        self.fitter = fitter
+        # If no fitter is provided, default to a single-CPU sklearn-based fitter
+        self.fitter = fitter if fitter is not None else SingleCPUFitter()
         self.optimize_hyperparameters = optimize_hyperparameters
         self.sparse = sparse
-        self.max_points = (sparse_params or {}).get("max_points", 500)
+        self.max_points = (sparse_params or {}).get("max_points", 2000)
+        # Always keep top-M elite points; default within 100-200 range
+        self.top_m = max(0, min((sparse_params or {}).get("top_m", 150), self.max_points))
         self.rank = rank
+        # Initial design config/state
+        self.n_initial = n_initial if n_initial is not None else min(10, 10 * self.dim)
+        self.initial_design = initial_design.lower()
+        self._qmc_engine = None  # type: ignore
+        self._hp_fit_calls = 0
 
         # Kernel for surrogate
         if kernel is None:
-            if isinstance(fitter, (SingleCPUFitter, MultiCPUFitter)):
-                kernel = get_default_kernel_sklearn(self.dim)
-            elif isinstance(fitter, (SingleGPUFitter, MultiGPUFitter)):
-                kernel = get_default_kernel_gpytorch(self.dim)
-            else:
-                raise ValueError(f"Unsupported fitter type: {type(fitter)}") 
+            # For this PR, only SingleCPUFitter is supported; default to sklearn kernel
+            kernel = get_default_kernel_sklearn(self.position_dim)
         self.kernel = kernel
 
-        # Instantiate acquisition
-        self.acquisition = create_acquisition(
-            acquisition_type,
-            rank_stretch=rank_stretch,
-            rank=self.rank,
-            size=getattr(self.fitter, "size", None),
-            factor_min=factor_min,
-            factor_max=factor_max,
-            **(acquisition_params or {})
+        # Store acquisition config; we'll instantiate dynamically each call to allow schedules
+        self.acquisition_type = acquisition_type
+        self.acquisition_params_base = dict(acquisition_params or {})
+        self.rank_stretch = rank_stretch
+        self.factor_min = factor_min
+        self.factor_max = factor_max
+        # Exploration schedule parameters (epsilon-greedy)
+        self._p_explore_start = p_explore_start
+        self._p_explore_end = p_explore_end
+        self._p_explore_tau = p_explore_tau
+        # Control whether to anneal xi/kappa automatically
+        self.anneal_acquisition = anneal_acquisition
+        # Acquisition switching config
+        self.second_acquisition_type = (
+            second_acquisition_type.upper() if second_acquisition_type else None
         )
+        self.acq_switch_generation = acq_switch_generation
+        self.second_acquisition_params = dict(second_acquisition_params or {})
 
     def __call__(
         self,
         inds: List[Individual]
     ) -> Union[Individual, List[Individual]]:
-        # Cold start if no data
-        if len(inds) == 0:
-            x_rand = np.array([
-                self.rng.uniform(l, u) for l, u in self.limits.values()
-            ])
-            return Individual(x_rand, self.limits, generation=0, rank=self.rank)
+        # Warm-start with a space-filling initial design
+        if len(inds) < self.n_initial:
+            lows, highs = self.limits_arr
+            if self.initial_design == "sobol":
+                if self._qmc_engine is None:
+                    # distinct seed per rank for different streams; Sobol doesn't take seed directly
+                    seed = self.rng.randrange(0, 2**32 - 1)
+                    np.random.seed(seed)
+                    self._qmc_engine = qmc.Sobol(d=self.position_dim, scramble=True)
+                u = self._qmc_engine.random(1)[0]
+                x0 = lows + u * (highs - lows)
+                x0 = _project_to_discrete(x0, self.limits, self.param_types)
+            elif self.initial_design == "lhs":
+                # Per-call LHS degenerates to random Latin cell; acceptable as fallback
+                seed = self.rng.randrange(0, 2**32 - 1)
+                np.random.seed(seed)
+                engine = qmc.LatinHypercube(d=self.position_dim)
+                u = engine.random(1)[0]
+                x0 = lows + u * (highs - lows)
+                x0 = _project_to_discrete(x0, self.limits, self.param_types)
+            else:  # random
+                x0 = np.array([self.rng.uniform(l, h) for l, h in zip(lows, highs)], dtype=float)
+                x0 = _project_to_discrete(x0, self.limits, self.param_types)
+            gen0 = 0 if len(inds) == 0 else max(ind.generation for ind in inds) + 1
+            x0 = np.clip(x0, lows, highs)
+            return Individual(x0, self.limits, generation=gen0, rank=self.rank)
 
         # Sparse subsample
         if self.sparse and len(inds) > self.max_points:
-            inds = self.rng.sample(inds, self.max_points)
+            # Build arrays first so we can apply structured selection
+            X_all = np.vstack([ind.position for ind in inds])
+            y_all = np.array([ind.loss for ind in inds], dtype=float)
+            mask_all = np.isfinite(y_all)
+            if not np.all(mask_all):
+                X_all, y_all = X_all[mask_all], y_all[mask_all]
+
+            lows, highs = self.limits_arr
+            sel_idx = _sparse_select_indices(
+                X_all, y_all, lows, highs, max_points=self.max_points, top_m=self.top_m
+            )
+            # Rebuild inds from selected indices. Preserve original metadata by mapping
+            # positions back to individuals with matching positions and losses.
+            # If duplicates exist, a simple linear scan is acceptable given reduced size.
+            selected_inds: List[Individual] = []
+            remain = set(map(int, sel_idx.tolist()))
+            # Build a compact list of candidate pairs to match fast
+            pairs = [(i, ind) for i, ind in enumerate(inds) if np.isfinite(ind.loss)]
+            # Create arrays for matching
+            Xpairs = np.vstack([ind.position for _, ind in pairs])
+            ypairs = np.array([ind.loss for _, ind in pairs], dtype=float)
+            # Use ordering from sel_idx to pick corresponding pair index based on content equality
+            # Map sel_idx (relative to compact X_all/y_all) back to pairs order using content equality
+            # Build a lookup from tuple(position, loss) -> list of indices to handle duplicates
+            from collections import defaultdict
+            lut = defaultdict(list)
+            for k, (xp, yp) in enumerate(zip(Xpairs, ypairs)):
+                lut[(tuple(np.round(xp, 12)), float(yp))].append(k)
+            for j in sel_idx:
+                key = (tuple(np.round(X_all[int(j)], 12)), float(y_all[int(j)]))
+                if lut[key]:
+                    k = lut[key].pop()
+                    selected_inds.append(pairs[k][1])
+            inds = selected_inds
 
         # Prepare training data
         X = np.vstack([ind.position for ind in inds])
@@ -560,37 +915,99 @@ class BayesianOptimizer(Propagator):
         if not np.all(mask):
             X, y = X[mask], y[mask]
 
-        if self.sparse and len(X) > self.max_points:
-            # keep the best point always
-            best_idx = np.argmin(y)
-            keep = {best_idx}
-            others = [i for i in range(len(X)) if i != best_idx]
-            sample = set(self.rng.sample(others, self.max_points - 1))
-            X = np.vstack([X[best_idx], X[list(sample)]])
-            y = np.hstack([y[best_idx], y[list(sample)]])
+        # If we don't have enough valid data, fall back to random exploration
+        if X.shape[0] < max(2, self.dim):
+            lows, highs = self.limits_arr
+            x_new = np.array([self.rng.uniform(l, u) for l, u in self.limits.values()], dtype=float)
+            x_new = np.clip(x_new, lows, highs)
+            gen = 0 if len(inds) == 0 else max(ind.generation for ind in inds) + 1
+            return Individual(x_new, self.limits, generation=gen, rank=self.rank)
 
         lows, highs = self.limits_arr
         scale = np.where((highs - lows) == 0.0, 1.0, (highs - lows))
         Xs = (X - lows) / scale
         
-        enough_samples = (X.shape[0] >= 5 * X.shape[1])
-        current_generation = max(ind.generation for ind in inds)
-        optimize_hyperparameters_now = self.optimize_hyperparameters and enough_samples and (current_generation % 3 == 0) # rule of thumb
+        # Hyperparameter optimization schedule:
+        # - Once we have enough samples, optimize on the first few fits
+        # - Then decimate to every k generations to save time
+        n_min_samples = max(2 * self.dim, self.n_initial // 2)
+        enough_samples = (X.shape[0] >= n_min_samples)
+        current_generation = max([ind.generation for ind in inds if ind.rank == self.rank] or [0])
+        optimize_hyperparameters_now = False
+        if self.optimize_hyperparameters and enough_samples:
+            if self._hp_fit_calls < 3:
+                optimize_hyperparameters_now = True
+            else:
+                optimize_hyperparameters_now = (current_generation % 5 == 0)
+        
         model = self.fitter.fit(kernel=self.kernel, 
                                 X=Xs,
                                 y=y,
                                 optimize_hyperparameters=optimize_hyperparameters_now)
         # Warm-start next fit (sklearn clones & uses .kernel_ as init)
-        if hasattr(model, "kernel_"):
+        # Only sklearn GP models expose kernel_
+        if isinstance(model, GaussianProcessRegressor) and hasattr(model, "kernel_"):
             self.kernel = model.kernel_
+        self._hp_fit_calls += 1
 
         # Determine current best
         f_best = float(np.min(y))
 
+        # Build acquisition with a gentle annealing of parameters
+        # xi/kappa decrease over time to shift from explore to exploit
+        t = float(current_generation + 1)
+        # Decide which acquisition config to use (allow switch after threshold generation)
+        use_second = (
+            self.second_acquisition_type is not None
+            and self.acq_switch_generation is not None
+            and current_generation + 1 >= self.acq_switch_generation  # +1 since we generate next individual
+        )
+        if use_second:
+            active_acq_type = cast(str, self.second_acquisition_type)
+            params = dict(self.second_acquisition_params)
+        else:
+            active_acq_type = self.acquisition_type
+            params = dict(self.acquisition_params_base)
+        # Anneal only relevant parameter and drop the other to match constructor signature
+        active_upper = active_acq_type.upper()
+        if self.anneal_acquisition:
+            if active_upper in ("EI", "PI"):
+                if "xi" in params:
+                    xi0 = float(params.get("xi", 0.01))
+                    params["xi"] = max(1e-4, xi0 / np.sqrt(1.0 + 0.05 * t))
+                params.pop("kappa", None)
+            else:  # UCB
+                if "kappa" in params:
+                    k0 = float(params.get("kappa", 1.96))
+                    params["kappa"] = max(0.1, k0 / np.sqrt(1.0 + 0.05 * t))
+                params.pop("xi", None)
+        else:
+            # Ensure we keep only the relevant parameter without annealing
+            if active_upper in ("EI", "PI"):
+                params.pop("kappa", None)
+            else:
+                params.pop("xi", None)
+
+        acquisition = create_acquisition(
+            active_acq_type,
+            rank_stretch=self.rank_stretch,
+            rank=self.rank,
+            size=getattr(self.fitter, "size", None),
+            factor_min=self.factor_min,
+            factor_max=self.factor_max,
+            **params,
+        )
+
         # Acquisition wrapper
         def acq_func(x: np.ndarray) -> float:
-            xs = (x - lows) / (highs - lows)
-            return self.acquisition.evaluate(xs, model, f_best)
+            xs = (x - lows) / scale
+            val = acquisition.evaluate(xs, model, f_best)
+            # For EI / PI we must *maximize* the acquisition, but our optimizer performs minimization.
+            # Negate those values so that minimizing corresponds to maximizing the true acquisition.
+            if active_acq_type.upper() in ("EI", "PI"):
+                return -val
+            # For (L)UCB (our implementation), minimizing mu - kappa*sigma is correct.
+            return val
 
         # Optimize acquisition
         x_new = self.optimizer.optimize(
@@ -598,7 +1015,18 @@ class BayesianOptimizer(Propagator):
             bounds=self.limits_arr,
             rng=self.rng,
         )
+        # Epsilon-greedy random explore with decaying probability
+        p_explore = self._p_explore_end + (self._p_explore_start - self._p_explore_end) * np.exp(-t / self._p_explore_tau)
+        if self.rng.random() < p_explore:
+            # Random point in bounds
+            x_new = np.array([self.rng.uniform(l, h) for l, h in zip(lows, highs)], dtype=float)
+            x_new = _project_to_discrete(x_new, self.limits, self.param_types)
 
-        # Create new individual
-        gen = max(ind.generation for ind in inds) + 1
-        return Individual(x_new, self.limits, generation=gen, rank=self.rank)
+        x_new = np.clip(x_new, lows, highs)
+        # Project continuous result to valid discrete/categorical values
+        x_new = _project_to_discrete(x_new, self.limits, self.param_types)
+
+        return Individual(x_new,
+                          self.limits,
+                          generation=current_generation + 1,
+                          rank=self.rank)
