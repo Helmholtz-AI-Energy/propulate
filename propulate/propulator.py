@@ -146,8 +146,10 @@ class Propulator:
             if MPI.COMM_WORLD.rank == 0:
                 log.info("Requested number of generations is zero...[RETURN]")
             return
-        self.generations = generations  # Number of generations (evaluations per individual)
-        self.generation = 0  # Current generation not yet evaluated
+        self.generations = int(generations)  # Number of generations (evaluations per individual)
+        if self.generations <= 0:
+            raise ValueError("Number of generations has to be >0")
+        self.generation = -1  # Current generation not yet evaluated
         self.island_idx = island_idx  # Island index
         self.island_comm = island_comm  # Intra-island communicator
         self.propulate_comm = propulate_comm  # Propulate world communicator
@@ -216,7 +218,9 @@ class Propulator:
             for i in range(num_islands):
                 islandgroup = f[f"{i}"]
                 for rank in range(self.island_counts[i]):
-                    for generation in range(f["generations"][rank] + 1):
+                    proprank = rank + np.cumsum(np.concatenate((np.array([0]), self.island_counts)))[i]
+                    for generation in range(f["generations"][proprank] + 1):
+                        print(rank, i, generation, self.island_idx)
                         if islandgroup[f"{rank}"]["active_on_island"][generation][self.island_idx]:
                             ind = Individual(
                                 islandgroup[f"{rank}"]["x"][generation, 0],
@@ -234,6 +238,8 @@ class Propulator:
                             ind.evalperiod = islandgroup[f"{rank}"]["evalperiod"][generation]
                             ind.generation = generation
                             ind.island_rank = rank
+                            if np.isnan(ind.loss):
+                                ind.active = False
                             self.population[(i, rank, generation)] = ind
 
     def set_up_checkpoint(self) -> None:
@@ -248,6 +254,7 @@ class Propulator:
 
         num_islands = len(self.island_counts)
 
+        log.debug("Opening checkpoint file")
         with h5py.File(self.checkpoint_path, "a", driver="mpio", comm=self.propulate_comm) as f:
             # limits
             limitsgroup = f.require_group("limits")
@@ -266,14 +273,16 @@ class Propulator:
             if "0" in f:
                 oldgenerations = f["0"]["0"]["x"].shape[0]
             # Store per worker what generation they are at, since islands can be different sizes, it's flat
+            # TODO change to per island?
             f.require_dataset(
                 "generations",
                 (self.propulate_comm.Get_size(),),
                 dtype=np.int32,
-                data=np.zeros((self.propulate_comm.Get_size(),), dtype=np.int32),
+                data=-np.ones((self.propulate_comm.Get_size(),), dtype=np.int32),
             )
 
             # population
+            log.debug("resizing datasets")
             for i in range(num_islands):
                 f.require_group(f"{i}")
                 for worker_idx in range(self.island_counts[i]):
@@ -348,6 +357,7 @@ class Propulator:
                         maxshape=(None, None),
                         data=np.zeros((self.generations, num_islands), dtype=bool),
                     )
+        log.debug("Checkpoint set up.")
 
     def _get_active_individuals(self) -> List[Individual]:
         """
@@ -407,11 +417,11 @@ class Propulator:
 
             def loss_gen(individual: Individual) -> Generator[float, None, None]:
                 if self.worker_sub_comm != MPI.COMM_SELF:
-                    # NOTE mypy complains here. no idea why
+                    # TODO mypy complains here. no idea why
                     for x in self.loss_fn(individual, self.worker_sub_comm):  # type: ignore
                         yield x
                 else:
-                    # NOTE mypy complains here. no idea why
+                    # TODO mypy complains here. no idea why
                     for x in self.loss_fn(individual):  # type: ignore
                         yield x
 
@@ -665,8 +675,6 @@ class Propulator:
             # TODO how do we save the surrogate model?
             current_idx = (self.island_idx, self.island_comm.rank, self.generation)
             if current_idx in self.population:
-                print(self.population)
-                print(f["0"]["0"]["loss"][:])
                 ind = self.population[current_idx]
                 if np.isnan(ind.loss):
                     log.info(f"Continuing evaluation of individual {current_idx} loaded from checkpoint.")

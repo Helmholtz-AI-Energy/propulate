@@ -128,6 +128,7 @@ class Pollinator(Propulator):
             surrogate_factory=surrogate_factory,
         )
         self.replaced: List[Individual] = []  # Individuals to be replaced by immigrants
+        log.debug("Pollinator set up.")
 
     def _send_emigrants(self) -> None:
         """Perform migration, i.e. island sends individuals out to other islands."""

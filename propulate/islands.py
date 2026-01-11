@@ -232,9 +232,9 @@ class Islands:
             emigration_propagator = None  # type: ignore
             immigration_propagator = None  # type: ignore
 
-        log.debug("pre setting up propulator barrier")
+        log.debug("Waiting for all propulate workers to set up propulator...")
         MPI.COMM_WORLD.barrier()
-        log.debug("post setting up propulator barrier")
+        log.debug("Done.")
         # Set up one Propulator for each island.
         if pollination is False:
             if full_world_rank == 0:
@@ -253,7 +253,7 @@ class Islands:
                 migration_prob=migration_prob_rank,
                 emigration_propagator=emigration_propagator,
                 island_displs=island_displs,
-                island_counts=island_sizes,
+                island_counts=island_sizes,  # TODO consolidate naming
                 surrogate_factory=surrogate_factory,
             )
         else:
@@ -278,6 +278,7 @@ class Islands:
                 surrogate_factory=surrogate_factory,
             )
         log.debug("set up island propulator")
+
 
     def propulate(self, logging_interval: int = 10) -> None:
         """
