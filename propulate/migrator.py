@@ -128,6 +128,7 @@ class Migrator(Propulator):
         )
         # Set class attributes.
         self.emigrated: List[Individual] = []  # Emigrated individuals to be deactivated on sending island
+        log.debug("Migrator set up.")
 
     def _send_emigrants(self, hdf5_checkpoint: h5py.File) -> None:
         """Perform migration, i.e. island sends individuals out to other islands."""
