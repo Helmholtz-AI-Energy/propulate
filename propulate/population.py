@@ -1,3 +1,4 @@
+import logging
 from decimal import Decimal
 from typing import (
     Any,
@@ -13,6 +14,8 @@ from typing import (
 )
 
 import numpy as np
+
+log = logging.getLogger(__name__)  # Get logger instance.
 
 
 class Individual:
@@ -86,7 +89,7 @@ class Individual:
         self.velocity = velocity
         if self.velocity is not None:
             if not self.position.shape == self.velocity.shape:
-                print(self.position.shape, self.velocity.shape)
+                log.debug(self.position.shape, self.velocity.shape)
                 raise ValueError("Position and velocity shape do not match.")
 
     def __getitem__(self, key: str) -> Union[float, int, str]:
