@@ -1,5 +1,5 @@
 import logging
-from typing import Union
+from typing import Any, Union
 
 import h5py
 import numpy as np
@@ -119,9 +119,15 @@ def _check_for_duplicates(propulator: Propulator) -> tuple[list[list[Union[Indiv
     return occurrences, unique_inds
 
 
-def mpi_assert_equal(value, target) -> None:
+# TODO test these
+def mpi_assert_equal(value: Any, target: Any) -> None:
     """
     Allgather comparison assertions to all ranks, so not only one rank fails.
+
+    Parameters
+    ----------
+    value : result
+    target : expected result
     """
     MPI.COMM_WORLD.barrier()
     test = MPI.COMM_WORLD.allgather(value)
@@ -129,9 +135,13 @@ def mpi_assert_equal(value, target) -> None:
     assert all(test) == all(target)
 
 
-def mpi_assert(value) -> None:
+def mpi_assert(value: bool) -> None:
     """
-    Allgather assertions to all ranks, so not only one rank fails.
+    Allgather assertion results to all ranks, so not only one rank fails.
+
+    Parameters
+    ----------
+    value : result
     """
     MPI.COMM_WORLD.barrier()
     test = MPI.COMM_WORLD.allgather(value)
