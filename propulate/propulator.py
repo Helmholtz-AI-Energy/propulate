@@ -149,7 +149,7 @@ class Propulator:
         self.generations = int(generations)  # Number of generations (evaluations per individual)
         if self.generations <= 0:
             raise ValueError("Number of generations has to be >0")
-        self.generation = -1  # Current generation not yet evaluated
+        self.generation = 0  # Current generation not yet evaluated
         self.island_idx = island_idx  # Island index
         self.island_comm = island_comm  # Intra-island communicator
         self.propulate_comm = propulate_comm  # Propulate world communicator
@@ -455,6 +455,7 @@ class Propulator:
             self.surrogate.update(ind.loss)
         if self.propulate_comm is None:
             return
+        ind.active = True
         self.population[
             (self.island_idx, self.island_comm.rank, ind.generation)
         ] = ind  # Add evaluated individual to worker-local population.
