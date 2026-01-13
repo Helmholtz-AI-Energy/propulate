@@ -208,7 +208,7 @@ class Pollinator(Propulator):
                 # Add immigrants to own population.
                 for immigrant in immigrants:
                     assert immigrant.active is True
-                    self.population[immigrant.island, immigrant.rank, immigrant.generation] = copy.deepcopy(
+                    self.population[immigrant.island, immigrant.island_rank, immigrant.generation] = copy.deepcopy(
                         immigrant
                     )  # add immigrant to population
                     # NOTE update checkpoint

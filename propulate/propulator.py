@@ -186,10 +186,11 @@ class Propulator:
         # consistency check and ensure enough space is allocated
         if os.path.isfile(self.checkpoint_path):
             self.load_checkpoint()
-            if self.propulate_comm.rank == 0:
-                log.info("Checkpoint loaded. " f"Resuming from generation {self.generation} of loaded population...")
-                # TODO it says resuming from generation 0, so something is not right
-                # TODO also each worker might be on a different generation so this message probably does not make all of the sense
+            log.info(
+                "Checkpoint loaded. "
+                f" Worker {self.propulate_comm.rank} resuming from generation {self.generation} of loaded population..."
+            )
+            # TODO it says resuming from generation 0, so something is not right
         else:
             if self.propulate_comm.rank == 0:
                 log.info("No valid checkpoint file given. Initializing population randomly...")
@@ -217,30 +218,29 @@ class Propulator:
             num_islands = len(self.island_counts)
             for i in range(num_islands):
                 islandgroup = f[f"{i}"]
-                for rank in range(self.island_counts[i]):
-                    proprank = rank + np.cumsum(np.concatenate((np.array([0]), self.island_counts)))[i]
-                    for generation in range(f["generations"][proprank] + 1):
-                        print(rank, i, generation, self.island_idx)
-                        if islandgroup[f"{rank}"]["active_on_island"][generation][self.island_idx]:
+                for island_rank in range(self.island_counts[i]):
+                    prop_rank = island_rank + np.cumsum(np.concatenate((np.array([0]), self.island_counts)))[i]
+                    for generation in range(f["generations"][prop_rank] + 1):
+                        if islandgroup[f"{island_rank}"]["active_on_island"][generation][self.island_idx]:
                             ind = Individual(
-                                islandgroup[f"{rank}"]["x"][generation, 0],
+                                islandgroup[f"{island_rank}"]["x"][generation, 0],
                                 self.propagator.limits,
                             )
-                            ind.rank = rank
+                            ind.island_rank = island_rank
                             ind.island = self.island_idx
-                            ind.current = islandgroup[f"{rank}"]["current"][generation]
+                            ind.current = islandgroup[f"{island_rank}"]["current"][generation]
                             # TODO velocity loading
-                            # if len(group[f"{rank}"].shape) > 1:
-                            #     ind.velocity = islandgroup[f"{rank}"]["x"][generation, 1]
-                            ind.loss = islandgroup[f"{rank}"]["loss"][generation]
-                            # ind.startime = islandgroup[f"{rank}"]["starttime"][generation]
-                            ind.evaltime = islandgroup[f"{rank}"]["evaltime"][generation]
-                            ind.evalperiod = islandgroup[f"{rank}"]["evalperiod"][generation]
+                            # if len(group[f"{island_rank}"].shape) > 1:
+                            #     ind.velocity = islandgroup[f"{island_rank}"]["x"][generation, 1]
+                            ind.loss = islandgroup[f"{island_rank}"]["loss"][generation]
+                            # ind.startime = islandgroup[f"{island_rank}"]["starttime"][generation]
+                            ind.evaltime = islandgroup[f"{island_rank}"]["evaltime"][generation]
+                            ind.evalperiod = islandgroup[f"{island_rank}"]["evalperiod"][generation]
                             ind.generation = generation
-                            ind.island_rank = rank
+                            ind.prop_rank = prop_rank
                             if np.isnan(ind.loss):
                                 ind.active = False
-                            self.population[(i, rank, generation)] = ind
+                            self.population[(i, island_rank, generation)] = ind
 
     def set_up_checkpoint(self) -> None:
         """Initialize checkpoint file or check consistenct with an existing one."""
@@ -390,7 +390,8 @@ class Propulator:
             ind = self.propagator(active_pop)  # Breed new individual from active population.
             assert isinstance(ind, Individual)
             ind.generation = self.generation  # Set generation.
-            ind.rank = self.island_comm.rank  # Set worker rank.
+            ind.island_rank = self.island_comm.rank  # Set worker rank.
+            ind.prop_rank = self.propulate_comm.rank
             ind.active = True  # If True, individual is active for breeding.
             ind.island = self.island_idx  # Set birth island.
             ind.current = self.island_comm.rank  # Set worker responsible for migration.
@@ -509,7 +510,7 @@ class Propulator:
                     del ind_temp[SURROGATE_KEY]
 
                 self.population[
-                    (ind_temp.island, ind_temp.rank, ind_temp.generation)
+                    (ind_temp.island, ind_temp.island_rank, ind_temp.generation)
                 ] = ind_temp  # Add received individual to own worker-local population.
 
                 log_string += f"Added individual {ind_temp} from W{stat.Get_source()} to own population.\n"

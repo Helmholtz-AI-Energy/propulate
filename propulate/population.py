@@ -18,6 +18,7 @@ import numpy as np
 log = logging.getLogger(__name__)  # Get logger instance.
 
 
+# TODO should the propagators know ranks so they can set them at Individual init?
 class Individual:
     """An individual represents a candidate solution to the considered optimization problem."""
 
@@ -27,17 +28,26 @@ class Individual:
         limits: Mapping[str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]],
         velocity: Optional[np.ndarray] = None,
         generation: int = -1,
-        rank: int = -1,
+        island_rank: int = -1,
+        prop_rank: int = -1,
     ) -> None:
         """
         Initialize an individual with given parameters.
 
         Parameters
         ----------
+        position : Union[MutableMapping[str, Union[str, int, float, Any]], np.ndarray],
+            Parameters, can be a key value mapping, or a vector embedding. Categorical parameters are mapped to one dimension per value.
+        limits : Mapping[str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]]
+            Search space limits.
+        velocity : np.ndarray (optional)
+            velocity vectors
         generation : int
             The current generation (-1 if unset).
-        rank : int
-            The rank (-1 if unset).
+        island_rank : int
+            The rank in the island comm (-1 if unset).
+        prop_rank : int
+            The rank in the propulate comm (-1 if unset).
         """
         self.limits = limits
         self.mapping: MutableMapping[str, Union[str, int, float, Any]]  # NOTE the Any is here for surrogate info
@@ -71,19 +81,17 @@ class Individual:
                 self[key] = position[key]
 
         self.generation = generation  # Equals each worker's iteration for continuous population in Propulate.
-        # TODO this is birth rank on original island?
-        # TODO what's the difference between rank and island rank?
-        self.rank = rank  # island rank
+        self.prop_rank = -1  # birth rank in propulate comm
         self.loss: float = float("inf")
         self.active = True
         self.island = -1  # island of origin
         # TODO current is not a good name
-        self.current = -1  # current responsible worker
+        self.current = -1  # current rank of worker in island comm responsible for migration
         self.migration_history: str = ""  # migration history
         self.evaltime = 0  # evaluation time
         self.start_time = 0
         self.evalperiod = 0.0  # evaluation duration
-        self.island_rank = 0  # rank in the island comm
+        self.island_rank = -1  # birth rank in island comm
 
         # NOTE needed for PSO type propagators
         self.velocity = velocity
@@ -177,7 +185,7 @@ class Individual:
             loss_str = f"{self.loss}"
         else:
             loss_str = f"{Decimal(float(self.loss)):.2E}"
-        return f"[{rep}, loss " + loss_str + f", island {self.island}, worker {self.rank}, generation {self.generation}]"
+        return f"[{rep}, loss " + loss_str + f", island {self.island}, worker {self.island_rank}, " f"generation {self.generation}]"
 
     def __iter__(self) -> Generator[str, None, None]:
         """Return standard iterator."""
@@ -223,7 +231,8 @@ class Individual:
             compare_traits
             and self.loss == other.loss
             and self.generation == other.generation
-            and self.rank == other.rank
+            and self.island_rank == other.island_rank
+            and self.prop_rank == other.prop_rank
             and self.island == other.island
             and self.active == other.active
         )

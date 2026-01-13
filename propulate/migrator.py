@@ -259,7 +259,7 @@ class Migrator(Propulator):
                         raise RuntimeError(
                             log_string + f"Identical immigrant {immigrant} already active on target  island {self.island_idx}."
                         )
-                    self.population[immigrant.island, immigrant.rank, immigrant.generation] = copy.deepcopy(
+                    self.population[immigrant.island, immigrant.island_rank, immigrant.generation] = copy.deepcopy(
                         immigrant
                     )  # add immigrant to population
                     log_string += f"Added immigrant {immigrant} to population.\n"
