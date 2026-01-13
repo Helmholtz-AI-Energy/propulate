@@ -32,7 +32,7 @@ rng = random.Random(42 + rank)
             inertia=0.729,
             c_cognitive=1.49445,
             c_social=1.49445,
-            rank=rank,
+            prop_rank=rank,
             limits=limits,
             rng=rng,
         ),
@@ -40,7 +40,7 @@ rng = random.Random(42 + rank)
             inertia=0.729,
             c_cognitive=1.49445,
             c_social=1.49445,
-            rank=rank,
+            prop_rank=rank,
             limits=limits,
             rng=rng,
             v_limits=0.6,
@@ -48,11 +48,11 @@ rng = random.Random(42 + rank)
         ConstrictionPSO(
             c_cognitive=2.05,
             c_social=2.05,
-            rank=rank,
+            prop_rank=rank,
             limits=limits,
             rng=rng,
         ),
-        CanonicalPSO(c_cognitive=2.05, c_social=2.05, rank=rank, limits=limits, rng=rng),
+        CanonicalPSO(c_cognitive=2.05, c_social=2.05, prop_rank=rank, limits=limits, rng=rng),
     ]
 )
 def pso_propagator(request: pytest.FixtureRequest) -> Propagator:
@@ -74,7 +74,7 @@ def test_pso(pso_propagator: Propagator, mpi_tmp_path: pathlib.Path) -> None:
     """
     set_logger_config()
     # Set up pso propagator.
-    init = InitUniformPSO(limits, rng=rng, rank=rank)
+    init = InitUniformPSO(limits, rng=rng, prop_rank=rank)
     propagator = Conditional(limits, 1, pso_propagator, init)
 
     # Set up propulator performing actual optimization.
@@ -107,7 +107,7 @@ def test_pso_checkpointing(pso_propagator: BasicPSO, mpi_tmp_path: pathlib.Path)
     """
     set_logger_config()
     # Set up pso propagator.
-    init = InitUniformPSO(limits, rng=rng, rank=rank)
+    init = InitUniformPSO(limits, rng=rng, prop_rank=rank)
     propagator = Conditional(limits, 1, pso_propagator, init)
 
     # Set up propulator performing actual optimization.
@@ -180,8 +180,8 @@ def test_load_from_different_propagator(mpi_tmp_path: pathlib.Path) -> None:
     MPI.COMM_WORLD.barrier()  # Synchronize all processes.
 
     # Set up pso propagator.
-    init = InitUniformPSO(limits, rng=rng, rank=rank)
-    pso_propagator = CanonicalPSO(c_cognitive=2.05, c_social=2.05, rank=rank, limits=limits, rng=rng)
+    init = InitUniformPSO(limits, rng=rng, prop_rank=rank)
+    pso_propagator = CanonicalPSO(c_cognitive=2.05, c_social=2.05, prop_rank=rank, limits=limits, rng=rng)
     propagator = Conditional(limits, 1, pso_propagator, init)
 
     propulator = Propulator(
