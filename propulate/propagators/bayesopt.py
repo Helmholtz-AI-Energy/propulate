@@ -30,8 +30,8 @@ def get_default_kernel_sklearn(dim: int) -> Kernel:
     """
     kernel = (
         C(1.0, (1e-3, 1e5)) *
-        Matern(length_scale=np.ones(dim), length_scale_bounds=(1e-3, 100.0))
-        + WhiteKernel(noise_level=1e-6, noise_level_bounds=(1e-8, 1e1))
+        Matern(length_scale=np.ones(dim), length_scale_bounds=(1e-2, 100.0))
+        + WhiteKernel(noise_level=1e-4, noise_level_bounds=(1e-8, 1e1))
     )
     return kernel
     
@@ -451,7 +451,7 @@ class SurrogateFitter(ABC):
 class SingleCPUFitter(SurrogateFitter):
     def __init__(self, optimize_hyperparameters: bool = True,
                  n_restarts: int = 0, random_state: Optional[int] = None,
-                 alpha: float = 1e-10):
+                 alpha: float = 1e-6):
         self.optimize_hyperparameters = optimize_hyperparameters
         self.n_restarts = n_restarts
         self.random_state = random_state
