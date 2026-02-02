@@ -1,0 +1,35 @@
+name: Post coverage report to PR
+
+on:
+  workflow_run:
+    workflows: ["Python test"]
+    types:
+      - completed
+
+permissions:
+  pull-requests: write
+  actions: read
+
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+    if: >
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success'
+    steps:
+      - name: Download coverage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-report
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get PR number
+        id: pr_number
+        run: echo "number=$(cat pr_number.txt)" >> $GITHUB_OUTPUT
+
+      - name: Post coverage report to PR
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          path: cov_report.txt
+          number: ${{ steps.pr_number.outputs.number }}
