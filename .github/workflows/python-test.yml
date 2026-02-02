@@ -15,11 +15,11 @@ jobs:
             os: ["ubuntu-latest", "macos-latest"]
             python-version: ["3.10", "3.11", "3.12" ]
             mpi: [ "openmpi", "mpich"]#, "intelmpi"
-#            exclude:
-#              - os: "macos-latest"
-#                mpi: "intelmpi"
 
         runs-on: ${{ matrix.os }}
+
+#        env:
+#          COVERAGE_PROCESS_START: pyproject.toml
 
         steps:
           - name: Check out repository
@@ -49,11 +49,11 @@ jobs:
               coverage xml
 
           - name: Save PR number
-            if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'
+            if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'  && matrix.mpi == 'open-mpi'
             run: echo ${{ github.event.number }} > pr_number.txt
 
           - name: Save coverage report and PR number
-            if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'
+            if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'  && matrix.mpi == 'open-mpi'
             uses: actions/upload-artifact@v4
             with:
               name: coverage-report
