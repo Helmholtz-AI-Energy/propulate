@@ -42,7 +42,7 @@ jobs:
           - name: Test with pytest and measure coverage
             run: |
               coverage run --rcfile=./pyproject.toml -m pytest
-              mpirun --oversubscribe -np 8 uv run pytest --with-mpi
+              mpirun -np --oversubscribe 8 uv run pytest --with-mpi
               coverage combine
               coverage report -m --format markdown > cov_report.txt
               coverage xml
