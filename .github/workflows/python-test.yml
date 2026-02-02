@@ -13,7 +13,7 @@ jobs:
         strategy:
           matrix:
             os: ["ubuntu-latest", "macos-latest"]
-            python-version: [ "3.9", "3.10", "3.11", "3.12" ]
+            python-version: ["3.10", "3.11", "3.12" ]
             mpi: [ "openmpi" ]  # "mpich", "intelmpi"
 #            exclude:
 #              - os: "macos-latest"
@@ -30,15 +30,15 @@ jobs:
             with:
               mpi: ${{ matrix.mpi }}
 
-          - name: Set up Python ${{ matrix.python-version }}
-            uses: actions/setup-python@v5
+          - name: Install uv, set the python version, and enable cache
+            uses: astral-sh/setup-uv@v5
             with:
               python-version: ${{ matrix.python-version }}
 
           - name: Install dependencies
             run: |
-                python -m pip install --upgrade pip
-                pip install ."[test]"
+                uv pip install --upgrade pip
+                uv pip install ."[test]"
 
           - name: Test with pytest and measure coverage
             run: |
@@ -48,12 +48,21 @@ jobs:
               coverage report -m --format markdown > cov_report.txt
               coverage xml
 
+          - name: Save PR number
+            if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'
+            run: echo ${{ github.event.number }} > pr_number.txt
+
+          - name: Save coverage report and PR number
+            if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'
+            uses: actions/upload-artifact@v4
+            with:
+              name: coverage-report
+              path: |
+                cov_report.txt
+                pr_number.txt
+              retention-days: 1
+
           - name: Upload coverage reports to Codecov
             uses: codecov/codecov-action@v4.0.1
             with:
               token: ${{ secrets.CODECOV_TOKEN }}
-
-          - name: Post coverage report to PR
-            uses: marocchino/sticky-pull-request-comment@v2
-            with:
-              path: cov_report.txt
