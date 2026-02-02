@@ -62,7 +62,6 @@ jobs:
               retention-days: 1
 
           - name: Upload coverage reports to Codecov
-            if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'  && matrix.mpi == 'open-mpi'
-            uses: codecov/codecov-action@v4.0.1
+            uses: codecov/codecov-action@v3
             with:
               token: ${{ secrets.CODECOV_TOKEN }}
