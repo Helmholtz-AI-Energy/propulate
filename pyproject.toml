@@ -25,7 +25,7 @@ dependencies = [
 	"mpi4py",
 	"numpy",
     "colorlog",
-    "Gpy ~= 1.13.1",
+    "Gpy ~= 1.13.2",
     "h5py",
 ]
 
