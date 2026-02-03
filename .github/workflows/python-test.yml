@@ -42,7 +42,7 @@ jobs:
           - name: Test with pytest and measure coverage
             run: |
               pytest
-              mpirun -np 8 pytest --with-mpi
+              mpirun -np 8 --map-by :OVERSUBSCRIBE --bind-to none uv run pytest --with-mpi
               coverage combine
               coverage report -m --format markdown > cov_report.txt
               coverage xml
