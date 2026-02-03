@@ -46,9 +46,6 @@ jobs:
                 -np 8 \
                 --map-by :OVERSUBSCRIBE \
                 --bind-to none \
-                -x COVERAGE_PROCESS_START \
-                -x PATH \
-                -x PYTHONPATH \
                 uv run pytest --with-mpi
               coverage combine
               coverage report -m --format markdown > cov_report.txt
