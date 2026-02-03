@@ -18,8 +18,8 @@ jobs:
 
         runs-on: ${{ matrix.os }}
 
-#        env:
-#          COVERAGE_PROCESS_START: pyproject.toml
+        env:
+          COVERAGE_PROCESS_START: pyproject.toml
 
         steps:
           - name: Check out repository
@@ -41,8 +41,8 @@ jobs:
 
           - name: Test with pytest and measure coverage
             run: |
-              coverage run --rcfile=./pyproject.toml -m pytest
-              mpirun -n 8 coverage run --rcfile=./pyproject.toml -m mpi4py -m pytest --with-mpi
+              pytest
+              mpirun -np 8 pytest --with-mpi
               coverage combine
               coverage report -m --format markdown > cov_report.txt
               coverage xml
