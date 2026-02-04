@@ -61,11 +61,11 @@ jobs:
               coverage xml
 
           - name: Save PR number
-            if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'  && matrix.mpi == 'open-mpi'
+            if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'  && matrix.mpi == 'openmpi'
             run: echo ${{ github.event.number }} > pr_number.txt
 
           - name: Save coverage report and PR number
-            if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'  && matrix.mpi == 'open-mpi'
+            if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'  && matrix.mpi == 'openmpi'
             uses: actions/upload-artifact@v4
             with:
               name: coverage-report
