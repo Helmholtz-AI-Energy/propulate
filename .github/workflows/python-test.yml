@@ -18,12 +18,13 @@ jobs:
 
         runs-on: ${{ matrix.os }}
 
+        # Coverage auto-start for serial and MPI processes
         env:
           COVERAGE_PROCESS_START: pyproject.toml
 
         steps:
           - name: Check out repository
-            uses: actions/checkout@v4
+            uses: actions/checkout@v6
 
           - name: Setup MPI ${{ matrix.mpi }}
             uses: mpi4py/setup-mpi@v1
@@ -34,10 +35,11 @@ jobs:
             uses: astral-sh/setup-uv@v5
             with:
               python-version: ${{ matrix.python-version }}
+              enable-cache: false
 
           - name: Install dependencies
             run: |
-                uv pip install --no-binary=mpi4py ."[test]"
+                uv pip install --force-reinstall --no-binary=mpi4py ."[test]"
 
           - name: Test with pytest and measure coverage
             run: |
@@ -52,11 +54,11 @@ jobs:
               coverage xml
 
           - name: Save PR number
-            if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'  && matrix.mpi == 'open-mpi'
+            if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'  && matrix.mpi == 'openmpi'
             run: echo ${{ github.event.number }} > pr_number.txt
 
           - name: Save coverage report and PR number
-            if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'  && matrix.mpi == 'open-mpi'
+            if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'  && matrix.mpi == 'openmpi'
             uses: actions/upload-artifact@v4
             with:
               name: coverage-report
