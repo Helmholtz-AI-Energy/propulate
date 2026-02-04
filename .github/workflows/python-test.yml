@@ -12,16 +12,9 @@ jobs:
     build:
         strategy:
           matrix:
-            os: ["ubuntu-latest", "macos-latest"] # "windows-latest"
+            os: ["ubuntu-latest", "macos-latest"]
             python-version: ["3.10", "3.11", "3.12" ]
-            mpi: [ "openmpi", "mpich"] #, "intelmpi", "windowsmpi"]
-#            exclude:
-#              - os: "macos-latest"
-#                mpi: ["intelmpi", "windowsmpi"]
-#              - os: "windows-latest"
-#                mpi: ["openmpi", "mpich"]
-#              - os: "ubuntu-latest"
-#                mpi: ["windowsmpi"]
+            mpi: [ "openmpi", "mpich"]
 
         runs-on: ${{ matrix.os }}
 
