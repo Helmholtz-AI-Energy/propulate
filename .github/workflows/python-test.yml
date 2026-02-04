@@ -35,10 +35,11 @@ jobs:
             uses: astral-sh/setup-uv@v5
             with:
               python-version: ${{ matrix.python-version }}
+              cache-key: uv-${{ matrix.python-version }}-${{ matrix.mpi }}
 
           - name: Install dependencies
             run: |
-                uv pip install --no-binary=mpi4py ."[test]"
+                uv pip install --force-reinstall --no-binary=mpi4py ."[test]"
 
           - name: Test with pytest and measure coverage
             run: |
