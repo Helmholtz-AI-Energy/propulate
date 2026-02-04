@@ -35,7 +35,7 @@ jobs:
             uses: astral-sh/setup-uv@v5
             with:
               python-version: ${{ matrix.python-version }}
-              cache-key: uv-${{ matrix.python-version }}-${{ matrix.mpi }}
+              enable-cache: false
 
           - name: Install dependencies
             run: |
