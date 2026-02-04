@@ -12,9 +12,16 @@ jobs:
     build:
         strategy:
           matrix:
-            os: ["ubuntu-latest", "macos-latest"]
+            os: ["ubuntu-latest", "macos-latest"] # "windows-latest"
             python-version: ["3.10", "3.11", "3.12" ]
-            mpi: [ "openmpi", "mpich"]
+            mpi: [ "openmpi", "mpich"] #, "intelmpi", "windowsmpi"]
+#            exclude:
+#              - os: "macos-latest"
+#                mpi: ["intelmpi", "windowsmpi"]
+#              - os: "windows-latest"
+#                mpi: ["openmpi", "mpich"]
+#              - os: "ubuntu-latest"
+#                mpi: ["windowsmpi"]
 
         runs-on: ${{ matrix.os }}
 
@@ -24,7 +31,7 @@ jobs:
 
         steps:
           - name: Check out repository
-            uses: actions/checkout@v4
+            uses: actions/checkout@v6
 
           - name: Setup MPI ${{ matrix.mpi }}
             uses: mpi4py/setup-mpi@v1
@@ -32,7 +39,7 @@ jobs:
               mpi: ${{ matrix.mpi }}
 
           - name: Install uv, set the python version, and enable cache
-            uses: astral-sh/setup-uv@v5
+            uses: astral-sh/setup-uv@v7
             with:
               python-version: ${{ matrix.python-version }}
               enable-cache: false
