@@ -18,6 +18,7 @@ jobs:
 
         runs-on: ${{ matrix.os }}
 
+        # Coverage auto-start for serial and MPI processes
         env:
           COVERAGE_PROCESS_START: pyproject.toml
 
