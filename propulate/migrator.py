@@ -203,7 +203,11 @@ class Migrator(Propulator):
                 for emigrant in emigrants:
                     assert isinstance(emigrant, Individual)
                     # Look for emigrant to deactivate in original population list.
-                    to_deactivate = [key for key, ind in self.population.items() if ind == emigrant]
+                    to_deactivate = [
+                        key
+                        for key, ind in self.population.items()
+                        if ind == emigrant and ind.migration_steps == emigrant.migration_steps
+                    ]
                     # TODO move this to a test
                     assert len(to_deactivate) == 1  # There should be exactly one!
                     n_active_before = len(self._get_active_individuals())
@@ -244,13 +248,17 @@ class Migrator(Propulator):
                 immigrants = self.propulate_comm.recv(source=stat.Get_source(), tag=MIGRATION_TAG)
                 log_string += f"Received {len(immigrants)} immigrant(s) from global worker {stat.Get_source()}: {immigrants}\n"
                 for immigrant in immigrants:
+                    immigrant.migration_steps += 1
                     assert immigrant.active is True
                     catastrophic_failure = (
                         len(
                             [
                                 ind
                                 for ind in self.population.values()
-                                if ind == immigrant and immigrant.current == ind.current and ind.active
+                                if ind == immigrant
+                                and immigrant.migration_steps == ind.migration_steps
+                                and immigrant.current == ind.current
+                                and ind.active
                             ]
                         )
                         > 0
@@ -284,7 +292,9 @@ class Migrator(Propulator):
         check = False
         # Loop over emigrants still to be deactivated.
         for idx, emigrant in enumerate(self.emigrated):
-            existing_ind = [ind for ind in self.population.values() if ind == emigrant]
+            existing_ind = [
+                ind for ind in self.population.values() if ind == emigrant and ind.migration_steps == emigrant.migration_steps
+            ]
             if len(existing_ind) > 0:
                 check = True
                 # Check equivalence of actual traits, i.e., (hyper-)parameter values.
@@ -304,6 +314,7 @@ class Migrator(Propulator):
                     f"{compare_traits} {existing_ind[0].loss == self.emigrated[idx].loss} "
                     f"{existing_ind[0].active == emigrant.active} {existing_ind[0].current == emigrant.current} "
                     f"{existing_ind[0].island == emigrant.island} "
+                    f"{existing_ind[0].migration_steps == emigrant.migration_steps}"
                 )
                 break
 
@@ -330,14 +341,22 @@ class Migrator(Propulator):
             emigrated_copy = copy.deepcopy(self.emigrated)
             for emigrant in emigrated_copy:
                 assert emigrant.active is True
-                to_deactivate = [idx for idx, ind in self.population.items() if ind == emigrant]
+                to_deactivate = [
+                    idx
+                    for idx, ind in self.population.items()
+                    if ind == emigrant and ind.migration_steps == emigrant.migration_steps
+                ]
                 if len(to_deactivate) == 0:
                     log_string += f"Individual {emigrant} to deactivate not yet received.\n"
                     continue
                 assert len(to_deactivate) == 1
                 self.population[to_deactivate[0]].active = False
                 # NOTE emigrated is a list, population is a dict
-                to_remove = [idx for idx, ind in enumerate(self.emigrated) if ind == emigrant]
+                to_remove = [
+                    idx
+                    for idx, ind in enumerate(self.emigrated)
+                    if ind == emigrant and ind.migration_steps == emigrant.migration_steps
+                ]
                 assert len(to_remove) == 1
                 self.emigrated.pop(to_remove[0])
                 log_string += (
@@ -371,24 +390,29 @@ class Migrator(Propulator):
         # TODO refactor the propulate method
         self.start_time = time.time_ns()
         if self.worker_sub_comm != MPI.COMM_SELF:
+            log.debug("broadcasting generation to all ranks in worker")
             self.generation = self.worker_sub_comm.bcast(self.generation, root=0)
+            log.debug(f"generations is {self.generation}")
         # NOTE if true, this rank is a worker sub rank, so it does not breeding and checkpointing, just evaluation
         if self.propulate_comm is None:
-            while self.generations <= -1 or self.generation < self.generations:
+            while self.generation < self.generations:
                 # Breed and evaluate individual.
                 # TODO this should be refactored, the subworkers don't need the logfile
                 # TODO this needs to be addressed before merge, since multirank workers should fail with this
-                self._sub_rank_evaluate_individual()
+                # self._sub_rank_evaluate_individual()
+                ind = self._breed()
+                log.debug(ind)
+                self._evaluate_individual(ind)
                 self.generation += 1
             return
 
         if self.island_comm.rank == 0:
             log.info(f"Island {self.island_idx} has {self.island_comm.size} workers with {self.worker_sub_comm.size} ranks each.")
 
-        # Loop over generations.
         # TODO this should probably be refactored, checkpointing can probably be handled in one place
         # TODO does not work for multi rank workers
         with h5py.File(self.checkpoint_path, "a", driver="mpio", comm=self.propulate_comm) as f:
+            log.debug("opened checkpoint file in migrator.propulate")
             # NOTE check if there is an individual still to evaluate
             # TODO for now we write a loss to the checkpoint only if the evaluation has completed
             # TODO how do we save the surrogate model?

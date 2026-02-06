@@ -207,6 +207,7 @@ class Pollinator(Propulator):
 
                 # Add immigrants to own population.
                 for immigrant in immigrants:
+                    immigrant.migration_steps += 1
                     assert immigrant.active is True
                     self.population[immigrant.island, immigrant.island_rank, immigrant.generation] = copy.deepcopy(
                         immigrant
@@ -276,7 +277,11 @@ class Pollinator(Propulator):
         replaced_copy = copy.deepcopy(self.replaced)
         for individual in replaced_copy:
             assert individual.active is True
-            to_deactivate = [idx for idx, ind in self.population.items() if ind == individual]
+            to_deactivate = [
+                idx
+                for idx, ind in self.population.items()
+                if ind == individual and ind.migration_steps == individual.migration_steps
+            ]
             if len(to_deactivate) == 0:
                 log_string += f"Individual {individual} to deactivate not yet received.\n"
                 continue
@@ -320,7 +325,10 @@ class Pollinator(Propulator):
                 # TODO this needs to be addressed before merge, since multirank workers should fail with this
                 # TODO see migrator
                 # self._evaluate_individual(None)
-                self._sub_rank_evaluate_individual()
+                # self._sub_rank_evaluate_individual()
+                ind = self._breed()
+                log.debug(ind)
+                self._evaluate_individual(ind)
                 self.generation += 1
             return
 

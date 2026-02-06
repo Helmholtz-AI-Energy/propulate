@@ -465,10 +465,6 @@ class Propulator:
             f"Bred and evaluated individual {ind}."
         )
 
-    def _sub_rank_evaluate_individual(self) -> None:
-        """Receive parameters from worker rank 0 and evaluate."""
-        pass
-
     def _send_intra_island_individuals(self, ind: Individual) -> None:
         """Send evaluated individual to other workers within own island."""
         if self.surrogate is not None:
@@ -662,7 +658,9 @@ class Propulator:
                 # Breed and evaluate individual.
                 # TODO this should be refactored, the subworkers don't need the logfile
                 # TODO this needs to be addressed before merge, since multirank workers should fail with this
-                self._sub_rank_evaluate_individual()
+                ind = self._breed()
+                log.debug(ind)
+                self._evaluate_individual(ind)
                 self.generation += 1
             return
 

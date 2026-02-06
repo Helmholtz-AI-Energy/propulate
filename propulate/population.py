@@ -92,6 +92,7 @@ class Individual:
         self.start_time = 0
         self.evalperiod = 0.0  # evaluation duration
         self.island_rank = -1  # birth rank in island comm
+        self.migration_steps = 0
 
         # NOTE needed for PSO type propagators
         self.velocity = velocity
