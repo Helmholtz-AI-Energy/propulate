@@ -14,7 +14,10 @@ from ..propagators import Propagator
 from ..population import Individual, _normalize_param_type
 
 
-def get_default_kernel_sklearn(dim: int) -> Kernel:
+def get_default_kernel_sklearn(
+    dim: int,
+    categorical_blocks: Optional[List[Tuple[int, int]]] = None,
+) -> Kernel:
     """
     Get default Matern kernel for sklearn GaussianProcessRegressor.
 
@@ -23,15 +26,26 @@ def get_default_kernel_sklearn(dim: int) -> Kernel:
     dim : int
         Position array dimension (accounts for one-hot encoding of categoricals).
         This may be larger than the number of parameters due to categorical encoding.
+    categorical_blocks : list of (offset, n_categories), optional
+        One-hot dimension blocks. When provided, these dimensions get larger
+        initial length scales (5.0) and a tighter lower bound (1.0) to reduce
+        their influence relative to continuous dimensions.
 
     Returns
     -------
     Kernel
         Default kernel combining Constant, Matern, and WhiteKernel.
     """
+    length_scales = np.ones(dim)
+    ls_bounds = np.full((dim, 2), [1e-2, 1e3])
+    if categorical_blocks:
+        for cat_offset, n_categories in categorical_blocks:
+            for j in range(n_categories):
+                length_scales[cat_offset + j] = 5.0
+                ls_bounds[cat_offset + j] = [1.0, 1e3]
     kernel = (
         C(1.0, (1e-3, 1e5)) *
-        Matern(length_scale=np.ones(dim), length_scale_bounds=(1e-2, 1e3))
+        Matern(length_scale=length_scales, length_scale_bounds=ls_bounds)
         + WhiteKernel(noise_level=1e-1, noise_level_bounds=(1e-8, 1e1))
     )
     return kernel
@@ -114,6 +128,8 @@ def _sparse_select_indices(
     highs: np.ndarray,
     max_points: int,
     top_m: int = 150,
+    continuous_dims: Optional[List[int]] = None,
+    categorical_blocks: Optional[List[Tuple[int, int]]] = None,
 ) -> np.ndarray:
     """
     Select up to ``max_points`` indices from (X, y) using a deterministic strategy:
@@ -121,9 +137,10 @@ def _sparse_select_indices(
     - Fill the remaining budget with greedy farthest-point sampling in a
       whitened feature space for better geometric spread.
 
-    Whitened space here means:
-      1) scale each dimension to [0, 1] via bounds lows/highs
-      2) standardize to zero-mean and unit-variance across the dataset
+    When ``continuous_dims`` and ``categorical_blocks`` are provided, uses a
+    weighted mixed distance: whitened Euclidean on continuous dimensions plus
+    Hamming distance on categorical dimensions, balanced so each block
+    contributes equally.  Otherwise falls back to pure Euclidean on all dims.
 
     Returns
     -------
@@ -144,13 +161,59 @@ def _sparse_select_indices(
     if len(selected) >= k_budget:
         return np.array(selected[:k_budget], dtype=int)
 
-    # Whiten X: bounds -> [0,1], then z-score
-    scale = np.where((highs - lows) == 0.0, 1.0, (highs - lows))
-    X01 = (X - lows) / scale
-    mean = X01.mean(axis=0)
-    std = X01.std(axis=0)
-    std[std < 1e-12] = 1.0
-    Xw = (X01 - mean) / std
+    # Build distance function
+    use_mixed = continuous_dims is not None and categorical_blocks is not None
+    if use_mixed:
+        n_cont = len(continuous_dims)  # type: ignore[arg-type]
+        n_cat_params = len(categorical_blocks)  # type: ignore[arg-type]
+
+        # Whiten continuous dims only
+        if n_cont > 0:
+            cont_idx = np.array(continuous_dims)
+            X_cont = X[:, cont_idx]
+            cont_lows = lows[cont_idx]
+            cont_highs = highs[cont_idx]
+            cont_scale = np.where((cont_highs - cont_lows) == 0.0, 1.0, cont_highs - cont_lows)
+            X_cont_01 = (X_cont - cont_lows) / cont_scale
+            cont_mean = X_cont_01.mean(axis=0)
+            cont_std = X_cont_01.std(axis=0)
+            cont_std[cont_std < 1e-12] = 1.0
+            Xw_cont = (X_cont_01 - cont_mean) / cont_std
+        else:
+            Xw_cont = np.empty((n, 0))
+
+        # Extract categorical indices (argmax of each one-hot block)
+        if n_cat_params > 0:
+            cat_indices = np.zeros((n, n_cat_params), dtype=int)
+            for j, (off, n_c) in enumerate(categorical_blocks):  # type: ignore[arg-type]
+                cat_indices[:, j] = np.argmax(X[:, off:off + n_c], axis=1)
+        else:
+            cat_indices = np.empty((n, 0), dtype=int)
+
+        # Per-block weights so continuous and categorical blocks contribute equally
+        w_cont = 1.0 / max(n_cont, 1) if n_cont > 0 else 0.0
+        w_cat = 1.0 / max(n_cat_params, 1) if n_cat_params > 0 else 0.0
+
+        def _dist_from(i: int, pool_idx: np.ndarray) -> np.ndarray:
+            d = np.zeros(len(pool_idx))
+            if n_cont > 0:
+                diff = Xw_cont[pool_idx] - Xw_cont[i]
+                d += w_cont * np.sum(diff ** 2, axis=1)
+            if n_cat_params > 0:
+                hamming = np.sum(cat_indices[pool_idx] != cat_indices[i], axis=1)
+                d += w_cat * hamming.astype(float)
+            return d
+    else:
+        # Legacy path: pure Euclidean on all dims
+        scale = np.where((highs - lows) == 0.0, 1.0, (highs - lows))
+        X01 = (X - lows) / scale
+        xmean = X01.mean(axis=0)
+        xstd = X01.std(axis=0)
+        xstd[xstd < 1e-12] = 1.0
+        Xw = (X01 - xmean) / xstd
+
+        def _dist_from(i: int, pool_idx: np.ndarray) -> np.ndarray:
+            return np.sum((Xw[pool_idx] - Xw[i]) ** 2, axis=1)
 
     # Pool are non-selected indices
     all_idx = np.arange(n)
@@ -162,22 +225,18 @@ def _sparse_select_indices(
         return np.array(selected, dtype=int)
 
     # Initialize min-distance-to-selected for all candidates in pool
-    # Use squared Euclidean distances (cheaper, preserves ordering).
     dist_min = np.full(pool.shape[0], np.inf, dtype=float)
     if selected:
-        Xw_pool = Xw[pool]
         for s in selected:
-            ds = np.sum((Xw_pool - Xw[s]) ** 2, axis=1)
+            ds = _dist_from(s, pool)
             dist_min = np.minimum(dist_min, ds)
     else:
         # If nothing selected yet (m == 0), seed with the best point to anchor
-        # and continue normally.
         s0 = int(order[0])
         selected.append(s0)
         mask_sel[s0] = True
         pool = all_idx[~mask_sel]
-        Xw_pool = Xw[pool]
-        dist_min = np.sum((Xw_pool - Xw[s0]) ** 2, axis=1)
+        dist_min = _dist_from(s0, pool)
 
     # Greedy farthest-point until budget is met
     while len(selected) < k_budget and pool.size > 0:
@@ -189,9 +248,7 @@ def _sparse_select_indices(
         pool = np.delete(pool, k)
         if pool.size == 0:
             break
-        Xw_pool = Xw[pool]
-        # Update min-distance using the newly selected point
-        dnew = np.sum((Xw_pool - Xw[j]) ** 2, axis=1)
+        dnew = _dist_from(j, pool)
         dist_min = np.delete(dist_min, k)
         dist_min = np.minimum(dist_min, dnew)
 
@@ -819,6 +876,21 @@ class BayesianOptimizer(Propagator):
             for k in limits
         )
 
+        # Precompute dimension layout for decoupled initial design, sparse selection,
+        # and dimension-aware kernel initialization.
+        self._continuous_dims: List[int] = []       # position indices of float/int params
+        self._categorical_blocks: List[Tuple[int, int]] = []  # (offset, n_categories) per categorical
+        _offset = 0
+        for key in limits:
+            if self.param_types[key] is str:
+                n_cat = len(limits[key])
+                self._categorical_blocks.append((_offset, n_cat))
+                _offset += n_cat
+            else:
+                self._continuous_dims.append(_offset)
+                _offset += 1
+        self._n_continuous = len(self._continuous_dims)
+
         # Number of parameters (not position dimensions)
         self.dim = len(limits)
 
@@ -904,7 +976,7 @@ class BayesianOptimizer(Propagator):
         # Kernel for surrogate
         if kernel is None:
             # For this PR, only SingleCPUFitter is supported; default to sklearn kernel
-            kernel = get_default_kernel_sklearn(self.position_dim)
+            kernel = get_default_kernel_sklearn(self.position_dim, self._categorical_blocks)
         self.kernel = kernel
 
         # Store acquisition config; we'll instantiate dynamically each call to allow schedules
@@ -933,28 +1005,38 @@ class BayesianOptimizer(Propagator):
         # Warm-start with a space-filling initial design
         if len(inds) < self.n_initial:
             lows, highs = self.limits_arr
-            if self.initial_design == "sobol":
-                if self._qmc_engine is None:
-                    # distinct seed per rank for different streams; Sobol doesn't take seed directly
+            x0 = np.zeros(self.position_dim)
+
+            # Continuous/integer dims: Sobol/LHS/random over only these dimensions
+            if self._n_continuous > 0:
+                if self.initial_design == "sobol":
+                    if self._qmc_engine is None:
+                        seed = self.rng.randrange(0, 2**32 - 1)
+                        self._qmc_engine = qmc.Sobol(
+                            d=self._n_continuous, scramble=True,
+                            seed=np.random.default_rng(seed),
+                        )
+                    u = self._qmc_engine.random(1)[0]
+                elif self.initial_design == "lhs":
                     seed = self.rng.randrange(0, 2**32 - 1)
-                    np.random.seed(seed)
-                    self._qmc_engine = qmc.Sobol(d=self.position_dim, scramble=True)
-                u = self._qmc_engine.random(1)[0]
-                x0 = lows + u * (highs - lows)
-                x0 = _project_to_discrete(x0, self.limits, self.param_types)
-            elif self.initial_design == "lhs":
-                # Per-call LHS degenerates to random Latin cell; acceptable as fallback
-                seed = self.rng.randrange(0, 2**32 - 1)
-                np.random.seed(seed)
-                engine = qmc.LatinHypercube(d=self.position_dim)
-                u = engine.random(1)[0]
-                x0 = lows + u * (highs - lows)
-                x0 = _project_to_discrete(x0, self.limits, self.param_types)
-            else:  # random
-                x0 = np.array([self.rng.uniform(l, h) for l, h in zip(lows, highs)], dtype=float)
-                x0 = _project_to_discrete(x0, self.limits, self.param_types)
-            gen0 = 0 if len(inds) == 0 else max(ind.generation for ind in inds) + 1
+                    engine = qmc.LatinHypercube(
+                        d=self._n_continuous, seed=np.random.default_rng(seed),
+                    )
+                    u = engine.random(1)[0]
+                else:  # random
+                    u = np.array([self.rng.random() for _ in range(self._n_continuous)])
+                for i, dim_idx in enumerate(self._continuous_dims):
+                    x0[dim_idx] = lows[dim_idx] + u[i] * (highs[dim_idx] - lows[dim_idx])
+
+            # Categorical dims: uniform random category selection (independent of QMC)
+            for cat_offset, n_cat in self._categorical_blocks:
+                chosen = self.rng.randrange(n_cat)
+                x0[cat_offset:cat_offset + n_cat] = 0.0
+                x0[cat_offset + chosen] = 1.0
+
+            x0 = _project_to_discrete(x0, self.limits, self.param_types)
             x0 = np.clip(x0, lows, highs)
+            gen0 = 0 if len(inds) == 0 else max(ind.generation for ind in inds) + 1
             return Individual(x0, self.limits, generation=gen0, rank=self.rank)
 
         # Sparse subsample
@@ -968,7 +1050,9 @@ class BayesianOptimizer(Propagator):
 
             lows, highs = self.limits_arr
             sel_idx = _sparse_select_indices(
-                X_all, y_all, lows, highs, max_points=self.max_points, top_m=self.top_m
+                X_all, y_all, lows, highs, max_points=self.max_points, top_m=self.top_m,
+                continuous_dims=self._continuous_dims,
+                categorical_blocks=self._categorical_blocks,
             )
             # Rebuild inds from selected indices. Preserve original metadata by mapping
             # positions back to individuals with matching positions and losses.
@@ -1089,10 +1173,10 @@ class BayesianOptimizer(Propagator):
             **params,
         )
 
-        # Acquisition wrapper
+        # Acquisition wrapper — optimizer works in [0,1]^d (same space as the GP),
+        # so no normalization needed inside the wrapper.
         def acq_func(x: np.ndarray) -> float:
-            xs = (x - lows) / scale
-            val = acquisition.evaluate(xs, model, f_best)
+            val = acquisition.evaluate(x, model, f_best)
             # For EI / PI we must *maximize* the acquisition, but our optimizer performs minimization.
             # Negate those values so that minimizing corresponds to maximizing the true acquisition.
             if active_acq_type.upper() in ("EI", "PI"):
@@ -1100,16 +1184,20 @@ class BayesianOptimizer(Propagator):
             # For (L)UCB (our implementation), minimizing mu - kappa*sigma is correct.
             return val
 
-        # Optimize acquisition
-        x_new = self.optimizer.optimize(
+        # Optimize acquisition in normalized [0,1]^d space for better L-BFGS-B conditioning
+        unit_bounds = np.array([np.zeros(self.position_dim), np.ones(self.position_dim)])
+        x_new_unit = self.optimizer.optimize(
             acq_func,
-            bounds=self.limits_arr,
+            bounds=unit_bounds,
             rng=self.rng,
         )
+        # Denormalize back to raw parameter space
+        x_new = lows + x_new_unit * scale
+
         # Epsilon-greedy random explore with decaying probability
         p_explore = self._p_explore_end + (self._p_explore_start - self._p_explore_end) * np.exp(-t / self._p_explore_tau)
         if self.rng.random() < p_explore:
-            # Random point in bounds
+            # Random point in bounds (raw space)
             x_new = np.array([self.rng.uniform(l, h) for l, h in zip(lows, highs)], dtype=float)
 
         # Clip and project continuous result to valid discrete/categorical values
