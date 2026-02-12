@@ -407,3 +407,33 @@ def test_initial_designs_with_mixed_types():
             assert isinstance(ind["x"], float)
             assert isinstance(ind["n"], int)
             assert isinstance(ind["cat"], str)
+
+
+def test_insufficient_data_fallback_handles_mixed_types():
+    """Fallback random exploration must work when all observed losses are non-finite."""
+    limits = {
+        "x": (0.0, 1.0),
+        "n": (1, 5),
+        "cat": ("a", "b", "c"),
+    }
+    rng = random.Random(42)
+    opt = BayesianOptimizer(
+        limits=limits,
+        rank=0,
+        n_initial=1,
+        rng=rng,
+    )
+
+    # One initial point to pass warm-start gate.
+    seed_ind = opt([])
+    seed_ind.loss = float("nan")
+
+    # Triggers fallback branch after filtering non-finite losses.
+    ind = opt([seed_ind])
+
+    assert isinstance(ind["x"], float)
+    assert isinstance(ind["n"], int)
+    assert isinstance(ind["cat"], str)
+    assert 0.0 <= ind["x"] <= 1.0
+    assert 1 <= ind["n"] <= 5
+    assert ind["cat"] in limits["cat"]

@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import logging
 import random
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union, Protocol, cast
@@ -30,11 +31,81 @@ def get_default_kernel_sklearn(dim: int) -> Kernel:
     """
     kernel = (
         C(1.0, (1e-3, 1e5)) *
-        Matern(length_scale=np.ones(dim), length_scale_bounds=(1e-2, 100.0))
-        + WhiteKernel(noise_level=1e-4, noise_level_bounds=(1e-8, 1e1))
+        Matern(length_scale=np.ones(dim), length_scale_bounds=(1e-2, 1e3))
+        + WhiteKernel(noise_level=1e-1, noise_level_bounds=(1e-8, 1e1))
     )
     return kernel
     
+_bo_log = logging.getLogger("propulate.bayesopt")
+
+
+def _log_gp_diagnostics(
+    model: GaussianProcessRegressor,
+    y: np.ndarray,
+    rank: int,
+    generation: int,
+    optimized_hyperparameters: bool,
+) -> None:
+    """Log GP kernel diagnostics after fitting.
+
+    Reports training data statistics, fitted kernel parameters, and warns
+    when length_scale values are at or near their bounds.
+    """
+    if not hasattr(model, "kernel_"):
+        return
+
+    _bo_log.info(
+        "[BO rank=%d gen=%d] GP fit (hp_opt=%s): n_train=%d, "
+        "y_min=%.4g, y_max=%.4g, y_mean=%.4g, y_std=%.4g",
+        rank, generation, optimized_hyperparameters,
+        len(y), y.min(), y.max(), y.mean(), y.std(),
+    )
+    _bo_log.info(
+        "[BO rank=%d gen=%d] Fitted kernel: %s",
+        rank, generation, model.kernel_,
+    )
+    _bo_log.info(
+        "[BO rank=%d gen=%d] Log-marginal-likelihood: %.4f",
+        rank, generation, model.log_marginal_likelihood_value_,
+    )
+
+    # Check whether Matern / RBF length_scale is near its bounds.
+    # Kernel structure: (C * Matern) + WhiteKernel  →  k1 = C*Matern, k2 = White
+    #                   k1.k1 = C, k1.k2 = Matern
+    try:
+        k_stationary = model.kernel_.k1.k2  # Matern or RBF
+        ls = np.atleast_1d(k_stationary.length_scale)
+        bounds = np.atleast_2d(k_stationary.length_scale_bounds)
+        lb = bounds[:, 0]
+        ub = bounds[:, 1]
+        at_lb = int(np.sum(ls <= lb * 1.05))
+        at_ub = int(np.sum(ls >= ub * 0.95))
+        if at_lb > 0:
+            _bo_log.warning(
+                "[BO rank=%d gen=%d] %d/%d length_scale dims at LOWER bound "
+                "(ls=%s, lb=%s)",
+                rank, generation, at_lb, len(ls), ls, lb,
+            )
+        if at_ub > 0:
+            _bo_log.warning(
+                "[BO rank=%d gen=%d] %d/%d length_scale dims at UPPER bound "
+                "(ls=%s, ub=%s)",
+                rank, generation, at_ub, len(ls), ls, ub,
+            )
+    except (AttributeError, TypeError, IndexError):
+        pass  # kernel structure may differ from expected layout
+
+    # Report noise level from WhiteKernel if present.
+    try:
+        noise = model.kernel_.k2.noise_level
+        _bo_log.info(
+            "[BO rank=%d gen=%d] WhiteKernel noise_level: %.4g",
+            rank, generation, noise,
+        )
+    except AttributeError:
+        pass
+
+
 # --- Sparse selection helpers -------------------------------------------------
 def _sparse_select_indices(
     X: np.ndarray,
@@ -450,7 +521,7 @@ class SurrogateFitter(ABC):
 
 class SingleCPUFitter(SurrogateFitter):
     def __init__(self, optimize_hyperparameters: bool = True,
-                 n_restarts: int = 0, random_state: Optional[int] = None,
+                 n_restarts: int = 5, random_state: Optional[int] = None,
                  alpha: float = 1e-6):
         self.optimize_hyperparameters = optimize_hyperparameters
         self.n_restarts = n_restarts
@@ -918,8 +989,9 @@ class BayesianOptimizer(Propagator):
         # If we don't have enough valid data, fall back to random exploration
         if X.shape[0] < max(2, self.dim):
             lows, highs = self.limits_arr
-            x_new = np.array([self.rng.uniform(l, u) for l, u in self.limits.values()], dtype=float)
+            x_new = np.array([self.rng.uniform(l, h) for l, h in zip(lows, highs)], dtype=float)
             x_new = np.clip(x_new, lows, highs)
+            x_new = _project_to_discrete(x_new, self.limits, self.param_types)
             gen = 0 if len(inds) == 0 else max(ind.generation for ind in inds) + 1
             return Individual(x_new, self.limits, generation=gen, rank=self.rank)
 
@@ -949,6 +1021,9 @@ class BayesianOptimizer(Propagator):
         if isinstance(model, GaussianProcessRegressor) and hasattr(model, "kernel_"):
             self.kernel = model.kernel_
         self._hp_fit_calls += 1
+
+        if isinstance(model, GaussianProcessRegressor):
+            _log_gp_diagnostics(model, y, self.rank, current_generation, optimize_hyperparameters_now)
 
         # Determine current best
         f_best = float(np.min(y))
