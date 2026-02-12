@@ -748,6 +748,7 @@ class BayesianOptimizer(Propagator):
         self,
         limits: Dict[str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]],
         rank: int,
+        world_size: int = 1,
         fitter: Optional[SurrogateFitter] = None,
         optimizer: Optional[Any] = None,
         kernel: Optional[Kernel] = None,
@@ -798,6 +799,9 @@ class BayesianOptimizer(Propagator):
 
         rank : int
             MPI rank of this optimizer instance for parallel optimization
+        world_size : int, optional
+            Total number of MPI ranks (default: 1). Required for rank stretching
+            to diversify acquisition parameters across parallel workers.
         fitter : SurrogateFitter, optional
             Surrogate model fitter (default: SingleCPUFitter)
         optimizer : Any, optional
@@ -967,6 +971,7 @@ class BayesianOptimizer(Propagator):
         # Always keep top-M elite points; default within 100-200 range
         self.top_m = max(0, min((sparse_params or {}).get("top_m", 150), self.max_points))
         self.rank = rank
+        self.world_size = world_size
         # Initial design config/state
         self.n_initial = n_initial if n_initial is not None else min(10, 10 * self.dim)
         self.initial_design = initial_design.lower()
@@ -1058,7 +1063,6 @@ class BayesianOptimizer(Propagator):
             # positions back to individuals with matching positions and losses.
             # If duplicates exist, a simple linear scan is acceptable given reduced size.
             selected_inds: List[Individual] = []
-            remain = set(map(int, sel_idx.tolist()))
             # Build a compact list of candidate pairs to match fast
             pairs = [(i, ind) for i, ind in enumerate(inds) if np.isfinite(ind.loss)]
             # Create arrays for matching
@@ -1167,7 +1171,7 @@ class BayesianOptimizer(Propagator):
             active_acq_type,
             rank_stretch=self.rank_stretch,
             rank=self.rank,
-            size=getattr(self.fitter, "size", None),
+            size=self.world_size,
             factor_min=self.factor_min,
             factor_max=self.factor_max,
             **params,

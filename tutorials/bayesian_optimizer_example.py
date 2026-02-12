@@ -243,6 +243,7 @@ def run_single_function_comparison(function_name, config, comm):
     bayes_propagator = BayesianOptimizer(
         limits=limits,
         rank=comm.rank,
+        world_size=comm.size,
         optimizer=acq_optimizer,
         acquisition_type=config.bo_acq,              # EI, PI, or UCB
         acquisition_params={"xi": config.bo_xi, "kappa": config.bo_kappa},

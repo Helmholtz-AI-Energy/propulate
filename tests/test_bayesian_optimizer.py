@@ -41,6 +41,7 @@ def _make_bayes_propagator(limits, rng: random.Random) -> BayesianOptimizer:
     return BayesianOptimizer(
         limits=limits,
         rank=MPI.COMM_WORLD.rank,
+        world_size=MPI.COMM_WORLD.size,
         acquisition_type="EI",
         acquisition_params={"xi": 0.01},
         rank_stretch=True,          # diversify across ranks
@@ -316,6 +317,7 @@ def test_bayesian_optimizer_mixed_example(mpi_tmp_path: pathlib.Path) -> None:
     propagator = BayesianOptimizer(
         limits=limits,
         rank=MPI.COMM_WORLD.rank,
+        world_size=MPI.COMM_WORLD.size,
         n_initial=10,
         acquisition_type="EI",
         rng=rng,
