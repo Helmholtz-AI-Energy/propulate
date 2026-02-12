@@ -11,7 +11,7 @@ from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import Kernel, RBF, ConstantKernel as C, WhiteKernel, Matern
 
 from ..propagators import Propagator
-from ..population import Individual
+from ..population import Individual, _normalize_param_type
 
 
 def get_default_kernel_sklearn(dim: int) -> Kernel:
@@ -665,10 +665,16 @@ def _project_to_discrete(
             offset += n_categories
 
         elif param_types[key] is int:
-            # Integer: round and clip to bounds
-            low, high = limits[key]
-            rounded_val = np.rint(x[offset])
-            x_proj[offset] = float(np.clip(rounded_val, low, high))
+            if len(limits[key]) == 2:
+                # Integer range: round and clip to bounds
+                low, high = limits[key]
+                rounded_val = np.rint(x[offset])
+                x_proj[offset] = float(np.clip(rounded_val, low, high))
+            else:
+                # Ordinal integer: snap to nearest valid value
+                values = np.array(limits[key], dtype=float)
+                idx = int(np.argmin(np.abs(values - x[offset])))
+                x_proj[offset] = float(values[idx])
             offset += 1
 
         else:  # float
@@ -718,16 +724,18 @@ class BayesianOptimizer(Propagator):
 
         Parameters
         ----------
-        limits : Dict[str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]]
+        limits : Dict[str, Union[Tuple[float, float], Tuple[int, int], Tuple[int, ...], Tuple[str, ...]]]
             Search space limits. Each parameter can be:
             - Float: Tuple of (low, high) floats for continuous parameters
-            - Int: Tuple of (low, high) ints for discrete parameters
+            - Int range: Tuple of (low, high) ints for discrete parameters
+            - Int ordinal: Tuple of distinct int values in ascending order
             - Categorical: Tuple of strings for categorical parameters
 
             Example:
                 {
                     "learning_rate": (0.001, 0.1),           # continuous
-                    "num_layers": (1, 10),                    # discrete
+                    "num_layers": (1, 10),                    # discrete range
+                    "batch_size": (16, 32, 64, 128),          # discrete ordinal
                     "activation": ("relu", "tanh", "sigmoid") # categorical
                 }
 
@@ -802,8 +810,8 @@ class BayesianOptimizer(Propagator):
         super().__init__(parents=-1, offspring=1, rng=rng)
         self.limits = limits
 
-        # Type detection for mixed-type support
-        self.param_types = {key: type(limits[key][0]) for key in limits}
+        # Type detection for mixed-type support (normalizes numpy scalar types)
+        self.param_types = {key: _normalize_param_type(limits[key][0]) for key in limits}
 
         # Calculate position dimension (accounting for one-hot encoding)
         self.position_dim = sum(
@@ -825,9 +833,10 @@ class BayesianOptimizer(Propagator):
                 self._continuous_lows.extend([0.0] * len(limits[key]))
                 self._continuous_highs.extend([1.0] * len(limits[key]))
             else:
-                # Numeric (int or float): use actual bounds
-                self._continuous_lows.append(float(limits[key][0]))
-                self._continuous_highs.append(float(limits[key][1]))
+                # Numeric (int or float): use min/max of bounds
+                # For ordinal integers like (16, 32, 64, 128) this gives [16, 128]
+                self._continuous_lows.append(float(min(limits[key])))
+                self._continuous_highs.append(float(max(limits[key])))
 
         self._continuous_lows = np.array(self._continuous_lows, dtype=float)
         self._continuous_highs = np.array(self._continuous_highs, dtype=float)
@@ -843,11 +852,18 @@ class BayesianOptimizer(Propagator):
             if len(bounds) < 2:
                 raise ValueError(f"Parameter '{key}' must have at least 2 bounds/categories")
 
-            if isinstance(bounds[0], (int, float)):
-                if len(bounds) != 2:
-                    raise ValueError(f"Numeric parameter '{key}' must have exactly 2 bounds")
-                if bounds[0] >= bounds[1]:
-                    raise ValueError(f"Parameter '{key}': lower bound must be < upper bound")
+            if isinstance(bounds[0], (int, float, np.integer, np.floating)):
+                if isinstance(bounds[0], (int, np.integer)) and len(bounds) > 2:
+                    # Ordinal integer: explicit set of values like (16, 32, 64, 128)
+                    if len(set(bounds)) != len(bounds):
+                        raise ValueError(f"Ordinal parameter '{key}' has duplicate values")
+                    if sorted(bounds) != list(bounds):
+                        raise ValueError(f"Ordinal parameter '{key}' values must be in ascending order")
+                else:
+                    if len(bounds) != 2:
+                        raise ValueError(f"Numeric parameter '{key}' must have exactly 2 bounds")
+                    if bounds[0] >= bounds[1]:
+                        raise ValueError(f"Parameter '{key}': lower bound must be < upper bound")
             elif isinstance(bounds[0], str):
                 if len(set(bounds)) != len(bounds):
                     raise ValueError(f"Categorical parameter '{key}' has duplicate categories")
@@ -1095,10 +1111,9 @@ class BayesianOptimizer(Propagator):
         if self.rng.random() < p_explore:
             # Random point in bounds
             x_new = np.array([self.rng.uniform(l, h) for l, h in zip(lows, highs)], dtype=float)
-            x_new = _project_to_discrete(x_new, self.limits, self.param_types)
 
+        # Clip and project continuous result to valid discrete/categorical values
         x_new = np.clip(x_new, lows, highs)
-        # Project continuous result to valid discrete/categorical values
         x_new = _project_to_discrete(x_new, self.limits, self.param_types)
 
         return Individual(x_new,

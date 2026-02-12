@@ -15,6 +15,21 @@ from typing import (
 import numpy as np
 
 
+def _normalize_param_type(value) -> type:
+    """Map a limit value to its canonical Python type (float, int, or str).
+
+    Handles numpy scalar types (e.g. ``np.int64``, ``np.float32``) so that
+    downstream ``is`` checks against ``int`` / ``float`` work reliably.
+    """
+    if isinstance(value, str):
+        return str
+    if isinstance(value, (int, np.integer)):
+        return int
+    if isinstance(value, (float, np.floating)):
+        return float
+    raise TypeError(f"Unsupported parameter type: {type(value)}")
+
+
 class Individual:
     """An individual represents a candidate solution to the considered optimization problem."""
 
@@ -42,7 +57,7 @@ class Individual:
             if key.startswith("_"):
                 raise ValueError("Keys starting with '_' are reserved.")
         # NOTE keep track of the types of variables for setting and getting
-        self.types = {key: type(limits[key][0]) for key in limits}
+        self.types = {key: _normalize_param_type(limits[key][0]) for key in limits}
         # NOTE offsets are used to keep track of where each variable is stored in the position field, since a categorical embedding can take up more space than other types of variables
         offset = 0
         self.offsets = {}
@@ -119,8 +134,8 @@ class Individual:
             elif self.types[key] is str:
                 assert newvalue in self.limits[key]
                 offset = self.offsets[key]
-                upper = len(self.limits[key])
-                self.position[offset:upper] = np.array([0])
+                upper = offset + len(self.limits[key])
+                self.position[offset:upper] = 0.0
                 self.position[offset + self.limits[key].index(newvalue)] = 1.0
             else:
                 raise ValueError("Unknown type")
