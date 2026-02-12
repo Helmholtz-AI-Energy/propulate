@@ -15,35 +15,9 @@ from propulate.utils import set_logger_config
 from propulate.utils.benchmark_functions import get_function_search_space
 from propulate.propagators.bayesopt import (
     BayesianOptimizer,
-    SingleCPUFitter,
-    MultiCPUFitter,
     expected_improvement,
-    create_acquisition
+    create_acquisition,
 )
-
-
-class RandomBoxSearch:
-    """Simple random search to optimize the acquisition function."""
-    def __init__(self, n_samples: int = 128) -> None:
-        self.n_samples = n_samples
-
-    def optimize(
-        self,
-        acq_func: Callable[[np.ndarray], float],
-        bounds: np.ndarray,
-        rng: random.Random,
-    ) -> np.ndarray:
-        lows, highs = bounds
-        dim = lows.shape[0]
-        best_x = None
-        best_v = float("inf")
-        for _ in range(self.n_samples):
-            x = np.array([rng.uniform(l, u) for l, u in zip(lows, highs)], dtype=float)
-            v = acq_func(x)
-            if v < best_v:
-                best_v = v
-                best_x = x
-        return best_x
 
 
 @pytest.fixture(
@@ -58,15 +32,15 @@ def function_name(request: pytest.FixtureRequest) -> str:
 
 
 def _make_bayes_propagator(limits, rng: random.Random) -> BayesianOptimizer:
-    """Helper to build a BayesianOptimizer with MPI-aware fitter and simple acq optimizer."""
+    """Helper to build a BayesianOptimizer with simple acquisition optimizer.
+
+    Note: Parallel fitters are currently disabled; the optimizer defaults to a
+    single-CPU fitter internally.
+    """
     dim = len(limits)
-    fitter = MultiCPUFitter(comm=MPI.COMM_WORLD, n_restarts_per_rank=1, seed=7)
-    acq_optimizer = RandomBoxSearch(n_samples=96)
     return BayesianOptimizer(
         limits=limits,
-        optimizer=acq_optimizer,
         rank=MPI.COMM_WORLD.rank,
-        fitter=fitter,
         acquisition_type="EI",
         acquisition_params={"xi": 0.01},
         rank_stretch=True,          # diversify across ranks
