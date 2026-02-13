@@ -154,6 +154,7 @@ subset:
 
 For mixed spaces, the diversity score combines normalized Euclidean distance on continuous dimensions and Hamming
 distance on categorical blocks.
+The default ``top_m=150`` keeps about 7.5% of the default ``max_points=2000`` budget as elite points.
 
 **3. Exploration Schedule (Epsilon-Greedy)**
 
@@ -167,7 +168,14 @@ configured via ``p_explore_start``, ``p_explore_end``, and ``p_explore_tau``.
 
 **4. Acquisition Annealing and Switching**
 
-- If ``anneal_acquisition=True``, ``xi`` (EI/PI) or ``kappa`` (UCB) is decayed over time.
+- If ``anneal_acquisition=True``, acquisition parameters decay as
+
+  .. math::
+
+     \xi_t = \max\!\left(10^{-4}, \frac{\xi_0}{\sqrt{1 + 0.05 t}}\right), \qquad
+     \kappa_t = \max\!\left(0.1, \frac{\kappa_0}{\sqrt{1 + 0.05 t}}\right),
+
+  where :math:`t` is the generation index used by the BO loop.
 - Optional dynamic switching is supported via
   ``second_acquisition_type``, ``acq_switch_generation``, and ``second_acquisition_params``.
 

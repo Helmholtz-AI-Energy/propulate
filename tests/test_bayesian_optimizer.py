@@ -14,9 +14,12 @@ from propulate import Propulator
 from propulate.population import Individual
 from propulate.propagators.bayesopt import (
     BayesianOptimizer,
+    MultiStartAcquisitionOptimizer,
     SurrogateFitter,
+    _sparse_select_indices,
     _project_to_discrete,
     create_acquisition,
+    create_fitter,
     expected_improvement,
 )
 from propulate.utils import set_logger_config
@@ -145,6 +148,23 @@ class _DummyModel:
         return mu, std
 
 
+class _CountingModel:
+    """Surrogate mock that records predict() call counts and batch sizes."""
+
+    def __init__(self):
+        self.calls = 0
+        self.batch_sizes = []
+
+    def predict(self, X, return_std=True):
+        self.calls += 1
+        X = np.atleast_2d(X)
+        n = X.shape[0]
+        self.batch_sizes.append(n)
+        mu = np.sum(X, axis=1, dtype=float)
+        std = np.full((n,), 0.1, dtype=float)
+        return mu, std
+
+
 class _DeterministicOptimizer:
     """Simple optimizer stub that probes acquisition once and returns the origin."""
 
@@ -221,6 +241,24 @@ def test_ei_matches_closed_form_against_helper() -> None:
     v = acq.evaluate(x, model, f_best)
 
     ref = float(expected_improvement(np.array([mu]), np.array([sigma]), f_best, minimize=True, xi=xi)[0])
+    assert v == pytest.approx(ref, rel=1e-12, abs=1e-12)
+    assert model.calls == 1
+
+
+def test_ei_maximization_path_matches_helper() -> None:
+    """
+    EI acquisition.evaluate should match expected_improvement() for maximize mode.
+    """
+    f_best = 0.75
+    xi = 0.02
+    mu, sigma = 1.0, 0.3
+    model = _DummyModel(mu=mu, sigma=sigma)
+    acq = create_acquisition("EI", xi=xi, minimize=False)
+
+    x = np.array([0.3, -0.1, 0.7])
+    v = acq.evaluate(x, model, f_best)
+
+    ref = float(expected_improvement(np.array([mu]), np.array([sigma]), f_best, minimize=False, xi=xi)[0])
     assert v == pytest.approx(ref, rel=1e-12, abs=1e-12)
     assert model.calls == 1
 
@@ -302,6 +340,20 @@ def test_rank_stretching_parameters_across_all_acquisitions() -> None:
     assert acq_ucb_N.kappa == pytest.approx(2.0 * 1.0)
 
 
+def test_rank_stretch_false_keeps_parameters_identical_across_ranks() -> None:
+    """When rank_stretch=False, per-rank acquisition parameters should stay unchanged."""
+    size = 5
+    acq_ei_0 = create_acquisition("EI", rank_stretch=False, rank=0, size=size, xi=0.02)
+    acq_ei_N = create_acquisition("EI", rank_stretch=False, rank=size - 1, size=size, xi=0.02)
+    assert acq_ei_0.xi == pytest.approx(0.02)
+    assert acq_ei_N.xi == pytest.approx(0.02)
+
+    acq_ucb_0 = create_acquisition("UCB", rank_stretch=False, rank=0, size=size, kappa=1.0)
+    acq_ucb_N = create_acquisition("UCB", rank_stretch=False, rank=size - 1, size=size, kappa=1.0)
+    assert acq_ucb_0.kappa == pytest.approx(1.0)
+    assert acq_ucb_N.kappa == pytest.approx(1.0)
+
+
 def test_acquisition_interfaces_call_predict_once() -> None:
     """
     Smoke test that evaluate() calls model.predict() exactly once for each acquisition.
@@ -320,6 +372,30 @@ def test_acquisition_interfaces_call_predict_once() -> None:
     assert m1.calls == 1
     assert m2.calls == 1
     assert m3.calls == 1
+
+
+def test_multistart_optimizer_vectorizes_candidate_acquisition_evaluation() -> None:
+    """Candidate scoring should use one batched model.predict call when acq_func supports it."""
+    model = _CountingModel()
+    acq = create_acquisition("UCB", kappa=1.0)
+    optimizer = MultiStartAcquisitionOptimizer(
+        n_candidates=64,
+        n_restarts=0,
+        polish=False,
+    )
+
+    def acq_func(x):
+        arr = np.asarray(x)
+        if arr.ndim == 1:
+            return acq.evaluate(arr, model, f_best=0.0)
+        return acq.evaluate_batch(arr, model, f_best=0.0)
+
+    bounds = np.array([np.zeros(3), np.ones(3)], dtype=float)
+    x_best = optimizer.optimize(acq_func, bounds=bounds, rng=random.Random(0))
+
+    assert x_best.shape == (3,)
+    assert model.calls == 1
+    assert model.batch_sizes == [64]
 
 
 def test_acquisition_switching_activates_second_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1064,6 +1140,26 @@ def test_sparse_subsample_filters_nonfinite_and_keeps_finite():
     assert np.all(np.isfinite(y))
 
 
+def test_sparse_select_indices_preserves_top_m_elites() -> None:
+    """Sparse selector must always include the top_m best objective values."""
+    X = np.linspace(0.0, 1.0, 10).reshape(-1, 1)
+    y = np.array([9.0, 8.0, 0.2, 7.0, 6.0, 5.0, 4.0, 0.1, 3.0, 2.0], dtype=float)
+    lows = np.array([0.0], dtype=float)
+    highs = np.array([1.0], dtype=float)
+
+    idx = _sparse_select_indices(
+        X,
+        y,
+        lows,
+        highs,
+        max_points=5,
+        top_m=2,
+    )
+    assert len(idx) == 5
+    elite = set(np.argsort(y)[:2].tolist())
+    assert elite.issubset(set(idx.tolist()))
+
+
 def test_generation_monotonic_when_sparse_drops_local_rank():
     """Generation must be derived from full local history, not sparse-selected subset."""
     limits = {"x": (0.0, 1.0)}
@@ -1095,3 +1191,30 @@ def test_generation_monotonic_when_sparse_drops_local_rank():
 
     next_ind = opt(inds)
     assert next_ind.generation == 11
+
+
+def test_bayesian_optimizer_repr_contains_key_fields() -> None:
+    """repr should include key BO configuration for debugging."""
+    opt = BayesianOptimizer(
+        limits={"x": (0.0, 1.0)},
+        rank=2,
+        world_size=4,
+        acquisition_type="PI",
+        sparse=True,
+        n_initial=7,
+        rng=random.Random(0),
+    )
+    text = repr(opt)
+    assert "BayesianOptimizer(" in text
+    assert "rank=2" in text
+    assert "world_size=4" in text
+    assert "acquisition_type='PI'" in text
+    assert "sparse=True" in text
+    assert "n_initial=7" in text
+
+
+@pytest.mark.parametrize("fitter_type", ["multi_cpu", "single_gpu", "multi_gpu"])
+def test_create_fitter_unsupported_backends_raise_not_implemented(fitter_type: str) -> None:
+    """Factory should fail early for fitter backends that are not implemented."""
+    with pytest.raises(NotImplementedError, match="not implemented"):
+        create_fitter(fitter_type)

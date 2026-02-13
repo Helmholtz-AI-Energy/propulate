@@ -8,7 +8,7 @@ import numpy as np
 from scipy.optimize import fmin_l_bfgs_b, minimize
 from scipy.stats import norm, qmc
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import Kernel, RBF, ConstantKernel as C, WhiteKernel, Matern
+from sklearn.gaussian_process.kernels import Kernel, ConstantKernel as C, WhiteKernel, Matern
 
 from ..propagators import Propagator
 from ..population import Individual, _normalize_param_type
@@ -41,6 +41,8 @@ def get_default_kernel_sklearn(
     if categorical_blocks:
         for cat_offset, n_categories in categorical_blocks:
             for j in range(n_categories):
+                # One-hot dimensions are in [0, 1]. A larger initial length scale
+                # weakens categorical influence at initialization and lets data tune it.
                 length_scales[cat_offset + j] = 5.0
                 ls_bounds[cat_offset + j] = [1.0, 1e3]
     kernel = (
@@ -245,18 +247,29 @@ def _sparse_select_indices(
         j = int(pool[k])
         selected.append(j)
 
-        # Remove chosen j from pool and its distance entry
-        pool = np.delete(pool, k)
-        if pool.size == 0:
+        # Remove chosen j from pool and its distance entry without np.delete allocations.
+        if pool.size == 1:
             break
+        keep = np.ones(pool.shape[0], dtype=bool)
+        keep[k] = False
+        pool = pool[keep]
         dnew = _dist_from(j, pool)
-        dist_min = np.delete(dist_min, k)
-        dist_min = np.minimum(dist_min, dnew)
+        dist_min = np.minimum(dist_min[keep], dnew)
 
     return np.array(selected[:k_budget], dtype=int)
     
 class SupportsPredict(Protocol):
     def predict(self, X: np.ndarray, return_std: bool = True) -> Tuple[np.ndarray, np.ndarray]: ...
+
+
+class SupportsAcquisitionOptimize(Protocol):
+    def optimize(
+        self,
+        acq_func: Any,
+        bounds: np.ndarray,
+        rng: Optional[random.Random] = None,
+    ) -> np.ndarray: ...
+
 
 def expected_improvement(
     mu: np.ndarray,
@@ -308,13 +321,24 @@ class AcquisitionFunction(ABC):
         mu, sigma = cast(Tuple[np.ndarray, np.ndarray], model.predict(x, return_std=True))
         return mu, sigma
 
+    def evaluate_batch(
+        self,
+        X: np.ndarray,
+        model: Union[GaussianProcessRegressor, SupportsPredict],
+        f_best: float,
+    ) -> np.ndarray:
+        """Evaluate acquisition on a batch of candidate points."""
+        X = np.atleast_2d(X)
+        return np.array([self.evaluate(x, model, f_best) for x in X], dtype=float)
+
 
 class ExpectedImprovement(AcquisitionFunction):
     """
-    Expected Improvement acquisition for minimization.
+    Expected Improvement acquisition.
     """
-    def __init__(self, xi: float = 0.01):
+    def __init__(self, xi: float = 0.01, minimize: bool = True):
         self.xi = xi
+        self.minimize = minimize
 
     def evaluate(
         self,
@@ -323,8 +347,12 @@ class ExpectedImprovement(AcquisitionFunction):
         f_best: float,
     ) -> float:
         mu, sigma = self._predict(x, model)
-        ei = expected_improvement(mu, sigma, f_best, minimize=True, xi=self.xi)
+        ei = expected_improvement(mu, sigma, f_best, minimize=self.minimize, xi=self.xi)
         return float(ei[0])
+
+    def evaluate_batch(self, X: np.ndarray, model, f_best: float) -> np.ndarray:
+        mu, sigma = self._predict(X, model)
+        return expected_improvement(mu, sigma, f_best, minimize=self.minimize, xi=self.xi)
 
 
 class ProbabilityImprovement(AcquisitionFunction):
@@ -335,7 +363,10 @@ class ProbabilityImprovement(AcquisitionFunction):
         self.xi = xi
 
     def evaluate(self, x: np.ndarray, model, f_best: float) -> float:
-        mu, sigma = self._predict(x, model)
+        return float(self.evaluate_batch(np.atleast_2d(x), model, f_best)[0])
+
+    def evaluate_batch(self, X: np.ndarray, model, f_best: float) -> np.ndarray:
+        mu, sigma = self._predict(X, model)
         imp = f_best - mu - self.xi
 
         # Safe Z with explicit sigma==0 handling
@@ -345,7 +376,7 @@ class ProbabilityImprovement(AcquisitionFunction):
             # If sigma == 0, PI is 1 when improvement>0 else 0
             pi = np.where(sigma == 0, (imp > 0).astype(float), pi)
 
-        return float(pi[0])
+        return pi
 
 
 class UpperConfidenceBound(AcquisitionFunction):
@@ -364,9 +395,11 @@ class UpperConfidenceBound(AcquisitionFunction):
         model,
         f_best: float,
     ) -> float:
-        mu, sigma = self._predict(x, model)
-        ucb = mu - self.kappa * sigma
-        return float(ucb[0])
+        return float(self.evaluate_batch(np.atleast_2d(x), model, f_best)[0])
+
+    def evaluate_batch(self, X: np.ndarray, model, f_best: float) -> np.ndarray:
+        mu, sigma = self._predict(X, model)
+        return mu - self.kappa * sigma
 
 
 LowerConfidenceBound = UpperConfidenceBound
@@ -475,18 +508,25 @@ class MultiStartAcquisitionOptimizer:
         n_candidates = max(self.n_candidates, max(1, self.n_restarts))
         candidates = self._sample_candidates(lows, highs, rng, n_candidates)
 
-        # Be robust to occasional numerical issues in acquisition evaluation
-        vals: List[float] = []
-        for x in candidates:
-            try:
-                v = float(acq_func(x))
-                if not np.isfinite(v):
+        # Prefer batched evaluation to reduce Python/model round-trips.
+        # Fall back to per-candidate evaluation for compatibility.
+        try:
+            values = np.asarray(acq_func(candidates), dtype=float).reshape(-1)
+            if values.shape[0] != candidates.shape[0]:
+                raise ValueError("acq_func batch output has unexpected shape")
+            values = np.where(np.isfinite(values), values, np.inf)
+        except Exception:
+            vals: List[float] = []
+            for x in candidates:
+                try:
+                    v = float(acq_func(x))
+                    if not np.isfinite(v):
+                        v = np.inf
+                except Exception:
+                    # Treat any failure as an invalid candidate
                     v = np.inf
-            except Exception:
-                # Treat any failure as an invalid candidate
-                v = np.inf
-            vals.append(v)
-        values = np.array(vals, dtype=float)
+                vals.append(v)
+            values = np.array(vals, dtype=float)
         finite_mask = np.isfinite(values)
         if not np.any(finite_mask):
             # fall back to random point if everything failed
@@ -736,7 +776,7 @@ class BayesianOptimizer(Propagator):
         rank: int,
         world_size: int = 1,
         fitter: Optional[SurrogateFitter] = None,
-        optimizer: Optional[Any] = None,
+        optimizer: Optional[SupportsAcquisitionOptimize] = None,
         kernel: Optional[Kernel] = None,
         optimize_hyperparameters: bool = True,
         acquisition_type: str = "EI",
@@ -793,7 +833,7 @@ class BayesianOptimizer(Propagator):
             to diversify acquisition parameters across parallel workers.
         fitter : SurrogateFitter, optional
             Surrogate model fitter (default: SingleCPUFitter)
-        optimizer : Any, optional
+        optimizer : SupportsAcquisitionOptimize, optional
             Acquisition function optimizer (default: MultiStartAcquisitionOptimizer)
         kernel : Kernel, optional
             GP kernel (default: Constant * Matern + WhiteKernel)
@@ -812,11 +852,12 @@ class BayesianOptimizer(Propagator):
         sparse : bool, optional
             Enable sparse GP fitting for large datasets (default: False)
         sparse_params : Dict[str, int], optional
-            Sparse fitting parameters: {"max_points": int, "top_m": int}
+            Sparse fitting parameters: {"max_points": int, "top_m": int}.
+            ``top_m`` defaults to 150 (about 7.5% of the default 2000-point budget).
         rng : random.Random, optional
             Random number generator
         n_initial : int, optional
-            Number of initial design points (default: min(10, 10 * num_params))
+            Number of initial design points (default: max(10, 2 * num_params))
         initial_design : str, optional
             Initial design method: "sobol", "random", or "lhs" (default: "sobol")
         p_explore_start : float, optional
@@ -824,9 +865,12 @@ class BayesianOptimizer(Propagator):
         p_explore_end : float, optional
             Final epsilon-greedy exploration probability (default: 0.02)
         p_explore_tau : float, optional
-            Decay rate for exploration probability (default: 150.0)
+            Decay constant in
+            ``p = p_end + (p_start - p_end) * exp(-t / tau)`` (default: 150.0)
         anneal_acquisition : bool, optional
-            Anneal acquisition parameters over time (default: True)
+            Anneal acquisition parameters over time (default: True):
+            ``xi(t) = max(1e-4, xi0 / sqrt(1 + 0.05 * t))`` for EI/PI,
+            ``kappa(t) = max(0.1, kappa0 / sqrt(1 + 0.05 * t))`` for UCB.
         hp_opt_warmup_fits : int, optional
             Number of surrogate fits to run GP hyperparameter optimization on
             after enough samples are available (default: 3).
@@ -957,7 +1001,8 @@ class BayesianOptimizer(Propagator):
                 n_candidates=max(256, 64 * self.position_dim),
                 n_restarts=max(5, min(20, 2 * self.position_dim)),
             )
-        self.optimizer = optimizer
+        assert optimizer is not None
+        self.optimizer: SupportsAcquisitionOptimize = optimizer
         # If no fitter is provided, default to a single-CPU sklearn-based fitter
         self.fitter = fitter if fitter is not None else SingleCPUFitter()
         self.optimize_hyperparameters = optimize_hyperparameters
@@ -1012,6 +1057,18 @@ class BayesianOptimizer(Propagator):
         )
         self.acq_switch_generation = acq_switch_generation
         self.second_acquisition_params = dict(second_acquisition_params or {})
+
+    def __repr__(self) -> str:
+        return (
+            "BayesianOptimizer("
+            f"dim={self.dim}, "
+            f"position_dim={self.position_dim}, "
+            f"rank={self.rank}, "
+            f"world_size={self.world_size}, "
+            f"acquisition_type='{self.acquisition_type}', "
+            f"sparse={self.sparse}, "
+            f"n_initial={self.n_initial})"
+        )
 
     def _warm_start(self, inds: List[Individual]) -> Individual:
         """Generate an initial design point using Sobol, LHS, or random sampling."""
@@ -1187,14 +1244,21 @@ class BayesianOptimizer(Propagator):
 
         # Acquisition wrapper — optimizer works in [0,1]^d (same space as the GP),
         # so no normalization needed inside the wrapper.
-        def acq_func(x: np.ndarray) -> float:
-            val = acquisition.evaluate(x, model, f_best)
-            # For EI / PI we must *maximize* the acquisition, but our optimizer performs minimization.
-            # Negate those values so that minimizing corresponds to maximizing the true acquisition.
+        def acq_func(x: np.ndarray) -> Union[float, np.ndarray]:
+            x_arr = np.asarray(x)
+            if x_arr.ndim == 1:
+                val = acquisition.evaluate(x_arr, model, f_best)
+                # For EI / PI we must *maximize* the acquisition, but our optimizer performs minimization.
+                # Negate those values so that minimizing corresponds to maximizing the true acquisition.
+                if active_acq_type.upper() in ("EI", "PI"):
+                    return -val
+                # For (L)UCB (our implementation), minimizing mu - kappa*sigma is correct.
+                return val
+
+            vals = acquisition.evaluate_batch(x_arr, model, f_best)
             if active_acq_type.upper() in ("EI", "PI"):
-                return -val
-            # For (L)UCB (our implementation), minimizing mu - kappa*sigma is correct.
-            return val
+                return -vals
+            return vals
 
         # Optimize acquisition in normalized [0,1]^d space for better L-BFGS-B conditioning
         unit_bounds = np.array([np.zeros(self.position_dim), np.ones(self.position_dim)])
@@ -1214,8 +1278,9 @@ class BayesianOptimizer(Propagator):
         if len(inds) < self.n_initial:
             return self._warm_start(inds)
 
-        # Track generation from the full incoming population (rank-local),
-        # not from any sparse-selected training subset.
+        # Track generation from full rank-local history (not sparse-selected data).
+        # This keeps per-rank schedules (annealing / GP hp optimization) aligned
+        # with the number of completed evaluations on this rank.
         current_generation = max([ind.generation for ind in inds if ind.rank == self.rank] or [0])
 
         # Phase 2: sparse selection + data extraction + NaN filtering
