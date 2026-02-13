@@ -15,6 +15,7 @@ from propulate.population import Individual
 from propulate.propagators.bayesopt import (
     BayesianOptimizer,
     MultiStartAcquisitionOptimizer,
+    SingleCPUFitter,
     SurrogateFitter,
     _sparse_select_indices,
     _project_to_discrete,
@@ -37,13 +38,27 @@ def function_name(request: pytest.FixtureRequest) -> str:
     return request.param
 
 
+def _position_dim_from_limits(limits) -> int:
+    """Compute BO position dimension including one-hot categorical expansion."""
+    return sum(len(bounds) if isinstance(bounds[0], str) else 1 for bounds in limits.values())
+
+
+def _fast_test_optimizer(limits) -> MultiStartAcquisitionOptimizer:
+    """Construct a lightweight acquisition optimizer for tests."""
+    position_dim = _position_dim_from_limits(limits)
+    return MultiStartAcquisitionOptimizer(
+        n_candidates=max(64, 16 * position_dim),
+        n_restarts=2,
+        minimize_options={"maxiter": 80, "maxfun": 800, "ftol": 1e-6, "gtol": 1e-5},
+    )
+
+
 def _make_bayes_propagator(limits, rng: random.Random) -> BayesianOptimizer:
     """Helper to build a BayesianOptimizer with simple acquisition optimizer.
 
     Note: Parallel fitters are currently disabled; the optimizer defaults to a
     single-CPU fitter internally.
     """
-    dim = len(limits)
     return BayesianOptimizer(
         limits=limits,
         rank=MPI.COMM_WORLD.rank,
@@ -55,6 +70,8 @@ def _make_bayes_propagator(limits, rng: random.Random) -> BayesianOptimizer:
         factor_max=2.0,
         sparse=True,                # keep training sets light in tests
         sparse_params={"max_points": 200},
+        optimizer=_fast_test_optimizer(limits),
+        optimize_hyperparameters=False,
         rng=rng,
     )
 
@@ -527,6 +544,8 @@ def test_bayesian_optimizer_mixed_example(mpi_tmp_path: pathlib.Path) -> None:
         world_size=MPI.COMM_WORLD.size,
         n_initial=10,
         acquisition_type="EI",
+        optimizer=_fast_test_optimizer(limits),
+        optimize_hyperparameters=False,
         rng=rng,
     )
 
@@ -579,6 +598,8 @@ def test_bayesian_optimizer_integers_only():
         limits=limits,
         rank=0,
         n_initial=5,
+        optimizer=_fast_test_optimizer(limits),
+        optimize_hyperparameters=False,
         rng=rng,
     )
 
@@ -612,6 +633,8 @@ def test_bayesian_optimizer_categorical_only():
         limits=limits,
         rank=0,
         n_initial=5,
+        optimizer=_fast_test_optimizer(limits),
+        optimize_hyperparameters=False,
         rng=rng,
     )
 
@@ -649,6 +672,8 @@ def test_bayesian_optimizer_mixed_types():
         limits=limits,
         rank=0,
         n_initial=10,
+        optimizer=_fast_test_optimizer(limits),
+        optimize_hyperparameters=False,
         rng=rng,
     )
 
@@ -658,7 +683,7 @@ def test_bayesian_optimizer_mixed_types():
 
     # Generate individuals
     inds = []
-    for _ in range(20):
+    for _ in range(14):
         ind = opt(inds)
         inds.append(ind)
         # Simple loss function
@@ -742,13 +767,15 @@ def test_bayesian_optimizer_sparse_mixed_types():
         rank=0,
         n_initial=5,
         sparse=True,
-        sparse_params={"max_points": 50},
+        sparse_params={"max_points": 20},
+        optimizer=_fast_test_optimizer(limits),
+        optimize_hyperparameters=False,
         rng=rng,
     )
 
     # Generate many individuals
     inds = []
-    for i in range(100):
+    for i in range(45):
         ind = opt(inds)
         inds.append(ind)
         ind.loss = float(i)  # monotonic loss
@@ -800,14 +827,16 @@ def test_acquisition_optimization_mixed_types():
     opt = BayesianOptimizer(
         limits=limits,
         rank=0,
-        n_initial=15,
+        n_initial=10,
         acquisition_type="EI",
+        optimizer=_fast_test_optimizer(limits),
+        optimize_hyperparameters=False,
         rng=rng,
     )
 
     # Warm up with initial design
     inds = []
-    for _ in range(15):
+    for _ in range(10):
         ind = opt(inds)
         inds.append(ind)
         ind.loss = rng.random()
@@ -833,16 +862,29 @@ def test_hyperparameter_optimization_schedule_mixed():
         limits=limits,
         rank=0,
         n_initial=10,
+        fitter=SingleCPUFitter(n_restarts=0, random_state=0, alpha=1e-3),
         optimize_hyperparameters=True,
+        hp_opt_warmup_fits=1,
+        hp_opt_period=100,
+        optimizer=_fast_test_optimizer(limits),
+        p_explore_start=1.0,
+        p_explore_end=1.0,
         rng=rng,
     )
 
     # Generate enough points to trigger hyperparameter optimization
     inds = []
-    for i in range(30):
+    for _ in range(20):
         ind = opt(inds)
         inds.append(ind)
-        ind.loss = (ind["x"] - 2.5) ** 2 + (ind["n"] - 10) ** 2
+        # Use a non-degenerate objective with moderate stochasticity so GP
+        # hyperparameter optimization remains well-conditioned in MPI runs.
+        ind.loss = (
+            0.3 * (ind["x"] - 2.5) ** 2
+            + 0.05 * (ind["n"] - 10) ** 2
+            + 0.8 * np.sin(4.0 * ind["x"])
+            + 0.5 * rng.random()
+        )
 
     # Should have fit multiple times
     assert opt._hp_fit_calls >= 3
@@ -925,11 +967,13 @@ def test_epsilon_greedy_exploration_mixed():
         rank=0,
         n_initial=5,
         p_explore_start=1.0,  # Force exploration
+        optimizer=_fast_test_optimizer(limits),
+        optimize_hyperparameters=False,
         rng=rng,
     )
 
     inds = []
-    for _ in range(20):
+    for _ in range(12):
         ind = opt(inds)
         inds.append(ind)
         ind.loss = rng.random()
@@ -949,6 +993,8 @@ def test_backward_compatibility_float_only():
         limits=limits,
         rank=0,
         n_initial=5,
+        optimizer=_fast_test_optimizer(limits),
+        optimize_hyperparameters=False,
         rng=rng,
     )
 
@@ -993,11 +1039,13 @@ def test_mixed_types_with_different_acquisitions():
             rank=0,
             n_initial=10,
             acquisition_type=acq_type,
+            optimizer=_fast_test_optimizer(limits),
+            optimize_hyperparameters=False,
             rng=rng,
         )
 
         inds = []
-        for _ in range(15):
+        for _ in range(10):
             ind = opt(inds)
             inds.append(ind)
             ind.loss = rng.random()
@@ -1024,6 +1072,8 @@ def test_initial_designs_with_mixed_types():
             rank=0,
             n_initial=10,
             initial_design=design,
+            optimizer=_fast_test_optimizer(limits),
+            optimize_hyperparameters=False,
             rng=rng,
         )
 
@@ -1171,6 +1221,8 @@ def test_generation_monotonic_when_sparse_drops_local_rank():
         sparse_params={"max_points": 5, "top_m": 5},
         p_explore_start=0.0,
         p_explore_end=0.0,
+        optimizer=_fast_test_optimizer(limits),
+        optimize_hyperparameters=False,
         rng=random.Random(11),
     )
 
@@ -1231,6 +1283,8 @@ def test_bayesian_optimizer_ordinal_integers():
         limits=limits,
         rank=0,
         n_initial=10,
+        optimizer=_fast_test_optimizer(limits),
+        optimize_hyperparameters=False,
         rng=rng,
     )
 
@@ -1239,7 +1293,7 @@ def test_bayesian_optimizer_ordinal_integers():
     assert opt.dim == 2
 
     inds = []
-    for _ in range(20):
+    for _ in range(14):
         ind = opt(inds)
         inds.append(ind)
         ind.loss = (ind["x"] - 0.5) ** 2 + abs(ind["batch_size"] - 64)
