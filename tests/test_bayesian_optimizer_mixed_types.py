@@ -4,8 +4,24 @@ import random
 import numpy as np
 import pytest
 
-from propulate.propagators.bayesopt import BayesianOptimizer, _project_to_discrete
+from propulate.propagators.bayesopt import BayesianOptimizer, SurrogateFitter, _project_to_discrete
 from propulate.population import Individual
+
+
+class _RecordingModel:
+    def predict(self, X, return_std=True):
+        X = np.atleast_2d(X)
+        n = X.shape[0]
+        return np.zeros(n, dtype=float), np.ones(n, dtype=float)
+
+
+class _RecordingFitter(SurrogateFitter):
+    def __init__(self):
+        self.optimize_flags = []
+
+    def fit(self, kernel, X, y, **kwargs):
+        self.optimize_flags.append(bool(kwargs.get("optimize_hyperparameters", False)))
+        return _RecordingModel()
 
 
 def test_bayesian_optimizer_integers_only():
@@ -221,6 +237,13 @@ def test_bayesian_optimizer_invalid_limits():
     with pytest.raises(ValueError, match="at least 2"):
         BayesianOptimizer(limits={"cat": ("a",)}, rank=0, rng=rng)
 
+    # Invalid hyperparameter schedule values
+    with pytest.raises(ValueError, match="hp_opt_warmup_fits"):
+        BayesianOptimizer(limits={"x": (0.0, 1.0)}, rank=0, hp_opt_warmup_fits=-1, rng=rng)
+
+    with pytest.raises(ValueError, match="hp_opt_period"):
+        BayesianOptimizer(limits={"x": (0.0, 1.0)}, rank=0, hp_opt_period=0, rng=rng)
+
 
 def test_acquisition_optimization_mixed_types():
     """Test that acquisition function optimization works with mixed types."""
@@ -279,6 +302,70 @@ def test_hyperparameter_optimization_schedule_mixed():
 
     # Should have fit multiple times
     assert opt._hp_fit_calls >= 3
+    assert opt._hp_opt_calls >= 1
+
+
+def test_hyperparameter_schedule_uses_optimized_fit_counter():
+    """Warmup optimization should start once enough data exists, regardless of earlier non-optimizing fits."""
+    limits = {f"x{i}": (0.0, 1.0) for i in range(20)}  # threshold = max(40, n_initial//2)
+    fitter = _RecordingFitter()
+    opt = BayesianOptimizer(
+        limits=limits,
+        rank=0,
+        n_initial=5,
+        optimize_hyperparameters=True,
+        fitter=fitter,
+        rng=random.Random(0),
+    )
+
+    flags = {}
+    for generation in range(5, 47):
+        X = np.zeros((generation, opt.position_dim), dtype=float)
+        y = np.zeros((generation,), dtype=float)
+        opt._fit_surrogate(X, y, current_generation=generation)
+        flags[generation] = fitter.optimize_flags[-1]
+
+    assert all(not flags[g] for g in range(5, 40))
+    assert flags[40] is True
+    assert flags[41] is True
+    assert flags[42] is True
+    assert flags[43] is False
+    assert flags[44] is False
+    assert flags[45] is True
+    assert flags[46] is False
+    assert opt._hp_opt_calls == 4
+
+
+def test_hyperparameter_schedule_accepts_custom_warmup_and_period():
+    """Custom schedule arguments should control warmup and periodic optimization cadence."""
+    limits = {f"x{i}": (0.0, 1.0) for i in range(10)}  # threshold = max(20, n_initial//2)
+    fitter = _RecordingFitter()
+    opt = BayesianOptimizer(
+        limits=limits,
+        rank=0,
+        n_initial=5,
+        optimize_hyperparameters=True,
+        fitter=fitter,
+        hp_opt_warmup_fits=1,
+        hp_opt_period=2,
+        rng=random.Random(1),
+    )
+
+    flags = {}
+    for generation in range(5, 26):
+        X = np.zeros((generation, opt.position_dim), dtype=float)
+        y = np.zeros((generation,), dtype=float)
+        opt._fit_surrogate(X, y, current_generation=generation)
+        flags[generation] = fitter.optimize_flags[-1]
+
+    assert all(not flags[g] for g in range(5, 20))
+    assert flags[20] is True
+    assert flags[21] is False
+    assert flags[22] is True
+    assert flags[23] is False
+    assert flags[24] is True
+    assert flags[25] is False
+    assert opt._hp_opt_calls == 3
 
 
 def test_epsilon_greedy_exploration_mixed():
@@ -407,6 +494,16 @@ def test_initial_designs_with_mixed_types():
             assert isinstance(ind["x"], float)
             assert isinstance(ind["n"], int)
             assert isinstance(ind["cat"], str)
+
+
+def test_initial_design_default_is_sobol_and_invalid_rejected():
+    """Default initial design should be sobol and unknown values should error."""
+    limits = {"x": (0.0, 1.0)}
+    opt = BayesianOptimizer(limits=limits, rank=0, rng=random.Random(42))
+    assert opt.initial_design == "sobol"
+
+    with pytest.raises(ValueError, match="initial_design"):
+        BayesianOptimizer(limits=limits, rank=0, initial_design="foobar", rng=random.Random(42))
 
 
 def test_insufficient_data_fallback_handles_mixed_types():

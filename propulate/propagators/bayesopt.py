@@ -751,12 +751,15 @@ class BayesianOptimizer(Propagator):
         rng: Optional[random.Random] = None,
         # Initial design parameters
         n_initial: Optional[int] = None,
-        initial_design: str = "sobol",  # "sobol" | "random" | "lhs" (lhs falls back to sobol-like behavior per-call)
+        initial_design: str = "sobol",  # "sobol" | "random" | "lhs"
         # Exploration schedule (epsilon-greedy) parameters
         p_explore_start: float = 0.2,
         p_explore_end: float = 0.02,
         p_explore_tau: float = 150.0,
         anneal_acquisition: bool = True,
+        # Hyperparameter optimization schedule
+        hp_opt_warmup_fits: int = 3,
+        hp_opt_period: int = 5,
         # Optional dynamic acquisition switching
         second_acquisition_type: Optional[str] = None,
         acq_switch_generation: Optional[int] = None,
@@ -826,6 +829,12 @@ class BayesianOptimizer(Propagator):
             Decay rate for exploration probability (default: 150.0)
         anneal_acquisition : bool, optional
             Anneal acquisition parameters over time (default: True)
+        hp_opt_warmup_fits : int, optional
+            Number of surrogate fits to run GP hyperparameter optimization on
+            after enough samples are available (default: 3).
+        hp_opt_period : int, optional
+            After warmup fits are exhausted, optimize GP hyperparameters every
+            ``hp_opt_period`` generations (default: 5).
         second_acquisition_type : str, optional
             Second acquisition function to switch to after acq_switch_generation
         acq_switch_generation : int, optional
@@ -963,10 +972,23 @@ class BayesianOptimizer(Propagator):
         # Initial design config/state
         self.n_initial = n_initial if n_initial is not None else max(10, 2 * self.dim)
         self.initial_design = initial_design.lower()
+        valid_initial_designs = ("sobol", "lhs", "random")
+        if self.initial_design not in valid_initial_designs:
+            raise ValueError(
+                f"Unknown initial_design '{initial_design}'. "
+                f"Valid options: {list(valid_initial_designs)}"
+            )
         self._qmc_engine = None  # type: ignore
         self._lhs_cache: Optional[np.ndarray] = None  # pre-generated LHS points
         self._lhs_index: int = 0  # next index into _lhs_cache
+        if hp_opt_warmup_fits < 0:
+            raise ValueError("hp_opt_warmup_fits must be >= 0")
+        if hp_opt_period <= 0:
+            raise ValueError("hp_opt_period must be > 0")
+        self.hp_opt_warmup_fits = hp_opt_warmup_fits
+        self.hp_opt_period = hp_opt_period
         self._hp_fit_calls = 0
+        self._hp_opt_calls = 0
 
         # Kernel for surrogate
         if kernel is None:
@@ -1022,8 +1044,11 @@ class BayesianOptimizer(Propagator):
                 else:
                     # Fallback to random if more points requested than cached
                     u = np.array([self.rng.random() for _ in range(self._n_continuous)])
-            else:  # random
+            elif self.initial_design == "random":
                 u = np.array([self.rng.random() for _ in range(self._n_continuous)])
+            else:
+                # Defensive guard: constructor validates this already.
+                raise RuntimeError(f"Unsupported initial_design '{self.initial_design}'")
             for i, dim_idx in enumerate(self._continuous_dims):
                 x0[dim_idx] = lows[dim_idx] + u[i] * (highs[dim_idx] - lows[dim_idx])
 
@@ -1085,15 +1110,15 @@ class BayesianOptimizer(Propagator):
 
         # Hyperparameter optimization schedule:
         # - Once we have enough samples, optimize on the first few fits
-        # - Then decimate to every k generations to save time
+        # - Then decimate to every ``hp_opt_period`` generations to save time
         n_min_samples = max(2 * self.dim, self.n_initial // 2)
         enough_samples = (X.shape[0] >= n_min_samples)
         optimize_hyperparameters_now = False
         if self.optimize_hyperparameters and enough_samples:
-            if self._hp_fit_calls < 3:
+            if self._hp_opt_calls < self.hp_opt_warmup_fits:
                 optimize_hyperparameters_now = True
             else:
-                optimize_hyperparameters_now = (current_generation % 5 == 0)
+                optimize_hyperparameters_now = (current_generation % self.hp_opt_period == 0)
 
         model = self.fitter.fit(kernel=self.kernel,
                                 X=Xs,
@@ -1104,6 +1129,8 @@ class BayesianOptimizer(Propagator):
         if isinstance(model, GaussianProcessRegressor) and hasattr(model, "kernel_"):
             self.kernel = model.kernel_
         self._hp_fit_calls += 1
+        if optimize_hyperparameters_now:
+            self._hp_opt_calls += 1
 
         if isinstance(model, GaussianProcessRegressor):
             _log_gp_diagnostics(model, y, self.rank, current_generation, optimize_hyperparameters_now)
