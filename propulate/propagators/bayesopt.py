@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from collections import defaultdict
 import logging
 import random
 from enum import Enum
@@ -164,8 +165,9 @@ def _sparse_select_indices(
     # Build distance function
     use_mixed = continuous_dims is not None and categorical_blocks is not None
     if use_mixed:
-        n_cont = len(continuous_dims)  # type: ignore[arg-type]
-        n_cat_params = len(categorical_blocks)  # type: ignore[arg-type]
+        assert continuous_dims is not None and categorical_blocks is not None
+        n_cont = len(continuous_dims)
+        n_cat_params = len(categorical_blocks)
 
         # Whiten continuous dims only
         if n_cont > 0:
@@ -366,6 +368,9 @@ class UpperConfidenceBound(AcquisitionFunction):
         mu, sigma = self._predict(x, model)
         ucb = mu - self.kappa * sigma
         return float(ucb[0])
+
+
+LowerConfidenceBound = UpperConfidenceBound
 
 
 class AcquisitionType(Enum):
@@ -599,46 +604,30 @@ class SingleCPUFitter(SurrogateFitter):
 class MultiCPUFitter(SurrogateFitter):
     """Stub for a parallel CPU fitter (not yet implemented in this PR)."""
 
-    def __init__(self, *args, **kwargs) -> None:
+    def fit(self, kernel: Kernel, X: np.ndarray, y: np.ndarray, **kwargs):
         raise NotImplementedError(
             "MultiCPUFitter is not supported in this Bayesian Optimizer PR. "
             "Please use SingleCPUFitter for now."
-        )
-
-    def fit(self, kernel: Kernel, X: np.ndarray, y: np.ndarray, **kwargs):  # pragma: no cover - stub
-        raise NotImplementedError(
-            "MultiCPUFitter.fit is not implemented. Use SingleCPUFitter instead."
         )
 
 
 class SingleGPUFitter(SurrogateFitter):
     """Stub for a single-GPU fitter (not yet implemented in this PR)."""
 
-    def __init__(self, *args, **kwargs) -> None:
+    def fit(self, kernel: Kernel, X: np.ndarray, y: np.ndarray, **kwargs) -> SupportsPredict:
         raise NotImplementedError(
             "SingleGPUFitter is not supported in this Bayesian Optimizer PR. "
             "Please use SingleCPUFitter for now."
         )
 
-    def fit(self, kernel: Kernel, X: np.ndarray, y: np.ndarray, **kwargs) -> SupportsPredict:  # pragma: no cover - stub
-        raise NotImplementedError(
-            "SingleGPUFitter.fit is not implemented. Use SingleCPUFitter instead."
-        )
-
-
 
 class MultiGPUFitter(SurrogateFitter):
     """Stub for a multi-GPU fitter (not yet implemented in this PR)."""
 
-    def __init__(self, *args, **kwargs) -> None:
+    def fit(self, kernel: Kernel, X: np.ndarray, y: np.ndarray, **kwargs) -> SupportsPredict:
         raise NotImplementedError(
             "MultiGPUFitter is not supported in this Bayesian Optimizer PR. "
             "Please use SingleCPUFitter for now."
-        )
-
-    def fit(self, kernel: Kernel, X: np.ndarray, y: np.ndarray, **kwargs) -> SupportsPredict:  # pragma: no cover - stub
-        raise NotImplementedError(
-            "MultiGPUFitter.fit is not implemented. Use SingleCPUFitter instead."
         )
 
 class FitterType(Enum):
@@ -871,6 +860,32 @@ class BayesianOptimizer(Propagator):
         super().__init__(parents=-1, offspring=1, rng=rng)
         self.limits = limits
 
+        # Validate limits before any state initialization
+        if not limits:
+            raise ValueError("limits cannot be empty")
+
+        for key, bounds in limits.items():
+            if len(bounds) < 2:
+                raise ValueError(f"Parameter '{key}' must have at least 2 bounds/categories")
+
+            if isinstance(bounds[0], (int, float, np.integer, np.floating)):
+                if isinstance(bounds[0], (int, np.integer)) and len(bounds) > 2:
+                    # Ordinal integer: explicit set of values like (16, 32, 64, 128)
+                    if len(set(bounds)) != len(bounds):
+                        raise ValueError(f"Ordinal parameter '{key}' has duplicate values")
+                    if sorted(bounds) != list(bounds):
+                        raise ValueError(f"Ordinal parameter '{key}' values must be in ascending order")
+                else:
+                    if len(bounds) != 2:
+                        raise ValueError(f"Numeric parameter '{key}' must have exactly 2 bounds")
+                    if bounds[0] >= bounds[1]:
+                        raise ValueError(f"Parameter '{key}': lower bound must be < upper bound")
+            elif isinstance(bounds[0], str):
+                if len(set(bounds)) != len(bounds):
+                    raise ValueError(f"Categorical parameter '{key}' has duplicate categories")
+            else:
+                raise TypeError(f"Parameter '{key}' has unsupported type: {type(bounds[0])}")
+
         # Type detection for mixed-type support (normalizes numpy scalar types)
         self.param_types = {key: _normalize_param_type(limits[key][0]) for key in limits}
 
@@ -920,32 +935,6 @@ class BayesianOptimizer(Propagator):
         # Use continuous bounds for internal optimization
         self.limits_arr = np.array([self._continuous_lows, self._continuous_highs])
 
-        # Validate limits
-        if not limits:
-            raise ValueError("limits cannot be empty")
-
-        for key, bounds in limits.items():
-            if len(bounds) < 2:
-                raise ValueError(f"Parameter '{key}' must have at least 2 bounds/categories")
-
-            if isinstance(bounds[0], (int, float, np.integer, np.floating)):
-                if isinstance(bounds[0], (int, np.integer)) and len(bounds) > 2:
-                    # Ordinal integer: explicit set of values like (16, 32, 64, 128)
-                    if len(set(bounds)) != len(bounds):
-                        raise ValueError(f"Ordinal parameter '{key}' has duplicate values")
-                    if sorted(bounds) != list(bounds):
-                        raise ValueError(f"Ordinal parameter '{key}' values must be in ascending order")
-                else:
-                    if len(bounds) != 2:
-                        raise ValueError(f"Numeric parameter '{key}' must have exactly 2 bounds")
-                    if bounds[0] >= bounds[1]:
-                        raise ValueError(f"Parameter '{key}': lower bound must be < upper bound")
-            elif isinstance(bounds[0], str):
-                if len(set(bounds)) != len(bounds):
-                    raise ValueError(f"Categorical parameter '{key}' has duplicate categories")
-            else:
-                raise TypeError(f"Parameter '{key}' has unsupported type: {type(bounds[0])}")
-
         # Warn about high-dimensional position spaces
         if self.position_dim > 100:
             import warnings
@@ -973,9 +962,11 @@ class BayesianOptimizer(Propagator):
         self.rank = rank
         self.world_size = world_size
         # Initial design config/state
-        self.n_initial = n_initial if n_initial is not None else min(10, 10 * self.dim)
+        self.n_initial = n_initial if n_initial is not None else max(10, 2 * self.dim)
         self.initial_design = initial_design.lower()
         self._qmc_engine = None  # type: ignore
+        self._lhs_cache: Optional[np.ndarray] = None  # pre-generated LHS points
+        self._lhs_index: int = 0  # next index into _lhs_cache
         self._hp_fit_calls = 0
 
         # Kernel for surrogate
@@ -1003,48 +994,56 @@ class BayesianOptimizer(Propagator):
         self.acq_switch_generation = acq_switch_generation
         self.second_acquisition_params = dict(second_acquisition_params or {})
 
-    def __call__(
-        self,
-        inds: List[Individual]
-    ) -> Union[Individual, List[Individual]]:
-        # Warm-start with a space-filling initial design
-        if len(inds) < self.n_initial:
-            lows, highs = self.limits_arr
-            x0 = np.zeros(self.position_dim)
+    def _warm_start(self, inds: List[Individual]) -> Individual:
+        """Generate an initial design point using Sobol, LHS, or random sampling."""
+        lows, highs = self.limits_arr
+        x0 = np.zeros(self.position_dim)
 
-            # Continuous/integer dims: Sobol/LHS/random over only these dimensions
-            if self._n_continuous > 0:
-                if self.initial_design == "sobol":
-                    if self._qmc_engine is None:
-                        seed = self.rng.randrange(0, 2**32 - 1)
-                        self._qmc_engine = qmc.Sobol(
-                            d=self._n_continuous, scramble=True,
-                            seed=np.random.default_rng(seed),
-                        )
-                    u = self._qmc_engine.random(1)[0]
-                elif self.initial_design == "lhs":
+        # Continuous/integer dims: Sobol/LHS/random over only these dimensions
+        if self._n_continuous > 0:
+            if self.initial_design == "sobol":
+                if self._qmc_engine is None:
+                    seed = self.rng.randrange(0, 2**32 - 1)
+                    self._qmc_engine = qmc.Sobol(
+                        d=self._n_continuous, scramble=True,
+                        seed=np.random.default_rng(seed),
+                    )
+                u = self._qmc_engine.random(1)[0]
+            elif self.initial_design == "lhs":
+                if self._lhs_cache is None:
                     seed = self.rng.randrange(0, 2**32 - 1)
                     engine = qmc.LatinHypercube(
                         d=self._n_continuous, seed=np.random.default_rng(seed),
                     )
-                    u = engine.random(1)[0]
-                else:  # random
+                    self._lhs_cache = engine.random(self.n_initial)
+                    self._lhs_index = 0
+                if self._lhs_index < len(self._lhs_cache):
+                    u = self._lhs_cache[self._lhs_index]
+                    self._lhs_index += 1
+                else:
+                    # Fallback to random if more points requested than cached
                     u = np.array([self.rng.random() for _ in range(self._n_continuous)])
-                for i, dim_idx in enumerate(self._continuous_dims):
-                    x0[dim_idx] = lows[dim_idx] + u[i] * (highs[dim_idx] - lows[dim_idx])
+            else:  # random
+                u = np.array([self.rng.random() for _ in range(self._n_continuous)])
+            for i, dim_idx in enumerate(self._continuous_dims):
+                x0[dim_idx] = lows[dim_idx] + u[i] * (highs[dim_idx] - lows[dim_idx])
 
-            # Categorical dims: uniform random category selection (independent of QMC)
-            for cat_offset, n_cat in self._categorical_blocks:
-                chosen = self.rng.randrange(n_cat)
-                x0[cat_offset:cat_offset + n_cat] = 0.0
-                x0[cat_offset + chosen] = 1.0
+        # Categorical dims: uniform random category selection (independent of QMC)
+        for cat_offset, n_cat in self._categorical_blocks:
+            chosen = self.rng.randrange(n_cat)
+            x0[cat_offset:cat_offset + n_cat] = 0.0
+            x0[cat_offset + chosen] = 1.0
 
-            x0 = _project_to_discrete(x0, self.limits, self.param_types)
-            x0 = np.clip(x0, lows, highs)
-            gen0 = 0 if len(inds) == 0 else max(ind.generation for ind in inds) + 1
-            return Individual(x0, self.limits, generation=gen0, rank=self.rank)
+        x0 = _project_to_discrete(x0, self.limits, self.param_types)
+        x0 = np.clip(x0, lows, highs)
+        gen0 = 0 if len(inds) == 0 else max(ind.generation for ind in inds) + 1
+        return Individual(x0, self.limits, generation=gen0, rank=self.rank)
 
-        # Sparse subsample
+    def _subsample(self, inds: List[Individual]) -> Tuple[np.ndarray, np.ndarray, List[Individual]]:
+        """Apply sparse selection and extract training arrays, filtering NaN losses.
+
+        Returns (X, y, inds) where inds may be a subsampled copy.
+        """
         if self.sparse and len(inds) > self.max_points:
             # Build arrays first so we can apply structured selection
             X_all = np.vstack([ind.position for ind in inds])
@@ -1068,11 +1067,11 @@ class BayesianOptimizer(Propagator):
             # Create arrays for matching
             Xpairs = np.vstack([ind.position for _, ind in pairs])
             ypairs = np.array([ind.loss for _, ind in pairs], dtype=float)
-            # Use ordering from sel_idx to pick corresponding pair index based on content equality
-            # Map sel_idx (relative to compact X_all/y_all) back to pairs order using content equality
-            # Build a lookup from tuple(position, loss) -> list of indices to handle duplicates
-            from collections import defaultdict
-            lut = defaultdict(list)
+            # Build a lookup from tuple(position, loss) -> list of indices to handle duplicates.
+            # Using rounded floats as dict keys is safe here because both X_all and Xpairs
+            # derive from the same ind.position arrays with no intermediate arithmetic,
+            # so the values are bitwise identical before rounding.
+            lut: Dict[tuple, List[int]] = defaultdict(list)
             for k, (xp, yp) in enumerate(zip(Xpairs, ypairs)):
                 lut[(tuple(np.round(xp, 12)), float(yp))].append(k)
             for j in sel_idx:
@@ -1085,38 +1084,37 @@ class BayesianOptimizer(Propagator):
         # Prepare training data
         X = np.vstack([ind.position for ind in inds])
         y = np.array([ind.loss for ind in inds], dtype=float)
-        
+
         mask = np.isfinite(y)
         if not np.all(mask):
             X, y = X[mask], y[mask]
 
-        # If we don't have enough valid data, fall back to random exploration
-        if X.shape[0] < max(2, self.dim):
-            lows, highs = self.limits_arr
-            x_new = np.array([self.rng.uniform(l, h) for l, h in zip(lows, highs)], dtype=float)
-            x_new = np.clip(x_new, lows, highs)
-            x_new = _project_to_discrete(x_new, self.limits, self.param_types)
-            gen = 0 if len(inds) == 0 else max(ind.generation for ind in inds) + 1
-            return Individual(x_new, self.limits, generation=gen, rank=self.rank)
+        return X, y, inds
 
+    def _fit_surrogate(
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        current_generation: int,
+    ) -> Union[GaussianProcessRegressor, SupportsPredict]:
+        """Normalize data, fit the GP surrogate, log diagnostics, and warm-start the kernel."""
         lows, highs = self.limits_arr
         scale = np.where((highs - lows) == 0.0, 1.0, (highs - lows))
         Xs = (X - lows) / scale
-        
+
         # Hyperparameter optimization schedule:
         # - Once we have enough samples, optimize on the first few fits
         # - Then decimate to every k generations to save time
         n_min_samples = max(2 * self.dim, self.n_initial // 2)
         enough_samples = (X.shape[0] >= n_min_samples)
-        current_generation = max([ind.generation for ind in inds if ind.rank == self.rank] or [0])
         optimize_hyperparameters_now = False
         if self.optimize_hyperparameters and enough_samples:
             if self._hp_fit_calls < 3:
                 optimize_hyperparameters_now = True
             else:
                 optimize_hyperparameters_now = (current_generation % 5 == 0)
-        
-        model = self.fitter.fit(kernel=self.kernel, 
+
+        model = self.fitter.fit(kernel=self.kernel,
                                 X=Xs,
                                 y=y,
                                 optimize_hyperparameters=optimize_hyperparameters_now)
@@ -1129,17 +1127,24 @@ class BayesianOptimizer(Propagator):
         if isinstance(model, GaussianProcessRegressor):
             _log_gp_diagnostics(model, y, self.rank, current_generation, optimize_hyperparameters_now)
 
-        # Determine current best
-        f_best = float(np.min(y))
+        return model
 
-        # Build acquisition with a gentle annealing of parameters
-        # xi/kappa decrease over time to shift from explore to exploit
+    def _select_next(
+        self,
+        model: Union[GaussianProcessRegressor, SupportsPredict],
+        f_best: float,
+        current_generation: int,
+    ) -> np.ndarray:
+        """Set up the acquisition function, optimize it, and return the next candidate in raw space."""
+        lows, highs = self.limits_arr
+        scale = np.where((highs - lows) == 0.0, 1.0, (highs - lows))
         t = float(current_generation + 1)
+
         # Decide which acquisition config to use (allow switch after threshold generation)
         use_second = (
             self.second_acquisition_type is not None
             and self.acq_switch_generation is not None
-            and current_generation + 1 >= self.acq_switch_generation  # +1 since we generate next individual
+            and current_generation + 1 >= self.acq_switch_generation
         )
         if use_second:
             active_acq_type = cast(str, self.second_acquisition_type)
@@ -1161,7 +1166,6 @@ class BayesianOptimizer(Propagator):
                     params["kappa"] = max(0.1, k0 / np.sqrt(1.0 + 0.05 * t))
                 params.pop("xi", None)
         else:
-            # Ensure we keep only the relevant parameter without annealing
             if active_upper in ("EI", "PI"):
                 params.pop("kappa", None)
             else:
@@ -1196,13 +1200,49 @@ class BayesianOptimizer(Propagator):
             rng=self.rng,
         )
         # Denormalize back to raw parameter space
-        x_new = lows + x_new_unit * scale
+        return lows + x_new_unit * scale
 
-        # Epsilon-greedy random explore with decaying probability
+    def __call__(
+        self,
+        inds: List[Individual]
+    ) -> Union[Individual, List[Individual]]:
+        # Phase 1: initial design
+        if len(inds) < self.n_initial:
+            return self._warm_start(inds)
+
+        # Phase 2: sparse selection + data extraction + NaN filtering
+        X, y, inds = self._subsample(inds)
+
+        # If we don't have enough valid data, fall back to random exploration
+        if X.shape[0] < max(2, self.dim):
+            lows, highs = self.limits_arr
+            x_new = np.array([self.rng.uniform(l, h) for l, h in zip(lows, highs)], dtype=float)
+            x_new = np.clip(x_new, lows, highs)
+            x_new = _project_to_discrete(x_new, self.limits, self.param_types)
+            gen = 0 if len(inds) == 0 else max(ind.generation for ind in inds) + 1
+            return Individual(x_new, self.limits, generation=gen, rank=self.rank)
+
+        current_generation = max([ind.generation for ind in inds if ind.rank == self.rank] or [0])
+
+        # Phase 3: fit GP surrogate
+        model = self._fit_surrogate(X, y, current_generation)
+
+        # Epsilon-greedy random explore with decaying probability.
+        # Checked here (after GP fitting but before acquisition optimization) so that
+        # exploration rounds skip the expensive multi-start L-BFGS-B while still
+        # benefiting from the GP warm-start above.
+        lows, highs = self.limits_arr
+        t = float(current_generation + 1)
         p_explore = self._p_explore_end + (self._p_explore_start - self._p_explore_end) * np.exp(-t / self._p_explore_tau)
         if self.rng.random() < p_explore:
-            # Random point in bounds (raw space)
             x_new = np.array([self.rng.uniform(l, h) for l, h in zip(lows, highs)], dtype=float)
+            x_new = np.clip(x_new, lows, highs)
+            x_new = _project_to_discrete(x_new, self.limits, self.param_types)
+            return Individual(x_new, self.limits, generation=current_generation + 1, rank=self.rank)
+
+        # Phase 4: acquisition optimization + projection
+        f_best = float(np.min(y))
+        x_new = self._select_next(model, f_best, current_generation)
 
         # Clip and project continuous result to valid discrete/categorical values
         x_new = np.clip(x_new, lows, highs)
