@@ -8,6 +8,7 @@ evaluations. Fitness history is extracted from the propulator's population histo
 import argparse
 import pathlib
 import random
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 # Ensure a non-interactive backend is used in headless/mpi runs BEFORE importing pyplot.
 import matplotlib
@@ -33,8 +34,10 @@ from propulate.utils.benchmark_functions import (
     get_function_search_space,
 )
 
+LimitsType = Dict[str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]]
 
-def extract_fitness_history(propulator):
+
+def extract_fitness_history(propulator: Any) -> Tuple[List[int], List[float]]:
     """Extract fitness history from propulator's population.
 
     - Maintains a running best value over evaluations
@@ -63,7 +66,15 @@ def extract_fitness_history(propulator):
     return evaluations, best_fitness_history
 
 
-def run_optimizer(name, propagator, benchmark_function, config, comm, rng, function_name=None):
+def run_optimizer(
+    name: str,
+    propagator: Any,
+    benchmark_function: Any,
+    config: argparse.Namespace,
+    comm: Any,
+    rng: random.Random,
+    function_name: Optional[str] = None,
+) -> Tuple[List[int], List[float]]:
     """Run an optimizer and return fitness history data extracted from population."""
     # Use function_name for checkpoint path if provided to ensure unique paths
     if function_name:
@@ -101,7 +112,7 @@ def run_optimizer(name, propagator, benchmark_function, config, comm, rng, funct
     return evaluations, fitness_history
 
 
-def parse_extended_arguments(comm):
+def parse_extended_arguments(comm: Any) -> Tuple[argparse.Namespace, Dict[str, Any]]:
     """Parse arguments with additional output path option."""
     # Create a new parser that includes both standard and custom arguments
     parser = argparse.ArgumentParser(
@@ -239,15 +250,21 @@ def parse_extended_arguments(comm):
             config.bo_p_explore_tau = 250
 
     # Create the hp_set dictionary (empty since we don't use PSO hyperparameters from CLI here)
-    hp_set = {}
+    hp_set: Dict[str, Any] = {}
 
     return config, hp_set
 
 
-def run_single_function_comparison(function_name, config, comm):
+def run_single_function_comparison(
+    function_name: str,
+    config: argparse.Namespace,
+    comm: Any,
+) -> Tuple[List[int], List[float]]:
     """Run optimization comparison for a single function."""
     rng = random.Random(config.seed + comm.rank)  # Separate RNG for optimization.
     benchmark_function, limits = get_function_search_space(function_name)  # Get function + limits.
+    limits_bo = cast(LimitsType, limits)
+    limits_pso = cast(Dict[str, Tuple[float, float]], limits)
 
     # Problem dimension used by both BO and PSO configuration
     dim = len(limits)
@@ -273,7 +290,7 @@ def run_single_function_comparison(function_name, config, comm):
             second_params["kappa"] = config.bo_second_kappa
 
     bayes_propagator = BayesianOptimizer(
-        limits=limits,
+        limits=limits_bo,
         rank=comm.rank,
         world_size=comm.size,
         optimizer=acq_optimizer,
@@ -306,12 +323,12 @@ def run_single_function_comparison(function_name, config, comm):
         c_cognitive=2.0,  # Cognitive factor
         c_social=2.0,  # Social factor
         rank=comm.rank,
-        limits=limits,
+        limits=limits_pso,
         rng=rng,
     )
 
     # Initialize PSO with uniform random initialization
-    pso_init = InitUniformPSO(limits, rng=rng, rank=comm.rank)
+    pso_init = InitUniformPSO(limits_pso, rng=rng, rank=comm.rank)
 
     # Use a reasonable population size for PSO (default is often 20-40)
     pop_size = min(40, max(20, 2 * dim))  # Scale with problem dimension
@@ -394,7 +411,7 @@ def run_single_function_comparison(function_name, config, comm):
             plot_path = output_dir / plot_filename
         else:
             # Use checkpoint directory as default
-            plot_path = f"{config.checkpoint}/{plot_filename}"
+            plot_path = pathlib.Path(config.checkpoint) / plot_filename
 
         # Save the plot
         # Ensure path-like is converted to string and be robust to tight bbox issues

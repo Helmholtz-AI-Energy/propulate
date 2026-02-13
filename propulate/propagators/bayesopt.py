@@ -3,7 +3,7 @@ import random
 import warnings
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any, Dict, List, Optional, Protocol, Tuple, Union, cast
+from typing import Any, Callable, Dict, List, Optional, Protocol, Tuple, Union, cast
 
 import numpy as np
 from scipy.optimize import fmin_l_bfgs_b, minimize
@@ -365,7 +365,7 @@ class ExpectedImprovement(AcquisitionFunction):
     def evaluate(
         self,
         x: np.ndarray,
-        model,
+        model: Union[GaussianProcessRegressor, SupportsPredict],
         f_best: float,
     ) -> float:
         """Evaluate EI at one point."""
@@ -373,7 +373,12 @@ class ExpectedImprovement(AcquisitionFunction):
         ei = expected_improvement(mu, sigma, f_best, minimize=self.minimize, xi=self.xi)
         return float(ei[0])
 
-    def evaluate_batch(self, X: np.ndarray, model, f_best: float) -> np.ndarray:  # noqa: N803
+    def evaluate_batch(
+        self,
+        X: np.ndarray,  # noqa: N803
+        model: Union[GaussianProcessRegressor, SupportsPredict],
+        f_best: float,
+    ) -> np.ndarray:
         """Evaluate EI on a batch of points."""
         mu, sigma = self._predict(X, model)
         return expected_improvement(mu, sigma, f_best, minimize=self.minimize, xi=self.xi)
@@ -385,11 +390,16 @@ class ProbabilityImprovement(AcquisitionFunction):
     def __init__(self, xi: float = 0.01):
         self.xi = xi
 
-    def evaluate(self, x: np.ndarray, model, f_best: float) -> float:
+    def evaluate(self, x: np.ndarray, model: Union[GaussianProcessRegressor, SupportsPredict], f_best: float) -> float:
         """Evaluate PI at one point."""
         return float(self.evaluate_batch(np.atleast_2d(x), model, f_best)[0])
 
-    def evaluate_batch(self, X: np.ndarray, model, f_best: float) -> np.ndarray:  # noqa: N803
+    def evaluate_batch(
+        self,
+        X: np.ndarray,  # noqa: N803
+        model: Union[GaussianProcessRegressor, SupportsPredict],
+        f_best: float,
+    ) -> np.ndarray:
         """Evaluate PI on a batch of points."""
         mu, sigma = self._predict(X, model)
         imp = f_best - mu - self.xi
@@ -418,13 +428,18 @@ class UpperConfidenceBound(AcquisitionFunction):
     def evaluate(
         self,
         x: np.ndarray,
-        model,
+        model: Union[GaussianProcessRegressor, SupportsPredict],
         f_best: float,
     ) -> float:
         """Evaluate LCB/UCB at one point."""
         return float(self.evaluate_batch(np.atleast_2d(x), model, f_best)[0])
 
-    def evaluate_batch(self, X: np.ndarray, model, f_best: float) -> np.ndarray:  # noqa: N803
+    def evaluate_batch(
+        self,
+        X: np.ndarray,  # noqa: N803
+        model: Union[GaussianProcessRegressor, SupportsPredict],
+        f_best: float,
+    ) -> np.ndarray:
         """Evaluate LCB/UCB on a batch of points."""
         mu, sigma = self._predict(X, model)
         return mu - self.kappa * sigma
@@ -449,7 +464,7 @@ def create_acquisition(
     size: Optional[int] = None,
     factor_min: float = 0.5,
     factor_max: float = 2.0,
-    **params,
+    **params: Any,
 ) -> AcquisitionFunction:
     """
     Create an acquisition function by name.
@@ -528,7 +543,7 @@ class MultiStartAcquisitionOptimizer:
 
     def optimize(
         self,
-        acq_func,
+        acq_func: Callable[[np.ndarray], Union[float, np.ndarray]],
         bounds: np.ndarray,
         rng: Optional[random.Random] = None,
     ) -> np.ndarray:
@@ -594,7 +609,11 @@ class MultiStartAcquisitionOptimizer:
         return best_x
 
 
-def _robust_lbfgs(obj_func, initial_theta, bounds):
+def _robust_lbfgs(
+    obj_func: Callable[..., Any],
+    initial_theta: np.ndarray,
+    bounds: List[Tuple[float, float]],
+) -> Tuple[np.ndarray, float]:
     """
     Optimize with robust L-BFGS-B settings and Powell fallback.
 
@@ -603,7 +622,7 @@ def _robust_lbfgs(obj_func, initial_theta, bounds):
     Returns (theta_opt, f_min).
     """
 
-    def f_and_g(theta):
+    def f_and_g(theta: np.ndarray) -> Any:
         # sklearn passes obj_func(theta, eval_gradient=True) -> (f, g)
         return obj_func(theta, eval_gradient=True)
 
@@ -624,7 +643,7 @@ def _robust_lbfgs(obj_func, initial_theta, bounds):
     # 2) Fallback: gradient-free Powell within bounds (stable, slower).
     # best[0] is None when both L-BFGS-B attempts returned inf (no improvement
     # over the initial np.inf sentinel), so we fall back to initial_theta.
-    def f_only(theta):
+    def f_only(theta: np.ndarray) -> float:
         return obj_func(theta, eval_gradient=False)
 
     res = minimize(
@@ -646,7 +665,7 @@ class SurrogateFitter(ABC):
         kernel: Kernel,
         X: np.ndarray,  # noqa: N803
         y: np.ndarray,
-        **kwargs,
+        **kwargs: Any,
     ) -> Union[GaussianProcessRegressor, SupportsPredict]:
         """Fit and return a surrogate model trained on `(X, y)`."""
         ...
@@ -663,7 +682,7 @@ class SingleCPUFitter(SurrogateFitter):
         self.random_state = random_state
         self.alpha = alpha
 
-    def fit(self, kernel, X, y, **kwargs):  # noqa: N803
+    def fit(self, kernel: Kernel, X: np.ndarray, y: np.ndarray, **kwargs: Any) -> GaussianProcessRegressor:  # noqa: N803
         """Fit a sklearn `GaussianProcessRegressor` with optional HP optimization."""
         flag = kwargs.get("optimize_hyperparameters", self.optimize_hyperparameters)
         opt = _robust_lbfgs if flag else None
@@ -683,7 +702,7 @@ class SingleCPUFitter(SurrogateFitter):
 class MultiCPUFitter(SurrogateFitter):
     """Stub for a parallel CPU fitter (not yet implemented in this PR)."""
 
-    def fit(self, kernel: Kernel, X: np.ndarray, y: np.ndarray, **kwargs):  # noqa: N803
+    def fit(self, kernel: Kernel, X: np.ndarray, y: np.ndarray, **kwargs: Any) -> SupportsPredict:  # noqa: N803
         """Raise because this backend is not implemented yet."""
         raise NotImplementedError(
             "MultiCPUFitter is not supported in this Bayesian Optimizer PR. Please use SingleCPUFitter for now."
@@ -693,7 +712,7 @@ class MultiCPUFitter(SurrogateFitter):
 class SingleGPUFitter(SurrogateFitter):
     """Stub for a single-GPU fitter (not yet implemented in this PR)."""
 
-    def fit(self, kernel: Kernel, X: np.ndarray, y: np.ndarray, **kwargs) -> SupportsPredict:  # noqa: N803
+    def fit(self, kernel: Kernel, X: np.ndarray, y: np.ndarray, **kwargs: Any) -> SupportsPredict:  # noqa: N803
         """Raise because this backend is not implemented yet."""
         raise NotImplementedError(
             "SingleGPUFitter is not supported in this Bayesian Optimizer PR. Please use SingleCPUFitter for now."
@@ -703,7 +722,7 @@ class SingleGPUFitter(SurrogateFitter):
 class MultiGPUFitter(SurrogateFitter):
     """Stub for a multi-GPU fitter (not yet implemented in this PR)."""
 
-    def fit(self, kernel: Kernel, X: np.ndarray, y: np.ndarray, **kwargs) -> SupportsPredict:  # noqa: N803
+    def fit(self, kernel: Kernel, X: np.ndarray, y: np.ndarray, **kwargs: Any) -> SupportsPredict:  # noqa: N803
         """Raise because this backend is not implemented yet."""
         raise NotImplementedError(
             "MultiGPUFitter is not supported in this Bayesian Optimizer PR. Please use SingleCPUFitter for now."
@@ -719,7 +738,7 @@ class FitterType(Enum):
     MULTI_GPU = "multi_gpu"
 
 
-def create_fitter(fitter_type: str, **kwargs) -> SurrogateFitter:
+def create_fitter(fitter_type: str, **kwargs: Any) -> SurrogateFitter:
     """Create a surrogate fitter by resource type."""
     try:
         ft = FitterType(fitter_type.lower())
@@ -967,7 +986,9 @@ class BayesianOptimizer(Propagator):
                 else:
                     if len(bounds) != 2:
                         raise ValueError(f"Numeric parameter '{key}' must have exactly 2 bounds")
-                    if bounds[0] >= bounds[1]:
+                    lower = cast(Union[int, float], bounds[0])
+                    upper = cast(Union[int, float], bounds[1])
+                    if lower >= upper:
                         raise ValueError(f"Parameter '{key}': lower bound must be < upper bound")
             elif isinstance(bounds[0], str):
                 if len(set(bounds)) != len(bounds):

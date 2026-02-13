@@ -15,7 +15,7 @@ from typing import (
 import numpy as np
 
 
-def _normalize_param_type(value) -> type:
+def _normalize_param_type(value: Any) -> type:
     """Map a limit value to its canonical Python type (float, int, or str).
 
     Handles numpy scalar types (e.g. ``np.int64``, ``np.float32``) so that

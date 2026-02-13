@@ -1,4 +1,5 @@
 # tests/test_bayesian_optimizer.py
+# mypy: disable-error-code="no-untyped-def,attr-defined"
 import copy
 import pathlib
 import random
