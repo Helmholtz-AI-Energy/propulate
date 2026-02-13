@@ -17,8 +17,8 @@ from propulate.propagators.bayesopt import (
     MultiStartAcquisitionOptimizer,
     SingleCPUFitter,
     SurrogateFitter,
-    _sparse_select_indices,
     _project_to_discrete,
+    _sparse_select_indices,
     create_acquisition,
     create_fitter,
     expected_improvement,
@@ -54,7 +54,7 @@ def _fast_test_optimizer(limits) -> MultiStartAcquisitionOptimizer:
 
 
 def _make_bayes_propagator(limits, rng: random.Random) -> BayesianOptimizer:
-    """Helper to build a BayesianOptimizer with simple acquisition optimizer.
+    """Build a BayesianOptimizer with a simple acquisition optimizer.
 
     Note: Parallel fitters are currently disabled; the optimizer defaults to a
     single-CPU fitter internally.
@@ -65,10 +65,10 @@ def _make_bayes_propagator(limits, rng: random.Random) -> BayesianOptimizer:
         world_size=MPI.COMM_WORLD.size,
         acquisition_type="EI",
         acquisition_params={"xi": 0.01},
-        rank_stretch=True,          # diversify across ranks
+        rank_stretch=True,  # diversify across ranks
         factor_min=0.5,
         factor_max=2.0,
-        sparse=True,                # keep training sets light in tests
+        sparse=True,  # keep training sets light in tests
         sparse_params={"max_points": 200},
         optimizer=_fast_test_optimizer(limits),
         optimize_hyperparameters=False,
@@ -151,15 +151,16 @@ def test_bayes_propagator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
 
 class _DummyModel:
     """Minimal surrogate mock that returns fixed (mu, sigma)."""
+
     def __init__(self, mu: float, sigma: float):
         self.mu = float(mu)
         self.sigma = float(sigma)
         self.calls = 0
 
-    def predict(self, X, return_std=True):
+    def predict(self, x, return_std=True):
         self.calls += 1
-        X = np.atleast_2d(X)
-        n = X.shape[0]
+        x = np.atleast_2d(x)
+        n = x.shape[0]
         mu = np.full((n,), self.mu, dtype=float)
         std = np.full((n,), self.sigma, dtype=float)
         return mu, std
@@ -172,12 +173,12 @@ class _CountingModel:
         self.calls = 0
         self.batch_sizes = []
 
-    def predict(self, X, return_std=True):
+    def predict(self, x, return_std=True):
         self.calls += 1
-        X = np.atleast_2d(X)
-        n = X.shape[0]
+        x = np.atleast_2d(x)
+        n = x.shape[0]
         self.batch_sizes.append(n)
-        mu = np.sum(X, axis=1, dtype=float)
+        mu = np.sum(x, axis=1, dtype=float)
         std = np.full((n,), 0.1, dtype=float)
         return mu, std
 
@@ -205,9 +206,7 @@ def _record_acquisition_calls(monkeypatch: pytest.MonkeyPatch):
 
 
 def test_expected_improvement_function_basic() -> None:
-    """
-    Unit test for the vectorized expected_improvement helper.
-    """
+    """Unit test for the vectorized expected_improvement helper."""
     mu = np.array([0.0, 0.9, 2.0])
     sigma = np.array([0.1, 0.5, 1.0])
     f_best = 1.0
@@ -225,9 +224,7 @@ def test_expected_improvement_function_basic() -> None:
 
 
 def test_expected_improvement_sigma_zero_path() -> None:
-    """
-    EI should reduce to max(f_best - mu - xi, 0) when sigma == 0.
-    """
+    """EI should reduce to max(f_best - mu - xi, 0) when sigma == 0."""
     f_best = 1.0
     x = np.array([0.123, -0.4])
 
@@ -245,7 +242,8 @@ def test_expected_improvement_sigma_zero_path() -> None:
 
 def test_ei_matches_closed_form_against_helper() -> None:
     """
-    EI acquisition.evaluate should numerically match expected_improvement()
+    EI acquisition.evaluate should numerically match expected_improvement().
+
     on a single-point query given (mu, sigma).
     """
     f_best = 0.75
@@ -263,9 +261,7 @@ def test_ei_matches_closed_form_against_helper() -> None:
 
 
 def test_ei_maximization_path_matches_helper() -> None:
-    """
-    EI acquisition.evaluate should match expected_improvement() for maximize mode.
-    """
+    """EI acquisition.evaluate should match expected_improvement() for maximize mode."""
     f_best = 0.75
     xi = 0.02
     mu, sigma = 1.0, 0.3
@@ -283,6 +279,7 @@ def test_ei_maximization_path_matches_helper() -> None:
 def test_probability_improvement_behavior() -> None:
     """
     PI should return Phi((f_best - mu - xi)/sigma) for minimization.
+
     Also check the sigma -> 0 limits via cdf(±inf) -> {1, 0}.
     """
     x = np.array([0.1, 0.2])
@@ -295,6 +292,7 @@ def test_probability_improvement_behavior() -> None:
     v = acq.evaluate(x, model, f_best)
 
     from scipy.stats import norm
+
     z = (f_best - mu - xi) / sigma
     ref = float(norm.cdf(z))
     assert v == pytest.approx(ref, rel=1e-12, abs=1e-12)
@@ -311,9 +309,7 @@ def test_probability_improvement_behavior() -> None:
 
 
 def test_upper_confidence_bound_matches_formula() -> None:
-    """
-    UCB acquisition returns - (mu - kappa * sigma) for minimization.
-    """
+    """UCB acquisition returns `mu - kappa * sigma` for minimization."""
     x = np.array([0.0])
     kappa = 1.96
     mu, sigma = 0.5, 0.2
@@ -332,49 +328,45 @@ def test_upper_confidence_bound_matches_formula() -> None:
 
 
 def test_rank_stretching_parameters_across_all_acquisitions() -> None:
-    """
-    Check that rank_stretch rescales xi (EI/PI) and kappa (UCB) from factor_min to factor_max.
-    """
+    """Check that rank_stretch rescales xi (EI/PI) and kappa (UCB)."""
     size = 5
     r0 = 0
-    rN = size - 1
+    r_last = size - 1
 
     # EI / PI -> xi scaling
     acq_ei_0 = create_acquisition("EI", rank_stretch=True, rank=r0, size=size, factor_min=0.5, factor_max=2.0, xi=0.02)
-    acq_ei_N = create_acquisition("EI", rank_stretch=True, rank=rN, size=size, factor_min=0.5, factor_max=2.0, xi=0.02)
+    acq_ei_last = create_acquisition("EI", rank_stretch=True, rank=r_last, size=size, factor_min=0.5, factor_max=2.0, xi=0.02)
     assert acq_ei_0.xi == pytest.approx(0.5 * 0.02)
-    assert acq_ei_N.xi == pytest.approx(2.0 * 0.02)
+    assert acq_ei_last.xi == pytest.approx(2.0 * 0.02)
 
     acq_pi_0 = create_acquisition("PI", rank_stretch=True, rank=r0, size=size, factor_min=0.5, factor_max=2.0, xi=0.01)
-    acq_pi_N = create_acquisition("PI", rank_stretch=True, rank=rN, size=size, factor_min=0.5, factor_max=2.0, xi=0.01)
+    acq_pi_last = create_acquisition("PI", rank_stretch=True, rank=r_last, size=size, factor_min=0.5, factor_max=2.0, xi=0.01)
     assert acq_pi_0.xi == pytest.approx(0.5 * 0.01)
-    assert acq_pi_N.xi == pytest.approx(2.0 * 0.01)
+    assert acq_pi_last.xi == pytest.approx(2.0 * 0.01)
 
     # UCB -> kappa scaling
     acq_ucb_0 = create_acquisition("UCB", rank_stretch=True, rank=r0, size=size, factor_min=0.5, factor_max=2.0, kappa=1.0)
-    acq_ucb_N = create_acquisition("UCB", rank_stretch=True, rank=rN, size=size, factor_min=0.5, factor_max=2.0, kappa=1.0)
+    acq_ucb_last = create_acquisition("UCB", rank_stretch=True, rank=r_last, size=size, factor_min=0.5, factor_max=2.0, kappa=1.0)
     assert acq_ucb_0.kappa == pytest.approx(0.5 * 1.0)
-    assert acq_ucb_N.kappa == pytest.approx(2.0 * 1.0)
+    assert acq_ucb_last.kappa == pytest.approx(2.0 * 1.0)
 
 
 def test_rank_stretch_false_keeps_parameters_identical_across_ranks() -> None:
     """When rank_stretch=False, per-rank acquisition parameters should stay unchanged."""
     size = 5
     acq_ei_0 = create_acquisition("EI", rank_stretch=False, rank=0, size=size, xi=0.02)
-    acq_ei_N = create_acquisition("EI", rank_stretch=False, rank=size - 1, size=size, xi=0.02)
+    acq_ei_last = create_acquisition("EI", rank_stretch=False, rank=size - 1, size=size, xi=0.02)
     assert acq_ei_0.xi == pytest.approx(0.02)
-    assert acq_ei_N.xi == pytest.approx(0.02)
+    assert acq_ei_last.xi == pytest.approx(0.02)
 
     acq_ucb_0 = create_acquisition("UCB", rank_stretch=False, rank=0, size=size, kappa=1.0)
-    acq_ucb_N = create_acquisition("UCB", rank_stretch=False, rank=size - 1, size=size, kappa=1.0)
+    acq_ucb_last = create_acquisition("UCB", rank_stretch=False, rank=size - 1, size=size, kappa=1.0)
     assert acq_ucb_0.kappa == pytest.approx(1.0)
-    assert acq_ucb_N.kappa == pytest.approx(1.0)
+    assert acq_ucb_last.kappa == pytest.approx(1.0)
 
 
 def test_acquisition_interfaces_call_predict_once() -> None:
-    """
-    Smoke test that evaluate() calls model.predict() exactly once for each acquisition.
-    """
+    """Smoke test that evaluate() calls model.predict() exactly once per acquisition."""
     x = np.array([0.1, -0.2, 0.3])
     f_best = 0.4
 
@@ -473,7 +465,7 @@ def test_annealing_uses_default_parameter_when_not_explicitly_set(
     )
     model = _DummyModel(mu=0.0, sigma=1.0)
 
-    opt._select_next(model, f_best=0.0, current_generation=0)   # t=1
+    opt._select_next(model, f_best=0.0, current_generation=0)  # t=1
     opt._select_next(model, f_best=0.0, current_generation=50)  # t=51
 
     first = float(calls[0][1][param_name])
@@ -522,9 +514,7 @@ def test_annealing_disabled_keeps_acquisition_parameter_constant(
 
 
 def test_bayesian_optimizer_mixed_example(mpi_tmp_path: pathlib.Path) -> None:
-    """
-    Test BayesianOptimizer with mixed-type search space.
-    """
+    """Test BayesianOptimizer with mixed-type search space."""
     rng = random.Random(42 + MPI.COMM_WORLD.rank)
 
     limits: Dict[str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]] = {
@@ -534,7 +524,7 @@ def test_bayesian_optimizer_mixed_example(mpi_tmp_path: pathlib.Path) -> None:
     }
 
     def mixed_function(params):
-        """Simple test function with mixed types."""
+        """Compute a simple objective over mixed-type parameters."""
         penalty = 1.0 if params["method"] == "slow" else 0.0
         return (params["x"] - 2.5) ** 2 + (params["n"] - 5) ** 2 + penalty
 
@@ -572,9 +562,9 @@ def test_bayesian_optimizer_mixed_example(mpi_tmp_path: pathlib.Path) -> None:
 
 # --- Mixed-type and BO robustness tests ---
 class _RecordingModel:
-    def predict(self, X, return_std=True):
-        X = np.atleast_2d(X)
-        n = X.shape[0]
+    def predict(self, x, return_std=True):
+        x = np.atleast_2d(x)
+        n = x.shape[0]
         return np.zeros(n, dtype=float), np.ones(n, dtype=float)
 
 
@@ -582,7 +572,7 @@ class _RecordingFitter(SurrogateFitter):
     def __init__(self):
         self.optimize_flags = []
 
-    def fit(self, kernel, X, y, **kwargs):
+    def fit(self, kernel, x, y, **kwargs):
         self.optimize_flags.append(bool(kwargs.get("optimize_hyperparameters", False)))
         return _RecordingModel()
 
@@ -742,7 +732,7 @@ def test_project_to_discrete_edge_cases():
     assert x_proj[0] == 6.0  # rounded
     # Should still produce valid one-hot despite negative values
     assert np.sum(x_proj[1:3]) == pytest.approx(1.0)
-    assert (x_proj[1] == 1.0 or x_proj[2] == 1.0)
+    assert x_proj[1] == 1.0 or x_proj[2] == 1.0
 
     # Test integer boundary values
     x_low = np.array([-1.0, 0.5, 0.5])
@@ -879,12 +869,7 @@ def test_hyperparameter_optimization_schedule_mixed():
         inds.append(ind)
         # Use a non-degenerate objective with moderate stochasticity so GP
         # hyperparameter optimization remains well-conditioned in MPI runs.
-        ind.loss = (
-            0.3 * (ind["x"] - 2.5) ** 2
-            + 0.05 * (ind["n"] - 10) ** 2
-            + 0.8 * np.sin(4.0 * ind["x"])
-            + 0.5 * rng.random()
-        )
+        ind.loss = 0.3 * (ind["x"] - 2.5) ** 2 + 0.05 * (ind["n"] - 10) ** 2 + 0.8 * np.sin(4.0 * ind["x"]) + 0.5 * rng.random()
 
     # Should have fit multiple times
     assert opt._hp_fit_calls >= 3
@@ -906,9 +891,9 @@ def test_hyperparameter_schedule_uses_optimized_fit_counter():
 
     flags = {}
     for generation in range(5, 47):
-        X = np.zeros((generation, opt.position_dim), dtype=float)
+        x_values = np.zeros((generation, opt.position_dim), dtype=float)
         y = np.zeros((generation,), dtype=float)
-        opt._fit_surrogate(X, y, current_generation=generation)
+        opt._fit_surrogate(x_values, y, current_generation=generation)
         flags[generation] = fitter.optimize_flags[-1]
 
     assert all(not flags[g] for g in range(5, 40))
@@ -939,9 +924,9 @@ def test_hyperparameter_schedule_accepts_custom_warmup_and_period():
 
     flags = {}
     for generation in range(5, 26):
-        X = np.zeros((generation, opt.position_dim), dtype=float)
+        x_values = np.zeros((generation, opt.position_dim), dtype=float)
         y = np.zeros((generation,), dtype=float)
-        opt._fit_surrogate(X, y, current_generation=generation)
+        opt._fit_surrogate(x_values, y, current_generation=generation)
         flags[generation] = fitter.optimize_flags[-1]
 
     assert all(not flags[g] for g in range(5, 20))
@@ -1016,9 +1001,7 @@ def test_backward_compatibility_float_only():
 def test_position_dim_warning():
     """Test that a warning is issued for high-dimensional position spaces."""
     # Create limits with many categorical variables to exceed threshold
-    limits = {
-        f"cat{i}": tuple(f"opt{j}" for j in range(10)) for i in range(12)
-    }  # 12 * 10 = 120 dimensions
+    limits = {f"cat{i}": tuple(f"opt{j}" for j in range(10)) for i in range(12)}  # 12 * 10 = 120 dimensions
 
     with pytest.warns(UserWarning, match="Position dimension.*is large"):
         BayesianOptimizer(limits=limits, rank=0)
@@ -1152,8 +1135,8 @@ def test_sparse_subsample_all_nonfinite_is_safe():
         ind.loss = float("nan") if i % 2 == 0 else float("inf")
         inds.append(ind)
 
-    X, y, sub_inds = opt._subsample(inds)
-    assert X.shape == (0, opt.position_dim)
+    x_values, y, sub_inds = opt._subsample(inds)
+    assert x_values.shape == (0, opt.position_dim)
     assert y.shape == (0,)
     assert sub_inds == []
 
@@ -1183,22 +1166,22 @@ def test_sparse_subsample_filters_nonfinite_and_keeps_finite():
         ind.loss = loss
         inds.append(ind)
 
-    X, y, sub_inds = opt._subsample(inds)
-    assert 1 <= X.shape[0] <= opt.max_points
-    assert X.shape[1] == opt.position_dim
-    assert len(sub_inds) == X.shape[0]
+    x_values, y, sub_inds = opt._subsample(inds)
+    assert 1 <= x_values.shape[0] <= opt.max_points
+    assert x_values.shape[1] == opt.position_dim
+    assert len(sub_inds) == x_values.shape[0]
     assert np.all(np.isfinite(y))
 
 
 def test_sparse_select_indices_preserves_top_m_elites() -> None:
     """Sparse selector must always include the top_m best objective values."""
-    X = np.linspace(0.0, 1.0, 10).reshape(-1, 1)
+    x_values = np.linspace(0.0, 1.0, 10).reshape(-1, 1)
     y = np.array([9.0, 8.0, 0.2, 7.0, 6.0, 5.0, 4.0, 0.1, 3.0, 2.0], dtype=float)
     lows = np.array([0.0], dtype=float)
     highs = np.array([1.0], dtype=float)
 
     idx = _sparse_select_indices(
-        X,
+        x_values,
         y,
         lows,
         highs,
@@ -1246,7 +1229,7 @@ def test_generation_monotonic_when_sparse_drops_local_rank():
 
 
 def test_bayesian_optimizer_repr_contains_key_fields() -> None:
-    """repr should include key BO configuration for debugging."""
+    """Repr should include key BO configuration for debugging."""
     opt = BayesianOptimizer(
         limits={"x": (0.0, 1.0)},
         rank=2,
@@ -1303,6 +1286,4 @@ def test_bayesian_optimizer_ordinal_integers():
     for ind in inds:
         assert isinstance(ind["x"], float)
         assert isinstance(ind["batch_size"], int)
-        assert ind["batch_size"] in allowed, (
-            f"batch_size={ind['batch_size']} not in {allowed}"
-        )
+        assert ind["batch_size"] in allowed, f"batch_size={ind['batch_size']} not in {allowed}"
