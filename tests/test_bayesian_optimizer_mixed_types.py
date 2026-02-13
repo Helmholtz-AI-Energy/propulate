@@ -497,3 +497,36 @@ def test_sparse_subsample_filters_nonfinite_and_keeps_finite():
     assert X.shape[1] == opt.position_dim
     assert len(sub_inds) == X.shape[0]
     assert np.all(np.isfinite(y))
+
+
+def test_generation_monotonic_when_sparse_drops_local_rank():
+    """Generation must be derived from full local history, not sparse-selected subset."""
+    limits = {"x": (0.0, 1.0)}
+    opt = BayesianOptimizer(
+        limits=limits,
+        rank=0,
+        n_initial=1,
+        sparse=True,
+        sparse_params={"max_points": 5, "top_m": 5},
+        p_explore_start=0.0,
+        p_explore_end=0.0,
+        rng=random.Random(11),
+    )
+
+    inds = []
+    # Local-rank history at generations 1..10 with bad losses.
+    for gen in range(1, 11):
+        ind = Individual(np.array([0.9], dtype=float), limits, generation=gen, rank=0)
+        ind.loss = 100.0 + gen
+        inds.append(ind)
+    # Remote rank has better losses, so sparse top_m keeps only rank 1 points.
+    for gen in range(1, 11):
+        ind = Individual(np.array([0.1], dtype=float), limits, generation=gen, rank=1)
+        ind.loss = float(gen)
+        inds.append(ind)
+
+    _, _, sub_inds = opt._subsample(inds)
+    assert {ind.rank for ind in sub_inds} == {1}
+
+    next_ind = opt(inds)
+    assert next_ind.generation == 11

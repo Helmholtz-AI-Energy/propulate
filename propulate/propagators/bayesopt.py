@@ -1191,6 +1191,10 @@ class BayesianOptimizer(Propagator):
         if len(inds) < self.n_initial:
             return self._warm_start(inds)
 
+        # Track generation from the full incoming population (rank-local),
+        # not from any sparse-selected training subset.
+        current_generation = max([ind.generation for ind in inds if ind.rank == self.rank] or [0])
+
         # Phase 2: sparse selection + data extraction + NaN filtering
         X, y, inds = self._subsample(inds)
 
@@ -1200,10 +1204,7 @@ class BayesianOptimizer(Propagator):
             x_new = np.array([self.rng.uniform(l, h) for l, h in zip(lows, highs)], dtype=float)
             x_new = np.clip(x_new, lows, highs)
             x_new = _project_to_discrete(x_new, self.limits, self.param_types)
-            gen = 0 if len(inds) == 0 else max(ind.generation for ind in inds) + 1
-            return Individual(x_new, self.limits, generation=gen, rank=self.rank)
-
-        current_generation = max([ind.generation for ind in inds if ind.rank == self.rank] or [0])
+            return Individual(x_new, self.limits, generation=current_generation + 1, rank=self.rank)
 
         # Phase 3: fit GP surrogate
         model = self._fit_surrogate(X, y, current_generation)
