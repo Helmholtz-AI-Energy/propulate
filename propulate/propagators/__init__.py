@@ -10,6 +10,22 @@ from .base import (
     SelectUniform,
     Stochastic,
 )
+from .bayesopt import (
+    AcquisitionFunction,
+    BayesianOptimizer,
+    ExpectedImprovement,
+    FitterType,
+    LowerConfidenceBound,
+    MultiStartAcquisitionOptimizer,
+    ProbabilityImprovement,
+    SingleCPUFitter,
+    SurrogateFitter,
+    UpperConfidenceBound,
+    create_acquisition,
+    create_fitter,
+    expected_improvement,
+    get_default_kernel_sklearn,
+)
 from .cmaes import (
     ActiveCMA,
     BasicCMA,
@@ -32,22 +48,6 @@ from .pso import (
     ConstrictionPSO,
     StatelessPSO,
     VelocityClampingPSO,
-)
-from .bayesopt import (
-    AcquisitionFunction,
-    BayesianOptimizer,
-    ExpectedImprovement,
-    LowerConfidenceBound,
-    SurrogateFitter,
-    FitterType,
-    MultiStartAcquisitionOptimizer,
-    ProbabilityImprovement,
-    SingleCPUFitter,
-    UpperConfidenceBound,
-    create_acquisition,
-    create_fitter,
-    expected_improvement,
-    get_default_kernel_sklearn,
 )
 
 __all__ = [

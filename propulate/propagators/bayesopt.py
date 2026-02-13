@@ -1,18 +1,19 @@
-from abc import ABC, abstractmethod
 import logging
 import random
 import warnings
+from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, Union, Protocol, cast
+from typing import Any, Dict, List, Optional, Protocol, Tuple, Union, cast
 
 import numpy as np
 from scipy.optimize import fmin_l_bfgs_b, minimize
 from scipy.stats import norm, qmc
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import Kernel, ConstantKernel as C, WhiteKernel, Matern
+from sklearn.gaussian_process.kernels import ConstantKernel as C
+from sklearn.gaussian_process.kernels import Kernel, Matern, WhiteKernel
 
-from ..propagators import Propagator
 from ..population import Individual, _normalize_param_type
+from ..propagators import Propagator
 
 
 def get_default_kernel_sklearn(
@@ -46,13 +47,12 @@ def get_default_kernel_sklearn(
                 # weakens categorical influence at initialization and lets data tune it.
                 length_scales[cat_offset + j] = 5.0
                 ls_bounds[cat_offset + j] = [1.0, 1e3]
-    kernel = (
-        C(1.0, (1e-3, 1e5)) *
-        Matern(length_scale=length_scales, length_scale_bounds=ls_bounds)
-        + WhiteKernel(noise_level=1e-1, noise_level_bounds=(1e-8, 1e1))
+    kernel = C(1.0, (1e-3, 1e5)) * Matern(length_scale=length_scales, length_scale_bounds=ls_bounds) + WhiteKernel(
+        noise_level=1e-1, noise_level_bounds=(1e-8, 1e1)
     )
     return kernel
-    
+
+
 _bo_log = logging.getLogger("propulate.bayesopt")
 
 
@@ -72,18 +72,27 @@ def _log_gp_diagnostics(
         return
 
     _bo_log.info(
-        "[BO rank=%d gen=%d] GP fit (hp_opt=%s): n_train=%d, "
-        "y_min=%.4g, y_max=%.4g, y_mean=%.4g, y_std=%.4g",
-        rank, generation, optimized_hyperparameters,
-        len(y), y.min(), y.max(), y.mean(), y.std(),
+        "[BO rank=%d gen=%d] GP fit (hp_opt=%s): n_train=%d, y_min=%.4g, y_max=%.4g, y_mean=%.4g, y_std=%.4g",
+        rank,
+        generation,
+        optimized_hyperparameters,
+        len(y),
+        y.min(),
+        y.max(),
+        y.mean(),
+        y.std(),
     )
     _bo_log.info(
         "[BO rank=%d gen=%d] Fitted kernel: %s",
-        rank, generation, model.kernel_,
+        rank,
+        generation,
+        model.kernel_,
     )
     _bo_log.info(
         "[BO rank=%d gen=%d] Log-marginal-likelihood: %.4f",
-        rank, generation, model.log_marginal_likelihood_value_,
+        rank,
+        generation,
+        model.log_marginal_likelihood_value_,
     )
 
     # Check whether Matern / RBF length_scale is near its bounds.
@@ -99,15 +108,23 @@ def _log_gp_diagnostics(
         at_ub = int(np.sum(ls >= ub * 0.95))
         if at_lb > 0:
             _bo_log.warning(
-                "[BO rank=%d gen=%d] %d/%d length_scale dims at LOWER bound "
-                "(ls=%s, lb=%s)",
-                rank, generation, at_lb, len(ls), ls, lb,
+                "[BO rank=%d gen=%d] %d/%d length_scale dims at LOWER bound (ls=%s, lb=%s)",
+                rank,
+                generation,
+                at_lb,
+                len(ls),
+                ls,
+                lb,
             )
         if at_ub > 0:
             _bo_log.warning(
-                "[BO rank=%d gen=%d] %d/%d length_scale dims at UPPER bound "
-                "(ls=%s, ub=%s)",
-                rank, generation, at_ub, len(ls), ls, ub,
+                "[BO rank=%d gen=%d] %d/%d length_scale dims at UPPER bound (ls=%s, ub=%s)",
+                rank,
+                generation,
+                at_ub,
+                len(ls),
+                ls,
+                ub,
             )
     except (AttributeError, TypeError, IndexError):
         pass  # kernel structure may differ from expected layout
@@ -117,7 +134,9 @@ def _log_gp_diagnostics(
         noise = model.kernel_.k2.noise_level
         _bo_log.info(
             "[BO rank=%d gen=%d] WhiteKernel noise_level: %.4g",
-            rank, generation, noise,
+            rank,
+            generation,
+            noise,
         )
     except AttributeError:
         pass
@@ -190,7 +209,7 @@ def _sparse_select_indices(
         if n_cat_params > 0:
             cat_indices = np.zeros((n, n_cat_params), dtype=int)
             for j, (off, n_c) in enumerate(categorical_blocks):  # type: ignore[arg-type]
-                cat_indices[:, j] = np.argmax(X[:, off:off + n_c], axis=1)
+                cat_indices[:, j] = np.argmax(X[:, off : off + n_c], axis=1)
         else:
             cat_indices = np.empty((n, 0), dtype=int)
 
@@ -202,7 +221,7 @@ def _sparse_select_indices(
             d = np.zeros(len(pool_idx))
             if n_cont > 0:
                 diff = Xw_cont[pool_idx] - Xw_cont[i]
-                d += w_cont * np.sum(diff ** 2, axis=1)
+                d += w_cont * np.sum(diff**2, axis=1)
             if n_cat_params > 0:
                 hamming = np.sum(cat_indices[pool_idx] != cat_indices[i], axis=1)
                 d += w_cat * hamming.astype(float)
@@ -258,7 +277,8 @@ def _sparse_select_indices(
         dist_min = np.minimum(dist_min[keep], dnew)
 
     return np.array(selected[:k_budget], dtype=int)
-    
+
+
 class SupportsPredict(Protocol):
     def predict(self, X: np.ndarray, return_std: bool = True) -> Tuple[np.ndarray, np.ndarray]: ...
 
@@ -298,6 +318,7 @@ class AcquisitionFunction(ABC):
     """
     Base class for acquisition functions.
     """
+
     @abstractmethod
     def evaluate(
         self,
@@ -337,6 +358,7 @@ class ExpectedImprovement(AcquisitionFunction):
     """
     Expected Improvement acquisition.
     """
+
     def __init__(self, xi: float = 0.01, minimize: bool = True):
         self.xi = xi
         self.minimize = minimize
@@ -360,6 +382,7 @@ class ProbabilityImprovement(AcquisitionFunction):
     """
     Probability of Improvement acquisition for minimization.
     """
+
     def __init__(self, xi: float = 0.01):
         self.xi = xi
 
@@ -387,6 +410,7 @@ class UpperConfidenceBound(AcquisitionFunction):
     exploitation (low mean) and exploration (high uncertainty). This is effectively
     the Lower Confidence Bound (LCB) formulation used for minimization problems.
     """
+
     def __init__(self, kappa: float = 1.96):
         self.kappa = kappa
 
@@ -420,7 +444,7 @@ def create_acquisition(
     size: Optional[int] = None,
     factor_min: float = 0.5,
     factor_max: float = 2.0,
-    **params
+    **params,
 ) -> AcquisitionFunction:
     """
     Factory to create an acquisition function by name.
@@ -471,9 +495,7 @@ class MultiStartAcquisitionOptimizer:
         self.n_restarts = n_restarts
         self.polish = polish
         self.minimize_options: Dict[str, Union[int, float]] = (
-            {"maxiter": 200, "maxfun": 2000, "ftol": 1e-9, "gtol": 1e-6}
-            if minimize_options is None
-            else dict(minimize_options)
+            {"maxiter": 200, "maxfun": 2000, "ftol": 1e-9, "gtol": 1e-6} if minimize_options is None else dict(minimize_options)
         )
 
     @staticmethod
@@ -573,21 +595,20 @@ def _robust_lbfgs(obj_func, initial_theta, bounds):
     falls back to a bounded Powell step (gradient-free).
     Returns (theta_opt, f_min).
     """
+
     def f_and_g(theta):
         # sklearn passes obj_func(theta, eval_gradient=True) -> (f, g)
         return obj_func(theta, eval_gradient=True)
 
     # 1) Two attempts with progressively looser / longer line search
     attempts = [
-        dict(maxiter=200, maxls=50,  factr=1e7, pgtol=1e-8),
+        dict(maxiter=200, maxls=50, factr=1e7, pgtol=1e-8),
         dict(maxiter=400, maxls=100, factr=1e9, pgtol=1e-6),
     ]
     best = (None, np.inf)
     for opts in attempts:
         # Cast to Any to silence strict type checks from stubs; runtime accepts these options.
-        theta, fval, info = cast(Any, fmin_l_bfgs_b)(
-            f_and_g, initial_theta, bounds=bounds, **opts
-        )
+        theta, fval, info = cast(Any, fmin_l_bfgs_b)(f_and_g, initial_theta, bounds=bounds, **opts)
         if fval < best[1]:
             best = (theta, fval)
         if info.get("warnflag", 1) == 0:  # converged
@@ -599,24 +620,23 @@ def _robust_lbfgs(obj_func, initial_theta, bounds):
     def f_only(theta):
         return obj_func(theta, eval_gradient=False)
 
-    res = minimize(f_only, best[0] if best[0] is not None else initial_theta,
-                   method="Powell", bounds=bounds,
-                   options={"maxiter": 1000, "xtol": 1e-4, "ftol": 1e-4, "disp": False})
+    res = minimize(
+        f_only,
+        best[0] if best[0] is not None else initial_theta,
+        method="Powell",
+        bounds=bounds,
+        options={"maxiter": 1000, "xtol": 1e-4, "ftol": 1e-4, "disp": False},
+    )
     return res.x, res.fun
-    
-    
+
+
 class SurrogateFitter(ABC):
     """
     Base class for surrogate model fitters leveraging different compute backends.
     """
+
     @abstractmethod
-    def fit(
-        self,
-        kernel: Kernel,
-        X: np.ndarray,
-        y: np.ndarray,
-        **kwargs
-    ) -> Union[GaussianProcessRegressor, SupportsPredict]:
+    def fit(self, kernel: Kernel, X: np.ndarray, y: np.ndarray, **kwargs) -> Union[GaussianProcessRegressor, SupportsPredict]:
         """
         Fit and return a surrogate model trained on (X, y).
         """
@@ -624,9 +644,9 @@ class SurrogateFitter(ABC):
 
 
 class SingleCPUFitter(SurrogateFitter):
-    def __init__(self, optimize_hyperparameters: bool = True,
-                 n_restarts: int = 5, random_state: Optional[int] = None,
-                 alpha: float = 1e-6):
+    def __init__(
+        self, optimize_hyperparameters: bool = True, n_restarts: int = 5, random_state: Optional[int] = None, alpha: float = 1e-6
+    ):
         self.optimize_hyperparameters = optimize_hyperparameters
         self.n_restarts = n_restarts
         self.random_state = random_state
@@ -637,19 +657,23 @@ class SingleCPUFitter(SurrogateFitter):
         opt = _robust_lbfgs if flag else None
         nre = self.n_restarts if flag else 0
         gp = GaussianProcessRegressor(
-            kernel=kernel, optimizer=opt, n_restarts_optimizer=nre,
-            normalize_y=True, random_state=self.random_state, alpha=self.alpha
+            kernel=kernel,
+            optimizer=opt,
+            n_restarts_optimizer=nre,
+            normalize_y=True,
+            random_state=self.random_state,
+            alpha=self.alpha,
         )
         gp.fit(X, y)
         return gp
+
 
 class MultiCPUFitter(SurrogateFitter):
     """Stub for a parallel CPU fitter (not yet implemented in this PR)."""
 
     def fit(self, kernel: Kernel, X: np.ndarray, y: np.ndarray, **kwargs):
         raise NotImplementedError(
-            "MultiCPUFitter is not supported in this Bayesian Optimizer PR. "
-            "Please use SingleCPUFitter for now."
+            "MultiCPUFitter is not supported in this Bayesian Optimizer PR. Please use SingleCPUFitter for now."
         )
 
 
@@ -658,8 +682,7 @@ class SingleGPUFitter(SurrogateFitter):
 
     def fit(self, kernel: Kernel, X: np.ndarray, y: np.ndarray, **kwargs) -> SupportsPredict:
         raise NotImplementedError(
-            "SingleGPUFitter is not supported in this Bayesian Optimizer PR. "
-            "Please use SingleCPUFitter for now."
+            "SingleGPUFitter is not supported in this Bayesian Optimizer PR. Please use SingleCPUFitter for now."
         )
 
 
@@ -668,9 +691,9 @@ class MultiGPUFitter(SurrogateFitter):
 
     def fit(self, kernel: Kernel, X: np.ndarray, y: np.ndarray, **kwargs) -> SupportsPredict:
         raise NotImplementedError(
-            "MultiGPUFitter is not supported in this Bayesian Optimizer PR. "
-            "Please use SingleCPUFitter for now."
+            "MultiGPUFitter is not supported in this Bayesian Optimizer PR. Please use SingleCPUFitter for now."
         )
+
 
 class FitterType(Enum):
     SINGLE_CPU = "single_cpu"
@@ -679,10 +702,7 @@ class FitterType(Enum):
     MULTI_GPU = "multi_gpu"
 
 
-def create_fitter(
-    fitter_type: str,
-    **kwargs
-) -> SurrogateFitter:
+def create_fitter(fitter_type: str, **kwargs) -> SurrogateFitter:
     """
     Factory to create a surrogate fitter by resource type.
     """
@@ -696,8 +716,7 @@ def create_fitter(
         return SingleCPUFitter(**kwargs)
     if ft in (FitterType.MULTI_CPU, FitterType.SINGLE_GPU, FitterType.MULTI_GPU):
         raise NotImplementedError(
-            f"Fitter type '{fitter_type}' is not implemented in this Bayesian Optimizer PR. "
-            "Supported fitter types: ['single_cpu']."
+            f"Fitter type '{fitter_type}' is not implemented in this Bayesian Optimizer PR. Supported fitter types: ['single_cpu']."
         )
     raise ValueError(f"Unsupported fitter type '{fitter_type}'.")
 
@@ -736,7 +755,7 @@ def _project_to_discrete(
         if param_types[key] is str:
             # Categorical: project to valid one-hot encoding
             n_categories = len(limits[key])
-            one_hot_vec = x[offset:offset + n_categories]
+            one_hot_vec = x[offset : offset + n_categories]
 
             # Use softmax to get probabilities, then argmax for winner-takes-all
             # This handles negative values and out-of-bounds gracefully
@@ -745,7 +764,7 @@ def _project_to_discrete(
             winner_idx = np.argmax(probs)
 
             # Set to valid one-hot encoding
-            x_proj[offset:offset + n_categories] = 0.0
+            x_proj[offset : offset + n_categories] = 0.0
             x_proj[offset + winner_idx] = 1.0
 
             offset += n_categories
@@ -943,14 +962,11 @@ class BayesianOptimizer(Propagator):
         self.param_types = {key: _normalize_param_type(limits[key][0]) for key in limits}
 
         # Calculate position dimension (accounting for one-hot encoding)
-        self.position_dim = sum(
-            len(limits[k]) if isinstance(limits[k][0], str) else 1
-            for k in limits
-        )
+        self.position_dim = sum(len(limits[k]) if isinstance(limits[k][0], str) else 1 for k in limits)
 
         # Precompute dimension layout for decoupled initial design, sparse selection,
         # and dimension-aware kernel initialization.
-        self._continuous_dims: List[int] = []       # position indices of float/int params
+        self._continuous_dims: List[int] = []  # position indices of float/int params
         self._categorical_blocks: List[Tuple[int, int]] = []  # (offset, n_categories) per categorical
         _offset = 0
         for key in limits:
@@ -994,7 +1010,7 @@ class BayesianOptimizer(Propagator):
                 f"Position dimension ({self.position_dim}) is large due to one-hot encoding. "
                 f"This may impact GP performance. Consider reducing categorical cardinality "
                 f"or enabling sparse selection (sparse=True).",
-                UserWarning
+                UserWarning,
             )
 
         if optimizer is None:
@@ -1020,10 +1036,7 @@ class BayesianOptimizer(Propagator):
         self.initial_design = initial_design.lower()
         valid_initial_designs = ("sobol", "lhs", "random")
         if self.initial_design not in valid_initial_designs:
-            raise ValueError(
-                f"Unknown initial_design '{initial_design}'. "
-                f"Valid options: {list(valid_initial_designs)}"
-            )
+            raise ValueError(f"Unknown initial_design '{initial_design}'. Valid options: {list(valid_initial_designs)}")
         self._qmc_engine: Optional[qmc.QMCEngine] = None
         self._lhs_cache: Optional[np.ndarray] = None  # pre-generated LHS points
         self._lhs_index: int = 0  # next index into _lhs_cache
@@ -1055,9 +1068,7 @@ class BayesianOptimizer(Propagator):
         # Control whether to anneal xi/kappa automatically
         self.anneal_acquisition = anneal_acquisition
         # Acquisition switching config
-        self.second_acquisition_type = (
-            second_acquisition_type.upper() if second_acquisition_type else None
-        )
+        self.second_acquisition_type = second_acquisition_type.upper() if second_acquisition_type else None
         self.acq_switch_generation = acq_switch_generation
         self.second_acquisition_params = dict(second_acquisition_params or {})
 
@@ -1084,7 +1095,8 @@ class BayesianOptimizer(Propagator):
                 if self._qmc_engine is None:
                     seed = self.rng.randrange(0, 2**32 - 1)
                     self._qmc_engine = qmc.Sobol(
-                        d=self._n_continuous, scramble=True,
+                        d=self._n_continuous,
+                        scramble=True,
                         seed=np.random.default_rng(seed),
                     )
                 u = self._qmc_engine.random(1)[0]
@@ -1092,7 +1104,8 @@ class BayesianOptimizer(Propagator):
                 if self._lhs_cache is None:
                     seed = self.rng.randrange(0, 2**32 - 1)
                     engine = qmc.LatinHypercube(
-                        d=self._n_continuous, seed=np.random.default_rng(seed),
+                        d=self._n_continuous,
+                        seed=np.random.default_rng(seed),
                     )
                     self._lhs_cache = engine.random(self.n_initial)
                     self._lhs_index = 0
@@ -1113,7 +1126,7 @@ class BayesianOptimizer(Propagator):
         # Categorical dims: uniform random category selection (independent of QMC)
         for cat_offset, n_cat in self._categorical_blocks:
             chosen = self.rng.randrange(n_cat)
-            x0[cat_offset:cat_offset + n_cat] = 0.0
+            x0[cat_offset : cat_offset + n_cat] = 0.0
             x0[cat_offset + chosen] = 1.0
 
         x0 = _project_to_discrete(x0, self.limits, self.param_types)
@@ -1169,18 +1182,15 @@ class BayesianOptimizer(Propagator):
         # - Once we have enough samples, optimize on the first few fits
         # - Then decimate to every ``hp_opt_period`` generations to save time
         n_min_samples = max(2 * self.dim, self.n_initial // 2)
-        enough_samples = (X.shape[0] >= n_min_samples)
+        enough_samples = X.shape[0] >= n_min_samples
         optimize_hyperparameters_now = False
         if self.optimize_hyperparameters and enough_samples:
             if self._hp_opt_calls < self.hp_opt_warmup_fits:
                 optimize_hyperparameters_now = True
             else:
-                optimize_hyperparameters_now = (current_generation % self.hp_opt_period == 0)
+                optimize_hyperparameters_now = current_generation % self.hp_opt_period == 0
 
-        model = self.fitter.fit(kernel=self.kernel,
-                                X=Xs,
-                                y=y,
-                                optimize_hyperparameters=optimize_hyperparameters_now)
+        model = self.fitter.fit(kernel=self.kernel, X=Xs, y=y, optimize_hyperparameters=optimize_hyperparameters_now)
         # Warm-start next fit (sklearn clones & uses .kernel_ as init)
         # Only sklearn GP models expose kernel_
         if isinstance(model, GaussianProcessRegressor) and hasattr(model, "kernel_"):
@@ -1272,10 +1282,7 @@ class BayesianOptimizer(Propagator):
         # Denormalize back to raw parameter space
         return lows + x_new_unit * scale
 
-    def __call__(
-        self,
-        inds: List[Individual]
-    ) -> Union[Individual, List[Individual]]:
+    def __call__(self, inds: List[Individual]) -> Union[Individual, List[Individual]]:
         # Phase 1: initial design
         if len(inds) < self.n_initial:
             return self._warm_start(inds)
@@ -1320,7 +1327,4 @@ class BayesianOptimizer(Propagator):
         x_new = np.clip(x_new, lows, highs)
         x_new = _project_to_discrete(x_new, self.limits, self.param_types)
 
-        return Individual(x_new,
-                          self.limits,
-                          generation=current_generation + 1,
-                          rank=self.rank)
+        return Individual(x_new, self.limits, generation=current_generation + 1, rank=self.rank)

@@ -17,8 +17,8 @@ from propulate.propagators.bayesopt import (
     MultiStartAcquisitionOptimizer,
     SingleCPUFitter,
     SurrogateFitter,
-    _sparse_select_indices,
     _project_to_discrete,
+    _sparse_select_indices,
     create_acquisition,
     create_fitter,
     expected_improvement,
@@ -65,10 +65,10 @@ def _make_bayes_propagator(limits, rng: random.Random) -> BayesianOptimizer:
         world_size=MPI.COMM_WORLD.size,
         acquisition_type="EI",
         acquisition_params={"xi": 0.01},
-        rank_stretch=True,          # diversify across ranks
+        rank_stretch=True,  # diversify across ranks
         factor_min=0.5,
         factor_max=2.0,
-        sparse=True,                # keep training sets light in tests
+        sparse=True,  # keep training sets light in tests
         sparse_params={"max_points": 200},
         optimizer=_fast_test_optimizer(limits),
         optimize_hyperparameters=False,
@@ -151,6 +151,7 @@ def test_bayes_propagator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
 
 class _DummyModel:
     """Minimal surrogate mock that returns fixed (mu, sigma)."""
+
     def __init__(self, mu: float, sigma: float):
         self.mu = float(mu)
         self.sigma = float(sigma)
@@ -295,6 +296,7 @@ def test_probability_improvement_behavior() -> None:
     v = acq.evaluate(x, model, f_best)
 
     from scipy.stats import norm
+
     z = (f_best - mu - xi) / sigma
     ref = float(norm.cdf(z))
     assert v == pytest.approx(ref, rel=1e-12, abs=1e-12)
@@ -473,7 +475,7 @@ def test_annealing_uses_default_parameter_when_not_explicitly_set(
     )
     model = _DummyModel(mu=0.0, sigma=1.0)
 
-    opt._select_next(model, f_best=0.0, current_generation=0)   # t=1
+    opt._select_next(model, f_best=0.0, current_generation=0)  # t=1
     opt._select_next(model, f_best=0.0, current_generation=50)  # t=51
 
     first = float(calls[0][1][param_name])
@@ -742,7 +744,7 @@ def test_project_to_discrete_edge_cases():
     assert x_proj[0] == 6.0  # rounded
     # Should still produce valid one-hot despite negative values
     assert np.sum(x_proj[1:3]) == pytest.approx(1.0)
-    assert (x_proj[1] == 1.0 or x_proj[2] == 1.0)
+    assert x_proj[1] == 1.0 or x_proj[2] == 1.0
 
     # Test integer boundary values
     x_low = np.array([-1.0, 0.5, 0.5])
@@ -879,12 +881,7 @@ def test_hyperparameter_optimization_schedule_mixed():
         inds.append(ind)
         # Use a non-degenerate objective with moderate stochasticity so GP
         # hyperparameter optimization remains well-conditioned in MPI runs.
-        ind.loss = (
-            0.3 * (ind["x"] - 2.5) ** 2
-            + 0.05 * (ind["n"] - 10) ** 2
-            + 0.8 * np.sin(4.0 * ind["x"])
-            + 0.5 * rng.random()
-        )
+        ind.loss = 0.3 * (ind["x"] - 2.5) ** 2 + 0.05 * (ind["n"] - 10) ** 2 + 0.8 * np.sin(4.0 * ind["x"]) + 0.5 * rng.random()
 
     # Should have fit multiple times
     assert opt._hp_fit_calls >= 3
@@ -1016,9 +1013,7 @@ def test_backward_compatibility_float_only():
 def test_position_dim_warning():
     """Test that a warning is issued for high-dimensional position spaces."""
     # Create limits with many categorical variables to exceed threshold
-    limits = {
-        f"cat{i}": tuple(f"opt{j}" for j in range(10)) for i in range(12)
-    }  # 12 * 10 = 120 dimensions
+    limits = {f"cat{i}": tuple(f"opt{j}" for j in range(10)) for i in range(12)}  # 12 * 10 = 120 dimensions
 
     with pytest.warns(UserWarning, match="Position dimension.*is large"):
         BayesianOptimizer(limits=limits, rank=0)
@@ -1246,7 +1241,7 @@ def test_generation_monotonic_when_sparse_drops_local_rank():
 
 
 def test_bayesian_optimizer_repr_contains_key_fields() -> None:
-    """repr should include key BO configuration for debugging."""
+    """Repr should include key BO configuration for debugging."""
     opt = BayesianOptimizer(
         limits={"x": (0.0, 1.0)},
         rank=2,
@@ -1303,6 +1298,4 @@ def test_bayesian_optimizer_ordinal_integers():
     for ind in inds:
         assert isinstance(ind["x"], float)
         assert isinstance(ind["batch_size"], int)
-        assert ind["batch_size"] in allowed, (
-            f"batch_size={ind['batch_size']} not in {allowed}"
-        )
+        assert ind["batch_size"] in allowed, f"batch_size={ind['batch_size']} not in {allowed}"
