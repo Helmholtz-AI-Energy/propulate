@@ -651,14 +651,12 @@ def create_fitter(
 
     if ft == FitterType.SINGLE_CPU:
         return SingleCPUFitter(**kwargs)
-    elif ft == FitterType.MULTI_CPU:
-        return MultiCPUFitter(**kwargs)
-    elif ft == FitterType.SINGLE_GPU:
-        return SingleGPUFitter(**kwargs)
-    elif ft == FitterType.MULTI_GPU:
-        return MultiGPUFitter(**kwargs)
-    else:
-        raise ValueError(f"Unsupported fitter type '{fitter_type}'.")
+    if ft in (FitterType.MULTI_CPU, FitterType.SINGLE_GPU, FitterType.MULTI_GPU):
+        raise NotImplementedError(
+            f"Fitter type '{fitter_type}' is not implemented in this Bayesian Optimizer PR. "
+            "Supported fitter types: ['single_cpu']."
+        )
+    raise ValueError(f"Unsupported fitter type '{fitter_type}'.")
 
 
 def _project_to_discrete(
@@ -1164,14 +1162,12 @@ class BayesianOptimizer(Propagator):
         active_upper = active_acq_type.upper()
         if self.anneal_acquisition:
             if active_upper in ("EI", "PI"):
-                if "xi" in params:
-                    xi0 = float(params.get("xi", 0.01))
-                    params["xi"] = max(1e-4, xi0 / np.sqrt(1.0 + 0.05 * t))
+                xi0 = float(params.get("xi", 0.01))
+                params["xi"] = max(1e-4, xi0 / np.sqrt(1.0 + 0.05 * t))
                 params.pop("kappa", None)
             else:  # UCB
-                if "kappa" in params:
-                    k0 = float(params.get("kappa", 1.96))
-                    params["kappa"] = max(0.1, k0 / np.sqrt(1.0 + 0.05 * t))
+                k0 = float(params.get("kappa", 1.96))
+                params["kappa"] = max(0.1, k0 / np.sqrt(1.0 + 0.05 * t))
                 params.pop("xi", None)
         else:
             if active_upper in ("EI", "PI"):

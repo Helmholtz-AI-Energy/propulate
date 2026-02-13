@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 from mpi4py import MPI
 
+import propulate.propagators.bayesopt as bayesopt_module
 from propulate import Propulator
 from propulate.population import Individual
 from propulate.propagators.bayesopt import (
@@ -142,6 +143,28 @@ class _DummyModel:
         mu = np.full((n,), self.mu, dtype=float)
         std = np.full((n,), self.sigma, dtype=float)
         return mu, std
+
+
+class _DeterministicOptimizer:
+    """Simple optimizer stub that probes acquisition once and returns the origin."""
+
+    def optimize(self, acq_func, bounds, rng=None):
+        dim = bounds.shape[1]
+        x = np.zeros(dim, dtype=float)
+        _ = acq_func(x)
+        return x
+
+
+def _record_acquisition_calls(monkeypatch: pytest.MonkeyPatch):
+    calls = []
+    real_create = bayesopt_module.create_acquisition
+
+    def _wrapped_create(acq_type, **params):
+        calls.append((acq_type, dict(params)))
+        return real_create(acq_type, **params)
+
+    monkeypatch.setattr(bayesopt_module, "create_acquisition", _wrapped_create)
+    return calls
 
 
 def test_expected_improvement_function_basic() -> None:
@@ -297,6 +320,112 @@ def test_acquisition_interfaces_call_predict_once() -> None:
     assert m1.calls == 1
     assert m2.calls == 1
     assert m3.calls == 1
+
+
+def test_acquisition_switching_activates_second_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
+    """_select_next should switch acquisition type and params at the configured generation."""
+    calls = _record_acquisition_calls(monkeypatch)
+
+    opt = BayesianOptimizer(
+        limits={"x": (0.0, 1.0)},
+        rank=0,
+        acquisition_type="EI",
+        acquisition_params={"xi": 0.2},
+        second_acquisition_type="UCB",
+        acq_switch_generation=3,
+        second_acquisition_params={"kappa": 3.5},
+        anneal_acquisition=False,
+        rank_stretch=False,
+        optimizer=_DeterministicOptimizer(),
+        rng=random.Random(0),
+    )
+    model = _DummyModel(mu=0.0, sigma=1.0)
+
+    opt._select_next(model, f_best=0.0, current_generation=1)  # t=2, still EI
+    opt._select_next(model, f_best=0.0, current_generation=2)  # t=3, switch to UCB
+
+    assert calls[0][0].upper() == "EI"
+    assert calls[0][1]["xi"] == pytest.approx(0.2)
+    assert "kappa" not in calls[0][1]
+    assert calls[1][0].upper() == "UCB"
+    assert calls[1][1]["kappa"] == pytest.approx(3.5)
+    assert "xi" not in calls[1][1]
+
+
+@pytest.mark.parametrize(
+    ("acq_type", "param_name", "default_value"),
+    [
+        ("EI", "xi", 0.01),
+        ("UCB", "kappa", 1.96),
+    ],
+)
+def test_annealing_uses_default_parameter_when_not_explicitly_set(
+    monkeypatch: pytest.MonkeyPatch,
+    acq_type: str,
+    param_name: str,
+    default_value: float,
+) -> None:
+    """Annealing should apply even when acquisition_params is omitted."""
+    calls = _record_acquisition_calls(monkeypatch)
+
+    opt = BayesianOptimizer(
+        limits={"x": (0.0, 1.0)},
+        rank=0,
+        acquisition_type=acq_type,
+        acquisition_params=None,
+        anneal_acquisition=True,
+        rank_stretch=False,
+        optimizer=_DeterministicOptimizer(),
+        rng=random.Random(1),
+    )
+    model = _DummyModel(mu=0.0, sigma=1.0)
+
+    opt._select_next(model, f_best=0.0, current_generation=0)   # t=1
+    opt._select_next(model, f_best=0.0, current_generation=50)  # t=51
+
+    first = float(calls[0][1][param_name])
+    later = float(calls[1][1][param_name])
+    expected_first = default_value / np.sqrt(1.0 + 0.05 * 1.0)
+    expected_later = default_value / np.sqrt(1.0 + 0.05 * 51.0)
+
+    assert first == pytest.approx(expected_first)
+    assert later == pytest.approx(expected_later)
+    assert later < first
+
+
+@pytest.mark.parametrize(
+    ("acq_type", "param_name", "param_value"),
+    [
+        ("EI", "xi", 0.2),
+        ("UCB", "kappa", 3.0),
+    ],
+)
+def test_annealing_disabled_keeps_acquisition_parameter_constant(
+    monkeypatch: pytest.MonkeyPatch,
+    acq_type: str,
+    param_name: str,
+    param_value: float,
+) -> None:
+    """When annealing is disabled, acquisition params should not decay over time."""
+    calls = _record_acquisition_calls(monkeypatch)
+
+    opt = BayesianOptimizer(
+        limits={"x": (0.0, 1.0)},
+        rank=0,
+        acquisition_type=acq_type,
+        acquisition_params={param_name: param_value},
+        anneal_acquisition=False,
+        rank_stretch=False,
+        optimizer=_DeterministicOptimizer(),
+        rng=random.Random(2),
+    )
+    model = _DummyModel(mu=0.0, sigma=1.0)
+
+    opt._select_next(model, f_best=0.0, current_generation=0)
+    opt._select_next(model, f_best=0.0, current_generation=50)
+
+    assert float(calls[0][1][param_name]) == pytest.approx(param_value)
+    assert float(calls[1][1][param_name]) == pytest.approx(param_value)
 
 
 def test_bayesian_optimizer_mixed_example(mpi_tmp_path: pathlib.Path) -> None:
