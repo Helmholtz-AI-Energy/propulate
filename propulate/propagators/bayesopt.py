@@ -999,7 +999,9 @@ class BayesianOptimizer(Propagator):
             # dimension-aware defaults for acquisition search
             optimizer = MultiStartAcquisitionOptimizer(
                 n_candidates=max(256, 64 * self.position_dim),
-                n_restarts=max(5, min(20, 2 * self.position_dim)),
+                # Keep restarts bounded to avoid quadratic-like runtime growth
+                # in mixed spaces with one-hot-expanded position dimensions.
+                n_restarts=min(5, max(3, self.position_dim)),
             )
         assert optimizer is not None
         self.optimizer: SupportsAcquisitionOptimize = optimizer
