@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import logging
 import random
+import warnings
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union, Protocol, cast
 
@@ -592,7 +593,9 @@ def _robust_lbfgs(obj_func, initial_theta, bounds):
         if info.get("warnflag", 1) == 0:  # converged
             return theta, fval  # success -> no warnings
 
-    # 2) Fallback: gradient-free Powell within bounds (stable, slower)
+    # 2) Fallback: gradient-free Powell within bounds (stable, slower).
+    # best[0] is None when both L-BFGS-B attempts returned inf (no improvement
+    # over the initial np.inf sentinel), so we fall back to initial_theta.
     def f_only(theta):
         return obj_func(theta, eval_gradient=False)
 
@@ -987,7 +990,6 @@ class BayesianOptimizer(Propagator):
 
         # Warn about high-dimensional position spaces
         if self.position_dim > 100:
-            import warnings
             warnings.warn(
                 f"Position dimension ({self.position_dim}) is large due to one-hot encoding. "
                 f"This may impact GP performance. Consider reducing categorical cardinality "
@@ -1003,7 +1005,6 @@ class BayesianOptimizer(Propagator):
                 # in mixed spaces with one-hot-expanded position dimensions.
                 n_restarts=min(5, max(3, self.position_dim)),
             )
-        assert optimizer is not None
         self.optimizer: SupportsAcquisitionOptimize = optimizer
         # If no fitter is provided, default to a single-CPU sklearn-based fitter
         self.fitter = fitter if fitter is not None else SingleCPUFitter()
@@ -1023,7 +1024,7 @@ class BayesianOptimizer(Propagator):
                 f"Unknown initial_design '{initial_design}'. "
                 f"Valid options: {list(valid_initial_designs)}"
             )
-        self._qmc_engine = None  # type: ignore
+        self._qmc_engine: Optional[qmc.QMCEngine] = None
         self._lhs_cache: Optional[np.ndarray] = None  # pre-generated LHS points
         self._lhs_index: int = 0  # next index into _lhs_cache
         if hp_opt_warmup_fits < 0:
@@ -1123,13 +1124,13 @@ class BayesianOptimizer(Propagator):
     def _subsample(self, inds: List[Individual]) -> Tuple[np.ndarray, np.ndarray, List[Individual]]:
         """Apply sparse selection and extract finite training arrays.
 
-        Returns (X, y, inds) where inds may be a subsampled copy.
+        Returns (X, y, selected_inds) where selected_inds may be a subsampled copy.
         """
-        finite_inds = [ind for ind in inds if np.isfinite(ind.loss)]
+        selected_inds = [ind for ind in inds if np.isfinite(ind.loss)]
 
-        if self.sparse and len(finite_inds) > self.max_points:
-            X_all = np.vstack([ind.position for ind in finite_inds])
-            y_all = np.array([ind.loss for ind in finite_inds], dtype=float)
+        if self.sparse and len(selected_inds) > self.max_points:
+            X_all = np.vstack([ind.position for ind in selected_inds])
+            y_all = np.array([ind.loss for ind in selected_inds], dtype=float)
 
             lows, highs = self.limits_arr
             sel_idx = _sparse_select_indices(
@@ -1142,17 +1143,16 @@ class BayesianOptimizer(Propagator):
                 continuous_dims=self._continuous_dims,
                 categorical_blocks=self._categorical_blocks,
             )
-            finite_inds = [finite_inds[int(j)] for j in sel_idx]
+            selected_inds = [selected_inds[int(j)] for j in sel_idx]
 
-        inds = finite_inds
-        if len(inds) == 0:
+        if len(selected_inds) == 0:
             X_empty = np.empty((0, self.position_dim), dtype=float)
             y_empty = np.empty((0,), dtype=float)
-            return X_empty, y_empty, inds
+            return X_empty, y_empty, selected_inds
 
-        X = np.vstack([ind.position for ind in inds])
-        y = np.array([ind.loss for ind in inds], dtype=float)
-        return X, y, inds
+        X = np.vstack([ind.position for ind in selected_inds])
+        y = np.array([ind.loss for ind in selected_inds], dtype=float)
+        return X, y, selected_inds
 
     def _fit_surrogate(
         self,
@@ -1283,7 +1283,7 @@ class BayesianOptimizer(Propagator):
         # Track generation from full rank-local history (not sparse-selected data).
         # This keeps per-rank schedules (annealing / GP hp optimization) aligned
         # with the number of completed evaluations on this rank.
-        current_generation = max([ind.generation for ind in inds if ind.rank == self.rank] or [0])
+        current_generation = max((ind.generation for ind in inds if ind.rank == self.rank), default=0)
 
         # Phase 2: sparse selection + data extraction + NaN filtering
         X, y, inds = self._subsample(inds)

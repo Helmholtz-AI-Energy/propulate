@@ -1218,3 +1218,37 @@ def test_create_fitter_unsupported_backends_raise_not_implemented(fitter_type: s
     """Factory should fail early for fitter backends that are not implemented."""
     with pytest.raises(NotImplementedError, match="not implemented"):
         create_fitter(fitter_type)
+
+
+def test_bayesian_optimizer_ordinal_integers():
+    """Test BayesianOptimizer with ordinal integer parameters (e.g., batch sizes)."""
+    limits = {
+        "x": (0.0, 1.0),
+        "batch_size": (16, 32, 64, 128),
+    }
+    rng = random.Random(42)
+    opt = BayesianOptimizer(
+        limits=limits,
+        rank=0,
+        n_initial=10,
+        rng=rng,
+    )
+
+    # Position dim: 1 (float) + 1 (ordinal int) = 2
+    assert opt.position_dim == 2
+    assert opt.dim == 2
+
+    inds = []
+    for _ in range(20):
+        ind = opt(inds)
+        inds.append(ind)
+        ind.loss = (ind["x"] - 0.5) ** 2 + abs(ind["batch_size"] - 64)
+
+    # Verify all batch_size values are from the allowed set
+    allowed = {16, 32, 64, 128}
+    for ind in inds:
+        assert isinstance(ind["x"], float)
+        assert isinstance(ind["batch_size"], int)
+        assert ind["batch_size"] in allowed, (
+            f"batch_size={ind['batch_size']} not in {allowed}"
+        )
