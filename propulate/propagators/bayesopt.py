@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from collections import defaultdict
 import logging
 import random
 from enum import Enum
@@ -1040,55 +1039,37 @@ class BayesianOptimizer(Propagator):
         return Individual(x0, self.limits, generation=gen0, rank=self.rank)
 
     def _subsample(self, inds: List[Individual]) -> Tuple[np.ndarray, np.ndarray, List[Individual]]:
-        """Apply sparse selection and extract training arrays, filtering NaN losses.
+        """Apply sparse selection and extract finite training arrays.
 
         Returns (X, y, inds) where inds may be a subsampled copy.
         """
-        if self.sparse and len(inds) > self.max_points:
-            # Build arrays first so we can apply structured selection
-            X_all = np.vstack([ind.position for ind in inds])
-            y_all = np.array([ind.loss for ind in inds], dtype=float)
-            mask_all = np.isfinite(y_all)
-            if not np.all(mask_all):
-                X_all, y_all = X_all[mask_all], y_all[mask_all]
+        finite_inds = [ind for ind in inds if np.isfinite(ind.loss)]
+
+        if self.sparse and len(finite_inds) > self.max_points:
+            X_all = np.vstack([ind.position for ind in finite_inds])
+            y_all = np.array([ind.loss for ind in finite_inds], dtype=float)
 
             lows, highs = self.limits_arr
             sel_idx = _sparse_select_indices(
-                X_all, y_all, lows, highs, max_points=self.max_points, top_m=self.top_m,
+                X_all,
+                y_all,
+                lows,
+                highs,
+                max_points=self.max_points,
+                top_m=self.top_m,
                 continuous_dims=self._continuous_dims,
                 categorical_blocks=self._categorical_blocks,
             )
-            # Rebuild inds from selected indices. Preserve original metadata by mapping
-            # positions back to individuals with matching positions and losses.
-            # If duplicates exist, a simple linear scan is acceptable given reduced size.
-            selected_inds: List[Individual] = []
-            # Build a compact list of candidate pairs to match fast
-            pairs = [(i, ind) for i, ind in enumerate(inds) if np.isfinite(ind.loss)]
-            # Create arrays for matching
-            Xpairs = np.vstack([ind.position for _, ind in pairs])
-            ypairs = np.array([ind.loss for _, ind in pairs], dtype=float)
-            # Build a lookup from tuple(position, loss) -> list of indices to handle duplicates.
-            # Using rounded floats as dict keys is safe here because both X_all and Xpairs
-            # derive from the same ind.position arrays with no intermediate arithmetic,
-            # so the values are bitwise identical before rounding.
-            lut: Dict[tuple, List[int]] = defaultdict(list)
-            for k, (xp, yp) in enumerate(zip(Xpairs, ypairs)):
-                lut[(tuple(np.round(xp, 12)), float(yp))].append(k)
-            for j in sel_idx:
-                key = (tuple(np.round(X_all[int(j)], 12)), float(y_all[int(j)]))
-                if lut[key]:
-                    k = lut[key].pop()
-                    selected_inds.append(pairs[k][1])
-            inds = selected_inds
+            finite_inds = [finite_inds[int(j)] for j in sel_idx]
 
-        # Prepare training data
+        inds = finite_inds
+        if len(inds) == 0:
+            X_empty = np.empty((0, self.position_dim), dtype=float)
+            y_empty = np.empty((0,), dtype=float)
+            return X_empty, y_empty, inds
+
         X = np.vstack([ind.position for ind in inds])
         y = np.array([ind.loss for ind in inds], dtype=float)
-
-        mask = np.isfinite(y)
-        if not np.all(mask):
-            X, y = X[mask], y[mask]
-
         return X, y, inds
 
     def _fit_surrogate(

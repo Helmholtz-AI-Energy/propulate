@@ -437,3 +437,63 @@ def test_insufficient_data_fallback_handles_mixed_types():
     assert 0.0 <= ind["x"] <= 1.0
     assert 1 <= ind["n"] <= 5
     assert ind["cat"] in limits["cat"]
+
+
+def test_sparse_subsample_all_nonfinite_is_safe():
+    """Sparse subsampling should return empty training arrays when all losses are non-finite."""
+    limits = {
+        "x": (0.0, 1.0),
+        "cat": ("a", "b"),
+    }
+    opt = BayesianOptimizer(
+        limits=limits,
+        rank=0,
+        n_initial=1,
+        sparse=True,
+        sparse_params={"max_points": 5},
+        rng=random.Random(42),
+    )
+
+    inds = []
+    for i in range(6):
+        position = np.array([i / 10.0, 1.0, 0.0], dtype=float)
+        ind = Individual(position, limits, generation=i, rank=0)
+        ind.loss = float("nan") if i % 2 == 0 else float("inf")
+        inds.append(ind)
+
+    X, y, sub_inds = opt._subsample(inds)
+    assert X.shape == (0, opt.position_dim)
+    assert y.shape == (0,)
+    assert sub_inds == []
+
+    # Should not crash and should return a valid fallback individual.
+    next_ind = opt(inds)
+    assert isinstance(next_ind["x"], float)
+    assert isinstance(next_ind["cat"], str)
+    assert next_ind["cat"] in limits["cat"]
+
+
+def test_sparse_subsample_filters_nonfinite_and_keeps_finite():
+    """Sparse subsampling should drop non-finite points and keep only finite training data."""
+    limits = {"x": (0.0, 1.0)}
+    opt = BayesianOptimizer(
+        limits=limits,
+        rank=0,
+        n_initial=1,
+        sparse=True,
+        sparse_params={"max_points": 3, "top_m": 1},
+        rng=random.Random(7),
+    )
+
+    losses = [float("nan"), 4.0, float("inf"), 3.0, 2.0, 1.0]
+    inds = []
+    for i, loss in enumerate(losses):
+        ind = Individual(np.array([i / 10.0], dtype=float), limits, generation=i, rank=0)
+        ind.loss = loss
+        inds.append(ind)
+
+    X, y, sub_inds = opt._subsample(inds)
+    assert 1 <= X.shape[0] <= opt.max_points
+    assert X.shape[1] == opt.position_dim
+    assert len(sub_inds) == X.shape[0]
+    assert np.all(np.isfinite(y))
