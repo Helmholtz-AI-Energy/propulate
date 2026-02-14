@@ -40,8 +40,9 @@ jobs:
           - name: Install dependencies
             run: |
                 sudo apt install libhdf5-mpi-dev
+                uv pip install --force-reinstall --no-binary=mpi4py
                 CC="mpicc" HDF5_MPI="ON" uv pip install --no-binary=h5py h5py
-                uv pip install --force-reinstall --no-binary=mpi4py ."[test]"
+                uv pip install ."[test]"
 
           - name: Test with pytest and measure coverage
             run: |
