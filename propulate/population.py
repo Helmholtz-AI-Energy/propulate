@@ -83,16 +83,16 @@ class Individual:
         self.generation = generation  # Equals each worker's iteration for continuous population in Propulate.
         self.prop_rank = -1  # birth rank in propulate comm
         self.loss: float = float("inf")
-        self.active = True
+        self.active = (
+            1  # counts how many active "clones" are present, emigration or incoming pollen causes decrementation for selected inds
+        )
         self.island = -1  # island of origin
         # TODO current is not a good name
         self.current = -1  # current rank of worker in island comm responsible for migration
-        self.migration_history: str = ""  # migration history
         self.evaltime = 0  # evaluation time
         self.start_time = 0
         self.evalperiod = 0.0  # evaluation duration
         self.island_rank = -1  # birth rank in island comm
-        self.migration_steps = 0
 
         # NOTE needed for PSO type propagators
         self.velocity = velocity
@@ -186,7 +186,10 @@ class Individual:
             loss_str = f"{self.loss}"
         else:
             loss_str = f"{Decimal(float(self.loss)):.2E}"
-        return f"[{rep}, loss " + loss_str + f", island {self.island}, worker {self.island_rank}, " f"generation {self.generation}]"
+        return (
+            f"[{rep}, loss " + loss_str + f", island {self.island}, worker {self.island_rank}, "
+            f"generation {self.generation}, active {self.active}]"
+        )
 
     def __iter__(self) -> Generator[str, None, None]:
         """Return standard iterator."""
@@ -227,7 +230,7 @@ class Individual:
             else:
                 compare_traits = False
                 break
-        # Additionally check for equivalence of attributes (except for `self.migration_steps` and `self.current`).
+        # Additionally check for equivalence of attributes (except for `self.current`).
         return (
             compare_traits
             and self.loss == other.loss
@@ -235,7 +238,6 @@ class Individual:
             and self.island_rank == other.island_rank
             and self.prop_rank == other.prop_rank
             and self.island == other.island
-            and self.active == other.active
         )
 
     def equals(self, other: object) -> bool:

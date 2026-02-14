@@ -14,7 +14,7 @@ from propulate import Islands
 from propulate.propagators import Propagator
 from propulate.utils import get_default_propagator, set_logger_config
 from propulate.utils.benchmark_functions import get_function_search_space
-from propulate.utils.consistency_checks import final_synch, mpi_assert, mpi_assert_equal, population_consistency_check
+from propulate.utils.consistency_checks import final_synch, population_consistency_check
 
 
 @pytest.fixture(scope="module")
@@ -396,6 +396,7 @@ def test_islands_checkpointing_incomplete_isolated(
     assert finished_on_island == [18, 49][island_idx]
 
     # NOTE check that the values read are the same:
+    count = 0
     for island in range(island_sizes.size):
         for island_rank in range(island_sizes[island]):
             prop_rank = island_rank + np.cumsum(np.concatenate((np.array([0]), island_sizes)))[island]
@@ -405,10 +406,11 @@ def test_islands_checkpointing_incomplete_isolated(
             if island == 1 and island_rank == 2:
                 finished_first_generations += 1
             for g in range(finished_first_generations):
-                # pop_key = (island, rank, started_first_generations[rank])
                 pop_key = (island, island_rank, g)
                 if pop_key in old_population:
+                    count += 1
                     assert old_population[pop_key].position == pytest.approx(islands.propulator.population[pop_key].position)
+    assert count > 0
 
     # NOTE check only evaluated individuals are in active breeding population
     # TODO less convoluted way to check this
@@ -416,8 +418,7 @@ def test_islands_checkpointing_incomplete_isolated(
         [ind for ind in islands.propulator._get_active_individuals() if not np.isnan(ind.loss)]
     )
     # NOTE check all evaluated individuals are in active breeding population
-    mpi_assert_equal(len(islands.propulator._get_active_individuals()), finished_on_island)
-    # assert len(islands.propulator._get_active_individuals()) == finished_on_island
+    assert len(islands.propulator._get_active_individuals()) == finished_on_island
 
     # NOTE check that the correct number of individuals in the population are evaluated
     MPI.COMM_WORLD.barrier()
@@ -428,19 +429,15 @@ def test_islands_checkpointing_incomplete_isolated(
     # NOTE after loading the checkpoint, all workers except those in workers_last_finished should have one not evaluated individual
     island_root = islands.propulator.propulate_comm.rank - islands.propulator.island_comm.rank
     island_started_first_generations = started_first_generations[island_root : island_root + islands.propulator.island_comm.size]
-    lossnans = []
+
     for island_rank in range(islands.propulator.island_comm.size):
         pop_key = (island_idx, island_rank, island_started_first_generations[island_rank])
         if island_rank not in workers_last_finished_island[island_idx]:
-            lossnans.append(np.isnan(islands.propulator.population[pop_key].loss))
-            # assert np.isnan(islands.propulator.population[pop_key].loss)
-        else:
-            print("last finished")
+            assert np.isnan(islands.propulator.population[pop_key].loss)
 
-    print(f"{MPI.COMM_WORLD.rank} reached barrier")
     MPI.COMM_WORLD.barrier()
-    mpi_assert(all(lossnans))
 
+    count = 0
     for island in range(island_sizes.size):
         for island_rank in range(island_sizes[island]):
             prop_rank = island_rank + np.cumsum(np.concatenate((np.array([0]), island_sizes)))[island]
@@ -453,10 +450,13 @@ def test_islands_checkpointing_incomplete_isolated(
                 pop_key = (island, island_rank, g)
                 if pop_key in old_population:
                     assert old_population[pop_key].position == pytest.approx(islands.propulator.population[pop_key].position)
+                    count += 1
+    assert count > 0
 
     MPI.COMM_WORLD.barrier()
     islands.propulate()
     MPI.COMM_WORLD.barrier()
+    count = 0
     for island in range(island_sizes.size):
         for island_rank in range(island_sizes[island]):
             prop_rank = island_rank + np.cumsum(np.concatenate((np.array([0]), island_sizes)))[island]
@@ -469,6 +469,8 @@ def test_islands_checkpointing_incomplete_isolated(
                 pop_key = (island, island_rank, g)
                 if pop_key in old_population:
                     assert old_population[pop_key].position == pytest.approx(islands.propulator.population[pop_key].position)
+                    count += 1
+    assert count > 0
 
     final_synch(islands.propulator)
     population_consistency_check(islands.propulator)
@@ -486,7 +488,9 @@ def test_islands_checkpointing_incomplete_isolated(
             for island in range(island_sizes.size):
                 for worker in range(island_sizes[island]):
                     assert not np.isnan(f[f"{island}"][f"{worker}"]["loss"][:].any())
+
     # NOTE check that no started individuals have been overwritten
+    count = 0
     for island in range(island_sizes.size):
         for island_rank in range(island_sizes[island]):
             prop_rank = island_rank + np.cumsum(np.concatenate((np.array([0]), island_sizes)))[island]
@@ -498,12 +502,9 @@ def test_islands_checkpointing_incomplete_isolated(
             for g in range(finished_first_generations):
                 pop_key = (island, island_rank, g)
                 if pop_key in old_population:
-                    # print([k for k in old_population.keys()])
-                    # print([k for k in islands.propulator.population.keys()])
-                    # print([v.position for v in old_population.values()])
-                    # print([v.position for v in islands.propulator.population.values()])
-                    # print(pop_key)
                     assert old_population[pop_key].position == pytest.approx(islands.propulator.population[pop_key].position)
+                    count += 1
+    assert count > 0
 
     log.handlers.clear()
 

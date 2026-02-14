@@ -207,7 +207,6 @@ def test_propulator_checkpointing_incomplete(mpi_tmp_path: pathlib.Path) -> None
     # NOTE check that in the loaded population all ranks but one have an unevaluated individual
     for rank in range(MPI.COMM_WORLD.size - 1):
         pop_key = (0, rank, started_first_generations[rank])
-        # print(pop_key, propulator.population[pop_key].loss)
         assert np.isnan(propulator.population[pop_key].loss)
     assert sum([np.isnan(ind.loss) for ind in propulator.population.values()]) == MPI.COMM_WORLD.size - 1
 
@@ -229,11 +228,14 @@ def test_propulator_checkpointing_incomplete(mpi_tmp_path: pathlib.Path) -> None
     # NOTE check that no started individuals have been overwritten
     # NOTE old_population might be incomplete without final synch, so we only compare the ones we have.
     # NOTE over all ranks, each ind should be checked on at least once.
+    count = 0
     for rank in range(MPI.COMM_WORLD.size):
         for g in range(started_first_generations[rank] + 1):
             pop_key = (0, rank, started_first_generations[rank])
             if pop_key in old_population:
+                count += 1
                 assert old_population[pop_key].position == pytest.approx(propulator.population[pop_key].position)
-    # TODO check the one that got finished
+    assert count > 0
+    # TODO check the worker that got finished
 
     log.handlers.clear()
