@@ -171,8 +171,6 @@ class Pollinator(Propulator):
                 for ind in departing:
                     assert isinstance(ind, Individual)
                     ind.current = self.rng.randrange(0, count)
-                    ind.migration_history += f"-{target_island}"
-                    log_string += f"{ind} with migration history {ind.migration_history}\n"
                 for r in dest_island:  # Loop through Propulate world destination ranks.
                     self.propulate_comm.send(copy.deepcopy(departing), dest=r, tag=MIGRATION_TAG)
                     log_string += (
@@ -191,10 +189,8 @@ class Pollinator(Propulator):
                 f"to select {num_emigrants} migrants."
             )
 
-    # TODO implement checkpoint update
     def _receive_immigrants(self, hdf5_checkpoint: h5py.File) -> None:
         """Check for and possibly receive immigrants send by other islands."""
-        replace_num = 0
         log_string = f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: IMMIGRATION\n"
         probe_migrants = True
         while probe_migrants:
@@ -205,29 +201,39 @@ class Pollinator(Propulator):
                 immigrants = self.propulate_comm.recv(source=stat.Get_source(), tag=MIGRATION_TAG)
                 log_string += f"Received {len(immigrants)} immigrant(s) from global worker {stat.Get_source()}: {immigrants}\n"
 
+                replace_num = 0
+                # TODO only send pollen to islands you have not sent them before
                 # Add immigrants to own population.
                 for immigrant in immigrants:
-                    immigrant.migration_steps += 1
-                    assert immigrant.active is True
-                    self.population[immigrant.island, immigrant.island_rank, immigrant.generation] = copy.deepcopy(
-                        immigrant
-                    )  # add immigrant to population
-                    # NOTE update checkpoint
-                    hdf5_checkpoint[f"{immigrant.island}"][f"{immigrant.island_rank}"]["active_on_island"][
-                        immigrant.generation, self.island_idx
-                    ] = True
+                    if (immigrant.island, immigrant.island_rank, immigrant.generation) not in self.population:
+                        # NOTE only add immigrant to population, if its keys are not yet in population
+                        self.population[immigrant.island, immigrant.island_rank, immigrant.generation] = copy.deepcopy(
+                            immigrant
+                        )  # add immigrant to population
+                        # NOTE update checkpoint
+                        hdf5_checkpoint[f"{immigrant.island}"][f"{immigrant.island_rank}"]["active_on_island"][
+                            immigrant.generation, self.island_idx
+                        ] = 1
 
+<<<<<<< HEAD
                     replace_num = 0
                     if self.island_comm.rank == immigrant.current:
                         replace_num += 1
                     log_string += f"Responsible for choosing {replace_num} individual(s) to be replaced by immigrants.\n"
+=======
+                        if self.island_comm.rank == immigrant.current:
+                            replace_num += 1
+                        log_string += f"Responsible for choosing {replace_num} individual(s) " f"to be replaced by immigrants.\n"
+                    else:
+                        pass
+>>>>>>> c6a0cf9 (removed migration history/steps, replaced with pseudo reference counter, fixed replacement in pollination)
 
                 # Check whether rank equals responsible worker's rank so different intra-island workers
                 # cannot choose the same individual independently for replacement and thus deactivation.
                 if replace_num > 0:
                     # From current population, choose `replace_num` individuals to be replaced.
                     eligible_for_replacement = [
-                        ind for ind in self.population.values() if ind.active and ind.current == self.island_comm.rank
+                        ind for ind in self.population.values() if ind.active > 0 and ind.current == self.island_comm.rank
                     ]
 
                     assert self.immigration_propagator is not None
@@ -246,11 +252,11 @@ class Pollinator(Propulator):
                     # Deactivate individuals to be replaced in own population.
                     for individual in to_replace:
                         assert isinstance(individual, Individual)
-                        assert individual.active is True
-                        individual.active = False
+                        assert individual.active > 0
+                        individual.active -= 1
                         hdf5_checkpoint[f"{individual.island}"][f"{individual.island_rank}"]["active_on_island"][
                             individual.generation, self.island_idx
-                        ] = False
+                        ] = 0
 
         num_active = len(self._get_active_individuals())
         log_string += f"After immigration: {num_active}/{len(self.population)} active."
@@ -276,19 +282,15 @@ class Pollinator(Propulator):
                 )
         replaced_copy = copy.deepcopy(self.replaced)
         for individual in replaced_copy:
-            assert individual.active is True
-            to_deactivate = [
-                idx
-                for idx, ind in self.population.items()
-                if ind == individual and ind.migration_steps == individual.migration_steps
-            ]
+            assert individual.active > 0
+            to_deactivate = [idx for idx, ind in self.population.items() if ind == individual]
             if len(to_deactivate) == 0:
                 log_string += f"Individual {individual} to deactivate not yet received.\n"
                 continue
             # NOTE As copies are allowed, len(to_deactivate) can be greater than 1.
             # However, only one of the copies should be replaced / deactivated.
             num_active_before = len(self._get_active_individuals())
-            self.population[to_deactivate[0]].active = False
+            self.population[to_deactivate[0]].active -= 1
             self.replaced.remove(individual)
             num_active_after = len(self._get_active_individuals())
             log_string += (
@@ -342,7 +344,11 @@ class Pollinator(Propulator):
             # NOTE check if there is an individual still to evaluate
             # TODO for now we write a loss to the checkpoint only if the evaluation has completed
             # TODO how do we save the surrogate model?
-            current_idx = (self.island_idx, self.island_comm.rank, self.generation)
+            current_idx = (
+                self.island_idx,
+                self.island_comm.rank,
+                self.generation,
+            )
             if current_idx in self.population:
                 ind = self.population[current_idx]
                 if np.isnan(ind.loss):

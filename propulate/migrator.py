@@ -137,7 +137,7 @@ class Migrator(Propulator):
         assert self.migration_topology is not None
         to_migrate = self.migration_topology[self.island_idx, :]
         num_emigrants = np.sum(to_migrate, dtype=int).item()  # Determine overall number of emigrants to be sent out.
-        eligible_emigrants = [ind for ind in self.population.values() if ind.active and ind.current == self.island_comm.rank]
+        eligible_emigrants = [ind for ind in self.population.values() if ind.active > 0 and ind.current == self.island_comm.rank]
 
         # Only perform migration if overall number of emigrants to be sent
         # out is smaller than current number of eligible potential emigrants.
@@ -178,15 +178,13 @@ class Migrator(Propulator):
                 departing = copy.deepcopy(emigrants)
                 for ind in departing:
                     # NOTE deactivate on source island in checkpoint
-                    hdf5_checkpoint[f"{ind.island}"][f"{ind.island_rank}"]["active_on_island"][
-                        ind.generation, self.island_idx
-                    ] = False
+                    hdf5_checkpoint[f"{ind.island}"][f"{ind.island_rank}"]["active_on_island"][ind.generation, self.island_idx] = 0
 
                     # NOTE Determine new responsible worker on target island.
                     ind.current = self.rng.randrange(0, count)
                     # NOTE activate on target island in checkpoint
                     # NOTE this happens here, so that if the message does not arrive, individuals are still loaded on an island from the checkpoint
-                    hdf5_checkpoint[f"{ind.island}"][f"{ind.island_rank}"]["active_on_island"][ind.generation, target_island] = True
+                    hdf5_checkpoint[f"{ind.island}"][f"{ind.island_rank}"]["active_on_island"][ind.generation, target_island] = 1
 
                 for r in dest_island_workers:  # Loop over self.propulate_comm destination ranks.
                     # TODO check types, list[inds] or ind?
@@ -203,15 +201,11 @@ class Migrator(Propulator):
                 for emigrant in emigrants:
                     assert isinstance(emigrant, Individual)
                     # Look for emigrant to deactivate in original population list.
-                    to_deactivate = [
-                        key
-                        for key, ind in self.population.items()
-                        if ind == emigrant and ind.migration_steps == emigrant.migration_steps
-                    ]
+                    to_deactivate = [key for key, ind in self.population.items() if ind == emigrant]
                     # TODO move this to a test
                     assert len(to_deactivate) == 1  # There should be exactly one!
                     n_active_before = len(self._get_active_individuals())
-                    self.population[to_deactivate[0]].active = False  # Deactivate emigrant in population.
+                    self.population[to_deactivate[0]].active -= 1  # Deactivate emigrant in population.
                     n_active_after = len(self._get_active_individuals())
                     log_string += (
                         f"Deactivated own emigrant {self.population[to_deactivate[0]]}. "
@@ -248,29 +242,14 @@ class Migrator(Propulator):
                 immigrants = self.propulate_comm.recv(source=stat.Get_source(), tag=MIGRATION_TAG)
                 log_string += f"Received {len(immigrants)} immigrant(s) from global worker {stat.Get_source()}: {immigrants}\n"
                 for immigrant in immigrants:
-                    immigrant.migration_steps += 1
-                    assert immigrant.active is True
-                    catastrophic_failure = (
-                        len(
-                            [
-                                ind
-                                for ind in self.population.values()
-                                if ind == immigrant
-                                and immigrant.migration_steps == ind.migration_steps
-                                and immigrant.current == ind.current
-                                and ind.active
-                            ]
-                        )
-                        > 0
-                    )
-                    if catastrophic_failure:
-                        raise RuntimeError(
-                            log_string + f"Identical immigrant {immigrant} already active on target  island {self.island_idx}."
-                        )
-                    self.population[immigrant.island, immigrant.island_rank, immigrant.generation] = copy.deepcopy(
-                        immigrant
-                    )  # add immigrant to population
-                    log_string += f"Added immigrant {immigrant} to population.\n"
+                    assert immigrant.active > 0
+                    if (immigrant.island, immigrant.island_rank, immigrant.generation) in self.population:
+                        self.population[immigrant.island, immigrant.island_rank, immigrant.generation].active += 1
+                    else:
+                        self.population[immigrant.island, immigrant.island_rank, immigrant.generation] = copy.deepcopy(
+                            immigrant
+                        )  # add immigrant to population
+                        log_string += f"Added immigrant {immigrant} to population.\n"
 
                     # NOTE Do not remove obsolete individuals from population upon immigration
                     # as they should be deactivated in the next step anyway.
@@ -280,6 +259,7 @@ class Migrator(Propulator):
 
         log.debug(log_string)
 
+    # TODO move to consistency checks?
     def _check_emigrants_to_deactivate(self) -> bool:
         """
         Redundant safety check for existence of emigrants that could not be deactivated in population.
@@ -292,9 +272,7 @@ class Migrator(Propulator):
         check = False
         # Loop over emigrants still to be deactivated.
         for idx, emigrant in enumerate(self.emigrated):
-            existing_ind = [
-                ind for ind in self.population.values() if ind == emigrant and ind.migration_steps == emigrant.migration_steps
-            ]
+            existing_ind = [ind for ind in self.population.values() if ind == emigrant]
             if len(existing_ind) > 0:
                 check = True
                 # Check equivalence of actual traits, i.e., (hyper-)parameter values.
@@ -314,7 +292,6 @@ class Migrator(Propulator):
                     f"{compare_traits} {existing_ind[0].loss == self.emigrated[idx].loss} "
                     f"{existing_ind[0].active == emigrant.active} {existing_ind[0].current == emigrant.current} "
                     f"{existing_ind[0].island == emigrant.island} "
-                    f"{existing_ind[0].migration_steps == emigrant.migration_steps}"
                 )
                 break
 
@@ -340,23 +317,15 @@ class Migrator(Propulator):
                 )
             emigrated_copy = copy.deepcopy(self.emigrated)
             for emigrant in emigrated_copy:
-                assert emigrant.active is True
-                to_deactivate = [
-                    idx
-                    for idx, ind in self.population.items()
-                    if ind == emigrant and ind.migration_steps == emigrant.migration_steps
-                ]
+                assert emigrant.active > 0
+                to_deactivate = [idx for idx, ind in self.population.items() if ind == emigrant]
                 if len(to_deactivate) == 0:
                     log_string += f"Individual {emigrant} to deactivate not yet received.\n"
                     continue
                 assert len(to_deactivate) == 1
-                self.population[to_deactivate[0]].active = False
+                self.population[to_deactivate[0]].active -= 1
                 # NOTE emigrated is a list, population is a dict
-                to_remove = [
-                    idx
-                    for idx, ind in enumerate(self.emigrated)
-                    if ind == emigrant and ind.migration_steps == emigrant.migration_steps
-                ]
+                to_remove = [idx for idx, ind in enumerate(self.emigrated) if ind == emigrant]
                 assert len(to_remove) == 1
                 self.emigrated.pop(to_remove[0])
                 log_string += (
@@ -416,7 +385,11 @@ class Migrator(Propulator):
             # NOTE check if there is an individual still to evaluate
             # TODO for now we write a loss to the checkpoint only if the evaluation has completed
             # TODO how do we save the surrogate model?
-            current_idx = (self.island_idx, self.island_comm.rank, self.generation)
+            current_idx = (
+                self.island_idx,
+                self.island_comm.rank,
+                self.generation,
+            )
             if current_idx in self.population:
                 ind = self.population[current_idx]
                 if np.isnan(ind.loss):

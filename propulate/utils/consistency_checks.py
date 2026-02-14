@@ -25,6 +25,7 @@ def final_synch(propulator: Propulator) -> None:
     if propulator.migration_prob > 0.0:
         if isinstance(propulator, Migrator):
             # TODO sometimes receives duplicates here
+            propulator._receive_intra_island_individuals()
             propulator._receive_immigrants()
             propulator.propulate_comm.barrier()
 
@@ -35,6 +36,7 @@ def final_synch(propulator: Propulator) -> None:
             assert len(propulator.emigrated) == 0
 
         elif isinstance(propulator, Pollinator):
+            propulator._receive_intra_island_individuals()
             with h5py.File(propulator.checkpoint_path, "a", driver="mpio", comm=propulator.propulate_comm) as f:
                 propulator._receive_immigrants(f)
             propulator.propulate_comm.barrier()
@@ -42,8 +44,6 @@ def final_synch(propulator: Propulator) -> None:
             # Immigration: Final check for individuals replaced by other intra-island workers to be deactivated.
             propulator._deactivate_replaced_individuals()
             propulator.propulate_comm.barrier()
-            if len(propulator.replaced) > 0:
-                log.error(f"{propulator.replaced}")
             assert len(propulator.replaced) == 0
 
 
@@ -62,6 +62,7 @@ def population_consistency_check(propulator: Propulator) -> None:
         num_active = int(propulator.propulate_comm.allreduce(num_active / propulator.island_counts[propulator.island_idx]))
 
     propulator.propulate_comm.barrier()
+    # TODO clean this
     # if propulator.propulate_comm.rank == 0:
     #     log.info(
     #         "###########\n# SUMMARY #\n###########\n"

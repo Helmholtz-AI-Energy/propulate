@@ -190,18 +190,13 @@ class Propulator:
                 "Checkpoint loaded. "
                 f" Worker {self.propulate_comm.rank} resuming from generation {self.generation} of loaded population..."
             )
-            # TODO it says resuming from generation 0, so something is not right
-        else:
-            if self.propulate_comm.rank == 0:
-                log.info("No valid checkpoint file given. Initializing population randomly...")
+        elif self.propulate_comm.rank == 0:
+            log.info("No valid checkpoint file given. Initializing population randomly...")
         self.set_up_checkpoint()
 
     def load_checkpoint(self) -> None:
         """Load checkpoint from HDF5 file. Since this is only a read, all workers can do this in read-only mode without the mpio driver."""
-        # TODO check that the island and worker setup is the same as in the checkpoint
-        # NOTE each individual is only stored once at the position given by its origin island and worker, the modifications have to be put in the checkpoint file during migration  TODO test if this works as intended reliably
         # TODO get the started but not yet completed ones from the difference in start time and evaltime
-        # TODO only load an incomplete one, if you're then going to evaluate it
         log.info(f"Loading checkpoint from {self.checkpoint_path}.")
 
         with h5py.File(self.checkpoint_path, "r", driver=None) as f:
@@ -239,7 +234,7 @@ class Propulator:
                             ind.generation = generation
                             ind.prop_rank = prop_rank
                             if np.isnan(ind.loss):
-                                ind.active = False
+                                ind.active = 0
                             self.population[(i, island_rank, generation)] = ind
 
     def set_up_checkpoint(self) -> None:
@@ -298,6 +293,7 @@ class Propulator:
                         if xdim == 2:
                             group["x"].resize(xdim, axis=1)
 
+                    # TODO rename; position? separate velocity?
                     group.require_dataset(
                         "x",
                         (self.generations, xdim, limit_dim),
@@ -352,10 +348,10 @@ class Propulator:
                     group.require_dataset(
                         "active_on_island",
                         (self.generations, num_islands),
-                        dtype=bool,
+                        dtype=np.int16,
                         chunks=True,
                         maxshape=(None, None),
-                        data=np.zeros((self.generations, num_islands), dtype=bool),
+                        data=np.zeros((self.generations, num_islands), dtype=int),
                     )
         log.debug("Checkpoint set up.")
 
@@ -370,7 +366,7 @@ class Propulator:
         int
             The number of currently active individuals.
         """
-        active_pop = [ind for ind in self.population.values() if ind.active]
+        active_pop = [ind for ind in self.population.values() if ind.active >= 1]
         return active_pop
 
     def _breed(self) -> Individual:
@@ -388,14 +384,13 @@ class Propulator:
             # communicator, are involved in the actual optimization routine.
             active_pop = self._get_active_individuals()
             ind = self.propagator(active_pop)  # Breed new individual from active population.
-            assert isinstance(ind, Individual)
+            assert isinstance(ind, Individual)  # NOTE placate mypy
             ind.generation = self.generation  # Set generation.
             ind.island_rank = self.island_comm.rank  # Set worker rank.
             ind.prop_rank = self.propulate_comm.rank
-            ind.active = True  # If True, individual is active for breeding.
+            ind.active = 1  # If True, individual is active for breeding.
             ind.island = self.island_idx  # Set birth island.
             ind.current = self.island_comm.rank  # Set worker responsible for migration.
-            ind.migration_history = str(self.island_idx)
         else:  # The other processes do not breed themselves.
             ind = None
 
@@ -456,7 +451,7 @@ class Propulator:
             self.surrogate.update(ind.loss)
         if self.propulate_comm is None:
             return
-        ind.active = True
+        ind.active = 1
         self.population[
             (self.island_idx, self.island_comm.rank, ind.generation)
         ] = ind  # Add evaluated individual to worker-local population.
@@ -581,9 +576,8 @@ class Propulator:
         # save result for candidate
         group["evaltime"][ckpt_idx] = ind.evaltime
         group["evalperiod"][ckpt_idx] = ind.evalperiod
-        group["active_on_island"][ckpt_idx, self.island_idx] = True
+        group["active_on_island"][ckpt_idx, self.island_idx] = 1
         # TODO fix evalperiod for resumed from checkpoint individuals
-        # TODO somehow store migration history, maybe just as islands_visited
 
         group["loss"][ckpt_idx] = ind.loss
 
@@ -657,9 +651,7 @@ class Propulator:
             while self.generation < self.generations:
                 # Breed and evaluate individual.
                 # TODO this should be refactored, the subworkers don't need the logfile
-                # TODO this needs to be addressed before merge, since multirank workers should fail with this
                 ind = self._breed()
-                log.debug(ind)
                 self._evaluate_individual(ind)
                 self.generation += 1
             return
@@ -671,9 +663,12 @@ class Propulator:
         # NOTE there is an implicit barrier when closing the file in parallel mode
         with h5py.File(self.checkpoint_path, "a", driver="mpio", comm=self.propulate_comm) as f:
             # NOTE check if there is an individual still to evaluate
-            # TODO for now we write a loss to the checkpoint only if the evaluation has completed
             # TODO how do we save the surrogate model?
-            current_idx = (self.island_idx, self.island_comm.rank, self.generation)
+            current_idx = (
+                self.island_idx,
+                self.island_comm.rank,
+                self.generation,
+            )
             if current_idx in self.population:
                 ind = self.population[current_idx]
                 if np.isnan(ind.loss):
