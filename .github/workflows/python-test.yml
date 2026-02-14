@@ -39,7 +39,7 @@ jobs:
 
           - name: Install dependencies
             run: |
-                apt install libhdf5-mpi-dev
+                sudo apt install libhdf5-mpi-dev
                 CC="mpicc" HDF5_MPI="ON" uv pip install --no-binary=h5py h5py
                 uv pip install --force-reinstall --no-binary=mpi4py ."[test]"
 
