@@ -452,9 +452,9 @@ class Propulator:
         if self.propulate_comm is None:
             return
         ind.active = 1
-        self.population[
-            (self.island_idx, self.island_comm.rank, ind.generation)
-        ] = ind  # Add evaluated individual to worker-local population.
+        self.population[(self.island_idx, self.island_comm.rank, ind.generation)] = (
+            ind  # Add evaluated individual to worker-local population.
+        )
         log.debug(
             f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: BREEDING\n"
             f"Bred and evaluated individual {ind}."
@@ -500,9 +500,9 @@ class Propulator:
                 if SURROGATE_KEY in ind_temp:
                     del ind_temp[SURROGATE_KEY]
 
-                self.population[
-                    (ind_temp.island, ind_temp.island_rank, ind_temp.generation)
-                ] = ind_temp  # Add received individual to own worker-local population.
+                self.population[(ind_temp.island, ind_temp.island_rank, ind_temp.generation)] = (
+                    ind_temp  # Add received individual to own worker-local population.
+                )
 
                 log_string += f"Added individual {ind_temp} from W{stat.Get_source()} to own population.\n"
         n_active = len(self._get_active_individuals())

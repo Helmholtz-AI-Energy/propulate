@@ -279,7 +279,6 @@ class Islands:
             )
         log.debug("set up island propulator")
 
-
     def propulate(self, logging_interval: int = 10) -> None:
         """
         Run Propulate optimization.

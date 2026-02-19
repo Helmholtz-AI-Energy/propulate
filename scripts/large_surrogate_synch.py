@@ -25,8 +25,8 @@ while messages_received < world.size - 1:
             world.Recv([recv_buffer, MPI.FLOAT], source=stat.Get_source())
             messages_received += 1
 
-print(f"{len(reqs)} {f'{world.rank}'*8}")
+print(f"{len(reqs)} {f'{world.rank}' * 8}")
 print(MPI.Request.Testsome(reqs))
-print(f"{len(reqs)} {f'{world.rank}'*8}")
+print(f"{len(reqs)} {f'{world.rank}' * 8}")
 # for req in reqs:
 #     req.Wait()
