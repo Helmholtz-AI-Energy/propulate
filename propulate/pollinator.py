@@ -215,18 +215,11 @@ class Pollinator(Propulator):
                             immigrant.generation, self.island_idx
                         ] = 1
 
-<<<<<<< HEAD
-                    replace_num = 0
-                    if self.island_comm.rank == immigrant.current:
-                        replace_num += 1
-                    log_string += f"Responsible for choosing {replace_num} individual(s) to be replaced by immigrants.\n"
-=======
                         if self.island_comm.rank == immigrant.current:
                             replace_num += 1
-                        log_string += f"Responsible for choosing {replace_num} individual(s) " f"to be replaced by immigrants.\n"
+                        log_string += f"Responsible for choosing {replace_num} individual(s) to be replaced by immigrants.\n"
                     else:
                         pass
->>>>>>> c6a0cf9 (removed migration history/steps, replaced with pseudo reference counter, fixed replacement in pollination)
 
                 # Check whether rank equals responsible worker's rank so different intra-island workers
                 # cannot choose the same individual independently for replacement and thus deactivation.
