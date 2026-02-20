@@ -149,7 +149,7 @@ class Migrator(Propulator):
             assert isinstance(all_emigrants, list)
             self.rng.shuffle(all_emigrants)
             # Loop through relevant part of migration topology.
-            offsprings_sent = 0
+            offspring_sent = 0
             for target_island, offspring in enumerate(to_migrate):
                 if offspring == 0:
                     continue
@@ -161,8 +161,8 @@ class Migrator(Propulator):
                 dest_island_workers = np.arange(displ, displ + count)
 
                 # Worker sends *different* individuals to each target island.
-                emigrants = all_emigrants[offsprings_sent : offsprings_sent + offspring]  # Choose `offspring` eligible emigrants.
-                offsprings_sent += offspring
+                emigrants = all_emigrants[offspring_sent : offspring_sent + offspring]  # Choose `offspring` eligible emigrants.
+                offspring_sent += offspring
                 log_string += f"Chose {len(emigrants)} emigrant(s): {emigrants}\n"
 
                 # Deactivate emigrants on sending island (true migration).
@@ -173,9 +173,7 @@ class Migrator(Propulator):
                     log_string += f"Sent {len(emigrants)} individual(s) {emigrants} to intra-island worker {r} to deactivate.\n"
 
                 # Send emigrants to target island.
-                # TODO is this copy necessary?
-                departing = copy.deepcopy(emigrants)
-                for ind in departing:
+                for ind in emigrants:
                     # NOTE deactivate on source island in checkpoint
                     hdf5_checkpoint[f"{ind.island}"][f"{ind.island_rank}"]["active_on_island"][ind.generation, self.island_idx] = 0
 
@@ -187,11 +185,11 @@ class Migrator(Propulator):
 
                 for r in dest_island_workers:  # Loop over self.propulate_comm destination ranks.
                     # TODO check types, list[inds] or ind?
-                    self.inter_buffers.append(copy.deepcopy(departing))
+                    self.inter_buffers.append(copy.deepcopy(emigrants))
                     self.inter_requests.append(self.propulate_comm.isend(self.inter_buffers[-1], dest=r, tag=MIGRATION_TAG))
 
                     log_string += (
-                        f"Sent {len(departing)} individual(s) to worker {r - self.island_displs[target_island]} "
+                        f"Sent {len(emigrants)} individual(s) to worker {r - self.island_displs[target_island]} "
                         + f"on target island {target_island}.\n"
                     )
 
