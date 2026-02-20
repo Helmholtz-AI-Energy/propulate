@@ -252,44 +252,6 @@ class Migrator(Propulator):
 
         log.debug(log_string)
 
-    # TODO move to consistency checks?
-    def _check_emigrants_to_deactivate(self) -> bool:
-        """
-        Redundant safety check for existence of emigrants that could not be deactivated in population.
-
-        Returns
-        -------
-        bool
-            True if emigrants to be deactivated exist in population, False if not.
-        """
-        check = False
-        # Loop over emigrants still to be deactivated.
-        for idx, emigrant in enumerate(self.emigrated):
-            existing_ind = [ind for ind in self.population.values() if ind == emigrant]
-            if len(existing_ind) > 0:
-                check = True
-                # Check equivalence of actual traits, i.e., (hyper-)parameter values.
-                compare_traits = True
-                for key in emigrant.keys():
-                    if existing_ind[0][key] == emigrant[key]:
-                        continue
-                    else:
-                        compare_traits = False
-                        break
-
-                log.info(
-                    f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}:\n"
-                    f"Currently in emigrated: {emigrant}\n"
-                    f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: "
-                    f"Currently in population: {existing_ind}\nEquivalence check: {existing_ind[0] == emigrant} "
-                    f"{compare_traits} {existing_ind[0].loss == self.emigrated[idx].loss} "
-                    f"{existing_ind[0].active == emigrant.active} {existing_ind[0].migrator_island_rank == emigrant.migrator_island_rank} "
-                    f"{existing_ind[0].island == emigrant.island} "
-                )
-                break
-
-        return check
-
     def _deactivate_emigrants(self) -> None:
         """Check for and possibly receive emigrants from other intra-island workers to be deactivated."""
         log_string = f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: DEACTIVATION\n"
