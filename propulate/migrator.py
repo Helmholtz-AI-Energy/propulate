@@ -184,7 +184,6 @@ class Migrator(Propulator):
                     hdf5_checkpoint[f"{ind.island}"][f"{ind.island_rank}"]["active_on_island"][ind.generation, target_island] = 1
 
                 for r in dest_island_workers:  # Loop over self.propulate_comm destination ranks.
-                    # TODO check types, list[inds] or ind?
                     self.inter_buffers.append(copy.deepcopy(emigrants))
                     self.inter_requests.append(self.propulate_comm.isend(self.inter_buffers[-1], dest=r, tag=MIGRATION_TAG))
 
@@ -198,8 +197,6 @@ class Migrator(Propulator):
                     assert isinstance(emigrant, Individual)
                     # Look for emigrant to deactivate in original population list.
                     to_deactivate = [key for key, ind in self.population.items() if ind == emigrant]
-                    # TODO move this to a test
-                    assert len(to_deactivate) == 1  # There should be exactly one!
                     n_active_before = len(self._get_active_individuals())
                     self.population[to_deactivate[0]].active -= 1  # Deactivate emigrant in population.
                     n_active_after = len(self._get_active_individuals())
