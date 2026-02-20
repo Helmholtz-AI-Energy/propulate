@@ -1,9 +1,11 @@
 import copy
 import logging
 import random
+import time
 from pathlib import Path
 from typing import Callable, Generator, List, Optional, Type, Union
 
+import h5py
 import numpy as np
 from mpi4py import MPI
 
@@ -47,17 +49,18 @@ class Migrator(Propulator):
         loss_fn: Union[Callable, Generator[float, None, None]],
         propagator: Propagator,
         rng: random.Random,
+        generations: int,
         island_idx: int = 0,
         island_comm: MPI.Comm = MPI.COMM_WORLD,
         propulate_comm: MPI.Comm = MPI.COMM_WORLD,
         worker_sub_comm: MPI.Comm = MPI.COMM_SELF,
-        generations: int = -1,
         checkpoint_path: Union[str, Path] = Path("./"),
         migration_topology: Optional[np.ndarray] = None,
         migration_prob: float = 0.0,
         emigration_propagator: Type[Propagator] = SelectMin,
+        immigration_propagator: Optional[Type[Propagator]] = None,
         island_displs: Optional[np.ndarray] = None,
-        island_counts: Optional[np.ndarray] = None,
+        island_sizes: Optional[np.ndarray] = None,
         surrogate_factory: Optional[Callable[[], Surrogate]] = None,
     ) -> None:
         """
@@ -92,46 +95,53 @@ class Migrator(Propulator):
         emigration_propagator : Type[propulate.propagators.Propagator]
             The emigration propagator, i.e., how to choose individuals for emigration that are sent to the destination
             island. Should be some kind of selection operator. Default is ``SelectMin``.
+        immigration_propagator : Type[propulate.propagators.Propagator], optional
+            The immigration propagator, i.e., how to choose individuals to be replaced by immigrants on a target island.
+            Should be some kind of selection operator. Default is ``None``.
         island_displs : numpy.ndarray, optional
             An array with ``propulate_comm`` rank of each island's worker 0. Element i specifies the rank of worker 0 on
             island with index i in the Propulate communicator.
-        island_counts : numpy.ndarray, optional
+        island_sizes : numpy.ndarray, optional
             An array with the number of workers per island. Element i specifies the number of workers on island i.
         surrogate_factory : Callable[[], propulate.surrogate.Surrogate], optional
            Function that returns a new instance of a ``Surrogate`` model.
            Only used when ``loss_fn`` is a generator function.
         """
         super().__init__(
-            loss_fn,
-            propagator,
-            rng,
-            island_idx,
-            island_comm,
-            propulate_comm,
-            worker_sub_comm,
-            generations,
-            checkpoint_path,
-            migration_topology,
-            migration_prob,
-            emigration_propagator,
-            island_displs,
-            island_counts,
-            surrogate_factory,
+            loss_fn=loss_fn,
+            propagator=propagator,
+            rng=rng,
+            generations=generations,
+            island_idx=island_idx,
+            island_comm=island_comm,
+            propulate_comm=propulate_comm,
+            worker_sub_comm=worker_sub_comm,
+            checkpoint_path=checkpoint_path,
+            migration_topology=migration_topology,
+            migration_prob=migration_prob,
+            emigration_propagator=emigration_propagator,
+            immigration_propagator=immigration_propagator,
+            island_displs=island_displs,
+            island_sizes=island_sizes,
+            surrogate_factory=surrogate_factory,
         )
         # Set class attributes.
         self.emigrated: List[Individual] = []  # Emigrated individuals to be deactivated on sending island
+        log.debug("Migrator set up.")
 
-    def _send_emigrants(self) -> None:
+    def _send_emigrants(self, hdf5_checkpoint: h5py.File) -> None:
         """Perform migration, i.e. island sends individuals out to other islands."""
         log_string = f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: EMIGRATION\n"
         # Determine relevant line of migration topology.
         assert self.migration_topology is not None
         to_migrate = self.migration_topology[self.island_idx, :]
         num_emigrants = np.sum(to_migrate, dtype=int).item()  # Determine overall number of emigrants to be sent out.
-        eligible_emigrants = [ind for ind in self.population if ind.active and ind.current == self.island_comm.rank]
+        eligible_emigrants = [
+            ind for ind in self.population.values() if ind.active > 0 and ind.migrator_island_rank == self.island_comm.rank
+        ]
 
         # Only perform migration if overall number of emigrants to be sent
-        # out is smaller than current number of eligible emigrants.
+        # out is smaller than current number of eligible potential emigrants.
         if num_emigrants <= len(eligible_emigrants):
             # Select all migrants to be sent out in this migration step.
             emigrator = self.emigration_propagator(num_emigrants)  # Set up emigration propagator.
@@ -139,20 +149,20 @@ class Migrator(Propulator):
             assert isinstance(all_emigrants, list)
             self.rng.shuffle(all_emigrants)
             # Loop through relevant part of migration topology.
-            offsprings_sent = 0
+            offspring_sent = 0
             for target_island, offspring in enumerate(to_migrate):
                 if offspring == 0:
                     continue
                 # Determine self.propulate_comm ranks of workers on target island.
                 assert self.island_displs is not None
-                assert self.island_counts is not None
+                assert self.island_sizes is not None
                 displ = self.island_displs[target_island]
-                count = self.island_counts[target_island]
-                dest_island = np.arange(displ, displ + count)
+                count = self.island_sizes[target_island]
+                dest_island_workers = np.arange(displ, displ + count)
 
                 # Worker sends *different* individuals to each target island.
-                emigrants = all_emigrants[offsprings_sent : offsprings_sent + offspring]  # Choose `offspring` eligible emigrants.
-                offsprings_sent += offspring
+                emigrants = all_emigrants[offspring_sent : offspring_sent + offspring]  # Choose `offspring` eligible emigrants.
+                offspring_sent += offspring
                 log_string += f"Chose {len(emigrants)} emigrant(s): {emigrants}\n"
 
                 # Deactivate emigrants on sending island (true migration).
@@ -163,14 +173,22 @@ class Migrator(Propulator):
                     log_string += f"Sent {len(emigrants)} individual(s) {emigrants} to intra-island worker {r} to deactivate.\n"
 
                 # Send emigrants to target island.
-                departing = copy.deepcopy(emigrants)
-                # Determine new responsible worker on target island.
-                for ind in departing:
-                    ind.current = self.rng.randrange(0, count)
-                for r in dest_island:  # Loop over self.propulate_comm destination ranks.
-                    self.propulate_comm.send(copy.deepcopy(departing), dest=r, tag=MIGRATION_TAG)
+                for ind in emigrants:
+                    # NOTE deactivate on source island in checkpoint
+                    hdf5_checkpoint[f"{ind.island}"][f"{ind.island_rank}"]["active_on_island"][ind.generation, self.island_idx] = 0
+
+                    # NOTE Determine new responsible worker on target island.
+                    ind.migrator_island_rank = self.rng.randrange(0, count)
+                    # NOTE activate on target island in checkpoint
+                    # NOTE this happens here, so that if the message does not arrive, individuals are still loaded on an island from the checkpoint
+                    hdf5_checkpoint[f"{ind.island}"][f"{ind.island_rank}"]["active_on_island"][ind.generation, target_island] = 1
+
+                for r in dest_island_workers:  # Loop over self.propulate_comm destination ranks.
+                    self.inter_buffers.append(copy.deepcopy(emigrants))
+                    self.inter_requests.append(self.propulate_comm.isend(self.inter_buffers[-1], dest=r, tag=MIGRATION_TAG))
+
                     log_string += (
-                        f"Sent {len(departing)} individual(s) to worker {r - self.island_displs[target_island]} "
+                        f"Sent {len(emigrants)} individual(s) to worker {r - self.island_displs[target_island]} "
                         + f"on target island {target_island}.\n"
                     )
 
@@ -178,20 +196,15 @@ class Migrator(Propulator):
                 for emigrant in emigrants:
                     assert isinstance(emigrant, Individual)
                     # Look for emigrant to deactivate in original population list.
-                    to_deactivate = [
-                        idx
-                        for idx, ind in enumerate(self.population)
-                        if ind == emigrant and ind.migration_steps == emigrant.migration_steps
-                    ]
-                    assert len(to_deactivate) == 1  # There should be exactly one!
-                    _, n_active_before = self._get_active_individuals()
-                    self.population[to_deactivate[0]].active = False  # Deactivate emigrant in population.
-                    _, n_active_after = self._get_active_individuals()
+                    to_deactivate = [key for key, ind in self.population.items() if ind == emigrant]
+                    n_active_before = len(self._get_active_individuals())
+                    self.population[to_deactivate[0]].active -= 1  # Deactivate emigrant in population.
+                    n_active_after = len(self._get_active_individuals())
                     log_string += (
                         f"Deactivated own emigrant {self.population[to_deactivate[0]]}. "
                         + f"Active before/after: {n_active_before}/{n_active_after}\n"
                     )
-            _, n_active = self._get_active_individuals()
+            n_active = len(self._get_active_individuals())
             log_string += f"After emigration: {n_active}/{len(self.population)} active.\n"
 
             log.debug(log_string)
@@ -205,7 +218,7 @@ class Migrator(Propulator):
 
     def _receive_immigrants(self) -> None:
         """
-        Check for and possibly receive immigrants send by other islands.
+        Check for and possibly receive immigrants sent by other islands.
 
         Raises
         ------
@@ -222,72 +235,22 @@ class Migrator(Propulator):
                 immigrants = self.propulate_comm.recv(source=stat.Get_source(), tag=MIGRATION_TAG)
                 log_string += f"Received {len(immigrants)} immigrant(s) from global worker {stat.Get_source()}: {immigrants}\n"
                 for immigrant in immigrants:
-                    immigrant.migration_steps += 1
-                    assert immigrant.active is True
-                    catastrophic_failure = (
-                        len(
-                            [
-                                ind
-                                for ind in self.population
-                                if ind == immigrant
-                                and immigrant.migration_steps == ind.migration_steps
-                                and immigrant.current == ind.current
-                            ]
-                        )
-                        > 0
-                    )
-                    if catastrophic_failure:
-                        raise RuntimeError(
-                            log_string + f"Identical immigrant {immigrant} already active on target  island {self.island_idx}."
-                        )
-                    self.population.append(copy.deepcopy(immigrant))  # Append immigrant to population.
-                    log_string += f"Added immigrant {immigrant} to population.\n"
+                    assert immigrant.active > 0
+                    if (immigrant.island, immigrant.island_rank, immigrant.generation) in self.population:
+                        self.population[immigrant.island, immigrant.island_rank, immigrant.generation].active += 1
+                    else:
+                        self.population[immigrant.island, immigrant.island_rank, immigrant.generation] = copy.deepcopy(
+                            immigrant
+                        )  # add immigrant to population
+                        log_string += f"Added immigrant {immigrant} to population.\n"
 
                     # NOTE Do not remove obsolete individuals from population upon immigration
                     # as they should be deactivated in the next step anyway.
 
-        _, n_active = self._get_active_individuals()
+        n_active = len(self._get_active_individuals())
         log_string += f"After immigration: {n_active}/{len(self.population)} active.\n"
 
         log.debug(log_string)
-
-    def _check_emigrants_to_deactivate(self) -> bool:
-        """
-        Redundant safety check for existence of emigrants that could not be deactivated in population.
-
-        Returns
-        -------
-        bool
-            True if emigrants to be deactivated exist in population, False if not.
-        """
-        check = False
-        # Loop over emigrants still to be deactivated.
-        for idx, emigrant in enumerate(self.emigrated):
-            existing_ind = [ind for ind in self.population if ind == emigrant and ind.migration_steps == emigrant.migration_steps]
-            if len(existing_ind) > 0:
-                check = True
-                # Check equivalence of actual traits, i.e., (hyper-)parameter values.
-                compare_traits = True
-                for key in emigrant.keys():
-                    if existing_ind[0][key] == emigrant[key]:
-                        continue
-                    else:
-                        compare_traits = False
-                        break
-
-                log.info(
-                    f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}:\n"
-                    f"Currently in emigrated: {emigrant}\n"
-                    f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: "
-                    f"Currently in population: {existing_ind}\nEquivalence check: {existing_ind[0] == emigrant} "
-                    f"{compare_traits} {existing_ind[0].loss == self.emigrated[idx].loss} "
-                    f"{existing_ind[0].active == emigrant.active} {existing_ind[0].current == emigrant.current} "
-                    f"{existing_ind[0].island == emigrant.island} "
-                    f"{existing_ind[0].migration_steps == emigrant.migration_steps}"
-                )
-                break
-
-        return check
 
     def _deactivate_emigrants(self) -> None:
         """Check for and possibly receive emigrants from other intra-island workers to be deactivated."""
@@ -309,28 +272,21 @@ class Migrator(Propulator):
                 )
             emigrated_copy = copy.deepcopy(self.emigrated)
             for emigrant in emigrated_copy:
-                assert emigrant.active is True
-                to_deactivate = [
-                    idx
-                    for idx, ind in enumerate(self.population)
-                    if ind == emigrant and ind.migration_steps == emigrant.migration_steps
-                ]
+                assert emigrant.active > 0
+                to_deactivate = [idx for idx, ind in self.population.items() if ind == emigrant]
                 if len(to_deactivate) == 0:
                     log_string += f"Individual {emigrant} to deactivate not yet received.\n"
                     continue
                 assert len(to_deactivate) == 1
-                self.population[to_deactivate[0]].active = False
-                to_remove = [
-                    idx
-                    for idx, ind in enumerate(self.emigrated)
-                    if ind == emigrant and ind.migration_steps == emigrant.migration_steps
-                ]
+                self.population[to_deactivate[0]].active -= 1
+                # NOTE emigrated is a list, population is a dict
+                to_remove = [idx for idx, ind in enumerate(self.emigrated) if ind == emigrant]
                 assert len(to_remove) == 1
                 self.emigrated.pop(to_remove[0])
                 log_string += (
                     f"Deactivated {self.population[to_deactivate[0]]}.\n" + f"{len(self.emigrated)} individuals in emigrated.\n"
                 )
-        _, n_active = self._get_active_individuals()
+        n_active = len(self._get_active_individuals())
         log_string += (
             "After synchronization: "
             + f"{n_active}/{len(self.population)} active.\n"
@@ -338,7 +294,7 @@ class Migrator(Propulator):
         )
         log.debug(log_string)
 
-    def propulate(self, logging_interval: int = 10, debug: int = 1) -> None:
+    def propulate(self, logging_interval: int = 10) -> None:
         """
         Execute evolutionary algorithm using island model with real migration in parallel.
 
@@ -354,97 +310,72 @@ class Migrator(Propulator):
         ValueError
             If any individuals are left that should have been deactivated before (only for debug > 0).
         """
+        self.start_time = time.time_ns()
         if self.worker_sub_comm != MPI.COMM_SELF:
+            log.debug("broadcasting generation to all ranks in worker")
             self.generation = self.worker_sub_comm.bcast(self.generation, root=0)
+            log.debug(f"generations is {self.generation}")
+        # NOTE if true, this rank is a worker sub rank, so it does not breeding and checkpointing, just evaluation
         if self.propulate_comm is None:
-            while self.generations <= -1 or self.generation < self.generations:
+            while self.generation < self.generations:
                 # Breed and evaluate individual.
-                self._evaluate_individual()
+                ind = self._breed()
+                log.debug(ind)
+                self._evaluate_individual(ind)
                 self.generation += 1
             return
 
         if self.island_comm.rank == 0:
-            log.info(f"Island {self.island_idx} has {self.island_comm.size} workers.")
+            log.info(f"Island {self.island_idx} has {self.island_comm.size} workers with {self.worker_sub_comm.size} ranks each.")
 
-        dump = True if self.island_comm.rank == 0 else False
-        migration = True if self.migration_prob > 0 else False
-        self.propulate_comm.barrier()
+        with h5py.File(self.checkpoint_path, "a", driver="mpio", comm=self.propulate_comm) as f:
+            log.debug("opened checkpoint file in migrator.propulate")
+            # NOTE check if there is an individual still to evaluate
+            current_idx = (
+                self.island_idx,
+                self.island_comm.rank,
+                self.generation,
+            )
+            if current_idx in self.population:
+                ind = self.population[current_idx]
+                if np.isnan(ind.loss):
+                    log.info(f"Continuing evaluation of individual {current_idx} loaded from checkpoint.")
+                    self._evaluate_individual(ind)
+                    self._post_eval_checkpoint(ind, f)
+                    self._send_intra_island_individuals(ind)
+                self.generation += 1
 
-        # Loop over generations.
-        while self.generations <= -1 or self.generation < self.generations:
-            if self.generation % int(logging_interval) == 0:
-                log.info(f"Island {self.island_idx} Worker {self.island_comm.rank}: In generation {self.generation}...")
+            while self.generation < self.generations:
+                if self.generation % int(logging_interval) == 0:
+                    log.info(f"Island {self.island_idx} Worker {self.island_comm.rank}: In generation {self.generation}...")
 
-            # Breed and evaluate individual.
-            self._evaluate_individual()
+                # Breed and evaluate individual.
+                ind = self._breed()  # Breed new individual.
+                # NOTE write started individual to file
+                self._pre_eval_checkpoint(ind, f)
+                # NOTE start evaluation
+                self._evaluate_individual(ind)
+                # NOTE update finished individual in checkpoint
+                self._post_eval_checkpoint(ind, f)
+                self._send_intra_island_individuals(ind)
+                # Check for and possibly receive incoming individuals from other intra-island workers.
+                self._receive_intra_island_individuals()
 
-            # Check for and possibly receive incoming individuals from other intra-island workers.
-            self._receive_intra_island_individuals()
+                # Migration.
+                if self.migration_prob > 0.0:
+                    # Emigration: Island sends individuals out.
+                    # Happens on per-worker basis with certain probability.
+                    if self.rng.random() < self.migration_prob:
+                        self._send_emigrants(f)
 
-            # Migration.
-            if migration:
-                # Emigration: Island sends individuals out.
-                # Happens on per-worker basis with certain probability.
-                if self.rng.random() < self.migration_prob:
-                    self._send_emigrants()
+                    # Immigration: Check for incoming individuals from other islands.
+                    self._receive_immigrants()
 
-                # Immigration: Check for incoming individuals from other islands.
-                self._receive_immigrants()
-
-                # Emigration: Check for emigrants from other intra-island workers to be deactivated.
-                self._deactivate_emigrants()
-                if debug == 2:
-                    check = self._check_emigrants_to_deactivate()
-                    assert check is False
-
-            if dump:  # Dump checkpoint.
-                self._dump_checkpoint()
-
-            dump = self._determine_worker_dumping_next()  # Determine worker dumping checkpoint in the next generation.
-            self.generation += 1  # Go to next generation.
-
-        # Having completed all generations, the workers have to wait for each other.
-        # Once all workers are done, they should check for incoming messages once again
-        # so that each of them holds the complete final population and the found optimum
-        # irrespective of the order they finished.
-
-        self.propulate_comm.barrier()
-        if self.propulate_comm.rank == 0:
-            log.info("OPTIMIZATION DONE.")
-            log.info("NEXT: Final checks for incoming messages...")
-        self.propulate_comm.barrier()
-
-        # Final check for incoming individuals evaluated by other intra-island workers.
-        self._receive_intra_island_individuals()
-        self.propulate_comm.barrier()
-
-        if migration:
-            # Final check for incoming individuals from other islands.
-            self._receive_immigrants()
-            self.propulate_comm.barrier()
-
-            # Emigration: Final check for emigrants from other intra-island workers to be deactivated.
-            self._deactivate_emigrants()
-
-            if debug > 0:
-                check = self._check_emigrants_to_deactivate()
-                assert check is False
-                self.propulate_comm.barrier()
-                if len(self.emigrated) > 0:
-                    log.info(
-                        f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: "
-                        f"Finally {len(self.emigrated)} individual(s) in emigrated: {self.emigrated}:\n"
-                        f"{self.population}"
-                    )
+                    # Emigration: Check for emigrants from other intra-island workers to be deactivated.
                     self._deactivate_emigrants()
-                    if self._check_emigrants_to_deactivate():
-                        raise ValueError("There should not be any individuals left that need to be deactivated.")
 
-            self.propulate_comm.barrier()
+                self._intra_send_cleanup()
+                self._inter_send_cleanup()
+                self.generation += 1  # Go to next generation.
 
-        # Final checkpointing on rank 0.
-        if self.island_comm.rank == 0:
-            self._dump_final_checkpoint()  # Dump checkpoint.
-        self.propulate_comm.barrier()
-        _ = self._determine_worker_dumping_next()
-        self.propulate_comm.barrier()
+        log.info(f"Island {self.island_idx} Worker {self.island_comm.rank}: OPTIMIZATION DONE!")

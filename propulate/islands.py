@@ -2,14 +2,13 @@ import logging
 import platform
 import random
 from pathlib import Path
-from typing import Callable, Generator, List, Optional, Type, Union
+from typing import Callable, Generator, Optional, Type, Union
 
 import numpy as np
 from mpi4py import MPI
 
 from .migrator import Migrator
 from .pollinator import Pollinator
-from .population import Individual
 from .propagators import Propagator, SelectMax, SelectMin
 from .propulator import Propulator
 from .surrogate import Surrogate
@@ -43,7 +42,7 @@ class Islands:
         loss_fn: Union[Callable, Generator[float, None, None]],
         propagator: Propagator,
         rng: random.Random,
-        generations: int = 0,
+        generations: int,
         num_islands: int = 1,
         island_sizes: Optional[np.ndarray] = None,
         migration_topology: Optional[np.ndarray] = None,
@@ -114,20 +113,20 @@ class Islands:
             )
             if "Windows" not in platform.system():
                 print(
-                    "        ⠀⠀⠀⠈⠉⠛⢷⣦⡀⠀⣀⣠⣤⠤⠄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀\n"
-                    "⠀        ⠀⠀⠀⠀⠀⣀⣻⣿⣿⣿⣋⣀⡀⠀⠀⢀⣠⣤⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀\n"
-                    "⠀        ⠀⠀⣠⠾⠛⠛⢻⣿⣿⣿⠟⠛⠛⠓⠢⠀⠀⠉⢿⣿⣆⣀⣠⣤⣀⣀⠀⠀⠀\n"
-                    "⠀        ⠀⠘⠁⠀⠀⣰⡿⠛⠿⠿⣧⡀⠀⠀⢀⣤⣤⣤⣼⣿⣿⣿⡿⠟⠋⠉⠉⠀⠀\n"
-                    "⠀        ⠀⠀⠀⠀⠠⠋⠀⠀⠀⠀⠘⣷⡀⠀⠀⠀⠀⠹⣿⣿⣿⠟⠻⢶⣄⠀⠀⠀⠀\n"
-                    "⠀⠀        ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣧⠀⠀⠀⠀⢠⡿⠁⠀⠀⠀⠀⠈⠀⠀⠀⠀\n"
-                    "⠀⠀        ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢿⡄⠀⠀⢠⡟⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀\n"
-                    "⠀⠀        ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⡇⠀⠀⣾⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀\n"
-                    "⠀        ⣤⣤⣤⣤⣤⣤⡤⠄⠀⠀⣀⡀⢸⡇⢠⣤⣁⣀⠀⠀⠠⢤⣤⣤⣤⣤⣤⣤⠀\n"
-                    "⠀⠀⠀⠀⠀        ⠀⣀⣤⣶⣾⣿⣿⣷⣤⣤⣾⣿⣿⣿⣿⣷⣶⣤⣀⠀⠀⠀⠀⠀⠀\n"
-                    "        ⠀⠀⠀⣠⣴⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣦⣄⠀⠀⠀\n"
-                    "⠀        ⠀⠼⠿⣿⣿⠿⠛⠉⠉⠉⠙⠛⠿⣿⣿⠿⠛⠛⠛⠛⠿⢿⣿⣿⠿⠿⠇⠀⠀\n"
-                    "⠀        ⢶⣤⣀⣀⣠⣴⠶⠛⠋⠙⠻⣦⣄⣀⣀⣠⣤⣴⠶⠶⣦⣄⣀⣀⣠⣤⣤⡶⠀\n"
-                    "        ⠀⠀⠈⠉⠉⠉⠀⠀⠀⠀⠀⠀⠀⠉⠉⠉⠉⠀⠀⠀⠀⠀⠉⠉⠉⠉⠀⠀⠀⠀\n"
+                    "⠀⠀⠀⠈⠉⠛⢷⣦⡀⠀⣀⣠⣤⠤⠄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀\n"
+                    "⠀⠀⠀⠀⠀⠀⣀⣻⣿⣿⣿⣋⣀⡀⠀⠀⢀⣠⣤⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀\n"
+                    "⠀⠀⠀⣠⠾⠛⠛⢻⣿⣿⣿⠟⠛⠛⠓⠢⠀⠀⠉⢿⣿⣆⣀⣠⣤⣀⣀⠀⠀⠀\n"
+                    "⠀⠀⠘⠁⠀⠀⣰⡿⠛⠿⠿⣧⡀⠀⠀⢀⣤⣤⣤⣼⣿⣿⣿⡿⠟⠋⠉⠉⠀⠀\n"
+                    "⠀⠀⠀⠀⠀⠠⠋⠀⠀⠀⠀⠘⣷⡀⠀⠀⠀⠀⠹⣿⣿⣿⠟⠻⢶⣄⠀⠀⠀⠀\n"
+                    "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣧⠀⠀⠀⠀⢠⡿⠁⠀⠀⠀⠀⠈⠀⠀⠀⠀\n"
+                    "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢿⡄⠀⠀⢠⡟⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀\n"
+                    "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⡇⠀⠀⣾⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀\n"
+                    "⠀⣤⣤⣤⣤⣤⣤⡤⠄⠀⠀⣀⡀⢸⡇⢠⣤⣁⣀⠀⠀⠠⢤⣤⣤⣤⣤⣤⣤⠀\n"
+                    "⠀⠀⠀⠀⠀⠀⣀⣤⣶⣾⣿⣿⣷⣤⣤⣾⣿⣿⣿⣿⣷⣶⣤⣀⠀⠀⠀⠀⠀⠀\n"
+                    "⠀⠀⠀⣠⣴⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣦⣄⠀⠀⠀\n"
+                    "⠀⠀⠼⠿⣿⣿⠿⠛⠉⠉⠉⠙⠛⠿⣿⣿⠿⠛⠛⠛⠛⠿⢿⣿⣿⠿⠿⠇⠀⠀\n"
+                    "⠀⢶⣤⣀⣀⣠⣴⠶⠛⠋⠙⠻⣦⣄⣀⣀⣠⣤⣴⠶⠶⣦⣄⣀⣀⣠⣤⣤⡶⠀\n"
+                    "⠀⠀⠈⠉⠉⠉⠀⠀⠀⠀⠀⠀⠀⠉⠉⠉⠉⠀⠀⠀⠀⠀⠉⠉⠉⠉⠀⠀⠀⠀\n"
                 )
 
         # Split the full world communicator into (multi rank) workers.
@@ -147,9 +146,11 @@ class Islands:
             worker_sub_comm = MPI.COMM_SELF
 
         # Create the Propulate world communicator, consisting of rank 0 of each worker's sub communicator.
+        log.debug("setting up world comm")
         worker_root_ranks = [rank for rank in list(range(full_world_size)) if rank % ranks_per_worker == 0]
         propulate_world_group = MPI.COMM_WORLD.group.Incl(worker_root_ranks)
         propulate_world_comm = MPI.COMM_WORLD.Create_group(propulate_world_group)
+        log.debug("set up world comm")
 
         # Make sure that the Propulate world communicator is only defined on rank 0 of each worker's sub communicator.
         # Only those ranks are involved in the actual Propulate optimization logic and need to know about the related
@@ -231,7 +232,9 @@ class Islands:
             emigration_propagator = None  # type: ignore
             immigration_propagator = None  # type: ignore
 
+        log.debug("Waiting for all propulate workers to set up propulator...")
         MPI.COMM_WORLD.barrier()
+        log.debug("Done.")
         # Set up one Propulator for each island.
         if pollination is False:
             if full_world_rank == 0:
@@ -250,7 +253,7 @@ class Islands:
                 migration_prob=migration_prob_rank,
                 emigration_propagator=emigration_propagator,
                 island_displs=island_displs,
-                island_counts=island_sizes,
+                island_sizes=island_sizes,
                 surrogate_factory=surrogate_factory,
             )
         else:
@@ -271,11 +274,12 @@ class Islands:
                 emigration_propagator=emigration_propagator,
                 immigration_propagator=immigration_propagator,
                 island_displs=island_displs,
-                island_counts=island_sizes,
+                island_sizes=island_sizes,
                 surrogate_factory=surrogate_factory,
             )
+        log.debug("set up island propulator")
 
-    def propulate(self, logging_interval: int = 10, debug: int = 1) -> None:
+    def propulate(self, logging_interval: int = 10) -> None:
         """
         Run Propulate optimization.
 
@@ -285,28 +289,5 @@ class Islands:
             The logging interval.
         debug : int
             The debug level.
-
-        Returns
-        -------
-        List[List[propulate.population.Individual] | propulate.population.Individual]
-            The top-n best individuals on each island.
         """
-        self.propulator.propulate(logging_interval, debug)
-
-    def summarize(self, top_n: int = 3, debug: int = 1) -> Union[List[Union[List[Individual], Individual]], None]:
-        """
-        Summarize optimization results.
-
-        Parameters
-        ----------
-        top_n : int
-            The number of best results to report. Default is 3.
-        debug : int
-            The debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode). Default is 1.
-
-        Returns
-        -------
-        List[List[propulate.population.Individual] | propulate.population.Individual]
-            The top-n best individuals on each island.
-        """
-        return self.propulator.summarize(top_n, debug)
+        self.propulator.propulate(logging_interval)

@@ -291,6 +291,7 @@ class StaticSurrogate(Surrogate):
             self.first_run = False
             return
 
+        # TODO test if this is the right way around
         # Merged run's final loss is better than baseline.
         if self.baseline[-1] < data[-1]:
             self.baseline = data.copy()
