@@ -18,7 +18,6 @@ import numpy as np
 log = logging.getLogger(__name__)  # Get logger instance.
 
 
-# TODO should the propagators know ranks so they can set them at Individual init?
 class Individual:
     """An individual represents a candidate solution to the considered optimization problem."""
 

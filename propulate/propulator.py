@@ -1,6 +1,7 @@
 import copy
 import inspect
 import logging
+import math
 import os
 import random
 import time
@@ -196,7 +197,6 @@ class Propulator:
 
     def load_checkpoint(self) -> None:
         """Load checkpoint from HDF5 file. Since this is only a read, all workers can do this in read-only mode without the mpio driver."""
-        # TODO get the started but not yet completed ones from the difference in start time and evaltime
         log.info(f"Loading checkpoint from {self.checkpoint_path}.")
 
         with h5py.File(self.checkpoint_path, "r", driver=None) as f:
@@ -233,7 +233,7 @@ class Propulator:
                             ind.evalperiod = islandgroup[f"{island_rank}"]["evalperiod"][generation]
                             ind.generation = generation
                             ind.prop_rank = prop_rank
-                            if np.isnan(ind.loss):
+                            if math.isnan(ind.loss):
                                 ind.active = 0
                             self.population[(i, island_rank, generation)] = ind
 
@@ -405,7 +405,6 @@ class Propulator:
         if self.surrogate is not None:
             self.surrogate.start_run(ind)
 
-        # TODO check whenever the loss_fn is called, that it returns not NaN, infinities are allowed
         # Check if ``loss_fn`` is generator, prerequisite for surrogate model.
         if inspect.isgeneratorfunction(self.loss_fn):
 
@@ -413,10 +412,12 @@ class Propulator:
                 if self.worker_sub_comm != MPI.COMM_SELF:
                     # NOTE mypy complains here. no idea why
                     for x in self.loss_fn(individual, self.worker_sub_comm):  # type: ignore
+                        assert not math.isnan(x)
                         yield x
                 else:
                     # NOTE mypy complains here. no idea why
                     for x in self.loss_fn(individual):  # type: ignore
+                        assert not math.isnan(x)
                         yield x
 
             last = float("inf")
@@ -443,6 +444,7 @@ class Propulator:
                     return self.loss_fn(individual)  # type: ignore
 
             ind.loss = float(loss_fn(ind))  # Evaluate its loss.
+            assert not math.isnan(ind.loss)
 
         # Add final value to surrogate.
         if self.surrogate is not None:
@@ -575,7 +577,6 @@ class Propulator:
         group["evaltime"][ckpt_idx] = ind.evaltime
         group["evalperiod"][ckpt_idx] = ind.evalperiod
         group["active_on_island"][ckpt_idx, self.island_idx] = 1
-        # TODO fix evalperiod for resumed from checkpoint individuals
 
         group["loss"][ckpt_idx] = ind.loss
 
@@ -640,7 +641,6 @@ class Propulator:
         ValueError
             If any individuals are left that should have been deactivated before (only for debug > 0).
         """
-        # TODO refactor timing
         self.start_time = time.time_ns()
         if self.worker_sub_comm != MPI.COMM_SELF:
             self.generation = self.worker_sub_comm.bcast(self.generation, root=0)
@@ -648,7 +648,6 @@ class Propulator:
         if self.propulate_comm is None:
             while self.generation < self.generations:
                 # Breed and evaluate individual.
-                # TODO this should be refactored, the subworkers don't need the logfile
                 ind = self._breed()
                 self._evaluate_individual(ind)
                 self.generation += 1
@@ -661,7 +660,6 @@ class Propulator:
         # NOTE there is an implicit barrier when closing the file in parallel mode
         with h5py.File(self.checkpoint_path, "a", driver="mpio", comm=self.propulate_comm) as f:
             # NOTE check if there is an individual still to evaluate
-            # TODO how do we save the surrogate model?
             current_idx = (
                 self.island_idx,
                 self.island_comm.rank,
@@ -669,7 +667,7 @@ class Propulator:
             )
             if current_idx in self.population:
                 ind = self.population[current_idx]
-                if np.isnan(ind.loss):
+                if math.isnan(ind.loss):
                     log.info(f"Continuing evaluation of individual {current_idx} loaded from checkpoint.")
                     self._evaluate_individual(ind)
                     self._post_eval_checkpoint(ind, f)

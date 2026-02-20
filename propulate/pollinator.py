@@ -202,7 +202,6 @@ class Pollinator(Propulator):
                 log_string += f"Received {len(immigrants)} immigrant(s) from global worker {stat.Get_source()}: {immigrants}\n"
 
                 replace_num = 0
-                # TODO only send pollen to islands you have not sent them before
                 # Add immigrants to own population.
                 for immigrant in immigrants:
                     if (immigrant.island, immigrant.island_rank, immigrant.generation) not in self.population:
@@ -311,19 +310,13 @@ class Pollinator(Propulator):
         debug : int, optional
             The debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode). Default is 1.
         """
-        # TODO setting start_time in function that is overwritten is probably not great
         self.start_time = time.time_ns()
         if self.worker_sub_comm != MPI.COMM_SELF:
             self.generation = self.worker_sub_comm.bcast(self.generation, root=0)
         if self.propulate_comm is None:
             while self.generations <= -1 or self.generation < self.generations:
                 # Breed and evaluate individual.
-                # TODO this should be refactored, the subworkers don't need the logfile
-                # TODO see migrator
-                # self._evaluate_individual(None)
-                # self._sub_rank_evaluate_individual()
                 ind = self._breed()
-                log.debug(ind)
                 self._evaluate_individual(ind)
                 self.generation += 1
             return
@@ -332,10 +325,8 @@ class Pollinator(Propulator):
             log.info(f"Island {self.island_idx} has {self.island_comm.size} workers with {self.worker_sub_comm.size} ranks each.")
 
         # Loop over generations.
-        # TODO this should probably be refactored, checkpointing can probably be handled in one place
         with h5py.File(self.checkpoint_path, "a", driver="mpio", comm=self.propulate_comm) as f:
             # NOTE check if there is an individual still to evaluate
-            # TODO how do we save the surrogate model?
             current_idx = (
                 self.island_idx,
                 self.island_comm.rank,

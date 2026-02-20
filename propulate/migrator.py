@@ -166,11 +166,9 @@ class Migrator(Propulator):
                 log_string += f"Chose {len(emigrants)} emigrant(s): {emigrants}\n"
 
                 # Deactivate emigrants on sending island (true migration).
-                # TODO update migration synch
                 for r in range(self.island_comm.size):  # Send emigrants to other intra-island workers for deactivation.
                     if r == self.island_comm.rank:
                         continue  # No self-talk.
-                    # TODO isend
                     self.island_comm.send(copy.deepcopy(emigrants), dest=r, tag=SYNCHRONIZATION_TAG)
                     log_string += f"Sent {len(emigrants)} individual(s) {emigrants} to intra-island worker {r} to deactivate.\n"
 
@@ -355,8 +353,6 @@ class Migrator(Propulator):
         ValueError
             If any individuals are left that should have been deactivated before (only for debug > 0).
         """
-        # TODO setting start_time in function that is overwritten is probably not great
-        # TODO refactor the propulate method
         self.start_time = time.time_ns()
         if self.worker_sub_comm != MPI.COMM_SELF:
             log.debug("broadcasting generation to all ranks in worker")
@@ -366,8 +362,6 @@ class Migrator(Propulator):
         if self.propulate_comm is None:
             while self.generation < self.generations:
                 # Breed and evaluate individual.
-                # TODO this should be refactored, the subworkers don't need the logfile
-                # self._sub_rank_evaluate_individual()
                 ind = self._breed()
                 log.debug(ind)
                 self._evaluate_individual(ind)
@@ -377,11 +371,9 @@ class Migrator(Propulator):
         if self.island_comm.rank == 0:
             log.info(f"Island {self.island_idx} has {self.island_comm.size} workers with {self.worker_sub_comm.size} ranks each.")
 
-        # TODO this should probably be refactored, checkpointing can probably be handled in one place
         with h5py.File(self.checkpoint_path, "a", driver="mpio", comm=self.propulate_comm) as f:
             log.debug("opened checkpoint file in migrator.propulate")
             # NOTE check if there is an individual still to evaluate
-            # TODO how do we save the surrogate model?
             current_idx = (
                 self.island_idx,
                 self.island_comm.rank,
