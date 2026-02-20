@@ -42,7 +42,7 @@ class Propulator:
         The overall number of generations.
     island_comm : MPI.Comm
         The intra-island communicator for communication within the island.
-    island_counts : numpy.ndarray
+    island_sizes : numpy.ndarray
         The numbers of workers for each island.
     island_displs : numpy.ndarray
         The island displacements.
@@ -91,7 +91,7 @@ class Propulator:
         emigration_propagator: Type[Propagator] = SelectMin,
         immigration_propagator: Optional[Type[Propagator]] = None,
         island_displs: Optional[np.ndarray] = None,
-        island_counts: Optional[np.ndarray] = None,
+        island_sizes: Optional[np.ndarray] = None,
         surrogate_factory: Optional[Callable[[], Surrogate]] = None,
     ) -> None:
         """
@@ -132,7 +132,7 @@ class Propulator:
         island_displs : numpy.ndarray, optional
             An array with ``propulate_comm`` rank of each island's worker 0. Element i specifies the rank of worker 0 on
             island with index i in the Propulate communicator.
-        island_counts : numpy.ndarray, optional
+        island_sizes : numpy.ndarray, optional
             An array with the number of workers per island. Element i specifies the number of workers on island with
             index i.
         surrogate_factory : Callable[[], propulate.surrogate.Surrogate], optional
@@ -166,10 +166,10 @@ class Propulator:
         self.migration_prob = migration_prob  # Per-rank migration probability
         self.migration_topology = migration_topology  # Migration topology
         self.island_displs = island_displs  # Propulate world rank of each island's worker
-        if island_counts is None:
-            self.island_counts = np.array([self.island_comm.Get_size()])
+        if island_sizes is None:
+            self.island_sizes = np.array([self.island_comm.Get_size()])
         else:
-            self.island_counts = island_counts  # Number of workers on each island
+            self.island_sizes = island_sizes  # Number of workers on each island
         self.emigration_propagator = emigration_propagator  # Emigration propagator
         self.immigration_propagator = immigration_propagator  # Immigration propagator
         self.rng = rng  # Generator for inter-island communication
@@ -210,23 +210,23 @@ class Propulator:
             self.generation = int(f["generations"][self.propulate_comm.Get_rank()])
 
             # NOTE load individuals, since they might have migrated, every worker has to check each dataset
-            num_islands = len(self.island_counts)
+            num_islands = len(self.island_sizes)
             for i in range(num_islands):
                 islandgroup = f[f"{i}"]
-                for island_rank in range(self.island_counts[i]):
-                    prop_rank = island_rank + np.cumsum(np.concatenate((np.array([0]), self.island_counts)))[i]
+                for island_rank in range(self.island_sizes[i]):
+                    prop_rank = island_rank + np.cumsum(np.concatenate((np.array([0]), self.island_sizes)))[i]
                     for generation in range(f["generations"][prop_rank] + 1):
                         if islandgroup[f"{island_rank}"]["active_on_island"][generation][self.island_idx]:
                             ind = Individual(
-                                islandgroup[f"{island_rank}"]["x"][generation, 0],
+                                islandgroup[f"{island_rank}"]["position"][generation, 0],
                                 self.propagator.limits,
                             )
                             ind.island_rank = island_rank
                             ind.island = self.island_idx
-                            ind.current = islandgroup[f"{island_rank}"]["current"][generation]
+                            ind.migrator_island_rank = islandgroup[f"{island_rank}"]["migrator_island_rank"][generation]
                             # TODO velocity loading
                             # if len(group[f"{island_rank}"].shape) > 1:
-                            #     ind.velocity = islandgroup[f"{island_rank}"]["x"][generation, 1]
+                            #     ind.velocity = islandgroup[f"{island_rank}"]["position"][generation, 1]
                             ind.loss = islandgroup[f"{island_rank}"]["loss"][generation]
                             # ind.startime = islandgroup[f"{island_rank}"]["starttime"][generation]
                             ind.evaltime = islandgroup[f"{island_rank}"]["evaltime"][generation]
@@ -247,7 +247,7 @@ class Propulator:
             else:
                 limit_dim += 1
 
-        num_islands = len(self.island_counts)
+        num_islands = len(self.island_sizes)
 
         log.debug("Opening checkpoint file")
         with h5py.File(self.checkpoint_path, "a", driver="mpio", comm=self.propulate_comm) as f:
@@ -266,9 +266,8 @@ class Propulator:
 
             oldgenerations = self.generations
             if "0" in f:
-                oldgenerations = f["0"]["0"]["x"].shape[0]
+                oldgenerations = f["0"]["0"]["position"].shape[0]
             # Store per worker what generation they are at, since islands can be different sizes, it's flat
-            # TODO change to per island?
             f.require_dataset(
                 "generations",
                 (self.propulate_comm.Get_size(),),
@@ -280,22 +279,21 @@ class Propulator:
             log.debug("resizing datasets")
             for i in range(num_islands):
                 f.require_group(f"{i}")
-                for worker_idx in range(self.island_counts[i]):
+                for worker_idx in range(self.island_sizes[i]):
                     group = f[f"{i}"].require_group(f"{worker_idx}")
                     if oldgenerations < self.generations:
-                        group["x"].resize(self.generations, axis=0)
+                        group["position"].resize(self.generations, axis=0)
                         group["loss"].resize(self.generations, axis=0)
-                        group["current"].resize(self.generations, axis=0)
+                        group["migrator_island_rank"].resize(self.generations, axis=0)
                         group["starttime"].resize(self.generations, axis=0)
                         group["evaltime"].resize(self.generations, axis=0)
                         group["evalperiod"].resize(self.generations, axis=0)
                         group["active_on_island"].resize(self.generations, axis=0)
                         if xdim == 2:
-                            group["x"].resize(xdim, axis=1)
+                            group["position"].resize(xdim, axis=1)
 
-                    # TODO rename; position? separate velocity?
                     group.require_dataset(
-                        "x",
+                        "position",
                         (self.generations, xdim, limit_dim),
                         dtype=np.float32,
                         chunks=True,
@@ -317,7 +315,7 @@ class Propulator:
                         fillvalue=np.nan,
                     )
                     group.require_dataset(
-                        "current",
+                        "migrator_island_rank",
                         (self.generations,),
                         np.int16,
                         chunks=True,
@@ -390,7 +388,7 @@ class Propulator:
             ind.prop_rank = self.propulate_comm.rank
             ind.active = 1  # If True, individual is active for breeding.
             ind.island = self.island_idx  # Set birth island.
-            ind.current = self.island_comm.rank  # Set worker responsible for migration.
+            ind.migrator_island_rank = self.island_comm.rank  # Set worker responsible for migration.
         else:  # The other processes do not breed themselves.
             ind = None
 
@@ -413,11 +411,11 @@ class Propulator:
 
             def loss_gen(individual: Individual) -> Generator[float, None, None]:
                 if self.worker_sub_comm != MPI.COMM_SELF:
-                    # TODO mypy complains here. no idea why
+                    # NOTE mypy complains here. no idea why
                     for x in self.loss_fn(individual, self.worker_sub_comm):  # type: ignore
                         yield x
                 else:
-                    # TODO mypy complains here. no idea why
+                    # NOTE mypy complains here. no idea why
                     for x in self.loss_fn(individual):  # type: ignore
                         yield x
 
@@ -552,11 +550,11 @@ class Propulator:
 
         group = f[f"{self.island_idx}"][f"{self.island_comm.Get_rank()}"]
         # save candidate
-        group["x"][ckpt_idx, 0, :] = ind.position[:]
+        group["position"][ckpt_idx, 0, :] = ind.position[:]
         if ind.velocity is not None:
-            group["x"][ckpt_idx, 1, :] = ind.velocity[:]
+            group["position"][ckpt_idx, 1, :] = ind.velocity[:]
         group["starttime"][ckpt_idx] = start_time
-        group["current"][ckpt_idx] = ind.current
+        group["migrator_island_rank"][ckpt_idx] = ind.migrator_island_rank
 
     def _post_eval_checkpoint(self, ind: Individual, f: h5py.File) -> None:
         """

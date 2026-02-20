@@ -253,7 +253,7 @@ class Islands:
                 migration_prob=migration_prob_rank,
                 emigration_propagator=emigration_propagator,
                 island_displs=island_displs,
-                island_counts=island_sizes,  # TODO consolidate naming
+                island_sizes=island_sizes,
                 surrogate_factory=surrogate_factory,
             )
         else:
@@ -274,7 +274,7 @@ class Islands:
                 emigration_propagator=emigration_propagator,
                 immigration_propagator=immigration_propagator,
                 island_displs=island_displs,
-                island_counts=island_sizes,
+                island_sizes=island_sizes,
                 surrogate_factory=surrogate_factory,
             )
         log.debug("set up island propulator")

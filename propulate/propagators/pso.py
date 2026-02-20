@@ -7,7 +7,6 @@ from ..population import Individual
 from ..propagators import Propagator, Stochastic
 
 
-# TODO setting the ranks manually is a potential source of errors for multi rank workers
 class BasicPSO(Propagator):
     """
     This propagator implements the most basic PSO variant one possibly could think of.

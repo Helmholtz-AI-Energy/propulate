@@ -71,7 +71,6 @@ class Propagator:
         if rng is None:
             rng = random.Random()
         self.rng = rng  # Random number generator
-        # TODO
         self.limits: Mapping[str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]] = dict()
 
     def __call__(self, inds: List[Individual]) -> Union[List[Individual], Individual]:

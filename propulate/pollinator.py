@@ -63,7 +63,7 @@ class Pollinator(Propulator):
         emigration_propagator: Type[Propagator] = SelectMin,
         immigration_propagator: Type[Propagator] = SelectMax,
         island_displs: Optional[np.ndarray] = None,
-        island_counts: Optional[np.ndarray] = None,
+        island_sizes: Optional[np.ndarray] = None,
         surrogate_factory: Optional[Callable[[], Surrogate]] = None,
     ) -> None:
         """
@@ -103,7 +103,7 @@ class Pollinator(Propulator):
         island_displs : numpy.ndarray, optional
             An array with ``propulate_comm`` rank of each island's worker 0. Element i specifies the rank of worker 0 on
             island with index i in the Propulate communicator.
-        island_counts : numpy.ndarray, optional
+        island_sizes : numpy.ndarray, optional
             An array with the number of workers per island. Element i specifies the number of workers on island i.
         surrogate_factory : Callable[[], propulate.surrogate.Surrogate], optional
            Function that returns a new instance of a ``Surrogate`` model.
@@ -124,7 +124,7 @@ class Pollinator(Propulator):
             emigration_propagator=emigration_propagator,
             immigration_propagator=immigration_propagator,
             island_displs=island_displs,
-            island_counts=island_counts,
+            island_sizes=island_sizes,
             surrogate_factory=surrogate_factory,
         )
         self.replaced: List[Individual] = []  # Individuals to be replaced by immigrants
@@ -151,9 +151,9 @@ class Pollinator(Propulator):
                     continue
                 # Determine ranks of workers on target island in the Propulate world communicator.
                 assert self.island_displs is not None
-                assert self.island_counts is not None
+                assert self.island_sizes is not None
                 displ = self.island_displs[target_island]
-                count = self.island_counts[target_island]
+                count = self.island_sizes[target_island]
                 dest_island = np.arange(displ, displ + count)
 
                 # Worker in principle sends *different* individuals to each target island,
@@ -170,7 +170,7 @@ class Pollinator(Propulator):
                 # Determine new responsible worker on target island.
                 for ind in departing:
                     assert isinstance(ind, Individual)
-                    ind.current = self.rng.randrange(0, count)
+                    ind.migrator_island_rank = self.rng.randrange(0, count)
                 for r in dest_island:  # Loop through Propulate world destination ranks.
                     self.propulate_comm.send(copy.deepcopy(departing), dest=r, tag=MIGRATION_TAG)
                     log_string += (
@@ -215,7 +215,7 @@ class Pollinator(Propulator):
                             immigrant.generation, self.island_idx
                         ] = 1
 
-                        if self.island_comm.rank == immigrant.current:
+                        if self.island_comm.rank == immigrant.migrator_island_rank:
                             replace_num += 1
                         log_string += f"Responsible for choosing {replace_num} individual(s) to be replaced by immigrants.\n"
                     else:
@@ -226,7 +226,9 @@ class Pollinator(Propulator):
                 if replace_num > 0:
                     # From current population, choose `replace_num` individuals to be replaced.
                     eligible_for_replacement = [
-                        ind for ind in self.population.values() if ind.active > 0 and ind.current == self.island_comm.rank
+                        ind
+                        for ind in self.population.values()
+                        if ind.active > 0 and ind.migrator_island_rank == self.island_comm.rank
                     ]
 
                     assert self.immigration_propagator is not None
@@ -317,7 +319,6 @@ class Pollinator(Propulator):
             while self.generations <= -1 or self.generation < self.generations:
                 # Breed and evaluate individual.
                 # TODO this should be refactored, the subworkers don't need the logfile
-                # TODO this needs to be addressed before merge, since multirank workers should fail with this
                 # TODO see migrator
                 # self._evaluate_individual(None)
                 # self._sub_rank_evaluate_individual()
@@ -332,10 +333,8 @@ class Pollinator(Propulator):
 
         # Loop over generations.
         # TODO this should probably be refactored, checkpointing can probably be handled in one place
-        # TODO does not work for multi rank workers
         with h5py.File(self.checkpoint_path, "a", driver="mpio", comm=self.propulate_comm) as f:
             # NOTE check if there is an individual still to evaluate
-            # TODO for now we write a loss to the checkpoint only if the evaluation has completed
             # TODO how do we save the surrogate model?
             current_idx = (
                 self.island_idx,
@@ -378,7 +377,6 @@ class Pollinator(Propulator):
                         self._send_emigrants()
 
                     # Immigration: Island checks for incoming individuals from other islands.
-                    # TODO this should probably update the checkpoint so it needs to pass the handle
                     self._receive_immigrants(f)
 
                     # Immigration: Check for individuals replaced by other intra-island workers to be deactivated.

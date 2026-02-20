@@ -57,11 +57,10 @@ class Migrator(Propulator):
         checkpoint_path: Union[str, Path] = Path("./"),
         migration_topology: Optional[np.ndarray] = None,
         migration_prob: float = 0.0,
-        # TODO call tis a class, also in other propulators
         emigration_propagator: Type[Propagator] = SelectMin,
         immigration_propagator: Optional[Type[Propagator]] = None,
         island_displs: Optional[np.ndarray] = None,
-        island_counts: Optional[np.ndarray] = None,
+        island_sizes: Optional[np.ndarray] = None,
         surrogate_factory: Optional[Callable[[], Surrogate]] = None,
     ) -> None:
         """
@@ -102,7 +101,7 @@ class Migrator(Propulator):
         island_displs : numpy.ndarray, optional
             An array with ``propulate_comm`` rank of each island's worker 0. Element i specifies the rank of worker 0 on
             island with index i in the Propulate communicator.
-        island_counts : numpy.ndarray, optional
+        island_sizes : numpy.ndarray, optional
             An array with the number of workers per island. Element i specifies the number of workers on island i.
         surrogate_factory : Callable[[], propulate.surrogate.Surrogate], optional
            Function that returns a new instance of a ``Surrogate`` model.
@@ -123,7 +122,7 @@ class Migrator(Propulator):
             emigration_propagator=emigration_propagator,
             immigration_propagator=immigration_propagator,
             island_displs=island_displs,
-            island_counts=island_counts,
+            island_sizes=island_sizes,
             surrogate_factory=surrogate_factory,
         )
         # Set class attributes.
@@ -137,7 +136,9 @@ class Migrator(Propulator):
         assert self.migration_topology is not None
         to_migrate = self.migration_topology[self.island_idx, :]
         num_emigrants = np.sum(to_migrate, dtype=int).item()  # Determine overall number of emigrants to be sent out.
-        eligible_emigrants = [ind for ind in self.population.values() if ind.active > 0 and ind.current == self.island_comm.rank]
+        eligible_emigrants = [
+            ind for ind in self.population.values() if ind.active > 0 and ind.migrator_island_rank == self.island_comm.rank
+        ]
 
         # Only perform migration if overall number of emigrants to be sent
         # out is smaller than current number of eligible potential emigrants.
@@ -154,9 +155,9 @@ class Migrator(Propulator):
                     continue
                 # Determine self.propulate_comm ranks of workers on target island.
                 assert self.island_displs is not None
-                assert self.island_counts is not None
+                assert self.island_sizes is not None
                 displ = self.island_displs[target_island]
-                count = self.island_counts[target_island]
+                count = self.island_sizes[target_island]
                 dest_island_workers = np.arange(displ, displ + count)
 
                 # Worker sends *different* individuals to each target island.
@@ -181,7 +182,7 @@ class Migrator(Propulator):
                     hdf5_checkpoint[f"{ind.island}"][f"{ind.island_rank}"]["active_on_island"][ind.generation, self.island_idx] = 0
 
                     # NOTE Determine new responsible worker on target island.
-                    ind.current = self.rng.randrange(0, count)
+                    ind.migrator_island_rank = self.rng.randrange(0, count)
                     # NOTE activate on target island in checkpoint
                     # NOTE this happens here, so that if the message does not arrive, individuals are still loaded on an island from the checkpoint
                     hdf5_checkpoint[f"{ind.island}"][f"{ind.island_rank}"]["active_on_island"][ind.generation, target_island] = 1
@@ -197,7 +198,6 @@ class Migrator(Propulator):
                     )
 
                 # Deactivate emigrants for sending worker.
-                # TODO something is going wrong, sometimes an ind is sent twice
                 for emigrant in emigrants:
                     assert isinstance(emigrant, Individual)
                     # Look for emigrant to deactivate in original population list.
@@ -290,7 +290,7 @@ class Migrator(Propulator):
                     f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: "
                     f"Currently in population: {existing_ind}\nEquivalence check: {existing_ind[0] == emigrant} "
                     f"{compare_traits} {existing_ind[0].loss == self.emigrated[idx].loss} "
-                    f"{existing_ind[0].active == emigrant.active} {existing_ind[0].current == emigrant.current} "
+                    f"{existing_ind[0].active == emigrant.active} {existing_ind[0].migrator_island_rank == emigrant.migrator_island_rank} "
                     f"{existing_ind[0].island == emigrant.island} "
                 )
                 break
@@ -367,7 +367,6 @@ class Migrator(Propulator):
             while self.generation < self.generations:
                 # Breed and evaluate individual.
                 # TODO this should be refactored, the subworkers don't need the logfile
-                # TODO this needs to be addressed before merge, since multirank workers should fail with this
                 # self._sub_rank_evaluate_individual()
                 ind = self._breed()
                 log.debug(ind)
@@ -379,11 +378,9 @@ class Migrator(Propulator):
             log.info(f"Island {self.island_idx} has {self.island_comm.size} workers with {self.worker_sub_comm.size} ranks each.")
 
         # TODO this should probably be refactored, checkpointing can probably be handled in one place
-        # TODO does not work for multi rank workers
         with h5py.File(self.checkpoint_path, "a", driver="mpio", comm=self.propulate_comm) as f:
             log.debug("opened checkpoint file in migrator.propulate")
             # NOTE check if there is an individual still to evaluate
-            # TODO for now we write a loss to the checkpoint only if the evaluation has completed
             # TODO how do we save the surrogate model?
             current_idx = (
                 self.island_idx,

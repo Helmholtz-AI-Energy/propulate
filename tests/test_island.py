@@ -41,8 +41,6 @@ def pollination(request: pytest.FixtureRequest) -> bool:
     return request.param
 
 
-# TODO fix stall on second test starting issue
-# TODO fix occasional duplicate immigrant on final sync
 @pytest.mark.mpi(min_size=4)
 def test_islands_simple(
     global_variables: Tuple[random.Random, Callable, Dict[str, Tuple[float, float]], Propagator],
@@ -148,7 +146,6 @@ def test_islands_checkpointing_isolated(
     MPI.COMM_WORLD.barrier()
 
 
-# TODO test, that there are no clones in the population
 @pytest.mark.mpi(min_size=4)
 def test_islands_checkpointing(
     global_variables: Tuple[random.Random, Callable, Dict[str, Tuple[float, float]], Propagator],
@@ -329,7 +326,6 @@ def test_islands_checkpointing_incomplete_isolated(
     workers_last_finished = {2, 5}
     workers_last_finished_island = {0: {2}, 1: {2}}
     # NOTE this is the index of the last started generation
-    # TODO add check for when there is no started generation for some reason, should probably warn
     started_first_generations = np.array(
         [
             2,
@@ -413,7 +409,6 @@ def test_islands_checkpointing_incomplete_isolated(
     assert count > 0
 
     # NOTE check only evaluated individuals are in active breeding population
-    # TODO less convoluted way to check this
     assert len(islands.propulator._get_active_individuals()) == len(
         [ind for ind in islands.propulator._get_active_individuals() if not np.isnan(ind.loss)]
     )

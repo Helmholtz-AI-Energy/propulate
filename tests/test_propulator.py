@@ -236,6 +236,5 @@ def test_propulator_checkpointing_incomplete(mpi_tmp_path: pathlib.Path) -> None
                 count += 1
                 assert old_population[pop_key].position == pytest.approx(propulator.population[pop_key].position)
     assert count > 0
-    # TODO check the worker that got finished
 
     log.handlers.clear()
