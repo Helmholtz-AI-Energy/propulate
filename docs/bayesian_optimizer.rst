@@ -26,11 +26,11 @@ Current Support in Propulate
 Implemented in the current code base:
 
 - ``BayesianOptimizer`` propagator with a Gaussian Process surrogate via scikit-learn on CPU (``SingleCPUFitter``).
-- Acquisition functions ``EI``, ``PI``, and ``UCB`` (API name ``UCB``, implemented in minimization form as
-  :math:`\mu - \kappa \sigma`).
+- Acquisition functions ``EI``, ``PI``, ``UCB`` (API name ``UCB``, implemented in minimization form as
+  :math:`\mu - \kappa \sigma`), and ``TS`` (Thompson Sampling).
 - Mixed-type search spaces (float, int, categorical) via continuous relaxation and projection.
 - Initial design strategies ``sobol`` (default), ``lhs``, and ``random``.
-- Rank stretching for per-rank acquisition-parameter diversity.
+- Rank stretching for per-rank acquisition-parameter diversity (EI/PI/UCB only; TS diversifies naturally).
 - Sparse subsampling for large training sets.
 
 Currently not supported:
@@ -93,6 +93,25 @@ where :math:`K_{ij} = k(\mathbf{x}_i, \mathbf{x}_j)` and :math:`\mathbf{k}(\math
   ``Propulate`` keeps the legacy name ``UCB`` in the API, but minimizes the
   above lower-confidence expression directly.
 
+- *Thompson Sampling (TS):* Instead of optimizing a deterministic acquisition scalar, TS
+  draws one *sample function* :math:`\tilde{f}` from the GP joint posterior over a candidate
+  set :math:`\mathbf{X}_{\text{cand}} \in \mathbb{R}^{n \times d}` and returns the candidate
+  with the lowest sampled value:
+
+  .. math::
+
+     \tilde{\mathbf{f}} \sim \mathcal{N}\!\left(\boldsymbol{\mu}_{\text{cand}},\; \Sigma_{\text{cand}} + \varepsilon I\right), \qquad
+     \mathbf{x}_{\text{new}} = \mathbf{x}_{\text{cand},\,\arg\min_i \tilde{f}_i},
+
+  where :math:`\boldsymbol{\mu}_{\text{cand}}` and :math:`\Sigma_{\text{cand}}` are the GP
+  posterior mean vector and joint covariance matrix over the candidates, and
+  :math:`\varepsilon = 10^{-6}` is a small jitter for numerical PSD stability.
+
+  Unlike EI/PI/UCB, TS has **no exploration hyperparameters** to tune.
+  In Propulate's parallel setting, each MPI rank independently draws its own sample
+  function from the same GP posterior, producing naturally diverse proposals without
+  rank stretching.
+
 **3. Acquisition Optimization**
 
 Propulate separates the *acquisition* from its *optimizer*. Any routine that finds a low value of the acquisition
@@ -105,7 +124,25 @@ Propulate separates the *acquisition* from its *optimizer*. Any routine that fin
 - *SingleGPUFitter:* API placeholder; currently not implemented.
 - *MultiGPUFitter:* API placeholder; currently not implemented.
 
-**5. Rank Stretching (Diversity Across Ranks)**
+**5. Thompson Sampling vs. Acquisition-Function Methods**
+
++---------------------+----------------------------------------------+---------------------------------------------+
+| Property            | EI / PI / UCB                                | Thompson Sampling (TS)                      |
++=====================+==============================================+=============================================+
+| Parallel diversity  | Requires ``rank_stretch`` tuning             | Natural: each rank draws its own sample     |
++---------------------+----------------------------------------------+---------------------------------------------+
+| Hyperparameters     | :math:`\xi` (EI/PI), :math:`\kappa` (UCB)   | None                                        |
++---------------------+----------------------------------------------+---------------------------------------------+
+| Inner optimization  | Multi-start L-BFGS-B over acquisition        | Pure sample-and-select (no gradients)       |
++---------------------+----------------------------------------------+---------------------------------------------+
+| GP call type        | ``predict(return_std=True)`` per candidate   | ``predict(return_cov=True)`` over all cands |
++---------------------+----------------------------------------------+---------------------------------------------+
+| Mixed-space support | Via ``_project_to_discrete`` post-processing | Same post-processing, no gradient polishing |
++---------------------+----------------------------------------------+---------------------------------------------+
+| Surrogate backend   | Any ``SupportsPredict``                      | ``GaussianProcessRegressor`` only           |
++---------------------+----------------------------------------------+---------------------------------------------+
+
+**6. Rank Stretching (Diversity Across Ranks)**
 
 To encourage heterogeneous exploration, per-rank scaling is applied linearly:
 
@@ -166,7 +203,23 @@ Before optimizing the acquisition each generation, BO may perform random explora
 
 configured via ``p_explore_start``, ``p_explore_end``, and ``p_explore_tau``.
 
-**4. Acquisition Annealing and Switching**
+**4. Thompson Sampling**
+
+Set ``acquisition_type="TS"`` on :class:`BayesianOptimizer`.  No ``acquisition_params`` are
+needed or used.  At each call after the initial design phase, TS:
+
+1. Generates ``n_candidates`` random candidates in the normalized :math:`[0,1]^d` space.
+   The budget is capped at 2 000 to keep the :math:`O(n^3)` Cholesky decomposition tractable.
+2. Computes the joint GP posterior over those candidates (``return_cov=True``).
+3. Draws one multivariate normal sample with a :math:`10^{-6}` diagonal jitter for stability.
+4. Returns the candidate with the minimum sampled value, denormalized and projected to the
+   valid discrete/categorical space.
+
+The ``rank_stretch``, ``anneal_acquisition``, and ``acquisition_params`` settings are silently
+ignored for TS.  The GP fitting, initial design, epsilon-greedy exploration, and sparse
+subsampling phases operate identically to the EI/PI/UCB path.
+
+**5. Acquisition Annealing and Switching**
 
 - If ``anneal_acquisition=True``, acquisition parameters decay as
 
@@ -240,6 +293,116 @@ You can run this script with MPI:
 
    mpirun --use-hwthread-cpus -n 4 python your_bo_script.py
 
+Thompson Sampling Example
+-------------------------
+
+Thompson Sampling requires no exploration hyperparameters.  Each rank draws an independent
+GP posterior sample, so parallel diversity is achieved automatically.
+
+.. code-block:: python
+
+   import random
+   from mpi4py import MPI
+
+   from propulate import Propulator
+   from propulate.propagators.bayesopt import BayesianOptimizer
+
+   def sphere(params):
+       return params["x"] ** 2 + params["y"] ** 2
+
+   comm = MPI.COMM_WORLD
+   rng = random.Random(42 + comm.rank)
+
+   limits = {
+       "x": (-5.12, 5.12),
+       "y": (-5.12, 5.12),
+   }
+
+   propagator = BayesianOptimizer(
+       limits=limits,
+       rank=comm.rank,
+       world_size=comm.size,
+       acquisition_type="TS",   # Thompson Sampling — no xi/kappa needed
+       n_initial=10,
+       initial_design="sobol",
+       rng=rng,
+   )
+
+   propulator = Propulator(
+       loss_fn=sphere,
+       propagator=propagator,
+       rng=rng,
+       island_comm=comm,
+       generations=25,
+       checkpoint_path="./bo_ts_checkpoint",
+   )
+
+   propulator.propulate()
+   propulator.summarize(top_n=3)
+
+Run with:
+
+.. code-block:: console
+
+   mpirun --use-hwthread-cpus -n 4 python your_ts_script.py
+
+In a parallel run, each of the 4 ranks independently samples a different function
+realization from the GP posterior, exploring different regions of the search space
+without any manual parameter tuning for diversity.
+
+Mixed-Type Thompson Sampling Example
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+TS works directly with mixed search spaces.  The sampled continuous position is projected
+back to valid discrete and categorical values via the same :func:`_project_to_discrete`
+step used by EI/PI/UCB.
+
+.. code-block:: python
+
+   import random
+   from mpi4py import MPI
+
+   from propulate import Propulator
+   from propulate.propagators.bayesopt import BayesianOptimizer
+
+   def mixed_objective(params):
+       lr = params["learning_rate"]
+       n_layers = params["n_layers"]
+       activation = params["activation"]
+       act_penalty = {"relu": 0.0, "tanh": 0.1, "sigmoid": 0.2}[activation]
+       return lr * n_layers + act_penalty
+
+   comm = MPI.COMM_WORLD
+   rng = random.Random(7 + comm.rank)
+
+   limits = {
+       "learning_rate": (1e-4, 1e-1),               # float
+       "n_layers": (1, 8),                            # integer range
+       "activation": ("relu", "tanh", "sigmoid"),     # categorical
+   }
+
+   propagator = BayesianOptimizer(
+       limits=limits,
+       rank=comm.rank,
+       world_size=comm.size,
+       acquisition_type="TS",
+       n_initial=15,
+       initial_design="sobol",
+       rng=rng,
+   )
+
+   propulator = Propulator(
+       loss_fn=mixed_objective,
+       propagator=propagator,
+       rng=rng,
+       island_comm=comm,
+       generations=30,
+       checkpoint_path="./bo_ts_mixed_checkpoint",
+   )
+
+   propulator.propulate()
+   propulator.summarize(top_n=3)
+
 Tutorial Example Script
 -----------------------
 
@@ -265,7 +428,8 @@ Advantages
 
 - **Sample-Efficient:** Finds good solutions with few expensive evaluations.
 - **Uncertainty-Aware:** Acquisition explicitly exploits predictive uncertainty.
-- **Parallel-Friendly:** Independent per-rank surrogates plus rank stretching provide diverse exploration.
+- **Parallel-Friendly:** Independent per-rank surrogates plus rank stretching (EI/PI/UCB) or
+  natural posterior sampling diversity (TS) provide heterogeneous exploration.
 - **CPU-Ready Today:** Fully functional with a single-CPU GP fitter; additional fitter backends are scaffolded.
-- **Flexible Acquisitions & Optimizers:** Swap EI/PI/UCB (UCB in implemented LCB form) and choose any inner optimizer
-  for the acquisition.
+- **Flexible Acquisitions & Optimizers:** Swap EI/PI/UCB (UCB in implemented LCB form) or use Thompson Sampling,
+  and choose any inner optimizer for the acquisition (EI/PI/UCB only; TS bypasses it).

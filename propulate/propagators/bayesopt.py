@@ -454,6 +454,7 @@ class AcquisitionType(Enum):
     EI = "EI"
     PI = "PI"
     UCB = "UCB"
+    TS = "TS"
 
 
 def create_acquisition(
@@ -477,6 +478,12 @@ def create_acquisition(
     except ValueError:
         valid = [e.value for e in AcquisitionType]
         raise ValueError(f"Unknown acquisition type '{acq_type}'. Valid types: {valid}")
+
+    if at == AcquisitionType.TS:
+        raise ValueError(
+            "ThompsonSampling does not use the AcquisitionFunction interface. "
+            "Set acquisition_type='TS' on BayesianOptimizer; it is handled internally."
+        )
 
     # only do per-rank stretch if requested
     if rank_stretch and rank is not None and size and size > 1:
@@ -898,7 +905,9 @@ class BayesianOptimizer(Propagator):
         optimize_hyperparameters : bool, optional
             Whether to optimize GP hyperparameters (default: True)
         acquisition_type : str, optional
-            Acquisition function type: "EI", "PI", or "UCB" (default: "EI")
+            Acquisition function type: "EI", "PI", "UCB", or "TS" (default: "EI").
+            "TS" uses Thompson Sampling: draws one GP posterior sample per call,
+            ignoring xi/kappa/anneal_acquisition/rank_stretch settings.
         acquisition_params : Dict[str, float], optional
             Acquisition function parameters (e.g., {"xi": 0.01} for EI/PI, {"kappa": 1.96} for UCB)
         rank_stretch : bool, optional
@@ -1266,6 +1275,17 @@ class BayesianOptimizer(Propagator):
         else:
             active_acq_type = self.acquisition_type
             params = dict(self.acquisition_params_base)
+
+        # Thompson Sampling bypasses acquisition optimization entirely.
+        # Each rank draws an independent posterior sample, providing natural diversity.
+        if active_acq_type.upper() == "TS":
+            if not isinstance(model, GaussianProcessRegressor):
+                raise RuntimeError(
+                    "ThompsonSampling requires a GaussianProcessRegressor surrogate "
+                    f"(got {type(model).__name__}). Use SingleCPUFitter with acquisition_type='TS'."
+                )
+            return self._select_next_ts(model)
+
         # Anneal only relevant parameter and drop the other to match constructor signature
         active_upper = active_acq_type.upper()
         if self.anneal_acquisition:
@@ -1320,6 +1340,37 @@ class BayesianOptimizer(Propagator):
         )
         # Denormalize back to raw parameter space
         return lows + x_new_unit * scale
+
+    def _select_next_ts(
+        self,
+        model: GaussianProcessRegressor,
+    ) -> np.ndarray:
+        """Thompson Sampling: draw one GP posterior sample and return its argmin.
+
+        Samples ``n_candidates`` points uniformly in the normalized [0,1]^d space,
+        computes the joint GP posterior, draws one multivariate normal sample, and
+        returns the candidate with the lowest sampled value denormalized to raw space.
+        """
+        lows, highs = self.limits_arr
+        scale = np.where((highs - lows) == 0.0, 1.0, (highs - lows))
+
+        # Cap candidates to keep Cholesky O(n^3) tractable for large position_dim
+        n_cands = min(getattr(self.optimizer, "n_candidates", 256), 2000)
+        seed = self.rng.randrange(0, 2**32 - 1)
+        generator = np.random.default_rng(seed)
+        x_cands = generator.uniform(0.0, 1.0, size=(n_cands, self.position_dim))
+
+        # Joint posterior over all candidates: (n_cands,) mean, (n_cands, n_cands) cov
+        mu, cov = cast(
+            Tuple[np.ndarray, np.ndarray],
+            model.predict(x_cands, return_cov=True),
+        )
+        # Numerical jitter for PSD stability
+        cov = cov + 1e-6 * np.eye(n_cands)
+
+        f_sample = generator.multivariate_normal(mu, cov)
+        best_idx = int(np.argmin(f_sample))
+        return lows + x_cands[best_idx] * scale
 
     def __call__(self, inds: List[Individual]) -> Union[Individual, List[Individual]]:
         """Propose one new individual from history using BO or fallback exploration."""

@@ -3,7 +3,7 @@
 import copy
 import pathlib
 import random
-from typing import Dict, Tuple, Union
+from typing import Dict, List, Tuple, Union
 
 import deepdiff
 import numpy as np
@@ -1288,3 +1288,142 @@ def test_bayesian_optimizer_ordinal_integers():
         assert isinstance(ind["x"], float)
         assert isinstance(ind["batch_size"], int)
         assert ind["batch_size"] in allowed, f"batch_size={ind['batch_size']} not in {allowed}"
+
+
+# ---------------------------------------------------------------------------
+# Thompson Sampling tests
+# ---------------------------------------------------------------------------
+
+def _make_ts_propagator(limits, rng: random.Random) -> BayesianOptimizer:
+    """Build a BayesianOptimizer with Thompson Sampling for unit tests."""
+    return BayesianOptimizer(
+        limits=limits,
+        rank=0,
+        acquisition_type="TS",
+        optimizer=_fast_test_optimizer(limits),
+        optimize_hyperparameters=False,
+        n_initial=5,
+        rng=rng,
+    )
+
+
+def _make_synthetic_inds(limits, n: int, rng: random.Random, loss_fn=None) -> List[Individual]:
+    """Generate n synthetic individuals with assigned losses for TS testing."""
+    opt = BayesianOptimizer(limits=limits, rank=0, n_initial=n + 1, rng=rng)
+    inds = []
+    for _ in range(n):
+        ind = opt._warm_start(inds)
+        if loss_fn is not None:
+            ind.loss = loss_fn(ind)
+        else:
+            ind.loss = float(rng.random())
+        inds.append(ind)
+    return inds
+
+
+def test_create_acquisition_ts_raises() -> None:
+    """create_acquisition('TS') must raise ValueError with a helpful message."""
+    with pytest.raises(ValueError, match="ThompsonSampling"):
+        create_acquisition("TS")
+
+
+def test_ts_select_next_basic() -> None:
+    """BayesianOptimizer with TS should return a valid Individual within bounds."""
+    limits = {"x": (0.0, 1.0), "y": (-1.0, 1.0)}
+    rng = random.Random(7)
+    opt = _make_ts_propagator(limits, rng)
+
+    inds = _make_synthetic_inds(limits, opt.n_initial + 2, rng)
+    result = opt(inds)
+
+    assert isinstance(result, Individual)
+    lows, highs = opt.limits_arr
+    assert np.all(result.position >= lows - 1e-9)
+    assert np.all(result.position <= highs + 1e-9)
+
+
+def test_ts_respects_bounds() -> None:
+    """All TS proposals over many calls must stay within parameter bounds."""
+    limits = {"a": (0.0, 5.0), "b": (-3.0, 3.0)}
+    rng = random.Random(13)
+    opt = _make_ts_propagator(limits, rng)
+    inds = _make_synthetic_inds(limits, opt.n_initial + 2, rng)
+
+    lows, highs = opt.limits_arr
+    for _ in range(20):
+        result = opt(inds)
+        assert np.all(result.position >= lows - 1e-9), f"Position {result.position} below lows {lows}"
+        assert np.all(result.position <= highs + 1e-9), f"Position {result.position} above highs {highs}"
+
+
+def test_ts_returns_different_samples() -> None:
+    """Two TS calls with different RNG seeds should (almost surely) differ."""
+    limits = {"x": (0.0, 1.0), "y": (0.0, 1.0)}
+    inds_seed1 = _make_synthetic_inds(limits, 8, random.Random(1))
+    inds_seed2 = _make_synthetic_inds(limits, 8, random.Random(2))
+
+    opt1 = _make_ts_propagator(limits, random.Random(100))
+    opt2 = _make_ts_propagator(limits, random.Random(200))
+
+    r1 = opt1(inds_seed1)
+    r2 = opt2(inds_seed2)
+    # Positions should differ (probability of exact match is zero for continuous space)
+    assert not np.allclose(r1.position, r2.position)
+
+
+def test_ts_non_gp_raises() -> None:
+    """_select_next with TS and a non-GP model must raise RuntimeError."""
+    limits = {"x": (0.0, 1.0)}
+    opt = BayesianOptimizer(
+        limits=limits,
+        rank=0,
+        acquisition_type="TS",
+        optimizer=_fast_test_optimizer(limits),
+        optimize_hyperparameters=False,
+        rng=random.Random(0),
+    )
+    dummy = _DummyModel(mu=0.5, sigma=0.1)
+    with pytest.raises(RuntimeError, match="GaussianProcessRegressor"):
+        opt._select_next(dummy, f_best=0.0, current_generation=0)
+
+
+@pytest.fixture(
+    params=[
+        "sphere",
+        "rosenbrock",
+    ]
+)
+def ts_function_name(request: pytest.FixtureRequest) -> str:
+    """Benchmark function parameter sets for TS integration test."""
+    return request.param
+
+
+def test_bayes_propagator_ts(ts_function_name: str, mpi_tmp_path: pathlib.Path) -> None:
+    """Integration test: BayesianOptimizer with TS runs without error on benchmark functions."""
+    from mpi4py import MPI
+
+    rng = random.Random(42 + MPI.COMM_WORLD.rank)
+    benchmark_function, limits = get_function_search_space(ts_function_name)
+
+    propagator = BayesianOptimizer(
+        limits=limits,
+        rank=MPI.COMM_WORLD.rank,
+        world_size=MPI.COMM_WORLD.size,
+        acquisition_type="TS",
+        optimizer=_fast_test_optimizer(limits),
+        optimize_hyperparameters=False,
+        sparse=True,
+        sparse_params={"max_points": 200},
+        rng=rng,
+    )
+
+    from propulate import Propulator
+
+    propulator = Propulator(
+        loss_fn=benchmark_function,
+        propagator=propagator,
+        rng=rng,
+        generations=2,
+        checkpoint_path=mpi_tmp_path,
+    )
+    propulator.propulate()

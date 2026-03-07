@@ -168,7 +168,13 @@ def parse_extended_arguments(comm: Any) -> Tuple[argparse.Namespace, Dict[str, A
         help="Name of the comparison plot file. Default: optimization_comparison.png",
     )
     # BO tuning flags
-    parser.add_argument("--bo-acq", type=str, choices=["EI", "PI", "UCB"], default="EI", help="Acquisition type")
+    parser.add_argument(
+        "--bo-acq",
+        type=str,
+        choices=["EI", "PI", "UCB", "TS"],
+        default="EI",
+        help="Acquisition type. 'TS' uses Thompson Sampling (no xi/kappa needed; diversifies naturally across ranks).",
+    )
     parser.add_argument("--bo-xi", type=float, default=0.05, help="Exploration parameter for EI/PI")
     parser.add_argument("--bo-kappa", type=float, default=2.5, help="Exploration parameter for UCB")
     parser.add_argument("--bo-n-initial", type=int, default=None, help="Number of initial design points (default ~10*d)")
@@ -193,7 +199,11 @@ def parse_extended_arguments(comm: Any) -> Tuple[argparse.Namespace, Dict[str, A
     )
     # Dynamic acquisition switching
     parser.add_argument(
-        "--bo-second-acq", type=str, choices=["EI", "PI", "UCB"], default=None, help="Optional second acquisition type to switch to"
+        "--bo-second-acq",
+        type=str,
+        choices=["EI", "PI", "UCB", "TS"],
+        default=None,
+        help="Optional second acquisition type to switch to after --bo-acq-switch-gen generations.",
     )
     parser.add_argument("--bo-acq-switch-gen", type=int, default=None, help="Generation after which to switch acquisition")
     parser.add_argument("--bo-second-xi", type=float, default=None, help="xi for second acquisition (if EI/PI)")
@@ -289,14 +299,16 @@ def run_single_function_comparison(
         if config.bo_second_acq == "UCB" and config.bo_second_kappa is not None:
             second_params["kappa"] = config.bo_second_kappa
 
+    # TS has no exploration hyperparameters; xi/kappa and rank_stretch are not used.
+    is_ts = config.bo_acq.upper() == "TS"
     bayes_propagator = BayesianOptimizer(
         limits=limits_bo,
         rank=comm.rank,
         world_size=comm.size,
         optimizer=acq_optimizer,
-        acquisition_type=config.bo_acq,  # EI, PI, or UCB
-        acquisition_params={"xi": config.bo_xi, "kappa": config.bo_kappa},
-        rank_stretch=True,  # Diversify acquisition params across ranks
+        acquisition_type=config.bo_acq,  # EI, PI, UCB, or TS
+        acquisition_params={} if is_ts else {"xi": config.bo_xi, "kappa": config.bo_kappa},
+        rank_stretch=not is_ts,  # TS diversifies naturally via independent posterior samples
         factor_min=0.5,
         factor_max=2.0,
         sparse=config.bo_sparse,
