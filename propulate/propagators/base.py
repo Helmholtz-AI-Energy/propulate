@@ -240,6 +240,11 @@ class Conditional(Propagator):
         else:  # Else apply `false_prop`.
             return self.false_prop(inds)
 
+    def set_worker_context(self, worker_rank: int, worker_size: int) -> None:
+        """Propagate worker context to wrapped propagators."""
+        self.true_prop.set_worker_context(worker_rank, worker_size)
+        self.false_prop.set_worker_context(worker_rank, worker_size)
+
 
 class Compose(Propagator):
     """
@@ -306,6 +311,11 @@ class Compose(Propagator):
         for p in self.propagators:
             inds = p(inds)  # type: ignore
         return inds
+
+    def set_worker_context(self, worker_rank: int, worker_size: int) -> None:
+        """Propagate worker context to all composed propagators."""
+        for p in self.propagators:
+            p.set_worker_context(worker_rank, worker_size)
 
 
 class SelectMin(Propagator):
