@@ -44,6 +44,8 @@ class Propagator:
     -------
     __call__()
         Apply the propagator.
+    set_worker_context()
+        Configure worker-rank context for rank-sensitive propagators.
     """
 
     def __init__(self, parents: int = 0, offspring: int = 0, rng: Optional[random.Random] = None) -> None:
@@ -94,6 +96,23 @@ class Propagator:
             Whenever called (abstract base class method).
         """
         raise NotImplementedError()
+
+    def set_worker_context(self, worker_rank: int, worker_size: int) -> None:
+        """Set worker communicator context for rank-sensitive propagators.
+
+        Parameters
+        ----------
+        worker_rank : int
+            Rank in the worker/island communicator.
+        worker_size : int
+            Number of workers in the worker/island communicator.
+
+        Notes
+        -----
+        Default is a no-op to keep backward compatibility. Propagators that
+        depend on rank-local state (e.g. BO/PSO) can override this method.
+        """
+        _ = (worker_rank, worker_size)
 
 
 class Stochastic(Propagator):

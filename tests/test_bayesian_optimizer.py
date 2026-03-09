@@ -1249,6 +1249,19 @@ def test_bayesian_optimizer_repr_contains_key_fields() -> None:
     assert "n_initial=7" in text
 
 
+def test_bayesian_optimizer_set_worker_context_updates_rank_and_world_size() -> None:
+    """Worker context API should override rank/world_size consistently."""
+    opt = BayesianOptimizer(
+        limits={"x": (0.0, 1.0)},
+        rank=99,
+        world_size=123,
+        rng=random.Random(0),
+    )
+    opt.set_worker_context(worker_rank=3, worker_size=24)
+    assert opt.rank == 3
+    assert opt.world_size == 24
+
+
 @pytest.mark.parametrize("fitter_type", ["multi_cpu", "single_gpu", "multi_gpu"])
 def test_create_fitter_unsupported_backends_raise_not_implemented(fitter_type: str) -> None:
     """Factory should fail early for fitter backends that are not implemented."""

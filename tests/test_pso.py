@@ -81,3 +81,18 @@ def test_pso(pso_propagator: Propagator, mpi_tmp_path: pathlib.Path) -> None:
 
     # Run optimization and print summary of results.
     propulator.propulate()
+
+
+def test_basic_pso_set_worker_context_updates_rank_and_world_size() -> None:
+    """Worker context API should update PSO rank semantics."""
+    pso = BasicPSO(
+        inertia=0.729,
+        c_cognitive=1.49445,
+        c_social=1.49445,
+        rank=99,
+        limits=limits,
+        rng=random.Random(1),
+    )
+    pso.set_worker_context(worker_rank=5, worker_size=24)
+    assert pso.rank == 5
+    assert pso.world_size == 24

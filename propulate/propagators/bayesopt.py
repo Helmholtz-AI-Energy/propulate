@@ -1119,6 +1119,11 @@ class BayesianOptimizer(Propagator):
         self.acq_switch_generation = acq_switch_generation
         self.second_acquisition_params = dict(second_acquisition_params or {})
 
+    def set_worker_context(self, worker_rank: int, worker_size: int) -> None:
+        """Align rank context with the worker/island communicator."""
+        self.rank = int(worker_rank)
+        self.world_size = int(worker_size)
+
     def __repr__(self) -> str:
         """Return a compact debug representation of the optimizer settings."""
         return (
