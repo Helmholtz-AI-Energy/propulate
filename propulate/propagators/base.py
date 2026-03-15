@@ -44,6 +44,8 @@ class Propagator:
     -------
     __call__()
         Apply the propagator.
+    set_worker_context()
+        Configure worker-rank context for rank-sensitive propagators.
     """
 
     def __init__(self, parents: int = 0, offspring: int = 0, rng: Optional[random.Random] = None) -> None:
@@ -94,6 +96,23 @@ class Propagator:
             Whenever called (abstract base class method).
         """
         raise NotImplementedError()
+
+    def set_worker_context(self, worker_rank: int, worker_size: int) -> None:
+        """Set worker communicator context for rank-sensitive propagators.
+
+        Parameters
+        ----------
+        worker_rank : int
+            Rank in the worker/island communicator.
+        worker_size : int
+            Number of workers in the worker/island communicator.
+
+        Notes
+        -----
+        Default is a no-op to keep backward compatibility. Propagators that
+        depend on rank-local state (e.g. BO/PSO) can override this method.
+        """
+        _ = (worker_rank, worker_size)
 
 
 class Stochastic(Propagator):
@@ -221,6 +240,11 @@ class Conditional(Propagator):
         else:  # Else apply `false_prop`.
             return self.false_prop(inds)
 
+    def set_worker_context(self, worker_rank: int, worker_size: int) -> None:
+        """Propagate worker context to wrapped propagators."""
+        self.true_prop.set_worker_context(worker_rank, worker_size)
+        self.false_prop.set_worker_context(worker_rank, worker_size)
+
 
 class Compose(Propagator):
     """
@@ -287,6 +311,11 @@ class Compose(Propagator):
         for p in self.propagators:
             inds = p(inds)  # type: ignore
         return inds
+
+    def set_worker_context(self, worker_rank: int, worker_size: int) -> None:
+        """Propagate worker context to all composed propagators."""
+        for p in self.propagators:
+            p.set_worker_context(worker_rank, worker_size)
 
 
 class SelectMin(Propagator):

@@ -85,9 +85,15 @@ class BasicPSO(Propagator):
         self.c_cognitive = c_cognitive
         self.inertia = inertia
         self.rank = rank
+        self.world_size = 1
         self.limits = limits
         self.rng = rng
         self.limits_as_array: np.ndarray = np.array(list(limits.values())).T
+
+    def set_worker_context(self, worker_rank: int, worker_size: int) -> None:
+        """Align rank context with the worker/island communicator."""
+        self.rank = int(worker_rank)
+        self.world_size = int(worker_size)
 
     def __call__(self, individuals: List[Individual]) -> Individual:
         """
