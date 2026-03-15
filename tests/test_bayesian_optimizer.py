@@ -1307,6 +1307,7 @@ def test_bayesian_optimizer_ordinal_integers():
 # Thompson Sampling tests
 # ---------------------------------------------------------------------------
 
+
 def _make_ts_propagator(limits, rng: random.Random) -> BayesianOptimizer:
     """Build a BayesianOptimizer with Thompson Sampling for unit tests."""
     return BayesianOptimizer(
