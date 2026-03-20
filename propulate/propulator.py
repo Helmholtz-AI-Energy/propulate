@@ -224,9 +224,8 @@ class Propulator:
                             ind.island_rank = island_rank
                             ind.island = self.island_idx
                             ind.migrator_island_rank = islandgroup[f"{island_rank}"]["migrator_island_rank"][generation]
-                            # TODO velocity loading
-                            # if len(group[f"{island_rank}"].shape) > 1:
-                            #     ind.velocity = islandgroup[f"{island_rank}"]["position"][generation, 1]
+                            if islandgroup[f"{island_rank}"]["position"].shape[1] > 1:
+                                ind.velocity = islandgroup[f"{island_rank}"]["position"][generation, 1]
                             ind.loss = islandgroup[f"{island_rank}"]["loss"][generation]
                             # ind.startime = islandgroup[f"{island_rank}"]["starttime"][generation]
                             ind.evaltime = islandgroup[f"{island_rank}"]["evaltime"][generation]

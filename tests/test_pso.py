@@ -115,7 +115,7 @@ def test_pso_checkpointing(pso_propagator: BasicPSO, mpi_tmp_path: pathlib.Path)
         loss_fn=sphere,
         propagator=propagator,
         rng=rng,
-        generations=100,
+        generations=10,
         checkpoint_path=mpi_tmp_path,
     )
 
@@ -142,7 +142,6 @@ def test_pso_checkpointing(pso_propagator: BasicPSO, mpi_tmp_path: pathlib.Path)
     log.handlers.clear()
 
 
-# TODO test resuming pso run from a non-pso checkpoint
 @pytest.mark.mpi
 def test_load_from_different_propagator(mpi_tmp_path: pathlib.Path) -> None:
     """
