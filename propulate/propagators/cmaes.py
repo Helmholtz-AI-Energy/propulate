@@ -695,6 +695,7 @@ class CMAPropagator(Propagator):
             The separate random number generator for the Propulate optimization.
         """
         self.adapter = adapter
+        self.limits = limits
         problem_dimension = len(limits)
         # Number of individuals considered for each generation
         lambd = pop_size if pop_size else 4 + int(np.floor(3 * np.log(problem_dimension)))

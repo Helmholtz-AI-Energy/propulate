@@ -1,9 +1,11 @@
 import copy
 import logging
 import random
+import time
 from pathlib import Path
-from typing import Callable, Generator, List, Optional, Tuple, Type, Union
+from typing import Callable, Generator, List, Optional, Type, Union
 
+import h5py
 import numpy as np
 from mpi4py import MPI
 
@@ -50,18 +52,18 @@ class Pollinator(Propulator):
         loss_fn: Union[Callable, Generator[float, None, None]],
         propagator: Propagator,
         rng: random.Random,
+        generations: int,
         island_idx: int = 0,
         island_comm: MPI.Comm = MPI.COMM_WORLD,
         propulate_comm: MPI.Comm = MPI.COMM_WORLD,
         worker_sub_comm: MPI.Comm = MPI.COMM_SELF,
-        generations: int = 0,
         checkpoint_path: Union[Path, str] = Path("./"),
         migration_topology: Optional[np.ndarray] = None,
         migration_prob: float = 0.0,
         emigration_propagator: Type[Propagator] = SelectMin,
         immigration_propagator: Type[Propagator] = SelectMax,
         island_displs: Optional[np.ndarray] = None,
-        island_counts: Optional[np.ndarray] = None,
+        island_sizes: Optional[np.ndarray] = None,
         surrogate_factory: Optional[Callable[[], Surrogate]] = None,
     ) -> None:
         """
@@ -101,32 +103,32 @@ class Pollinator(Propulator):
         island_displs : numpy.ndarray, optional
             An array with ``propulate_comm`` rank of each island's worker 0. Element i specifies the rank of worker 0 on
             island with index i in the Propulate communicator.
-        island_counts : numpy.ndarray, optional
+        island_sizes : numpy.ndarray, optional
             An array with the number of workers per island. Element i specifies the number of workers on island i.
         surrogate_factory : Callable[[], propulate.surrogate.Surrogate], optional
            Function that returns a new instance of a ``Surrogate`` model.
            Only used when ``loss_fn`` is a generator function.
         """
         super().__init__(
-            loss_fn,
-            propagator,
-            rng,
-            island_idx,
-            island_comm,
-            propulate_comm,
-            worker_sub_comm,
-            generations,
-            checkpoint_path,
-            migration_topology,
-            migration_prob,
-            emigration_propagator,
-            island_displs,
-            island_counts,
-            surrogate_factory,
+            loss_fn=loss_fn,
+            propagator=propagator,
+            rng=rng,
+            generations=generations,
+            island_idx=island_idx,
+            island_comm=island_comm,
+            propulate_comm=propulate_comm,
+            worker_sub_comm=worker_sub_comm,
+            checkpoint_path=checkpoint_path,
+            migration_topology=migration_topology,
+            migration_prob=migration_prob,
+            emigration_propagator=emigration_propagator,
+            immigration_propagator=immigration_propagator,
+            island_displs=island_displs,
+            island_sizes=island_sizes,
+            surrogate_factory=surrogate_factory,
         )
-        # Set class attributes.
-        self.immigration_propagator = immigration_propagator  # Immigration propagator
         self.replaced: List[Individual] = []  # Individuals to be replaced by immigrants
+        log.debug("Pollinator set up.")
 
     def _send_emigrants(self) -> None:
         """Perform migration, i.e. island sends individuals out to other islands."""
@@ -138,7 +140,7 @@ class Pollinator(Propulator):
         # For pollination, an emigration-responsible worker is not necessary as emigrating individuals are not
         # deactivated and copies are allowed.
         # All active individuals are eligible emigrants.
-        eligible_emigrants, _ = self._get_active_individuals()
+        eligible_emigrants = self._get_active_individuals()
 
         # Only perform migration if maximum number of emigrants to be sent out at once is smaller than current number
         # of eligible emigrants.
@@ -149,9 +151,9 @@ class Pollinator(Propulator):
                     continue
                 # Determine ranks of workers on target island in the Propulate world communicator.
                 assert self.island_displs is not None
-                assert self.island_counts is not None
+                assert self.island_sizes is not None
                 displ = self.island_displs[target_island]
-                count = self.island_counts[target_island]
+                count = self.island_sizes[target_island]
                 dest_island = np.arange(displ, displ + count)
 
                 # Worker in principle sends *different* individuals to each target island,
@@ -168,9 +170,7 @@ class Pollinator(Propulator):
                 # Determine new responsible worker on target island.
                 for ind in departing:
                     assert isinstance(ind, Individual)
-                    ind.current = self.rng.randrange(0, count)
-                    ind.migration_history += f"-{target_island}"
-                    log_string += f"{ind} with migration history {ind.migration_history}\n"
+                    ind.migrator_island_rank = self.rng.randrange(0, count)
                 for r in dest_island:  # Loop through Propulate world destination ranks.
                     self.propulate_comm.send(copy.deepcopy(departing), dest=r, tag=MIGRATION_TAG)
                     log_string += (
@@ -178,7 +178,7 @@ class Pollinator(Propulator):
                         f"on target island {target_island}.\n"
                     )
 
-            _, num_active = self._get_active_individuals()
+            num_active = len(self._get_active_individuals())
             log_string += f"After emigration: {num_active}/{len(self.population)} active.\n"
             log.debug(log_string)
 
@@ -189,9 +189,8 @@ class Pollinator(Propulator):
                 f"to select {num_emigrants} migrants."
             )
 
-    def _receive_immigrants(self) -> None:
+    def _receive_immigrants(self, hdf5_checkpoint: h5py.File) -> None:
         """Check for and possibly receive immigrants send by other islands."""
-        replace_num = 0
         log_string = f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: IMMIGRATION\n"
         probe_migrants = True
         while probe_migrants:
@@ -202,25 +201,36 @@ class Pollinator(Propulator):
                 immigrants = self.propulate_comm.recv(source=stat.Get_source(), tag=MIGRATION_TAG)
                 log_string += f"Received {len(immigrants)} immigrant(s) from global worker {stat.Get_source()}: {immigrants}\n"
 
+                replace_num = 0
                 # Add immigrants to own population.
                 for immigrant in immigrants:
-                    immigrant.migration_steps += 1
-                    assert immigrant.active is True
-                    self.population.append(copy.deepcopy(immigrant))  # Append immigrant to population.
+                    if (immigrant.island, immigrant.island_rank, immigrant.generation) not in self.population:
+                        # NOTE only add immigrant to population, if its keys are not yet in population
+                        self.population[immigrant.island, immigrant.island_rank, immigrant.generation] = copy.deepcopy(
+                            immigrant
+                        )  # add immigrant to population
+                        # NOTE update checkpoint
+                        hdf5_checkpoint[f"{immigrant.island}"][f"{immigrant.island_rank}"]["active_on_island"][
+                            immigrant.generation, self.island_idx
+                        ] = 1
 
-                    replace_num = 0
-                    if self.island_comm.rank == immigrant.current:
-                        replace_num += 1
-                    log_string += f"Responsible for choosing {replace_num} individual(s) to be replaced by immigrants.\n"
+                        if self.island_comm.rank == immigrant.migrator_island_rank:
+                            replace_num += 1
+                        log_string += f"Responsible for choosing {replace_num} individual(s) to be replaced by immigrants.\n"
+                    else:
+                        pass
 
                 # Check whether rank equals responsible worker's rank so different intra-island workers
                 # cannot choose the same individual independently for replacement and thus deactivation.
                 if replace_num > 0:
                     # From current population, choose `replace_num` individuals to be replaced.
                     eligible_for_replacement = [
-                        ind for ind in self.population if ind.active and ind.current == self.island_comm.rank
+                        ind
+                        for ind in self.population.values()
+                        if ind.active > 0 and ind.migrator_island_rank == self.island_comm.rank
                     ]
 
+                    assert self.immigration_propagator is not None
                     immigrator = self.immigration_propagator(replace_num)  # Set up immigration propagator.
                     to_replace = immigrator(eligible_for_replacement)  # Choose individual to be replaced by immigrant.
 
@@ -236,10 +246,13 @@ class Pollinator(Propulator):
                     # Deactivate individuals to be replaced in own population.
                     for individual in to_replace:
                         assert isinstance(individual, Individual)
-                        assert individual.active is True
-                        individual.active = False
+                        assert individual.active > 0
+                        individual.active -= 1
+                        hdf5_checkpoint[f"{individual.island}"][f"{individual.island_rank}"]["active_on_island"][
+                            individual.generation, self.island_idx
+                        ] = 0
 
-        _, num_active = self._get_active_individuals()
+        num_active = len(self._get_active_individuals())
         log_string += f"After immigration: {num_active}/{len(self.population)} active."
         log.debug(log_string)
 
@@ -263,81 +276,30 @@ class Pollinator(Propulator):
                 )
         replaced_copy = copy.deepcopy(self.replaced)
         for individual in replaced_copy:
-            assert individual.active is True
-            to_deactivate = [
-                idx
-                for idx, ind in enumerate(self.population)
-                if ind == individual and ind.migration_steps == individual.migration_steps
-            ]
+            assert individual.active > 0
+            to_deactivate = [idx for idx, ind in self.population.items() if ind == individual]
             if len(to_deactivate) == 0:
                 log_string += f"Individual {individual} to deactivate not yet received.\n"
                 continue
             # NOTE As copies are allowed, len(to_deactivate) can be greater than 1.
             # However, only one of the copies should be replaced / deactivated.
-            _, num_active_before = self._get_active_individuals()
-            self.population[to_deactivate[0]].active = False
+            num_active_before = len(self._get_active_individuals())
+            self.population[to_deactivate[0]].active -= 1
             self.replaced.remove(individual)
-            _, num_active_after = self._get_active_individuals()
+            num_active_after = len(self._get_active_individuals())
             log_string += (
                 f"Before deactivation: {num_active_before}/{len(self.population)} active.\n"
                 f"Deactivated {self.population[to_deactivate[0]]}.\n"
                 f"{len(self.replaced)} individuals in replaced.\n"
                 f"After deactivation: {num_active_after}/{len(self.population)} active.\n"
             )
-        _, num_active = self._get_active_individuals()
+        num_active = len(self._get_active_individuals())
         log_string += (
             f"After synchronization: {num_active}/{len(self.population)} active.\n{len(self.replaced)} individuals in replaced.\n"
         )
         log.debug(log_string)
 
-    def _check_for_duplicates(self, active: bool, debug: int = 1) -> Tuple[List[List[Union[Individual, int]]], List[Individual]]:
-        """
-        Check for duplicates in current population.
-
-        For pollination, duplicates are allowed as emigrants are sent as copies and not deactivated on sending island.
-
-        Parameters
-        ----------
-        active : bool
-            Whether to consider active individuals (True) or all individuals (False).
-        debug : int, optional
-            The debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode). Default is 1.
-
-        Returns
-        -------
-        List[List[propulate.population.Individual | int]]
-            The individuals and their occurrences.
-        List[propulate.population.Individual]
-            All unique individuals in the population.
-        """
-        if active:
-            population, _ = self._get_active_individuals()
-        else:
-            population = self.population
-        unique_inds: List[Individual] = []
-        occurrences: List[List[Union[Individual, int]]] = []
-        for individual in population:
-            considered = False
-            for ind in unique_inds:
-                # As copies of individuals are allowed for pollination,
-                # check for equivalence of traits and loss only when
-                # determining unique individuals. To do so, use
-                # self.equals(other) member function of Individual()
-                # class instead of `==` operator.
-                if individual.equals(ind):
-                    considered = True
-                    break
-            if not considered:
-                num_copies = population.count(individual)
-                log.debug(
-                    f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: "
-                    f"{individual} occurs {num_copies} time(s)."
-                )
-                unique_inds.append(individual)
-                occurrences.append([individual, num_copies])
-        return occurrences, unique_inds
-
-    def propulate(self, logging_interval: int = 10, debug: int = 1) -> None:
+    def propulate(self, logging_interval: int = 10) -> None:
         """
         Execute evolutionary algorithm using island model with pollination in parallel.
 
@@ -348,84 +310,69 @@ class Pollinator(Propulator):
         debug : int, optional
             The debug level; 0 - silent; 1 - moderate, 2 - noisy (debug mode). Default is 1.
         """
+        self.start_time = time.time_ns()
         if self.worker_sub_comm != MPI.COMM_SELF:
             self.generation = self.worker_sub_comm.bcast(self.generation, root=0)
         if self.propulate_comm is None:
             while self.generations <= -1 or self.generation < self.generations:
                 # Breed and evaluate individual.
-                self._evaluate_individual()
+                ind = self._breed()
+                self._evaluate_individual(ind)
                 self.generation += 1
             return
-        if self.island_comm.rank == 0:
-            log.info(f"Island {self.island_idx} has {self.island_comm.size} workers.")
 
-        dump = True if self.island_comm.rank == 0 else False
-        migration = True if self.migration_prob > 0 else False
-        self.propulate_comm.barrier()
+        if self.island_comm.rank == 0:
+            log.info(f"Island {self.island_idx} has {self.island_comm.size} workers with {self.worker_sub_comm.size} ranks each.")
 
         # Loop over generations.
-        while self.generations <= -1 or self.generation < self.generations:
-            if debug == 1 and self.generation % int(logging_interval) == 0:
-                log.info(f"Island {self.island_idx} Worker {self.island_comm.rank}: In generation {self.generation}...")
+        with h5py.File(self.checkpoint_path, "a", driver="mpio", comm=self.propulate_comm) as f:
+            # NOTE check if there is an individual still to evaluate
+            current_idx = (
+                self.island_idx,
+                self.island_comm.rank,
+                self.generation,
+            )
+            if current_idx in self.population:
+                ind = self.population[current_idx]
+                if np.isnan(ind.loss):
+                    log.info(f"Continuing evaluation of individual {current_idx} loaded from checkpoint.")
+                    self._evaluate_individual(ind)
+                    self._post_eval_checkpoint(ind, f)
+                    self._send_intra_island_individuals(ind)
+                self.generation += 1
 
-            # Breed and evaluate individual.
-            self._evaluate_individual()
+            while self.generation < self.generations:
+                if self.generation % int(logging_interval) == 0:
+                    log.info(f"Island {self.island_idx} Worker {self.island_comm.rank}: In generation {self.generation}...")
 
-            # Check for and possibly receive incoming individuals from other intra-island workers.
-            self._receive_intra_island_individuals()
+                # Breed and evaluate individual.
+                log.debug(f"breeding and evaluating {self.generation}")
 
-            if migration:
-                # Emigration: Island sends individuals out.
-                # Happens on per-worker basis with certain probability.
-                if self.rng.random() < self.migration_prob:
-                    self._send_emigrants()
+                ind = self._breed()
+                # NOTE write started individual to file
+                self._pre_eval_checkpoint(ind, f)
 
-                # Immigration: Island checks for incoming individuals from other islands.
-                self._receive_immigrants()
+                self._evaluate_individual(ind)
 
-                # Immigration: Check for individuals replaced by other intra-island workers to be deactivated.
-                self._deactivate_replaced_individuals()
+                # NOTE update finished individual in checkpoint
+                self._post_eval_checkpoint(ind, f)
+                self._send_intra_island_individuals(ind)
+                # Check for and possibly receive incoming individuals from other intra-island workers.
+                log.debug(f"receive intra island {self.generation}")
+                self._receive_intra_island_individuals()
 
-            if dump:  # Dump checkpoint.
-                self._dump_checkpoint()
+                if self.migration_prob > 0.0:
+                    # Emigration: Island sends individuals out.
+                    # Happens on per-worker basis with certain probability.
+                    if self.rng.random() < self.migration_prob:
+                        self._send_emigrants()
 
-            dump = self._determine_worker_dumping_next()  # Determine worker dumping checkpoint in the next generation.
-            self.generation += 1  # Go to next generation.
+                    # Immigration: Island checks for incoming individuals from other islands.
+                    self._receive_immigrants(f)
 
-        # Having completed all generations, the workers have to wait for each other.
-        # Once all workers are done, they should check for incoming messages once again
-        # so that each of them holds the complete final population and the found optimum
-        # irrespective of the order they finished.
+                    # Immigration: Check for individuals replaced by other intra-island workers to be deactivated.
+                    self._deactivate_replaced_individuals()
 
-        self.propulate_comm.barrier()
-        if self.propulate_comm.rank == 0:
-            log.info("OPTIMIZATION DONE.\nNEXT: Final checks for incoming messages...")
-        self.propulate_comm.barrier()
+                self.generation += 1  # Go to next generation.
 
-        # Final check for incoming individuals evaluated by other intra-island workers.
-        self._receive_intra_island_individuals()
-        self.propulate_comm.barrier()
-
-        if migration:
-            # Final check for incoming individuals from other islands.
-            self._receive_immigrants()
-            self.propulate_comm.barrier()
-
-            # Immigration: Final check for individuals replaced by other intra-island workers to be deactivated.
-            self._deactivate_replaced_individuals()
-            self.propulate_comm.barrier()
-
-            if len(self.replaced) > 0:
-                log.info(
-                    f"Island {self.island_idx} Worker {self.island_comm.rank} Generation {self.generation}: "
-                    f"Finally {len(self.replaced)} individual(s) in replaced: {self.replaced}:\n{self.population}"
-                )
-                self._deactivate_replaced_individuals()
-            self.propulate_comm.barrier()
-
-        # Final checkpointing on rank 0.
-        if self.island_comm.rank == 0:
-            self._dump_final_checkpoint()  # Dump checkpoint.
-        self.propulate_comm.barrier()
-        _ = self._determine_worker_dumping_next()
-        self.propulate_comm.barrier()
+            log.info(f"Island {self.island_idx} Worker {self.island_comm.rank}: OPTIMIZATION DONE!")
