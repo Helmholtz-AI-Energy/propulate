@@ -204,7 +204,12 @@ class Propulator:
             limitsgroup = f["limits"]
             if set(limitsgroup.attrs.keys()) != set(self.propagator.limits):
                 raise RuntimeError("Limits inconsistent with checkpoint")
-            # TODO check island sizes are consistent
+            if self.island_sizes is not None:
+                ckpt_island_sizes = np.array(
+                    [len(f[f"{idx}"]) for idx in range(len(f) - 2)]
+                )  # file has one group per island, a limits group, and a generations dataset
+                if not np.array_equal(ckpt_island_sizes, self.island_sizes):
+                    raise RuntimeError("Island configuration inconsistent with checkpoint!")
 
             # NOTE generation is the index of individuals whose evaluation has begun
             self.generation = int(f["generations"][self.propulate_comm.Get_rank()])
@@ -257,7 +262,6 @@ class Propulator:
 
             xdim = 1
             # TODO clean this up when reorganizing propagators
-            # TODO store velocity in its own dataset?
             if isinstance(self.propagator, BasicPSO) or (
                 isinstance(self.propagator, Conditional) and isinstance(self.propagator.true_prop, BasicPSO)
             ):
