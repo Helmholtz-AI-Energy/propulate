@@ -170,7 +170,7 @@ class Pollinator(Propulator):
                 # Determine new responsible worker on target island.
                 for ind in departing:
                     assert isinstance(ind, Individual)
-                    ind.migrator_island_rank = self.rng.randrange(0, count)
+                    ind.migrator_island_rank = ind.generation % self.island_sizes[target_island]
                 for r in dest_island:  # Loop through Propulate world destination ranks.
                     self.propulate_comm.send(copy.deepcopy(departing), dest=r, tag=MIGRATION_TAG)
                     log_string += (

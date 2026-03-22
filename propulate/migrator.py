@@ -178,7 +178,7 @@ class Migrator(Propulator):
                     hdf5_checkpoint[f"{ind.island}"][f"{ind.island_rank}"]["active_on_island"][ind.generation, self.island_idx] = 0
 
                     # NOTE Determine new responsible worker on target island.
-                    ind.migrator_island_rank = self.rng.randrange(0, count)
+                    ind.migrator_island_rank = ind.generation % self.island_sizes[target_island]
                     # NOTE activate on target island in checkpoint
                     # NOTE this happens here, so that if the message does not arrive, individuals are still loaded on an island from the checkpoint
                     hdf5_checkpoint[f"{ind.island}"][f"{ind.island_rank}"]["active_on_island"][ind.generation, target_island] = 1
