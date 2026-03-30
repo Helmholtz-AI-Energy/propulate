@@ -55,7 +55,14 @@ def population_consistency_check(propulator: Propulator) -> None:
         assert False
 
     if propulator.island_sizes is not None:
-        num_active = int(propulator.propulate_comm.allreduce(num_active / propulator.island_sizes[propulator.island_idx]))
+        # num_active = int(propulator.propulate_comm.allreduce(num_active / propulator.island_sizes[propulator.island_idx]))
+        active_pop_sizes = propulator.propulate_comm.allgather(len(propulator._get_active_individuals()))
+        if isinstance(propulator, Migrator):
+            assert sum(active_pop_sizes) == sum(propulator.generations * np.square(propulator.island_sizes))
+        elif isinstance(propulator, Pollinator):
+            all([x == propulator.generations for x in active_pop_sizes])
+        else:
+            raise ValueError("Unkown Propulator type.")
 
     propulator.propulate_comm.barrier()
 

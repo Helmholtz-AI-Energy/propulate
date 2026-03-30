@@ -363,10 +363,12 @@ class Migrator(Propulator):
 
                 # Migration.
                 if self.migration_prob > 0.0:
-                    # Emigration: Island sends individuals out.
-                    # Happens on per-worker basis with certain probability.
-                    if self.rng.random() < self.migration_prob:
-                        self._send_emigrants(f)
+                    # NOTE skip emigration at the end; mostly to make checks easier
+                    if self.generation < self.generations - 1:
+                        # Emigration: Island sends individuals out.
+                        # Happens on per-worker basis with certain probability.
+                        if self.rng.random() < self.migration_prob:
+                            self._send_emigrants(f)
 
                     # Immigration: Check for incoming individuals from other islands.
                     self._receive_immigrants()
