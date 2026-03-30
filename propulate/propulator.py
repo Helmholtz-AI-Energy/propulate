@@ -560,6 +560,7 @@ class Propulator:
             group["position"][ckpt_idx, 1, :] = ind.velocity[:]
         group["starttime"][ckpt_idx] = start_time
         group["migrator_island_rank"][ckpt_idx] = ind.migrator_island_rank
+        group["active_on_island"][ckpt_idx, self.island_idx] = 1
 
     def _post_eval_checkpoint(self, ind: Individual, f: h5py.File) -> None:
         """
@@ -579,7 +580,6 @@ class Propulator:
         # save result for candidate
         group["evaltime"][ckpt_idx] = ind.evaltime
         group["evalperiod"][ckpt_idx] = ind.evalperiod
-        group["active_on_island"][ckpt_idx, self.island_idx] = 1
 
         group["loss"][ckpt_idx] = ind.loss
 
