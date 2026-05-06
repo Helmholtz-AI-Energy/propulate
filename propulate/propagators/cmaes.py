@@ -730,7 +730,6 @@ class CMAPropagator(Propagator):
         self.select_from_pool = SelectUniform(mu - 1, rng=rng)
         self.select_single_best = SelectMin(1)
 
-
     def __call__(self, inds: List[Individual]) -> Individual:
         """
         Define the skeleton of the CMA-ES algorithm using the template method design pattern.
