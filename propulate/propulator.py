@@ -193,7 +193,7 @@ class Propulator:
             )
         elif self.propulate_comm.rank == 0:
             log.info("No valid checkpoint file given. Initializing population randomly...")
-        self.set_up_checkpoint()
+        self.init_checkpoint()
 
     def load_checkpoint(self) -> None:
         """Load checkpoint from HDF5 file. Since this is only a read, all workers can do this in read-only mode without the mpio driver."""
@@ -204,12 +204,12 @@ class Propulator:
             limitsgroup = f["limits"]
             if set(limitsgroup.attrs.keys()) != set(self.propagator.limits):
                 raise RuntimeError("Limits inconsistent with checkpoint")
-            if self.island_sizes is not None:
-                ckpt_island_sizes = np.array(
-                    [len(f[f"{idx}"]) for idx in range(len(f) - 2)]
-                )  # file has one group per island, a limits group, and a generations dataset
-                if not np.array_equal(ckpt_island_sizes, self.island_sizes):
-                    raise RuntimeError("Island configuration inconsistent with checkpoint!")
+            # NOTE check island sizes are consistent
+            ckpt_island_sizes = np.array(
+                [len(f[f"{idx}"]) for idx in range(len(f) - 2)]
+            )  # file has one group per island, a limits group, and a generations dataset
+            if not np.array_equal(ckpt_island_sizes, self.island_sizes):
+                raise RuntimeError("Island configuration inconsistent with checkpoint!")
 
             # NOTE generation is the index of individuals whose evaluation has begun
             self.generation = int(f["generations"][self.propulate_comm.Get_rank()])
@@ -241,8 +241,8 @@ class Propulator:
                                 ind.active = 0
                             self.population[(i, island_rank, generation)] = ind
 
-    def set_up_checkpoint(self) -> None:
-        """Initialize checkpoint file or check consistenct with an existing one."""
+    def init_checkpoint(self) -> None:
+        """Initialize checkpoint file or check consistency with an existing one."""
         log.info(f"Initializing checkpoint in {self.checkpoint_path}")
         limit_dim = 0
         for key in self.propagator.limits:
@@ -270,6 +270,9 @@ class Propulator:
             oldgenerations = self.generations
             if "0" in f:
                 oldgenerations = f["0"]["0"]["position"].shape[0]
+            if self.generations < oldgenerations:
+                raise RuntimeError("Generations have to be >= the generations in the checkpoint.")
+
             # Store per worker what generation they are at, since islands can be different sizes, it's flat
             f.require_dataset(
                 "generations",
@@ -294,7 +297,6 @@ class Propulator:
                         group["active_on_island"].resize(self.generations, axis=0)
                         if xdim == 2:
                             group["position"].resize(xdim, axis=1)
-
                     group.require_dataset(
                         "position",
                         (self.generations, xdim, limit_dim),
