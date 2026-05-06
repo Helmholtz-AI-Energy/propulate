@@ -15,9 +15,7 @@ def final_synch(propulator: Propulator) -> None:
     # Final check for incoming individuals evaluated by other intra-island workers.
     propulator._receive_intra_island_individuals()
     propulator._intra_send_cleanup()
-    propulator._inter_send_cleanup()
     assert len(propulator.intra_buffers) == 0
-    assert len(propulator.inter_buffers) == 0
 
     if propulator.migration_prob > 0.0:
         if isinstance(propulator, Migrator):
@@ -42,6 +40,9 @@ def final_synch(propulator: Propulator) -> None:
             propulator.propulate_comm.barrier()
             assert len(propulator.replaced) == 0
 
+        propulator._inter_send_cleanup()
+        assert len(propulator.inter_buffers) == 0
+
 
 def population_consistency_check(propulator: Propulator) -> None:
     """Check population sizes match expectations for island models."""
@@ -55,12 +56,18 @@ def population_consistency_check(propulator: Propulator) -> None:
         assert False
 
     if len(propulator.island_sizes) > 1:
-        # num_active = int(propulator.propulate_comm.allreduce(num_active / propulator.island_sizes[propulator.island_idx]))
         active_pop_sizes = propulator.propulate_comm.allgather(len(propulator._get_active_individuals()))
+        island_displs = np.cumsum(np.concatenate((np.array([0]), propulator.island_sizes)))
+        num_active = 0
+        for idx, displ in enumerate(island_displs[:-1]):
+            num_active_on_island = set(active_pop_sizes[displ : island_displs[idx + 1]])
+            assert len(num_active_on_island) == 1
+            num_active += num_active_on_island.pop()
+
         if isinstance(propulator, Migrator):
-            assert sum(active_pop_sizes) == sum(propulator.generations * np.square(propulator.island_sizes))
+            assert num_active == propulator.generations * np.sum(propulator.island_sizes)
         elif isinstance(propulator, Pollinator):
-            all([x == propulator.generations for x in active_pop_sizes])
+            assert active_pop_sizes == [x * propulator.generations for x in propulator.island_sizes for _ in range(x)]
         else:
             raise ValueError("Unknown Propulator type.")
 
