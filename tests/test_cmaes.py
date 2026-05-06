@@ -49,7 +49,6 @@ def test_cmaes_basic(cma_adapter: CMAAdapter, pollination: bool, mpi_tmp_path: p
     # Set up evolutionary operator.
     adapter = cma_adapter
     propagator = CMAPropagator(adapter, limits, rng=rng)
-
     # Set up Propulator performing actual optimization.
     propulator = Propulator(
         loss_fn=benchmark_function,
