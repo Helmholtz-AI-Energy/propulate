@@ -30,3 +30,4 @@ in ``Propulate``.
    pso
    cmaes
    nm
+   bayesian_optimizer
