@@ -13,23 +13,24 @@ By participating, you can help improve the project and make it even better.
    ```
 
 3. **Install the Package with Development Options** in a separate virtual environment from the main branch of your repo.
-   This will put a number of pre-commit hooks for code linting and formatting with [Ruff](https://github.com/astral-sh/ruff)
+   This will put a number of pre-commit hooks for code linting and formatting with [`Ruff`](https://github.com/astral-sh/ruff)
    into place, ensuring PEP-8 conformity and overall good code quality consistently.
+   We recommend using the Python package manager [`uv`](https://docs.astral.sh/uv/).
    The commands shown below work on Unix-based systems:
    ```bash
-   python3 -m venv <insert/path/to/your/venv>
+   uv venv --python 3.12 <insert/path/to/your/venv>
    source <insert/path/to/your/venv/bin/activate>
-   python -m pip install -e ".[dev]"
+   uv pip install -e ".[dev]"
    pre-commit install
    ```
 
-4. **Create a Branch**: Create a new branch for your contribution. Choose a descriptive name. Depending on what you want
+5. **Create a Branch**: Create a new branch for your contribution. Choose a descriptive name. Depending on what you want
    to work on, prepend either of the following prefixes, `features`, `maintenance`, `bugfix`, or `hotfix`. Example:
    ```bash
    git checkout -b features/your-feature-name
    ```
 
-5. **Make Changes**: Make your desired changes to the codebase. Please stick to the following guidelines:
+6. **Make Changes**: Make your desired changes to the codebase. Please stick to the following guidelines:
    * `Propulate` uses [*Black*](https://black.readthedocs.io/en/stable/the_black_code_style/current_style.html) code style and so should you if you would like to contribute.
    * Please use type hints in all function definitions.
    * Please use American English for all comments and docstrings in the code.
@@ -47,18 +48,13 @@ By participating, you can help improve the project and make it even better.
      param1 : type
          Description of param1.
 
-     param2 : type, optional
-         Description of param2. (if it's an optional argument)
+     param2 : type
+         Description of param2.
 
      Returns
      -------
      return_type
          Description of the return value.
-
-     Other Parameters
-     ----------------
-     param3 : type
-         Description of param3. (if there are additional parameters)
 
      Raises
      ------
@@ -71,10 +67,10 @@ By participating, you can help improve the project and make it even better.
 
      Examples
      --------
-        >>> import numpy as np
-        >>> x = np.array([1, 2, 3])
-        >>> y = np.square(x)
-        >>> print(y)
+     >>> import numpy as np
+     >>> x = np.array([1, 2, 3])
+     >>> y = np.square(x)
+     >>> print(y)
      array([1, 4, 9])
 
      Notes
@@ -92,7 +88,7 @@ as follows:
      Parameters
      ----------
      param1 : type
-              Description of param1.
+         Description of param1.
 
      Attributes
      ----------
@@ -112,34 +108,34 @@ as follows:
 
      class MyClass(ParentClassName):
          """
-         The docstring for MyClass.
+         The docstring for ``MyClass``.
 
          Parameters
          ----------
          param2 : type
-                  Description of param2.
+             Description of param2.
 
          Attributes
          ----------
          attr2 : type
-                 Description of attr2.
+             Description of attr2.
          """
      ```
      In the example above, ``` :class:`ParentClassName` ``` is used to create a reference to the parent class `ParentClassName`.
      Sphinx autoapi will automatically generate links to the parent class documentation.
 
 
-6. **Commit Changes**: Commit your changes with a clear and concise commit message:
+7. **Commit Changes**: Commit your changes with a clear and concise commit message:
    ```bash
    git commit -m "Add your commit message here"
    ```
 
-7. **Push Changes**: Push your changes to your fork on GitHub:
+8. **Push Changes**: Push your changes to your fork on GitHub:
    ```bash
    git push origin your-feature-name
    ```
 
-8. **Rebase Onto Current Main:** Rebase your feature branch onto the current main branch of the original repo. Leaving
+9. **Rebase Onto Current Main:** Rebase your feature branch onto the current main branch of the original repo. Leaving
    this step out might lead to problems with the test workflow when merging your branch into the main later on. Rebasing
    will include any changes that might have been pushed into the main in the meantime and resolve possible conflicts.
    To sync your fork with the original upstream repo, check out [this page](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/syncing-a-fork)
@@ -153,7 +149,7 @@ as follows:
    git rebase main features/your-feature-name
    ```
 
-9. **Open a Pull Request**: Go to the [original repository](https://github.com/Helmholtz-AI-Energy/propulate.git) and click the "New Pull Request" button. Follow the guidelines in the template to submit your pull request.
+10. **Open a Pull Request**: Go to the [original repository](https://github.com/Helmholtz-AI-Energy/propulate.git) and click the "New Pull Request" button. Follow the guidelines in the template to submit your pull request.
 
 ## Code of Conduct
 
