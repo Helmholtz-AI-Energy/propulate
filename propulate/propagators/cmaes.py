@@ -694,11 +694,12 @@ class CMAPropagator(Propagator):
         rng: random.Random, optional
             The separate random number generator for the Propulate optimization.
         """
-        self.adapter = adapter
         problem_dimension = len(limits)
         # Number of individuals considered for each generation
         lambd = pop_size if pop_size else 4 + int(np.floor(3 * np.log(problem_dimension)))
-        super().__init__(lambd, 1, rng=rng)
+        super().__init__(lambd, offspring=1, rng=rng)
+        self.adapter = adapter
+        self.limits = limits
         self.numpy_rng = np.random.default_rng(seed=self.rng.randint(a=0, b=np.iinfo(np.int32).max))
         # Number of positive recombination weights
         mu = lambd // 2

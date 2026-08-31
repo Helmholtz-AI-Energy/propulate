@@ -71,6 +71,7 @@ class Propagator:
         if rng is None:
             rng = random.Random()
         self.rng = rng  # Random number generator
+        self.limits: Mapping[str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]] = dict()
 
     def __call__(self, inds: List[Individual]) -> Union[List[Individual], Individual]:
         """
@@ -175,6 +176,7 @@ class Conditional(Propagator):
 
     def __init__(
         self,
+        limits: Mapping[str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]],
         pop_size: int,
         true_prop: Propagator,
         false_prop: Propagator,
@@ -201,6 +203,7 @@ class Conditional(Propagator):
         self.pop_size = pop_size
         self.true_prop = true_prop
         self.false_prop = false_prop
+        self.limits = limits
 
     def __call__(self, inds: List[Individual]) -> Union[List[Individual], Individual]:
         """

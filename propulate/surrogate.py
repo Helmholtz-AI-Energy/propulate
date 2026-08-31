@@ -271,7 +271,7 @@ class StaticSurrogate(Surrogate):
         self.current_run[self.synthetic_id - 1] = loss
 
         # Cancel if current run is outside margin of baseline.
-        if self.baseline[self.synthetic_id - 1] < loss * self.margin:
+        if loss > self.baseline[self.synthetic_id - 1] + self.margin * abs(self.baseline[self.synthetic_id - 1]):
             return True
 
         return False
@@ -292,7 +292,7 @@ class StaticSurrogate(Surrogate):
             return
 
         # Merged run's final loss is better than baseline.
-        if self.baseline[-1] < data[-1]:
+        if data[-1] < self.baseline[-1]:
             self.baseline = data.copy()
 
     def data(self) -> np.ndarray:
