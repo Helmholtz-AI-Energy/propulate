@@ -141,10 +141,7 @@ First, we need to define the key ingredients that define our optimization proble
   The sphere function has two continuous parameters, $x$ and $y$, and we consider $x,y\in\left[-5.12,5.12\right]$. The
   search space in our example thus looks like this:
   ```python
-  limits = {
-      "x": (-5.12, 5.12),
-      "y": (-5.12, 5.12)
-  }
+  limits = {"x": (-5.12, 5.12), "y": (-5.12, 5.12)}
   ```
 - The **loss function**. This is the function we want to minimize in order to find the best parameters. It can be any
   `Python` function that
@@ -154,23 +151,23 @@ First, we need to define the key ingredients that define our optimization proble
   In this example, the loss function whose minimum we want to find is the sphere function:
   ```python
   def sphere(params: Dict[str, float]) -> float:
-    """
-    Sphere function: continuous, convex, separable, differentiable, unimodal
+      """
+      Sphere function: continuous, convex, separable, differentiable, unimodal
 
-    Input domain: -5.12 <= x, y <= 5.12
-    Global minimum 0 at (x, y) = (0, 0)
+      Input domain: -5.12 <= x, y <= 5.12
+      Global minimum 0 at (x, y) = (0, 0)
 
-    Parameters
-    ----------
-    params: Dict[str, float]
-        The function parameters.
+      Parameters
+      ----------
+      params: Dict[str, float]
+          The function parameters.
 
-    Returns
-    -------
-    float
-        The function value.
-    """
-    return numpy.sum(numpy.array(list(params.values())) ** 2).item()
+      Returns
+      -------
+      float
+          The function value.
+      """
+      return numpy.sum(numpy.array(list(params.values())) ** 2).item()
   ```
 Next, we need to define the **evolutionary operator** or propagator that we want to use to breed new individuals during the
 optimization process. `Propulate` provides a reasonable default propagator via a utility function:
