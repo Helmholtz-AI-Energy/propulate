@@ -141,6 +141,8 @@ class Pollinator(Propulator):
         # deactivated and copies are allowed.
         # All active individuals are eligible emigrants.
         eligible_emigrants = self._get_active_individuals()
+        # TODO does it make sense to only send local natives in pollination?
+        eligible_emigrants = [ind for ind in eligible_emigrants if ind.island is not self.island_idx]
 
         # Only perform migration if maximum number of emigrants to be sent out at once is smaller than current number
         # of eligible emigrants.

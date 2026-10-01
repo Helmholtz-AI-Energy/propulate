@@ -227,7 +227,7 @@ class Propulator:
                                 self.propagator.limits,
                             )
                             ind.island_rank = island_rank
-                            ind.island = self.island_idx
+                            ind.island = i
                             ind.migrator_island_rank = islandgroup[f"{island_rank}"]["migrator_island_rank"][generation]
                             if islandgroup[f"{island_rank}"]["position"].shape[1] > 1:
                                 ind.velocity = islandgroup[f"{island_rank}"]["position"][generation, 1]

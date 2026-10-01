@@ -10,6 +10,7 @@ log = logging.getLogger(__name__)
 
 def final_synch(propulator: Propulator) -> None:
     """Perform final synchronization on completion of optimization."""
+    log.debug("Starting final sync.")
     propulator.propulate_comm.barrier()
 
     # Final check for incoming individuals evaluated by other intra-island workers.
@@ -67,6 +68,8 @@ def population_consistency_check(propulator: Propulator) -> None:
         if isinstance(propulator, Migrator):
             assert num_active == propulator.generations * np.sum(propulator.island_sizes)
         elif isinstance(propulator, Pollinator):
+            print([x * propulator.generations for x in propulator.island_sizes for _ in range(x)])
+            print(active_pop_sizes)
             assert active_pop_sizes == [x * propulator.generations for x in propulator.island_sizes for _ in range(x)]
         else:
             raise ValueError("Unknown Propulator type.")
