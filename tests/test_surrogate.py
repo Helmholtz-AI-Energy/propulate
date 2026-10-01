@@ -9,6 +9,7 @@ from mpi4py import MPI
 
 from propulate import Islands, Propulator, surrogate
 from propulate.utils import get_default_propagator, set_logger_config
+from propulate.utils.consistency_checks import final_synch, population_consistency_check
 
 pytestmark = [
     pytest.mark.filterwarnings(
@@ -20,6 +21,17 @@ pytestmark = [
 ]
 
 set_logger_config(level=logging.DEBUG)
+
+
+@pytest.fixture(
+    params=[
+        True,
+        False,
+    ]
+)
+def pollination(request: pytest.FixtureRequest) -> bool:
+    """Iterate through pollination parameter."""
+    return request.param
 
 
 def ind_loss(params: Dict[str, Union[int, float, str]]) -> Generator[float, None, None]:
@@ -71,12 +83,14 @@ def test_static(mpi_tmp_path: Path) -> None:
         surrogate_factory=lambda: surrogate.StaticSurrogate(),
     )  # Set up propulator performing actual optimization.
 
-    propulator.propulate(debug=1)  # Run optimization and print summary of results.
+    propulator.propulate()  # Run optimization and print summary of results.
+    final_synch(propulator)
+    population_consistency_check(propulator)
     MPI.COMM_WORLD.barrier()
 
 
 @pytest.mark.mpi(min_size=8)
-def test_static_island(mpi_tmp_path: Path) -> None:
+def test_static_island(mpi_tmp_path: Path, pollination: bool) -> None:
     """Test static surrogate using a dummy function."""
     pop_size = 2 * MPI.COMM_WORLD.size  # Breeding population size
     limits: Dict[str, Union[Tuple[int, int], Tuple[float, float], Tuple[str, ...]]] = {
@@ -105,9 +119,7 @@ def test_static_island(mpi_tmp_path: Path) -> None:
     )
     islands.propulate(  # Run evolutionary optimization.
         logging_interval=1,  # Logging interval
-        debug=2,  # Verbosity level
     )
-    islands.summarize(top_n=1, debug=2)
     MPI.COMM_WORLD.barrier()
 
 
@@ -146,9 +158,10 @@ def test_dynamic(mpi_tmp_path: Path) -> None:
     "ignore::DeprecationWarning",
     match="Assigning the 'data' attribute is an inherently unsafe operation and will be removed in the future.",
 )
-def test_dynamic_island(mpi_tmp_path: Path) -> None:
+def test_dynamic_island(mpi_tmp_path: Path, pollination: bool) -> None:
     """Test dynamic surrogate using a dummy function."""
     num_generations = 4  # Number of generations
+    set_logger_config()
     pop_size = 2 * MPI.COMM_WORLD.size  # Breeding population size
     limits: Dict[str, Union[Tuple[int, int], Tuple[float, float], Tuple[str, ...]]] = {
         "start": (0.1, 7.0),
@@ -172,7 +185,17 @@ def test_dynamic_island(mpi_tmp_path: Path) -> None:
     )
     islands.propulate(  # Run evolutionary optimization.
         logging_interval=1,  # Logging interval
-        debug=2,  # Verbosity level
     )
-    islands.summarize(top_n=1, debug=2)
     MPI.COMM_WORLD.barrier()
+
+
+# @pytest.mark.mpi(min_size=4)
+# def test_static_checkpointing(mpi_tmp_path: Path) -> None:
+#     """Test whether the surrogate state for pruning is checkpointed correctly."""
+#     raise
+#
+#
+# @pytest.mark.mpi(min_size=4)
+# def test_dynamic_checkpointing(mpi_tmp_path: Path) -> None:
+#     """Test whether the surrogate state for pruning is checkpointed correctly."""
+#     raise

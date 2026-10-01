@@ -53,5 +53,4 @@ if __name__ == "__main__":
     )
 
     # Run optimization and print summary of results.
-    propulator.propulate(logging_interval=config.logging_interval, debug=config.verbosity)
-    propulator.summarize(top_n=config.top_n, debug=config.verbosity)
+    propulator.propulate(logging_interval=config.logging_interval)

@@ -87,7 +87,7 @@ def get_default_propagator(
         )
 
     init = InitUniform(limits, rng=rng)
-    propagator = Conditional(pop_size, propagator, init)  # Initialize random if population size < specified `pop_size`.
+    propagator = Conditional(limits, pop_size, propagator, init)  # Initialize random if population size < specified `pop_size`.
     return propagator
 
 
@@ -95,7 +95,7 @@ def set_logger_config(
     level: int = logging.INFO,
     log_file: Optional[Union[str, Path]] = None,
     log_to_stdout: bool = True,
-    log_rank: bool = False,
+    log_rank: bool = True,
     colors: bool = True,
 ) -> None:
     """
@@ -116,7 +116,8 @@ def set_logger_config(
     """
     rank = f"{MPI.COMM_WORLD.Get_rank()}:" if log_rank else ""
     # Get base logger for Propulate.
-    base_logger = logging.getLogger("propulate")
+    base_logger = logging.getLogger()
+    base_logger.handlers.clear()
     simple_formatter = logging.Formatter(f"{rank}:[%(asctime)s][%(name)s][%(levelname)s] - %(message)s")
     if colors:
         formatter = colorlog.ColoredFormatter(
