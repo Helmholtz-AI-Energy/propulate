@@ -582,7 +582,10 @@ def test_islands_checkpointing_incomplete(
     island_idx = islands.propulator.island_idx
     print(island_idx, finished_on_island)
     print([ind for ind in islands.propulator.population.values() if not np.isnan(ind.loss) and ind.active > 0])
-    finished_on_island_pre_checkpoint = {(ind.island, ind.island_rank, ind.generation) for ind in [ind for ind in islands.propulator.population.values() if ind.active > 0]}
+    finished_on_island_pre_checkpoint = {
+        (ind.island, ind.island_rank, ind.generation)
+        for ind in [ind for ind in islands.propulator.population.values() if ind.active > 0]
+    }
     assert finished_on_island == [20, 53][island_idx]
     ##############
     log.info("first run finished")
@@ -615,7 +618,7 @@ def test_islands_checkpointing_incomplete(
                     # f[f"{island_idx}"][f"{island_worker_idx}"]["active_on_island"][g + 1 :] = 0
                 else:
                     f[f"{island_idx}"][f"{island_worker_idx}"]["loss"][g] = np.nan
-                    f[f"{island_idx}"][f"{island_worker_idx}"]["active_on_island"][g+1:] = 0
+                    f[f"{island_idx}"][f"{island_worker_idx}"]["active_on_island"][g + 1 :] = 0
                     # NOTE it is possible the individuals we pretend are not finished yet are deactivated for pollination
                     # NOTE we reactivate them
                     if f[f"{island_idx}"][f"{island_worker_idx}"]["active_on_island"][g, island_idx] == 0:
@@ -643,7 +646,6 @@ def test_islands_checkpointing_incomplete(
                         print(i, j, f[f"{i}"][f"{1}"]["active_on_island"][:])
                         num_reactivated[i] -= 1
                     j += 1
-
 
     MPI.COMM_WORLD.barrier()
     # with h5py.File(mpi_tmp_path / "ckpt.hdf5", "r") as f:
@@ -677,7 +679,10 @@ def test_islands_checkpointing_incomplete(
     # finished_on_island += sum((island_colors == island_idx)[last_finished_mask])
     finished_on_island = len([ind for ind in islands.propulator.population.values() if not np.isnan(ind.loss)])
     print("CCCCCCCCCC")
-    finished_on_island_post_checkpoint = {(ind.island, ind.island_rank, ind.generation) for ind in [ind for ind in islands.propulator.population.values() if ind.active > 0]}
+    finished_on_island_post_checkpoint = {
+        (ind.island, ind.island_rank, ind.generation)
+        for ind in [ind for ind in islands.propulator.population.values() if ind.active > 0]
+    }
     print(finished_on_island_pre_checkpoint - finished_on_island_post_checkpoint)
     print(finished_on_island_post_checkpoint - finished_on_island_pre_checkpoint)
     print(island_idx, finished_on_island)
