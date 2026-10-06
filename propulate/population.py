@@ -81,16 +81,16 @@ class Individual:
 
         self.generation = generation  # Equals each worker's iteration for continuous population in Propulate.
         self.loss: float = float("inf")
-        self.active = (
-            1  # counts how many active "clones" are present, emigration or incoming pollen causes decrementation for selected inds
-        )
+        # Worker-local bookkeeping of whether the individual is currently active (part of the breeding population) on
+        # the worker's island: active if >= 1. See ``Propulator`` for how it is maintained.
+        self.active = 1
         self.island = -1  # island of origin
         self.evaltime = 0  # evaluation time
         self.start_time = 0
         self.evalperiod = 0.0  # evaluation duration
-        self.prop_rank = -1  # birth rank in propulate comm
-        self.island_rank = -1  # birth rank in island comm
-        self.migrator_island_rank = -1  # current rank of worker in island comm responsible for migration
+        self.prop_rank = prop_rank  # birth rank in propulate comm
+        self.island_rank = island_rank  # birth rank in island comm
+        self.migrator_island_rank = -1  # rank of worker in island comm responsible for migration on the current island
 
         # NOTE needed for PSO type propagators
         self.velocity = velocity

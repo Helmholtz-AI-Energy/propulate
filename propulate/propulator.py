@@ -13,7 +13,7 @@ import h5py
 import numpy as np
 from mpi4py import MPI
 
-from ._globals import INDIVIDUAL_TAG
+from ._globals import INDIVIDUAL_TAG, MIGRATION_TAG, SYNCHRONIZATION_TAG
 from .population import Individual
 from .propagators import BasicPSO, Conditional, Propagator, SelectMin
 from .surrogate import Surrogate
@@ -175,10 +175,19 @@ class Propulator:
         self.immigration_propagator = immigration_propagator  # Immigration propagator
         self.rng = rng  # Generator for inter-island communication
 
-        self.intra_requests: list[MPI.Request] = []  # Keep track of intra-island send requests.
-        self.intra_buffers: list[Individual] = []  # Send buffers for intra-island communication
-        self.inter_requests: list[MPI.Request] = []  # Keep track of inter-island send requests.
-        self.inter_buffers: list[list[Individual]] = []  # Send buffers for inter-island communication
+        # All point-to-point communication is non-blocking. Keep track of the requests in flight and the buffers they
+        # still reference.
+        self.send_requests: list[MPI.Request] = []
+        self.send_buffers: list[Any] = []
+        # Message accounting for the final synchronization: how many messages of each tag this worker has sent to and
+        # received from every other worker. Intra-island tags are exchanged on ``island_comm``, the migration tag on
+        # ``propulate_comm``.
+        self._sent: dict[int, np.ndarray] = {
+            INDIVIDUAL_TAG: np.zeros(self.island_comm.size, dtype=int),
+            SYNCHRONIZATION_TAG: np.zeros(self.island_comm.size, dtype=int),
+            MIGRATION_TAG: np.zeros(self.propulate_comm.size, dtype=int),
+        }
+        self._received: dict[int, np.ndarray] = {tag: np.zeros_like(counts) for tag, counts in self._sent.items()}
 
         # Load initial population of evaluated individuals from checkpoint if exists.
         self.checkpoint_path = self.checkpoint_path / "ckpt.hdf5"
@@ -211,8 +220,14 @@ class Propulator:
             if not np.array_equal(ckpt_island_sizes, self.island_sizes):
                 raise RuntimeError("Island configuration inconsistent with checkpoint!")
 
-            # NOTE generation is the index of individuals whose evaluation has begun
-            self.generation = int(f["generations"][self.propulate_comm.Get_rank()])
+            # NOTE ``generations`` holds the index of the last individual each worker started to evaluate (-1 if none).
+            # The next generation to breed is the one after it if its evaluation finished, otherwise it is evaluated
+            # first in ``propulate``. This must not depend on whether that individual is still in the population: it may
+            # have been replaced or migrated away in the meantime, and breeding it again would reuse its identity.
+            last_started = int(f["generations"][self.propulate_comm.Get_rank()])
+            self.generation = max(0, last_started)
+            if last_started >= 0 and not math.isnan(f[f"{self.island_idx}"][f"{self.island_comm.rank}"]["loss"][last_started]):
+                self.generation = last_started + 1
 
             # NOTE load individuals, since they might have migrated, every worker has to check each dataset
             num_islands = len(self.island_sizes)
@@ -222,13 +237,17 @@ class Propulator:
                     prop_rank = island_rank + np.cumsum(np.concatenate((np.array([0]), self.island_sizes)))[i]
                     for generation in range(f["generations"][prop_rank] + 1):
                         if islandgroup[f"{island_rank}"]["active_on_island"][generation][self.island_idx]:
+                            if i != self.island_idx and math.isnan(islandgroup[f"{island_rank}"]["loss"][generation]):
+                                # An individual whose evaluation has not finished only exists on its birth island,
+                                # where the breeding worker completes it; elsewhere it could never be completed.
+                                continue
                             ind = Individual(
                                 islandgroup[f"{island_rank}"]["position"][generation, 0],
                                 self.propagator.limits,
                             )
                             ind.island_rank = island_rank
                             ind.island = i
-                            ind.migrator_island_rank = islandgroup[f"{island_rank}"]["migrator_island_rank"][generation]
+                            ind.migrator_island_rank = self._responsible_rank(ind)
                             if islandgroup[f"{island_rank}"]["position"].shape[1] > 1:
                                 ind.velocity = islandgroup[f"{island_rank}"]["position"][generation, 1]
                             ind.loss = islandgroup[f"{island_rank}"]["loss"][generation]
@@ -372,6 +391,119 @@ class Propulator:
         active_pop = [ind for ind in self.population.values() if ind.active >= 1]
         return active_pop
 
+    # ------------------------------------------------------------------------------------------------------------------
+    # Population bookkeeping
+    #
+    # An individual's identity is its birth island, birth island rank, and generation. This triple is the key into
+    # ``self.population`` and the individual's slot in the checkpoint file. It never changes; copies that travel between
+    # workers or islands keep it. Where an individual currently lives is tracked separately: in the checkpoint by
+    # ``active_on_island`` and locally by each worker's ``active`` counter of its population entry.
+    #
+    # Every worker of an island learns about the same events for an individual, but through independent messages that
+    # MPI delivers in no particular order relative to each other (only messages from the same source are ordered).
+    # Bookkeeping is therefore expressed as events applied to a population entry that is created by whichever message
+    # mentions the individual first, so that the result does not depend on the order of arrival.
+    # ------------------------------------------------------------------------------------------------------------------
+
+    def _responsible_rank(self, ind: Individual) -> int:
+        """
+        Get the island rank of the worker responsible for migrating / replacing an individual on this island.
+
+        This is a pure function of the individual's identity and the island, so all workers of an island agree on it
+        irrespective of the order in which they learned about the individual, and it is independent of the (mutable)
+        ``migrator_island_rank`` attribute of any particular copy.
+        """
+        if ind.island == self.island_idx:
+            return int(ind.island_rank)
+        return int(ind.generation) % int(self.island_sizes[self.island_idx])
+
+    def _upsert_individual(self, ind: Individual) -> Tuple[Individual, bool]:
+        """
+        Make sure an individual received in a message is in the local population and return the local entry.
+
+        Parameters
+        ----------
+        ind : propulate.population.Individual
+            A copy of the individual as received in a message. Its ``active`` counter is the sender's and is ignored.
+
+        Returns
+        -------
+        propulate.population.Individual
+            The population entry for the individual's identity.
+        bool
+            True if the entry was newly created by this call or completed an unevaluated placeholder loaded from a
+            checkpoint, False if the individual was already known. A new entry starts with ``active = 0``; the caller
+            applies the event it is processing.
+        """
+        key = (ind.island, ind.island_rank, ind.generation)
+        existing = self.population.get(key)
+        if existing is not None and not (math.isnan(existing.loss) and not math.isnan(ind.loss)):
+            return existing, False
+        entry = copy.deepcopy(ind)
+        entry.active = 0 if existing is None else existing.active
+        entry.migrator_island_rank = self._responsible_rank(entry)
+        self.population[key] = entry
+        return entry, True
+
+    def _process_bred_individual(self, ind: Individual) -> None:
+        """
+        Apply the event "``ind`` was bred and evaluated on this island by another worker" to the local population.
+
+        Breeding activates the individual on this island. The entry may already exist if a copy of the individual
+        reached this worker by another route first (e.g. it migrated away and back before the breeding message
+        arrived) or as a placeholder loaded from a checkpoint while its evaluation was still running.
+        """
+        entry, created = self._upsert_individual(ind)
+        if created:
+            entry.active = 1
+
+    def _send_message(self, comm: MPI.Comm, obj: Any, dest: int, tag: int) -> None:
+        """Send a copy of ``obj`` to ``dest`` on ``comm`` without blocking and account for it."""
+        self.send_buffers.append(copy.deepcopy(obj))
+        self.send_requests.append(comm.isend(self.send_buffers[-1], dest=int(dest), tag=tag))
+        self._sent[tag][dest] += 1
+
+    def _send_cleanup(self) -> None:
+        """Forget the requests and buffers of completed sends."""
+        completed = MPI.Request.Testsome(self.send_requests)
+        assert len(self.send_requests) == len(self.send_buffers)
+        self.send_requests = [r for i, r in enumerate(self.send_requests) if i not in completed]
+        self.send_buffers = [b for i, b in enumerate(self.send_buffers) if i not in completed]
+
+    def _drain_messages(self, comm: MPI.Comm, tag: int, receive_fn: Callable[[], None]) -> None:
+        """
+        Receive every message with ``tag`` sent to this worker on ``comm`` that has not been received yet.
+
+        Collective on ``comm``. Completion is decided by exchanging message counts rather than by probing: a message
+        that was sent is guaranteed to be delivered, but MPI does not guarantee that a non-blocking probe sees a message
+        that is still in flight, even after a barrier.
+        """
+        expected = np.array(comm.alltoall(self._sent[tag].tolist()), dtype=int)
+        while np.any(self._received[tag] < expected):
+            comm.probe(source=MPI.ANY_SOURCE, tag=tag)  # Block until the next outstanding message is available.
+            receive_fn()  # Receive and process all messages with this tag that are available now.
+        assert np.array_equal(self._received[tag], expected)
+
+    def _drain_migration_messages(self, hdf5_checkpoint: h5py.File) -> None:
+        """Receive all outstanding inter-island messages and the intra-island messages they trigger (island models)."""
+
+    def _final_synchronization(self, hdf5_checkpoint: h5py.File) -> None:
+        """
+        Receive all messages sent during the optimization so that every worker holds the complete final population.
+
+        Collective. Afterwards, all workers of an island hold the same set of active individuals, which matches the
+        ``active_on_island`` column of this island in the checkpoint.
+        """
+        log.debug(f"Island {self.island_idx} Worker {self.island_comm.rank}: Final synchronization...")
+        self._drain_messages(self.island_comm, INDIVIDUAL_TAG, self._receive_intra_island_individuals)
+        self._drain_migration_messages(hdf5_checkpoint)
+        MPI.Request.Waitall(self.send_requests)  # Every message has been received, so all sends have completed.
+        self.send_requests = []
+        self.send_buffers = []
+
+    def _migration_step(self, hdf5_checkpoint: h5py.File) -> None:
+        """Perform the inter-island part of a generation (nothing to do without an island model)."""
+
     def _breed(self) -> Individual:
         """
         Apply propagator to current population of active individuals to breed new individual.
@@ -474,8 +606,7 @@ class Propulator:
         for r in range(self.island_comm.size):  # Loop over ranks in intra-island communicator.
             if r == self.island_comm.rank:
                 continue  # No self-talk.
-            self.intra_buffers.append(copy.deepcopy(ind))
-            self.intra_requests.append(self.island_comm.isend(self.intra_buffers[-1], dest=r, tag=INDIVIDUAL_TAG))
+            self._send_message(self.island_comm, ind, r, INDIVIDUAL_TAG)
 
         if self.surrogate is not None:
             # Remove data from individual again as ``__eq__`` fails otherwise.
@@ -497,6 +628,7 @@ class Propulator:
             if probe_ind:
                 # Receive individual and add it to own population.
                 ind_temp = self.island_comm.recv(source=stat.Get_source(), tag=INDIVIDUAL_TAG)
+                self._received[INDIVIDUAL_TAG][stat.Get_source()] += 1
 
                 # Only merge if surrogate model is used.
                 if SURROGATE_KEY in ind_temp and self.surrogate is not None:
@@ -505,9 +637,7 @@ class Propulator:
                 if SURROGATE_KEY in ind_temp:
                     del ind_temp[SURROGATE_KEY]
 
-                self.population[(ind_temp.island, ind_temp.island_rank, ind_temp.generation)] = (
-                    ind_temp  # Add received individual to own worker-local population.
-                )
+                self._process_bred_individual(ind_temp)
 
                 log_string += f"Added individual {ind_temp} from W{stat.Get_source()} to own population.\n"
         n_active = len(self._get_active_individuals())
@@ -651,6 +781,11 @@ class Propulator:
             self.generation = self.worker_sub_comm.bcast(self.generation, root=0)
         # NOTE if true, this rank is a worker sub rank, so it does not breeding and checkpointing, just evaluation
         if self.propulate_comm is None:
+            # The worker's root rank tells us if it resumes an unfinished evaluation from a checkpoint.
+            resumed = self.worker_sub_comm.bcast(None, root=0)
+            if resumed is not None:
+                self._evaluate_individual(resumed)
+                self.generation += 1
             while self.generation < self.generations:
                 # Breed and evaluate individual.
                 ind = self._breed()
@@ -664,19 +799,24 @@ class Propulator:
         # Loop over generations.
         # NOTE there is an implicit barrier when closing the file in parallel mode
         with h5py.File(self.checkpoint_path, "a", driver="mpio", comm=self.propulate_comm) as f:
-            # NOTE check if there is an individual still to evaluate
+            # NOTE check if there is an individual still to evaluate, i.e., one loaded from the checkpoint of an
+            # interrupted run whose evaluation had been started but not finished
             current_idx = (
                 self.island_idx,
                 self.island_comm.rank,
                 self.generation,
             )
-            if current_idx in self.population:
-                ind = self.population[current_idx]
-                if math.isnan(ind.loss):
-                    log.info(f"Continuing evaluation of individual {current_idx} loaded from checkpoint.")
-                    self._evaluate_individual(ind)
-                    self._post_eval_checkpoint(ind, f)
-                    self._send_intra_island_individuals(ind)
+            ind = self.population.get(current_idx)
+            if ind is not None and not math.isnan(ind.loss):
+                ind = None
+            if self.worker_sub_comm != MPI.COMM_SELF:
+                # The worker's other ranks take part in the evaluation, so they need to know about it.
+                ind = self.worker_sub_comm.bcast(ind, root=0)
+            if ind is not None:
+                log.info(f"Continuing evaluation of individual {current_idx} loaded from checkpoint.")
+                self._evaluate_individual(ind)
+                self._post_eval_checkpoint(ind, f)
+                self._send_intra_island_individuals(ind)
                 self.generation += 1
 
             while self.generation < self.generations:
@@ -694,27 +834,14 @@ class Propulator:
                 self._send_intra_island_individuals(ind)
                 # Check for and possibly receive incoming individuals from other intra-island workers.
                 self._receive_intra_island_individuals()
+                # Migration / pollination (island models only).
+                self._migration_step(f)
                 # Clean up requests and buffers.
-                self._intra_send_cleanup()
+                self._send_cleanup()
                 # Go to next generation.
                 self.generation += 1
 
-        log.info(f"Island {self.island_idx} Worker {self.island_comm.rank}: OPTIMIZATION DONE!")
-
-    def _intra_send_cleanup(self) -> None:
-        """Delete all send buffers that have been sent."""
-        # Test for requests to complete.
-        completed = MPI.Request.Testsome(self.intra_requests)
-        # Remove requests and buffers of complete send operations.
-        assert len(self.intra_requests) == len(self.intra_buffers)
-        self.intra_requests = [r for i, r in enumerate(self.intra_requests) if i not in completed]
-        self.intra_buffers = [b for i, b in enumerate(self.intra_buffers) if i not in completed]
-
-    def _inter_send_cleanup(self) -> None:
-        """Delete all send buffers that have been sent."""
-        # Test for requests to complete.
-        completed = MPI.Request.Testsome(self.inter_requests)
-        # Remove requests and buffers of complete send operations.
-        assert len(self.inter_requests) == len(self.inter_buffers)
-        self.inter_requests = [r for i, r in enumerate(self.inter_requests) if i not in completed]
-        self.inter_buffers = [b for i, b in enumerate(self.inter_buffers) if i not in completed]
+            log.info(f"Island {self.island_idx} Worker {self.island_comm.rank}: OPTIMIZATION DONE!")
+            # Having completed all generations, receive everything that is still in flight so that each worker holds
+            # the complete final population irrespective of the order in which the workers finished.
+            self._final_synchronization(f)

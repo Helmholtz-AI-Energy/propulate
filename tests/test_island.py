@@ -4,7 +4,6 @@ import pathlib
 import random
 from typing import Callable, Dict, Tuple
 
-import deepdiff
 import h5py
 import numpy as np
 import pytest
@@ -14,7 +13,7 @@ from propulate import Islands
 from propulate.propagators import Propagator
 from propulate.utils import get_default_propagator, set_logger_config
 from propulate.utils.benchmark_functions import get_function_search_space
-from propulate.utils.consistency_checks import final_synch, population_consistency_check
+from propulate.utils.consistency_checks import assert_populations_match, final_synch, population_consistency_check
 
 
 @pytest.fixture(scope="module")
@@ -33,7 +32,7 @@ def global_variables() -> Tuple[random.Random, Callable, Dict, Propagator]:
 @pytest.fixture(
     params=[
         True,
-        # False,
+        False,
     ]
 )
 def pollination(request: pytest.FixtureRequest) -> bool:
@@ -139,7 +138,7 @@ def test_islands_checkpointing_isolated(
     )
     assert len(old_population) == len(islands.propulator.population)
 
-    assert len(deepdiff.DeepDiff(old_population, islands.propulator.population, ignore_order=True)) == 0
+    assert_populations_match(old_population.values(), islands.propulator.population.values())
     islands.propulate()
     final_synch(islands.propulator)
     population_consistency_check(islands.propulator)
@@ -204,7 +203,7 @@ def test_islands_checkpointing(
         checkpoint_path=mpi_tmp_path,
     )
 
-    assert len(deepdiff.DeepDiff(old_population, list(islands.propulator.population.values()), ignore_order=True)) == 0
+    assert_populations_match(old_population, islands.propulator.population.values())
     islands.propulate()
     final_synch(islands.propulator)
     population_consistency_check(islands.propulator)
@@ -272,7 +271,7 @@ def test_islands_checkpointing_unequal_populations_bla(
     islands.propulate()
     final_synch(islands.propulator)
     population_consistency_check(islands.propulator)
-    assert len(deepdiff.DeepDiff(old_population, list(islands.propulator.population.values()), ignore_order=True)) == 0
+    assert_populations_match(old_population, islands.propulator.population.values(), subset=True)
     log.handlers.clear()
 
     MPI.COMM_WORLD.barrier()
@@ -492,7 +491,7 @@ def test_islands_checkpointing_incomplete_isolated(
         with h5py.File(mpi_tmp_path / "ckpt.hdf5", "r") as f:
             for island in range(island_sizes.size):
                 for worker in range(island_sizes[island]):
-                    assert not np.isnan(f[f"{island}"][f"{worker}"]["loss"][:].any())
+                    assert not np.isnan(f[f"{island}"][f"{worker}"]["loss"][:]).any()
 
     # NOTE check that no started individuals have been overwritten
     count = 0
@@ -576,18 +575,13 @@ def test_islands_checkpointing_incomplete(
     islands.propulate()
     final_synch(islands.propulator)
     MPI.COMM_WORLD.barrier()
-    ################
     finished_on_island = len([ind for ind in islands.propulator.population.values() if not np.isnan(ind.loss) and ind.active > 0])
-    print("YYYYYYYYYY")
     island_idx = islands.propulator.island_idx
-    print(island_idx, finished_on_island)
-    print([ind for ind in islands.propulator.population.values() if not np.isnan(ind.loss) and ind.active > 0])
-    finished_on_island_pre_checkpoint = {
-        (ind.island, ind.island_rank, ind.generation)
-        for ind in [ind for ind in islands.propulator.population.values() if ind.active > 0]
-    }
-    assert finished_on_island == [20, 53][island_idx]
-    ##############
+    finished_per_island = [islands.propulator.propulate_comm.allgather(finished_on_island)[displ] for displ in (0, 3)]
+    if pollination:
+        assert finished_per_island == [20, 53]  # NOTE each island holds as many active individuals as it bred.
+    else:
+        assert sum(finished_per_island) == 73  # NOTE with real migration, only the total is fixed.
     log.info("first run finished")
 
     # NOTE manipulate checkpoint
@@ -597,55 +591,46 @@ def test_islands_checkpointing_incomplete(
 
     if MPI.COMM_WORLD.rank == 0:
         with h5py.File(mpi_tmp_path / "ckpt.hdf5", "r+") as f:
-            print(f["generations"][:])
-            # for i, g in enumerate(started_first_generations):
-            #     f["generations"][i] = g
-            # print(f["generations"][:])
-            num_reactivated = np.zeros((2,))
+            world_displs = np.cumsum(np.concatenate((np.array([0]), island_sizes)))
+
+            def group(world_rank: int) -> h5py.Group:
+                """Get the checkpoint group of a worker."""
+                return f[f"{island_colors[world_rank]}"][f"{world_rank - world_displs[island_colors[world_rank]]}"]
+
+            def evaluated_row(island: int, active: int) -> Tuple[h5py.Group, int]:
+                """Get a worker's group and generation of an evaluated, unmanipulated individual (in)active on an island."""
+                for world_rank in range(MPI.COMM_WORLD.size):
+                    for gen in range(started_first_generations[world_rank]):
+                        if group(world_rank)["active_on_island"][gen, island] == active and not np.isnan(
+                            group(world_rank)["loss"][gen]
+                        ):
+                            return group(world_rank), gen
+                raise AssertionError(f"No evaluated individual with active = {active} on island {island}.")
+
             for worker, g in enumerate(started_first_generations):
-                island_idx = island_colors[worker]
-                print((island_idx, worker, g))
-                # Worker_idx is the island rank
-                # [0, 1, 2, 3, 4, 5, 6, 7] world rank
-                # [0, 1, 2, 0, 1, 2, 3, 4] island rank
-                # [0, 0, 0, 1, 1, 1, 1, 1] island colors
-                island_worker_idx = worker - np.cumsum(np.concatenate((np.array([0]), island_sizes)))[island_idx]
-                print(f[f"{island_idx}"][f"{island_worker_idx}"]["loss"][:])
-                # TODO first case is not really needed, when the islands are set up to only do the incomplete number of evaluations anyway
                 if worker in workers_last_finished:
-                    # skip some workers who finished their last evaluation
-                    f[f"{island_idx}"][f"{island_worker_idx}"]["loss"][g + 1 :] = np.nan
-                    # f[f"{island_idx}"][f"{island_worker_idx}"]["active_on_island"][g + 1 :] = 0
-                else:
-                    f[f"{island_idx}"][f"{island_worker_idx}"]["loss"][g] = np.nan
-                    f[f"{island_idx}"][f"{island_worker_idx}"]["active_on_island"][g + 1 :] = 0
-                    # NOTE it is possible the individuals we pretend are not finished yet are deactivated for pollination
-                    # NOTE we reactivate them
-                    if f[f"{island_idx}"][f"{island_worker_idx}"]["active_on_island"][g, island_idx] == 0:
-                        f[f"{island_idx}"][f"{island_worker_idx}"]["active_on_island"][g, island_idx] = 1
-                        num_reactivated[island_idx] += 1
-
-                f[f"{island_idx}"][f"{island_worker_idx}"]["active_on_island"][g + 1 :, :] = 0
-                print(f[f"{island_idx}"][f"{island_worker_idx}"]["loss"][:])
-                print("x")
-                print(f[f"{island_idx}"][f"{island_worker_idx}"]["position"][:])
-                print(f[f"{island_idx}"][f"{island_worker_idx}"]["active_on_island"][:])
-
-            # # NOTE deactivate random individuals to compensate for the reactivated ones
-            # # NOTE arbirtarily chose to deactivate only from worker 1 on both islands
-            print("DDDDDD")
-
-            print(num_reactivated)
-            # print(f[f"{0}"][f"{1}"]["active_on_island"][:])
-            # print(f[f"{1}"][f"{1}"]["active_on_island"][:])
-            for i in range(num_islands):
-                j = 0
-                while num_reactivated[i] > 0:
-                    if f[f"{i}"][f"{1}"]["active_on_island"][j, i] == 1:
-                        f[f"{i}"][f"{1}"]["active_on_island"][j, i] = 0
-                        print(i, j, f[f"{i}"][f"{1}"]["active_on_island"][:])
-                        num_reactivated[i] -= 1
-                    j += 1
+                    continue  # NOTE these workers finished their last evaluation.
+                island_idx = island_colors[worker]
+                grp = group(worker)
+                # NOTE pretend the last started evaluation did not finish
+                grp["loss"][g] = np.nan
+                grp["active_on_island"][g + 1 :, :] = 0
+                # NOTE an unfinished individual exists on its birth island only. Make the checkpoint consistent with that
+                # while keeping the number of active individuals per island: with pollination, a copy on another island
+                # had replaced an individual there and the individual itself may have been replaced at home; with
+                # real migration, it simply moves back home.
+                for other_island in np.flatnonzero(grp["active_on_island"][g, :]):
+                    if other_island == island_idx:
+                        continue
+                    grp["active_on_island"][g, other_island] = 0
+                    if pollination:
+                        other_grp, gen = evaluated_row(other_island, active=0)
+                        other_grp["active_on_island"][gen, other_island] = 1
+                if grp["active_on_island"][g, island_idx] == 0:
+                    grp["active_on_island"][g, island_idx] = 1
+                    if pollination:
+                        home_grp, gen = evaluated_row(island_idx, active=1)
+                        home_grp["active_on_island"][gen, island_idx] = 0
 
     MPI.COMM_WORLD.barrier()
     # with h5py.File(mpi_tmp_path / "ckpt.hdf5", "r") as f:
@@ -678,18 +663,12 @@ def test_islands_checkpointing_incomplete(
     # last_finished_mask[np.array([x for x in workers_last_finished])] = True
     # finished_on_island += sum((island_colors == island_idx)[last_finished_mask])
     finished_on_island = len([ind for ind in islands.propulator.population.values() if not np.isnan(ind.loss)])
-    print("CCCCCCCCCC")
-    finished_on_island_post_checkpoint = {
-        (ind.island, ind.island_rank, ind.generation)
-        for ind in [ind for ind in islands.propulator.population.values() if ind.active > 0]
-    }
-    print(finished_on_island_pre_checkpoint - finished_on_island_post_checkpoint)
-    print(finished_on_island_post_checkpoint - finished_on_island_pre_checkpoint)
-    print(island_idx, finished_on_island)
-    print([ind for ind in islands.propulator.population.values() if not np.isnan(ind.loss)])
-    print("unfinished:", [ind for ind in islands.propulator.population.values() if np.isnan(ind.loss)])
     assert len([ind for ind in islands.propulator.population.values() if np.isnan(ind.loss)]) == [2, 4][island_idx]
-    assert finished_on_island == [18, 49][island_idx]
+    finished_per_island = [islands.propulator.propulate_comm.allgather(finished_on_island)[displ] for displ in (0, 3)]
+    if pollination:
+        assert finished_per_island == [18, 49]
+    else:
+        assert sum(finished_per_island) == 73 - 6  # NOTE six individuals are pretended to be unfinished.
 
     # NOTE check that the values read are the same:
     count = 0
@@ -786,7 +765,7 @@ def test_islands_checkpointing_incomplete(
         with h5py.File(mpi_tmp_path / "ckpt.hdf5", "r") as f:
             for island in range(island_sizes.size):
                 for worker in range(island_sizes[island]):
-                    assert not np.isnan(f[f"{island}"][f"{worker}"]["loss"][:].any())
+                    assert not np.isnan(f[f"{island}"][f"{worker}"]["loss"][:]).any()
 
     # NOTE check that no started individuals have been overwritten
     count = 0

@@ -3,7 +3,6 @@ import logging
 import pathlib
 import random
 
-import deepdiff
 import pytest
 from mpi4py import MPI
 
@@ -18,7 +17,7 @@ from propulate.propagators.pso import (
 )
 from propulate.utils import get_default_propagator, set_logger_config
 from propulate.utils.benchmark_functions import get_function_search_space, sphere
-from propulate.utils.consistency_checks import final_synch, population_consistency_check
+from propulate.utils.consistency_checks import assert_populations_match, final_synch, population_consistency_check
 
 log = logging.getLogger("propulate")  # Get logger instance.
 limits = get_function_search_space("sphere")[1]
@@ -136,9 +135,9 @@ def test_pso_checkpointing(pso_propagator: BasicPSO, mpi_tmp_path: pathlib.Path)
         rng=rng,
     )  # Set up new propulator starting from checkpoint.
 
-    # As the number of requested generations is smaller than the number of generations from the run before,
-    # no new evaluations are performed. Thus, the length of both Propulators' populations must be equal.
-    assert len(deepdiff.DeepDiff(old_population, propulator.population, ignore_order=True)) == 0
+    # The population loaded from the checkpoint, including velocities, must be the one of the run before.
+    assert_populations_match(old_population.values(), propulator.population.values())
+    assert all(ind.velocity is not None for ind in propulator.population.values())
     log.handlers.clear()
 
 

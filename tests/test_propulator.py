@@ -3,7 +3,6 @@ import logging
 import pathlib
 import random
 
-import deepdiff
 import h5py
 import numpy as np
 import pytest
@@ -12,7 +11,7 @@ from mpi4py import MPI
 from propulate import Propulator
 from propulate.utils import get_default_propagator, set_logger_config
 from propulate.utils.benchmark_functions import get_function_search_space
-from propulate.utils.consistency_checks import final_synch, population_consistency_check
+from propulate.utils.consistency_checks import assert_populations_match, final_synch, population_consistency_check
 
 
 @pytest.fixture(
@@ -123,15 +122,14 @@ def test_propulator_checkpointing(mpi_tmp_path: pathlib.Path) -> None:
         rng=rng,
     )  # Set up new propulator starting from checkpoint.
 
-    # As the number of requested generations is smaller than the number of generations from the run before,
-    # no new evaluations are performed. Thus, the length of both Propulators' populations must be equal.
-    assert len(deepdiff.DeepDiff(old_population, propulator.population, ignore_order=True)) == 0
+    # The population loaded from the checkpoint must be the one of the run before.
+    assert_populations_match(old_population.values(), propulator.population.values())
     propulator.propulate()
     final_synch(propulator)
     population_consistency_check(propulator)
     # NOTE make sure nothing was overwritten
     seniors = {k: v for (k, v) in propulator.population.items() if v.generation < first_generations}
-    assert len(deepdiff.DeepDiff(old_population, seniors, ignore_order=True)) == 0
+    assert_populations_match(old_population.values(), seniors.values())
     assert len(propulator.population) == second_generations * propulator.propulate_comm.Get_size()
 
     log.handlers.clear()

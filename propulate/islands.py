@@ -184,7 +184,7 @@ class Islands:
 
             #  Set up intra-island communicator for communication within each island.
             island_colors = np.concatenate([idx * np.ones(el, dtype=int) for idx, el in enumerate(island_sizes)]).ravel()
-            island_idx = island_colors[propulate_world_rank]  # Determine island index (which is also each rank's intra color).
+            island_idx = int(island_colors[propulate_world_rank])  # Determine island index (which is also each rank's intra color).
             island_key = propulate_world_rank
 
             # Determine displacements as positions of unique elements, where # unique elements equals number of islands.
