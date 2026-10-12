@@ -101,10 +101,12 @@ as follows:
 
      """
 
+
      class ParentClassName:
          """
          The docstring for the parent class.
          """
+
 
      class MyClass(ParentClassName):
          """
