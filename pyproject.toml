@@ -21,16 +21,16 @@ classifiers = [
 ]
 dependencies = [
 	"deepdiff",
-    "matplotlib ~= 3.8.4",
 	"mpi4py",
 	"numpy",
     "colorlog",
-    "Gpy ~= 1.13.2",
     "h5py",
 ]
 
 [project.optional-dependencies]
+surrogate = ["scikit-learn>=1.2"]
 dev = [
+    "scikit-learn>=1.2",
     "pre-commit",
     "coverage",
     "ruff",
@@ -55,6 +55,7 @@ test = [
 ]
 
 tutorials = [
+    "scikit-learn>=1.2",
     "torch",
     "torchvision",
     "torchmetrics",

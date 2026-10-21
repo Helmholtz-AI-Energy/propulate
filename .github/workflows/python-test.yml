@@ -39,7 +39,7 @@ jobs:
 
           - name: Install dependencies
             run: |
-                uv pip install --force-reinstall --no-binary=mpi4py ."[test]"
+                uv pip install --force-reinstall --no-binary=mpi4py ."[test,surrogate]"
 
           - name: Test with pytest and measure coverage
             run: |
