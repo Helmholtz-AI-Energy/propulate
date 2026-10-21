@@ -482,6 +482,7 @@ class DynamicSurrogate(Surrogate):
             return
 
         # Use global model's prediction as the mean function for the local model.
+        assert self.global_gpr is not None
         self.mean_function = float(self.global_gpr.predict(self.current_encoding)[0])
 
         # Reset the local model and run data.
@@ -559,6 +560,7 @@ class DynamicSurrogate(Surrogate):
         self._fit_local()
 
         # Preserve the existing variance-based pruning rule (not a standard-deviation bound).
+        assert self.local_gpr is not None
         mean, std = self.local_gpr.predict(np.array([[self.max_idx]]), return_std=True)
         final_loss = float(mean[0]) + self.mean_function
         final_variance = float(std[0]) ** 2

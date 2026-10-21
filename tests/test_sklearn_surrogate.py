@@ -3,6 +3,7 @@
 import os
 import subprocess
 import sys
+from typing import Any, Callable
 from unittest.mock import Mock
 
 import numpy as np
@@ -41,6 +42,7 @@ def test_global_fit_and_merge() -> None:
     model.update(3.0)
     model.merge((np.array([0.8]), 2.0))
     assert model.history_X.shape == (2, 1)
+    assert model.global_gpr is not None
     assert np.isfinite(model.global_gpr.predict([[0.5]])).all()
     np.testing.assert_array_equal(model.data()[0], [0.8])
 
@@ -120,6 +122,7 @@ def test_trainable_local_mean() -> None:
     assert initial[-1] == 20.0
     np.testing.assert_array_equal(initial[:-1], initial_theta)
     assert abs(model.mean_function - 20.0) > 1.0
+    assert model.local_gpr is not None
     assert not np.allclose(model.local_gpr.kernel_.theta, initial_theta)
     # At the joint optimum the constant mean is the generalized least-squares mean.
     ones = np.ones(4)
@@ -151,7 +154,9 @@ def test_joint_objective_gradient() -> None:
     model.current_run_data = np.array([[3.0], [2.0], [1.0]])
     model.mean_function = 4.0
 
-    def inspect_objective(fun, initial, **kwargs):
+    def inspect_objective(
+        fun: Callable[[np.ndarray], tuple[float, np.ndarray]], initial: np.ndarray, **kwargs: Any
+    ) -> OptimizeResult:
         assert check_grad(lambda p: fun(p)[0], lambda p: fun(p)[1], initial) < 1e-5
         return OptimizeResult(x=initial, fun=fun(initial)[0])
 
