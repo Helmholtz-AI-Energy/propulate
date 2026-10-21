@@ -28,9 +28,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-surrogate = ["scikit-learn>=1.2"]
+surrogate = ["scikit-learn>=1.2", "scipy>=1.8"]
 dev = [
     "scikit-learn>=1.2",
+    "scipy>=1.8",
     "pre-commit",
     "coverage",
     "ruff",
@@ -56,6 +57,7 @@ test = [
 
 tutorials = [
     "scikit-learn>=1.2",
+    "scipy>=1.8",
     "torch",
     "torchvision",
     "torchmetrics",

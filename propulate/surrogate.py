@@ -311,11 +311,11 @@ class DynamicSurrogate(Surrogate):
 
     The first global model is trained on the configurations with their final losses.
     The second local model is trained on the interim losses of the current run.
-    The local model uses the global model's prediction as a fixed mean by fitting residuals.
+    The local model uses the global model's prediction to initialize a trainable constant mean.
     Install the optional dependency with ``pip install "propulate[surrogate]"``.
 
     This backend migration preserves the existing pruning threshold and history rules.
-    Predictions need not match GPy exactly: the local mean is fixed rather than optimized.
+    The local mean and kernel parameters are optimized jointly by marginal likelihood.
 
     Loosely based on the paper:
     Freeze-Thaw Bayesian Optimization
@@ -429,6 +429,44 @@ class DynamicSurrogate(Surrogate):
         self.global_gpr = GaussianProcessRegressor(kernel=kernel, alpha=1e-10, normalize_y=False)
         self.global_gpr.fit(self.history_X, self.history_Y.ravel())
 
+    def _fit_local(self) -> None:
+        """Jointly optimize the constant mean and kernel by marginal likelihood."""
+        from scipy.linalg import cho_solve, cholesky
+        from scipy.optimize import minimize
+        from sklearn.gaussian_process import GaussianProcessRegressor
+
+        x = np.arange(1, self.current_run_data.shape[0] + 1).reshape(-1, 1)
+        y = self.current_run_data.ravel()
+        starting_kernel = self.local_kernel if self.local_gpr is None else self.local_gpr.kernel_
+        kernel = starting_kernel.clone_with_theta(starting_kernel.theta)
+
+        def objective(parameters: np.ndarray) -> Tuple[float, np.ndarray]:
+            kernel.theta = parameters[:-1]
+            covariance, gradient = kernel(x, eval_gradient=True)
+            covariance[np.diag_indices_from(covariance)] += 1e-10
+            factor = cholesky(covariance, lower=True)
+            residual = y - parameters[-1]
+            weights = cho_solve((factor, True), residual)
+            value = 0.5 * residual @ weights + np.log(np.diag(factor)).sum() + 0.5 * len(y) * np.log(2 * np.pi)
+            inverse = cho_solve((factor, True), np.eye(len(y)))
+            kernel_gradient = 0.5 * np.einsum("ij,ijk->k", inverse - np.outer(weights, weights), gradient)
+            return float(value), np.append(kernel_gradient, -weights.sum())
+
+        initial = np.append(kernel.theta, self.mean_function)
+        result = minimize(
+            objective,
+            initial,
+            jac=True,
+            method="L-BFGS-B",
+            bounds=[*kernel.bounds, (None, None)],
+        )
+        # Keep the starting point if optimization returns a worse or non-finite objective.
+        parameters = result.x if np.isfinite(result.fun) and result.fun <= objective(initial)[0] else initial
+        self.mean_function = float(parameters[-1])
+        kernel.theta = parameters[:-1]
+        self.local_gpr = GaussianProcessRegressor(kernel=kernel, alpha=1e-10, optimizer=None, normalize_y=False)
+        self.local_gpr.fit(x, y - self.mean_function)
+
     def start_run(self, ind: Individual) -> None:
         """
         Encode the config. given as individual and create the local GP's mean function from the global GP's prediction.
@@ -518,14 +556,7 @@ class DynamicSurrogate(Surrogate):
         else:
             self.current_run_data = np.vstack([self.current_run_data, [loss]])
 
-        from sklearn.gaussian_process import GaussianProcessRegressor
-
-        kernel = self.local_kernel if self.local_gpr is None else self.local_gpr.kernel_
-        self.local_gpr = GaussianProcessRegressor(kernel=kernel, alpha=1e-10, normalize_y=False)
-        self.local_gpr.fit(
-            np.arange(1, self.current_run_data.shape[0] + 1).reshape(-1, 1),
-            self.current_run_data.ravel() - self.mean_function,
-        )
+        self._fit_local()
 
         # Preserve the existing variance-based pruning rule (not a standard-deviation bound).
         mean, std = self.local_gpr.predict(np.array([[self.max_idx]]), return_std=True)

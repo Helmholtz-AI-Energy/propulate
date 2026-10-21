@@ -60,11 +60,10 @@ def test_local_mean_and_variance_rule() -> None:
     gp.predict.return_value = (np.array([-5.0]), np.array([2.0]))
     from unittest.mock import patch
 
-    with patch("sklearn.gaussian_process.GaussianProcessRegressor", return_value=gp):
+    with patch.object(model, "_fit_local", side_effect=lambda: setattr(model, "local_gpr", gp)):
         # Restored mean=5, variance=4: (5-4)*0.8 <= 1, so retain the run.
         # Subtracting std instead would incorrectly prune it.
         assert model.cancel(12.0) is False
-        np.testing.assert_array_equal(gp.fit.call_args.args[1], [2.0])
         gp.predict.return_value = (np.array([-2.0]), np.array([2.0]))
         assert model.cancel(11.0) is True
 
@@ -98,3 +97,63 @@ def test_existing_history_rules_unchanged() -> None:
     assert model.history_Y.shape == (1, 1)
     model.merge((np.array([0.5]), 0.0))
     assert model.history_Y.shape == (1, 1)
+
+
+def test_trainable_local_mean() -> None:
+    """Joint fitting moves the global initial mean and optimizes the kernel."""
+    pytest.importorskip("sklearn")
+    from unittest.mock import patch
+
+    from scipy.linalg import cho_solve
+    from scipy.optimize import minimize
+
+    model = DynamicSurrogate({"x": (0.0, 1.0)})
+    model.first_run = False
+    model.global_gpr = Mock()
+    model.global_gpr.predict.return_value = np.array([20.0])
+    model.start_run(Mock(position=np.array([0.5])))
+    model.current_run_data = np.array([[3.0], [2.0], [1.5], [1.2]])
+    initial_theta = model.local_kernel.theta.copy()
+    with patch("scipy.optimize.minimize", wraps=minimize) as optimizer:
+        model._fit_local()
+    initial = optimizer.call_args.args[1]
+    assert initial[-1] == 20.0
+    np.testing.assert_array_equal(initial[:-1], initial_theta)
+    assert abs(model.mean_function - 20.0) > 1.0
+    assert not np.allclose(model.local_gpr.kernel_.theta, initial_theta)
+    # At the joint optimum the constant mean is the generalized least-squares mean.
+    ones = np.ones(4)
+    inverse_y = cho_solve((model.local_gpr.L_, True), model.current_run_data.ravel())
+    inverse_ones = cho_solve((model.local_gpr.L_, True), ones)
+    expected_mean = ones @ inverse_y / (ones @ inverse_ones)
+    assert model.mean_function == pytest.approx(expected_mean, abs=1e-3)
+    assert np.isfinite(model.local_gpr.predict([[10]], return_std=True)).all()
+    fitted_theta = model.local_gpr.kernel_.theta.copy()
+    fitted_mean = model.mean_function
+    model.current_run_data = np.vstack([model.current_run_data, [1.1]])
+    with patch("scipy.optimize.minimize", wraps=minimize) as optimizer:
+        model._fit_local()
+    np.testing.assert_allclose(optimizer.call_args.args[1][:-1], fitted_theta)
+    assert optimizer.call_args.args[1][-1] == fitted_mean
+    model.start_run(Mock(position=np.array([0.8])))
+    assert model.mean_function == 20.0
+    assert model.local_gpr is None
+
+
+def test_joint_objective_gradient() -> None:
+    """The joint mean/kernel gradient matches finite differences."""
+    pytest.importorskip("sklearn")
+    from unittest.mock import patch
+
+    from scipy.optimize import OptimizeResult, check_grad
+
+    model = DynamicSurrogate({"x": (0.0, 1.0)})
+    model.current_run_data = np.array([[3.0], [2.0], [1.0]])
+    model.mean_function = 4.0
+
+    def inspect_objective(fun, initial, **kwargs):
+        assert check_grad(lambda p: fun(p)[0], lambda p: fun(p)[1], initial) < 1e-5
+        return OptimizeResult(x=initial, fun=fun(initial)[0])
+
+    with patch("scipy.optimize.minimize", side_effect=inspect_objective):
+        model._fit_local()
