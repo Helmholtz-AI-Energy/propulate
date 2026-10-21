@@ -1,11 +1,8 @@
-from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple, TypeVar, Union
+from typing import Any, Dict, Optional, Tuple, TypeVar, Union
 
 import numpy as np
 
 from propulate.population import Individual
-
-if TYPE_CHECKING:
-    pass
 
 T = TypeVar("T")
 
