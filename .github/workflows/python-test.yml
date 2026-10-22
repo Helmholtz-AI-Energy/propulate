@@ -39,10 +39,11 @@ jobs:
             if: runner.os == 'Linux' && matrix.mpi == 'mpich'
             run: echo "UCX_TLS=tcp,sm,self" >> "$GITHUB_ENV"
 
-          - name: Install uv, set the python version, and enable cache
+          - name: Install uv, set the python version, and activate Python environment.
             uses: astral-sh/setup-uv@v10.3.2
             with:
               python-version: ${{ matrix.python-version }}
+              activate-environment: true
               enable-cache: false
 
           - name: Install dependencies
