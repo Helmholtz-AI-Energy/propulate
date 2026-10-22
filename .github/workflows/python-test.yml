@@ -46,13 +46,8 @@ jobs:
               enable-cache: false
 
           - name: Install dependencies
-            id: install
             run: |
                 uv pip install --force-reinstall --no-binary=mpi4py ."[test]"
-
-          - name: Install temporary tracing tool
-            if: runner.os == 'Linux' && matrix.mpi == 'mpich'
-            run: sudo apt-get update && sudo apt-get install -y strace
 
           - name: Run serial tests
             run: python -m pytest
@@ -70,41 +65,6 @@ jobs:
               python -m coverage combine
               python -m coverage report -m --format markdown > cov_report.txt
               python -m coverage xml
-
-          # Temporary diagnostics run independently after the normal tests, even if they fail.
-          # A failed probe remains a job failure; no retries or continue-on-error are used.
-          - name: Trace singleton MPI startup
-            if: ${{ !cancelled() && runner.os == 'Linux' && matrix.mpi == 'mpich' && steps.install.outcome == 'success' }}
-            run: |
-              mkdir -p mpi-diagnostics
-              timeout --kill-after=10s 60s strace -f -tt -s 256 \
-                -o mpi-diagnostics/singleton.trace \
-                python .github/scripts/mpi_startup_probe.py
-
-          - name: Trace explicitly launched MPI startup
-            if: ${{ !cancelled() && runner.os == 'Linux' && matrix.mpi == 'mpich' && steps.install.outcome == 'success' }}
-            run: |
-              mkdir -p mpi-diagnostics
-              timeout --kill-after=10s 60s strace -f -tt -s 256 \
-                -o mpi-diagnostics/launched.trace \
-                mpirun -np 1 python .github/scripts/mpi_startup_probe.py
-
-          - name: Trace pytest collection
-            if: ${{ !cancelled() && runner.os == 'Linux' && matrix.mpi == 'mpich' && steps.install.outcome == 'success' }}
-            run: |
-              mkdir -p mpi-diagnostics
-              timeout --kill-after=10s 120s strace -f -tt -s 256 \
-                -o mpi-diagnostics/collection.trace \
-                python -m pytest --collect-only
-
-          - name: Upload temporary MPI traces
-            if: ${{ always() && runner.os == 'Linux' && matrix.mpi == 'mpich' }}
-            uses: actions/upload-artifact@v4
-            with:
-              name: mpi-diagnostics-${{ matrix.os }}-python-${{ matrix.python-version }}-${{ matrix.mpi }}-attempt-${{ github.run_attempt }}
-              path: mpi-diagnostics/*.trace
-              if-no-files-found: warn
-              retention-days: 7
 
           - name: Save PR number
             if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'  && matrix.mpi == 'openmpi'
