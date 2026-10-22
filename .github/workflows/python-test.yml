@@ -26,10 +26,10 @@ jobs:
 
         steps:
           - name: Check out repository
-            uses: actions/checkout@v6
+            uses: actions/checkout@v7.0.1
 
           - name: Setup MPI ${{ matrix.mpi }}
-            uses: mpi4py/setup-mpi@v1
+            uses: mpi4py/setup-mpi@v1.4.4
             with:
               mpi: ${{ matrix.mpi }}
 
@@ -40,7 +40,7 @@ jobs:
             run: echo "UCX_TLS=tcp,sm,self" >> "$GITHUB_ENV"
 
           - name: Install uv, set the python version, and enable cache
-            uses: astral-sh/setup-uv@v5
+            uses: astral-sh/setup-uv@v10.3.2
             with:
               python-version: ${{ matrix.python-version }}
               enable-cache: false
@@ -72,7 +72,7 @@ jobs:
 
           - name: Save coverage report and PR number
             if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'  && matrix.mpi == 'openmpi'
-            uses: actions/upload-artifact@v4
+            uses: actions/upload-artifact@v7.0.2
             with:
               name: coverage-report
               path: |
@@ -81,6 +81,6 @@ jobs:
               retention-days: 1
 
           - name: Upload coverage reports to Codecov
-            uses: codecov/codecov-action@v3
+            uses: codecov/codecov-action@v7.1.1
             with:
               token: ${{ secrets.CODECOV_TOKEN }}
