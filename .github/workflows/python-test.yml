@@ -12,7 +12,7 @@ jobs:
     build:
         strategy:
           matrix:
-            os: ["ubuntu-latest", "macos-latest"]
+            os: ["ubuntu-latest"]  #, "macos-latest"]
             python-version: ["3.10", "3.11", "3.12" ]
             mpi: [ "openmpi", "mpich"]
 
@@ -39,7 +39,11 @@ jobs:
 
           - name: Install dependencies
             run: |
-                uv pip install --force-reinstall --no-binary=mpi4py ."[test]"
+                sudo apt install libhdf5-mpi-dev
+                uv pip install --force-reinstall --no-binary=mpi4py mpi4py
+                uv pip install setuptools Cython numpy packaging pkgconfig
+                CC="mpicc" HDF5_MPI="ON" uv pip install --no-binary=h5py --no-build-isolation h5py
+                uv pip install ."[test]"
 
           - name: Test with pytest and measure coverage
             run: |

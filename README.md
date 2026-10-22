@@ -104,6 +104,8 @@ discussions](https://github.com/Helmholtz-AI-Energy/propulate/discussions) :octo
 
 ## Installation
 
+- Installations of MPI and hdf5 are required.
+- ``Propulate`` depends on parallel hdf5. Try ``CC="mpicc" HDF5_MPI="ON" pip install --no-binary=h5py h5py`` to install the parallel enabled Python bindings or follow instructions [here](https://docs.h5py.org/en/stable/build.html#install).
 - You can install the **latest stable release** from PyPI: ``pip install propulate``
 - If you need the **latest updates**, you can also install ``Propulate`` directly from the master branch.
 Pull and run ``pip install .``.

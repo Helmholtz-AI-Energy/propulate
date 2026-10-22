@@ -336,9 +336,4 @@ if __name__ == "__main__":
     # Run optimization and print summary of results.
     propulator.propulate(
         logging_interval=1,
-        debug=2,  # Logging interval and verbosity level
-    )
-    propulator.summarize(
-        top_n=1,
-        debug=2,  # Print top-n best individuals on each island in summary.
     )
