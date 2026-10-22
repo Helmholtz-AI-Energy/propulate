@@ -33,6 +33,12 @@ jobs:
             with:
               mpi: ${{ matrix.mpi }}
 
+          # Hosted runners can expose a MANA RDMA device that UCX cannot initialize.
+          # These single-node tests only need TCP, shared memory, and self transports.
+          - name: Configure UCX for single-node CI
+            if: runner.os == 'Linux' && matrix.mpi == 'mpich'
+            run: echo "UCX_TLS=tcp,sm,self" >> "$GITHUB_ENV"
+
           - name: Install uv, set the python version, and enable cache
             uses: astral-sh/setup-uv@v5
             with:
