@@ -19,40 +19,53 @@ jobs:
 
         runs-on: ${{ matrix.os }}
 
-        # Coverage auto-start for serial and MPI processes
         env:
-          COVERAGE_PROCESS_START: pyproject.toml
+          COVERAGE_PROCESS_START: pyproject.toml  # Coverage auto-start for serial and MPI processes
+          PYTHONUNBUFFERED: "1"  # Write standard output and errors immediately (diagnostic).
+          PYTHONFAULTHANDLER: "1"  # Print Python stack traces for certain fatal crashes (diagnostic).
 
         steps:
           - name: Check out repository
-            uses: actions/checkout@v6
+            uses: actions/checkout@v7.0.1
 
           - name: Setup MPI ${{ matrix.mpi }}
-            uses: mpi4py/setup-mpi@v1
+            uses: mpi4py/setup-mpi@v1.4.4
             with:
               mpi: ${{ matrix.mpi }}
 
-          - name: Install uv, set the python version, and enable cache
-            uses: astral-sh/setup-uv@v5
+          # Hosted runners can expose a MANA RDMA device that UCX cannot initialize.
+          # These single-node tests only need TCP, shared memory, and self transports.
+          - name: Configure UCX for single-node CI
+            if: runner.os == 'Linux' && matrix.mpi == 'mpich'
+            run: echo "UCX_TLS=tcp,sm,self" >> "$GITHUB_ENV"
+
+          - name: Install uv, set the python version, and activate Python environment.
+            uses: astral-sh/setup-uv@v10.3.2
             with:
               python-version: ${{ matrix.python-version }}
+              activate-environment: true
               enable-cache: false
 
           - name: Install dependencies
             run: |
                 uv pip install --force-reinstall --no-binary=mpi4py ."[test]"
 
-          - name: Test with pytest and measure coverage
+          - name: Run serial tests
+            run: python -m pytest
+
+          - name: Run MPI tests
             run: |
-              uv run pytest
               mpirun \
                 -np 8 \
                 --map-by :OVERSUBSCRIBE \
                 --bind-to none \
-                uv run pytest --with-mpi
-              coverage combine
-              coverage report -m --format markdown > cov_report.txt
-              coverage xml
+                python -m pytest --with-mpi
+
+          - name: Combine and report coverage
+            run: |
+              python -m coverage combine
+              python -m coverage report -m --format markdown > cov_report.txt
+              python -m coverage xml
 
           - name: Save PR number
             if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'  && matrix.mpi == 'openmpi'
@@ -60,7 +73,7 @@ jobs:
 
           - name: Save coverage report and PR number
             if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'  && matrix.mpi == 'openmpi'
-            uses: actions/upload-artifact@v4
+            uses: actions/upload-artifact@v7.0.2
             with:
               name: coverage-report
               path: |
@@ -69,6 +82,6 @@ jobs:
               retention-days: 1
 
           - name: Upload coverage reports to Codecov
-            uses: codecov/codecov-action@v3
+            uses: codecov/codecov-action@v7.1.1
             with:
               token: ${{ secrets.CODECOV_TOKEN }}
