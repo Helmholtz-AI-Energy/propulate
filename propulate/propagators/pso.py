@@ -35,8 +35,8 @@ class BasicPSO(Propagator):
         The borders of the continuous search domain.
     limits_as_array : numpy.ndarray
         The limits converted to a numpy array.
-    rank : int
-        The global rank of the worker the propagator is living on.
+    prop_rank : int
+        The propulate rank of the worker the propagator is living on.
     rng : random.Random
         The separate random number generator for introducing non-linearity.
 
@@ -54,7 +54,7 @@ class BasicPSO(Propagator):
         inertia: float,
         c_cognitive: float,
         c_social: float,
-        rank: int,
+        prop_rank: int,
         limits: Dict[str, Tuple[float, float]],
         rng: Random,
     ):
@@ -73,8 +73,8 @@ class BasicPSO(Propagator):
             The constant cognitive factor for scaling the distance to the individual's personal best value.
         c_social : float
             The constant social factor for scaling the distance to the swarm's global best value.
-        rank : int
-            The global rank of the worker the propagator is living on.
+        prop_rank : int
+            The propulate rank of the worker the propagator is living on.
         limits : Dict[str, Tuple[float, float]]
             The borders of the continuous search domain.
         rng : random.Random
@@ -84,7 +84,7 @@ class BasicPSO(Propagator):
         self.c_social = c_social
         self.c_cognitive = c_cognitive
         self.inertia = inertia
-        self.rank = rank
+        self.prop_rank = prop_rank
         self.limits = limits
         self.rng = rng
         self.limits_as_array: np.ndarray = np.array(list(limits.values())).T
@@ -143,7 +143,7 @@ class BasicPSO(Propagator):
         if len(individuals) < self.offspring:
             raise ValueError("Not enough Particles")
 
-        own_p = [x for x in individuals if (isinstance(x, Individual) and x.rank == self.rank)]
+        own_p = [x for x in individuals if (isinstance(x, Individual) and x.prop_rank == self.prop_rank)]
         if len(own_p) > 0:
             old_p: Individual = max(own_p, key=lambda p: p.generation)
 
@@ -180,7 +180,7 @@ class BasicPSO(Propagator):
             self.limits,
             velocity=velocity,
             generation=generation,
-            rank=self.rank,
+            prop_rank=self.prop_rank,
         )
         for i, k in enumerate(self.limits):
             new_p[k] = new_p.position[i]
@@ -215,7 +215,7 @@ class VelocityClampingPSO(BasicPSO):
         inertia: float,
         c_cognitive: float,
         c_social: float,
-        rank: int,
+        prop_rank: int,
         limits: Dict[str, Tuple[float, float]],
         rng: Random,
         v_limits: Union[float, np.ndarray],
@@ -231,8 +231,8 @@ class VelocityClampingPSO(BasicPSO):
             The constant cognitive factor for scaling the distance to the particle's personal best value.
         c_social : float
             The constant social factor for scaling the distance to the swarm's global best value.
-        rank : int
-            The global rank of the worker the propagator is living on.
+        prop_rank : int
+            The propulate rank of the worker the propagator is living on.
         limits : Dict[str, Tuple[float, float]]
             The borders of the continuous search domain.
         rng : random.Random
@@ -242,7 +242,7 @@ class VelocityClampingPSO(BasicPSO):
             Should be in (0, 1). If this parameter has float type, it is applied to all dimensions of the search
             domain; else, each of its elements is applied to the corresponding dimension of the search domain.
         """
-        super().__init__(inertia, c_cognitive, c_social, rank, limits, rng)
+        super().__init__(inertia, c_cognitive, c_social, prop_rank, limits, rng)
         x_min, x_max = self.limits_as_array
         x_range = np.abs(x_max - x_min)
         v_limits = np.abs(v_limits)
@@ -307,7 +307,7 @@ class ConstrictionPSO(BasicPSO):
         self,
         c_cognitive: float,
         c_social: float,
-        rank: int,
+        prop_rank: int,
         limits: Dict[str, Tuple[float, float]],
         rng: Random,
     ):
@@ -324,8 +324,8 @@ class ConstrictionPSO(BasicPSO):
         c_social : float
             The constant social factor for scaling the distance to the swarm's global best value.
             *Has to sum up with ``c_cognitive`` to a number greater than 4!*
-        rank : int
-            The global rank of the worker the propagator is living on.
+        prop_rank : int
+            The propulate rank of the worker the propagator is living on.
         limits : Dict[str, Tuple[float, float]]
             The borders of the continuous search domain.
         rng : random.Random
@@ -340,7 +340,7 @@ class ConstrictionPSO(BasicPSO):
             raise ValueError("c_cognitive + c_social < 4 but should sum up to a number > 4!")
         phi: float = c_cognitive + c_social
         chi: float = 2.0 / (phi - 2.0 + np.sqrt(phi * (phi - 4.0)))
-        super().__init__(chi, c_cognitive, c_social, rank, limits, rng)
+        super().__init__(chi, c_cognitive, c_social, prop_rank, limits, rng)
 
     def __call__(self, individuals: List[Individual]) -> Individual:
         """
@@ -402,7 +402,7 @@ class CanonicalPSO(ConstrictionPSO):
         self,
         c_cognitive: float,
         c_social: float,
-        rank: int,
+        prop_rank: int,
         limits: Dict[str, Tuple[float, float]],
         rng: Random,
     ):
@@ -419,14 +419,14 @@ class CanonicalPSO(ConstrictionPSO):
             The constant cognitive factor for scaling the distance to the particle's personal best value.
         c_social : float
             The constant social factor to scaling the distance to the swarm's global best value.
-        rank : int
-            The global rank of the worker the propagator is living on.
+        prop_rank : int
+            The propulate rank of the worker the propagator is living on.
         limits : Dict[str, Tuple[float, float]]
             The borders of the continuous search domain.
         rng : random.Random
             The random number generator for introducing non-linearity.
         """
-        super().__init__(c_cognitive, c_social, rank, limits, rng)
+        super().__init__(c_cognitive, c_social, prop_rank, limits, rng)
         x_min, x_max = self.limits_as_array
         x_range = np.abs(x_max - x_min)
         self.v_cap: np.ndarray = np.array([-x_range, x_range])
@@ -475,8 +475,8 @@ class InitUniformPSO(Stochastic):
         The limits converted to a numpy array.
     v_limits : float | np.ndarray
         The multiplicative constant to reduce initial random velocity values.
-    rank : int
-        The global rank of the worker the propagator is living on.
+    prop_rank : int
+        The propulate rank of the worker the propagator is living on.
 
     Notes
     -----
@@ -490,7 +490,7 @@ class InitUniformPSO(Stochastic):
     def __init__(
         self,
         limits: Dict[str, Tuple[float, float]],
-        rank: int,
+        prop_rank: int,
         parents: int = 0,
         probability: float = 1.0,
         rng: Optional[Random] = None,
@@ -505,8 +505,8 @@ class InitUniformPSO(Stochastic):
         ----------
         limits : Dict[str, Tuple[float, float]]
             The limits of the search space, i.e., the limits of (hyper-)parameters to be optimized.
-        rank : int
-            The rank of the worker in the Propulate communicator
+        prop_rank : int
+            The propulate rank of the worker in the Propulate communicator
         parents : int, optional
             The number of input individuals (-1 for any). Default is 0.
         probability : float, optional
@@ -522,7 +522,7 @@ class InitUniformPSO(Stochastic):
         if isinstance(v_init_limit, np.ndarray):
             assert v_init_limit.shape[-1] == self.limits_as_array.shape[-1]
         self.v_limits = v_init_limit
-        self.rank = rank
+        self.prop_rank = prop_rank
 
     def __call__(self, individuals: List[Individual]) -> Individual:
         """
@@ -544,7 +544,7 @@ class InitUniformPSO(Stochastic):
                 [self.rng.uniform(*(self.v_limits * self.limits_as_array)[..., i]) for i in range(self.limits_as_array.shape[-1])]
             )
 
-            particle = Individual(position, self.limits, velocity, rank=self.rank)  # Instantiate new particle.
+            particle = Individual(position, self.limits, velocity, prop_rank=self.prop_rank)  # Instantiate new particle.
 
             for index, limit in enumerate(self.limits):
                 # Since Py 3.7, iterating over dicts is stable, so we can do the following.
@@ -575,8 +575,8 @@ class StatelessPSO(Propagator):
         The constant social factor for scaling the distance to the swarm's global best value.
     limits : Dict[str, Tuple[float, float]]
         The borders of the continuous search domain.
-    rank : int
-        The global rank of the worker the propagator is living on.
+    prop_rank : int
+        The propulate rank of the worker the propagator is living on.
     rng : random.Random
         The separate random number generator for introducing non-linearity.
 
@@ -593,7 +593,7 @@ class StatelessPSO(Propagator):
         self,
         c_cognitive: float,
         c_social: float,
-        rank: int,
+        prop_rank: int,
         limits: Dict[str, Tuple[float, float]],
         rng: Random,
     ):
@@ -606,8 +606,8 @@ class StatelessPSO(Propagator):
             The constant cognitive factor for scaling the individual's personal best value.
         c_social : float
             The constant social factor for scaling the swarm's global best value.
-        rank : int
-            The global rank of the worker the propagator is living on.
+        prop_rank : int
+            The propulate rank of the worker the propagator is living on.
         limits : Dict[str, Tuple[float, float]
             The borders of the continuous search domain.
         rng : random.Random
@@ -616,7 +616,7 @@ class StatelessPSO(Propagator):
         super().__init__(parents=-1, offspring=1)
         self.c_social = c_social
         self.c_cognitive = c_cognitive
-        self.rank = rank
+        self.prop_rank = prop_rank
         self.limits = limits
         self.rng = rng
 
@@ -641,7 +641,7 @@ class StatelessPSO(Propagator):
         """
         if len(individuals) < self.offspring:
             raise ValueError("Not enough particles.")
-        own_p = [x for x in individuals if x.rank == self.rank]
+        own_p = [x for x in individuals if x.prop_rank == self.prop_rank]
         if len(own_p) > 0:
             old_p = max(own_p, key=lambda p: p.generation)
         else:  # No own particle found in given parameters, thus creating new one.
@@ -653,7 +653,7 @@ class StatelessPSO(Propagator):
                 initial_p,  # type:ignore
                 limits=self.limits,
                 generation=0,
-                rank=self.rank,
+                prop_rank=self.prop_rank,
             )
             return old_p
         g_best = min(individuals, key=lambda p: p.loss)
@@ -667,7 +667,7 @@ class StatelessPSO(Propagator):
         new_p = Individual(
             new_position,
             limits=self.limits,
-            rank=self.rank,
+            prop_rank=self.prop_rank,
             generation=old_p.generation + 1,
         )
         return new_p
