@@ -246,6 +246,10 @@ Do the following to run the [example script](https://github.com/Helmholtz-AI-Ene
 - Install ``Propulate``: ``$ pip install propulate``
 - Run the example script ``propulator_example.py``: ``$ mpirun --use-hwthread-cpus python propulator_example.py``
 
+GP-based surrogate models require the optional scikit-learn dependency.
+Install it with ``pip install "propulate[surrogate]"``. The base package and
+static surrogate models do not require scikit-learn or Matplotlib.
+
 ## Acknowledgments
 *This work is supported by the Helmholtz AI platform grant.*
 ![](./.figs/hai_kit_logos.svg)
