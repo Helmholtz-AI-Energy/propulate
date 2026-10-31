@@ -27,6 +27,8 @@ dependencies = [
     "colorlog",
     "Gpy ~= 1.13.2",
     "h5py",
+    "scikit-learn",
+    "scipy",
 ]
 
 [project.optional-dependencies]
