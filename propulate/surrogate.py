@@ -1,5 +1,5 @@
 import random
-from typing import Any, Dict, Tuple, TypeVar, Union
+from typing import Any, TypeVar
 
 import GPy
 import numpy as np
@@ -377,7 +377,7 @@ class DynamicSurrogate(Surrogate):
 
     def __init__(
         self,
-        limits: Dict[str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]],
+        limits: dict[str, tuple[float, float] | tuple[int, int] | tuple[str, ...]],
     ) -> None:
         """
         Initialize a dynamic surrogate with the configuration space limits.
@@ -537,7 +537,7 @@ class DynamicSurrogate(Surrogate):
 
         return False
 
-    def merge(self, data: Tuple[np.ndarray, float]) -> None:
+    def merge(self, data: tuple[np.ndarray, float]) -> None:
         """
         Merge a configuration and loss tuple into the history arrays and retrain the global GP with the new data.
 
@@ -570,7 +570,7 @@ class DynamicSurrogate(Surrogate):
 
         self.global_gpr.optimize()
 
-    def data(self) -> Tuple[np.ndarray, float]:
+    def data(self) -> tuple[np.ndarray, float]:
         """
         Return the latest configuration and loss from the history arrays.
 

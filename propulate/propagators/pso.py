@@ -1,5 +1,5 @@
+from collections.abc import MutableMapping
 from random import Random
-from typing import Dict, List, MutableMapping, Optional, Tuple, Union
 
 import numpy as np
 
@@ -55,7 +55,7 @@ class BasicPSO(Propagator):
         c_cognitive: float,
         c_social: float,
         rank: int,
-        limits: Dict[str, Tuple[float, float]],
+        limits: dict[str, tuple[float, float]],
         rng: Random,
     ):
         """
@@ -89,7 +89,7 @@ class BasicPSO(Propagator):
         self.rng = rng
         self.limits_as_array: np.ndarray = np.array(list(limits.values())).T
 
-    def __call__(self, individuals: List[Individual]) -> Individual:
+    def __call__(self, individuals: list[Individual]) -> Individual:
         """
         Apply the standard PSO update rule with inertia.
 
@@ -120,7 +120,7 @@ class BasicPSO(Propagator):
 
         return self._make_new_particle(new_position, new_velocity, old_p.generation + 1)
 
-    def _prepare_data(self, individuals: List[Individual]) -> Tuple[Individual, Individual, Individual]:
+    def _prepare_data(self, individuals: list[Individual]) -> tuple[Individual, Individual, Individual]:
         """
         Get the particle to be updated on this rank, its current personal best, and the swarm's current global best.
 
@@ -216,9 +216,9 @@ class VelocityClampingPSO(BasicPSO):
         c_cognitive: float,
         c_social: float,
         rank: int,
-        limits: Dict[str, Tuple[float, float]],
+        limits: dict[str, tuple[float, float]],
         rng: Random,
-        v_limits: Union[float, np.ndarray],
+        v_limits: float | np.ndarray,
     ):
         """
         Instantiate a velocity clamping PSO propagator.
@@ -248,7 +248,7 @@ class VelocityClampingPSO(BasicPSO):
         v_limits = np.abs(v_limits)
         self.v_cap: np.ndarray = np.array([-v_limits * x_range, v_limits * x_range])
 
-    def __call__(self, individuals: List[Individual]) -> Individual:
+    def __call__(self, individuals: list[Individual]) -> Individual:
         """
         Apply the standard PSO update rule with inertia, extended by cutting off too high velocities.
 
@@ -308,7 +308,7 @@ class ConstrictionPSO(BasicPSO):
         c_cognitive: float,
         c_social: float,
         rank: int,
-        limits: Dict[str, Tuple[float, float]],
+        limits: dict[str, tuple[float, float]],
         rng: Random,
     ):
         """
@@ -342,7 +342,7 @@ class ConstrictionPSO(BasicPSO):
         chi: float = 2.0 / (phi - 2.0 + np.sqrt(phi * (phi - 4.0)))
         super().__init__(chi, c_cognitive, c_social, rank, limits, rng)
 
-    def __call__(self, individuals: List[Individual]) -> Individual:
+    def __call__(self, individuals: list[Individual]) -> Individual:
         """
         Apply the constriction PSO update rule.
 
@@ -403,7 +403,7 @@ class CanonicalPSO(ConstrictionPSO):
         c_cognitive: float,
         c_social: float,
         rank: int,
-        limits: Dict[str, Tuple[float, float]],
+        limits: dict[str, tuple[float, float]],
         rng: Random,
     ):
         """
@@ -431,7 +431,7 @@ class CanonicalPSO(ConstrictionPSO):
         x_range = np.abs(x_max - x_min)
         self.v_cap: np.ndarray = np.array([-x_range, x_range])
 
-    def __call__(self, individuals: List[Individual]) -> Individual:
+    def __call__(self, individuals: list[Individual]) -> Individual:
         """
         Apply the canonical PSO variant update rule.
 
@@ -489,12 +489,12 @@ class InitUniformPSO(Stochastic):
 
     def __init__(
         self,
-        limits: Dict[str, Tuple[float, float]],
+        limits: dict[str, tuple[float, float]],
         rank: int,
         parents: int = 0,
         probability: float = 1.0,
-        rng: Optional[Random] = None,
-        v_init_limit: Union[float, np.ndarray] = 0.1,
+        rng: Random | None = None,
+        v_init_limit: float | np.ndarray = 0.1,
     ):
         """
         Instantiate a uniform-initialization PSO propagator.
@@ -524,7 +524,7 @@ class InitUniformPSO(Stochastic):
         self.v_limits = v_init_limit
         self.rank = rank
 
-    def __call__(self, individuals: List[Individual]) -> Individual:
+    def __call__(self, individuals: list[Individual]) -> Individual:
         """
         Apply the uniform-initialization propagator.
 
@@ -594,7 +594,7 @@ class StatelessPSO(Propagator):
         c_cognitive: float,
         c_social: float,
         rank: int,
-        limits: Dict[str, Tuple[float, float]],
+        limits: dict[str, tuple[float, float]],
         rng: Random,
     ):
         """
@@ -620,7 +620,7 @@ class StatelessPSO(Propagator):
         self.limits = limits
         self.rng = rng
 
-    def __call__(self, individuals: List[Individual]) -> Individual:
+    def __call__(self, individuals: list[Individual]) -> Individual:
         """
         Apply the standard PSO update without inertia and old velocity.
 

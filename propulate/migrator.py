@@ -1,8 +1,8 @@
 import copy
 import logging
 import random
+from collections.abc import Callable, Generator
 from pathlib import Path
-from typing import Callable, Generator, List, Optional, Type, Union
 
 import numpy as np
 from mpi4py import MPI
@@ -44,7 +44,7 @@ class Migrator(Propulator):
 
     def __init__(
         self,
-        loss_fn: Union[Callable, Generator[float, None, None]],
+        loss_fn: Callable | Generator[float, None, None],
         propagator: Propagator,
         rng: random.Random,
         island_idx: int = 0,
@@ -52,13 +52,13 @@ class Migrator(Propulator):
         propulate_comm: MPI.Comm = MPI.COMM_WORLD,
         worker_sub_comm: MPI.Comm = MPI.COMM_SELF,
         generations: int = -1,
-        checkpoint_path: Union[str, Path] = Path("./"),
-        migration_topology: Optional[np.ndarray] = None,
+        checkpoint_path: str | Path = Path("./"),
+        migration_topology: np.ndarray | None = None,
         migration_prob: float = 0.0,
-        emigration_propagator: Type[Propagator] = SelectMin,
-        island_displs: Optional[np.ndarray] = None,
-        island_counts: Optional[np.ndarray] = None,
-        surrogate_factory: Optional[Callable[[], Surrogate]] = None,
+        emigration_propagator: type[Propagator] = SelectMin,
+        island_displs: np.ndarray | None = None,
+        island_counts: np.ndarray | None = None,
+        surrogate_factory: Callable[[], Surrogate] | None = None,
     ) -> None:
         """
         Initialize ``Migrator`` with given parameters.
@@ -119,7 +119,7 @@ class Migrator(Propulator):
             surrogate_factory,
         )
         # Set class attributes.
-        self.emigrated: List[Individual] = []  # Emigrated individuals to be deactivated on sending island
+        self.emigrated: list[Individual] = []  # Emigrated individuals to be deactivated on sending island
 
     def _send_emigrants(self) -> None:
         """Perform migration, i.e. island sends individuals out to other islands."""

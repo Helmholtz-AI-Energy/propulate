@@ -1,8 +1,8 @@
 import copy
 import logging
 import random
+from collections.abc import Callable, Generator
 from pathlib import Path
-from typing import Callable, Generator, List, Optional, Tuple, Type, Union
 
 import numpy as np
 from mpi4py import MPI
@@ -47,7 +47,7 @@ class Pollinator(Propulator):
 
     def __init__(
         self,
-        loss_fn: Union[Callable, Generator[float, None, None]],
+        loss_fn: Callable | Generator[float, None, None],
         propagator: Propagator,
         rng: random.Random,
         island_idx: int = 0,
@@ -55,14 +55,14 @@ class Pollinator(Propulator):
         propulate_comm: MPI.Comm = MPI.COMM_WORLD,
         worker_sub_comm: MPI.Comm = MPI.COMM_SELF,
         generations: int = 0,
-        checkpoint_path: Union[Path, str] = Path("./"),
-        migration_topology: Optional[np.ndarray] = None,
+        checkpoint_path: Path | str = Path("./"),
+        migration_topology: np.ndarray | None = None,
         migration_prob: float = 0.0,
-        emigration_propagator: Type[Propagator] = SelectMin,
-        immigration_propagator: Type[Propagator] = SelectMax,
-        island_displs: Optional[np.ndarray] = None,
-        island_counts: Optional[np.ndarray] = None,
-        surrogate_factory: Optional[Callable[[], Surrogate]] = None,
+        emigration_propagator: type[Propagator] = SelectMin,
+        immigration_propagator: type[Propagator] = SelectMax,
+        island_displs: np.ndarray | None = None,
+        island_counts: np.ndarray | None = None,
+        surrogate_factory: Callable[[], Surrogate] | None = None,
     ) -> None:
         """
         Initialize ``Pollinator`` with given parameters.
@@ -126,7 +126,7 @@ class Pollinator(Propulator):
         )
         # Set class attributes.
         self.immigration_propagator = immigration_propagator  # Immigration propagator
-        self.replaced: List[Individual] = []  # Individuals to be replaced by immigrants
+        self.replaced: list[Individual] = []  # Individuals to be replaced by immigrants
 
     def _send_emigrants(self) -> None:
         """Perform migration, i.e. island sends individuals out to other islands."""
@@ -290,7 +290,7 @@ class Pollinator(Propulator):
         )
         log.debug(log_string)
 
-    def _check_for_duplicates(self, active: bool, debug: int = 1) -> Tuple[List[List[Union[Individual, int]]], List[Individual]]:
+    def _check_for_duplicates(self, active: bool, debug: int = 1) -> tuple[list[list[Individual | int]], list[Individual]]:
         """
         Check for duplicates in current population.
 
@@ -314,8 +314,8 @@ class Pollinator(Propulator):
             population, _ = self._get_active_individuals()
         else:
             population = self.population
-        unique_inds: List[Individual] = []
-        occurrences: List[List[Union[Individual, int]]] = []
+        unique_inds: list[Individual] = []
+        occurrences: list[list[Individual | int]] = []
         for individual in population:
             considered = False
             for ind in unique_inds:

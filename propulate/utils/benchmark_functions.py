@@ -2,13 +2,13 @@
 
 import argparse
 import logging
-from typing import Callable, Dict, Tuple
+from collections.abc import Callable
 
 import numpy as np
 from mpi4py import MPI
 
 
-def rosenbrock(params: Dict[str, float]) -> float:
+def rosenbrock(params: dict[str, float]) -> float:
     """
     Rosenbrock function. This function has a narrow minimum inside a parabola-shaped valley.
 
@@ -29,7 +29,7 @@ def rosenbrock(params: Dict[str, float]) -> float:
     return 100 * (x[0] ** 2 - x[1]) ** 2 + (1 - x[0]) ** 2
 
 
-def step(params: Dict[str, float]) -> float:
+def step(params: dict[str, float]) -> float:
     """
     Step function.
 
@@ -55,7 +55,7 @@ def step(params: Dict[str, float]) -> float:
     return np.sum(x.astype(int), dtype=float).item()
 
 
-def quartic(params: Dict[str, float]) -> float:
+def quartic(params: dict[str, float]) -> float:
     """
     Quartic function.
 
@@ -82,7 +82,7 @@ def quartic(params: Dict[str, float]) -> float:
     return abs(np.sum(idx * x**4 + gauss))
 
 
-def rastrigin(params: Dict[str, float]) -> float:
+def rastrigin(params: dict[str, float]) -> float:
     """
     Rastrigin function: continuous, non-convex, separable, differentiable, multimodal.
 
@@ -109,7 +109,7 @@ def rastrigin(params: Dict[str, float]) -> float:
     return a * len(x) + np.sum(x**2 - a * np.cos(2 * np.pi * x))
 
 
-def griewank(params: Dict[str, float]) -> float:
+def griewank(params: dict[str, float]) -> float:
     """
     Griewank function.
 
@@ -136,7 +136,7 @@ def griewank(params: Dict[str, float]) -> float:
     return 1 + 1.0 / 4000 * np.sum(x**2) - np.prod(np.cos(x / np.sqrt(idx)))
 
 
-def schwefel(params: Dict[str, float]) -> float:
+def schwefel(params: dict[str, float]) -> float:
     """
     Schwefel 2.20 function: continuous, convex, separable, non-differentiable, non-multimodal.
 
@@ -161,7 +161,7 @@ def schwefel(params: Dict[str, float]) -> float:
     return v * len(x) - np.sum(x * np.sin(np.sqrt(np.abs(x))))
 
 
-def bisphere(params: Dict[str, float]) -> float:
+def bisphere(params: dict[str, float]) -> float:
     """
     Lunacek's double-sphere benchmark function.
 
@@ -198,7 +198,7 @@ def bisphere(params: Dict[str, float]) -> float:
     return min(np.sum((x - mu1) ** 2), d * n + s * np.sum((x - mu2) ** 2)).item()
 
 
-def birastrigin(params: Dict[str, float]) -> float:
+def birastrigin(params: dict[str, float]) -> float:
     """
     Lunacek's double-Rastrigin benchmark function.
 
@@ -233,7 +233,7 @@ def birastrigin(params: Dict[str, float]) -> float:
     return min(np.sum((x - mu1) ** 2), d * n + s * np.sum((x - mu2) ** 2)) + 10 * np.sum(1 - np.cos(2 * np.pi * (x - mu1)))
 
 
-def bukin_n6(params: Dict[str, float]) -> float:
+def bukin_n6(params: dict[str, float]) -> float:
     """
     Bukin N.6 function: continuous, convex, non-separable, non-differentiable, multimodal.
 
@@ -254,7 +254,7 @@ def bukin_n6(params: Dict[str, float]) -> float:
     return 100 * np.sqrt(np.abs(x[1] - 0.01 * x[0] ** 2)) + 0.01 * np.abs(x[0] + 10)
 
 
-def egg_crate(params: Dict[str, float]) -> float:
+def egg_crate(params: dict[str, float]) -> float:
     """
     Egg-crate function: continuous, non-convex, separable, differentiable, multimodal.
 
@@ -275,7 +275,7 @@ def egg_crate(params: Dict[str, float]) -> float:
     return x[0] ** 2 + x[1] ** 2 + 25 * (np.sin(x[0]) ** 2 + np.sin(x[1]) ** 2)
 
 
-def himmelblau(params: Dict[str, float]) -> float:
+def himmelblau(params: dict[str, float]) -> float:
     """
     Himmelblau function: continuous, non-convex, non-separable, differentiable, multimodal.
 
@@ -296,7 +296,7 @@ def himmelblau(params: Dict[str, float]) -> float:
     return (x[0] ** 2 + x[1] - 11) ** 2 + (x[0] + x[1] ** 2 - 7) ** 2
 
 
-def keane(params: Dict[str, float]) -> float:
+def keane(params: dict[str, float]) -> float:
     """
     Keane function: continuous, non-convex, non-separable, differentiable, multimodal.
 
@@ -317,7 +317,7 @@ def keane(params: Dict[str, float]) -> float:
     return -(np.sin(x[0] - x[1]) ** 2) * np.sin(x[0] + x[1]) ** 2 / np.sqrt(x[0] ** 2 + x[1] ** 2)
 
 
-def leon(params: Dict[str, float]) -> float:
+def leon(params: dict[str, float]) -> float:
     """
     Leon function: continuous, non-convex, non-separable, differentiable, non-multimodal, non-random, non-parametric.
 
@@ -338,7 +338,7 @@ def leon(params: Dict[str, float]) -> float:
     return 100 * (x[1] - x[0] ** 3) ** 2 + (1 - x[0]) ** 2
 
 
-def sphere(params: Dict[str, float]) -> float:
+def sphere(params: dict[str, float]) -> float:
     """
     Sphere function: continuous, convex, separable, differentiable, unimodal.
 
@@ -360,7 +360,7 @@ def sphere(params: Dict[str, float]) -> float:
 
 def get_function_search_space(
     fname: str,
-) -> Tuple[Callable, Dict[str, Tuple[float, float]]]:
+) -> tuple[Callable, dict[str, tuple[float, float]]]:
     """
     Get search space limits and function from function name.
 
@@ -590,7 +590,7 @@ def get_function_search_space(
 
 def parse_arguments(
     propulate_comm: MPI.Comm = MPI.COMM_WORLD,
-) -> Tuple[argparse.Namespace, Dict[str, bool]]:
+) -> tuple[argparse.Namespace, dict[str, bool]]:
     """
     Set up argument parser for Propulate optimization of simple mathematical functions.
 
@@ -656,7 +656,7 @@ def parse_arguments(
         choices=["Basic", "VelocityClamping", "Constriction", "Canonical"],
         default="Basic",
     )  # PSO variant to run
-    hp_set: Dict[str, bool] = {
+    hp_set: dict[str, bool] = {
         "inertia": False,
         "cognitive": False,
         "social": False,
