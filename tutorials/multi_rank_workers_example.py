@@ -8,7 +8,6 @@ should equal the number of ranks per worker.
 
 import pathlib
 import random
-from typing import Dict
 
 import numpy as np
 from mpi4py import MPI
@@ -19,7 +18,7 @@ from propulate.utils import get_default_propagator, set_logger_config
 from propulate.utils.benchmark_functions import parse_arguments
 
 
-def parallel_sphere(params: Dict[str, float], comm: MPI.Comm = MPI.COMM_SELF) -> float:
+def parallel_sphere(params: dict[str, float], comm: MPI.Comm = MPI.COMM_SELF) -> float:
     """
     Parallel sphere function to showcase using multi-rank workers in Propulate.
 
