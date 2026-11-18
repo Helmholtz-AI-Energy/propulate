@@ -1,6 +1,5 @@
 import pathlib
 import random
-from typing import Dict
 
 import numpy as np
 import pytest
@@ -10,7 +9,7 @@ from propulate import Islands
 from propulate.utils import get_default_propagator, set_logger_config
 
 
-def parallel_sphere(params: Dict[str, float], comm: MPI.Comm = MPI.COMM_SELF) -> float:
+def parallel_sphere(params: dict[str, float], comm: MPI.Comm = MPI.COMM_SELF) -> float:
     """
     Parallel sphere function to showcase using multi-rank workers in Propulate.
 

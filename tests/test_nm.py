@@ -1,6 +1,5 @@
 import pathlib
 import random
-from typing import Tuple
 
 import numpy as np
 import pytest
@@ -28,12 +27,12 @@ from propulate.utils.benchmark_functions import get_function_search_space
         ("sphere", 0.0),  # (fname, expected)
     ]
 )
-def function_parameters(request: pytest.FixtureRequest) -> Tuple[str, float]:
+def function_parameters(request: pytest.FixtureRequest) -> tuple[str, float]:
     """Define benchmark function parameter sets as used in tests."""
     return request.param
 
 
-def test_cmaes(function_parameters: Tuple[str, float], mpi_tmp_path: pathlib.Path) -> None:
+def test_cmaes(function_parameters: tuple[str, float], mpi_tmp_path: pathlib.Path) -> None:
     """
     Test Propulator to optimize a benchmark function using a Nelder-Mead propagator.
 

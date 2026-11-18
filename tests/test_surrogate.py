@@ -1,7 +1,7 @@
 import logging
 import random
+from collections.abc import Generator
 from pathlib import Path
-from typing import Dict, Generator, Tuple, Union
 
 import numpy as np
 import pytest
@@ -22,7 +22,7 @@ pytestmark = [
 set_logger_config(level=logging.DEBUG)
 
 
-def ind_loss(params: Dict[str, Union[int, float, str]]) -> Generator[float, None, None]:
+def ind_loss(params: dict[str, int | float | str]) -> Generator[float, None, None]:
     """
     Toy iterative loss function for evolutionary optimization with ``Propulate``.
 
@@ -47,7 +47,7 @@ def ind_loss(params: Dict[str, Union[int, float, str]]) -> Generator[float, None
 def test_static(mpi_tmp_path: Path) -> None:
     """Test static surrogate using a dummy function."""
     pop_size = 2 * MPI.COMM_WORLD.size  # Breeding population size
-    limits: Dict[str, Union[Tuple[int, int], Tuple[float, float], Tuple[str, ...]]] = {
+    limits: dict[str, tuple[int, int] | tuple[float, float] | tuple[str, ...]] = {
         "start": (0.1, 7.0),
         "limit": (-1.0, 1.0),
     }  # Define search space.
@@ -79,7 +79,7 @@ def test_static(mpi_tmp_path: Path) -> None:
 def test_static_island(mpi_tmp_path: Path) -> None:
     """Test static surrogate using a dummy function."""
     pop_size = 2 * MPI.COMM_WORLD.size  # Breeding population size
-    limits: Dict[str, Union[Tuple[int, int], Tuple[float, float], Tuple[str, ...]]] = {
+    limits: dict[str, tuple[int, int] | tuple[float, float] | tuple[str, ...]] = {
         "start": (0.1, 7.0),
         "limit": (-1.0, 1.0),
     }  # Define search space.
@@ -114,7 +114,7 @@ def test_static_island(mpi_tmp_path: Path) -> None:
 def test_dynamic(mpi_tmp_path: Path) -> None:
     """Test static surrogate using a dummy function."""
     pop_size = 2 * MPI.COMM_WORLD.size  # Breeding population size
-    limits: Dict[str, Union[Tuple[int, int], Tuple[float, float], Tuple[str, ...]]] = {
+    limits: dict[str, tuple[int, int] | tuple[float, float] | tuple[str, ...]] = {
         "start": (0.1, 7.0),
         "limit": (-1.0, 1.0),
     }  # Define search space.
@@ -150,7 +150,7 @@ def test_dynamic_island(mpi_tmp_path: Path) -> None:
     """Test dynamic surrogate using a dummy function."""
     num_generations = 4  # Number of generations
     pop_size = 2 * MPI.COMM_WORLD.size  # Breeding population size
-    limits: Dict[str, Union[Tuple[int, int], Tuple[float, float], Tuple[str, ...]]] = {
+    limits: dict[str, tuple[int, int] | tuple[float, float] | tuple[str, ...]] = {
         "start": (0.1, 7.0),
         "limit": (-1.0, 1.0),
         "num_iterations": (100, 1000),
