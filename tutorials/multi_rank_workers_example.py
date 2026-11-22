@@ -105,6 +105,4 @@ if __name__ == "__main__":
     # Run actual optimization.
     islands.propulate(
         logging_interval=config.logging_interval,  # Logging interval
-        debug=config.verbosity,  # Debug level
     )
-    islands.summarize(top_n=config.top_n, debug=config.verbosity)

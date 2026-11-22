@@ -42,9 +42,6 @@ dev = [
     "sphinx-rtd-theme",
     "sphinxcontrib-napoleon",
     "sphinxemoji",
-    "torch",
-    "torchvision",
-    "torchmetrics",
 ]
 
 test = [

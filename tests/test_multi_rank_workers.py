@@ -1,3 +1,4 @@
+import logging
 import pathlib
 import random
 from typing import Dict
@@ -8,6 +9,19 @@ from mpi4py import MPI
 
 from propulate import Islands
 from propulate.utils import get_default_propagator, set_logger_config
+
+log = logging.getLogger("propulate")  # Get logger instance.
+
+
+@pytest.fixture(
+    params=[
+        True,
+        False,
+    ]
+)
+def pollination(request: pytest.FixtureRequest) -> bool:
+    """Iterate through pollination parameter."""
+    return request.param
 
 
 def parallel_sphere(params: Dict[str, float], comm: MPI.Comm = MPI.COMM_SELF) -> float:
@@ -39,17 +53,17 @@ def parallel_sphere(params: Dict[str, float], comm: MPI.Comm = MPI.COMM_SELF) ->
 
 
 @pytest.mark.mpi(min_size=8)
-def test_multi_rank_workers(mpi_tmp_path: pathlib.Path) -> None:
+def test_multi_rank_workers(pollination: bool, mpi_tmp_path: pathlib.Path) -> None:
     """
-    Test multi-rank workers. Two islands with at least two workers with two ranks each.
+    Test multi-rank workers. Two islands with two workers with two ranks each.
 
     Parameters
     ----------
     mpi_tmp_path : pathlib.Path
         The temporary checkpoint directory.
     """
+    set_logger_config(level=logging.DEBUG)
     full_world_comm = MPI.COMM_WORLD  # Get full world communicator.
-    set_logger_config(log_file=mpi_tmp_path / "log.log")
 
     rng = random.Random(42 + full_world_comm.rank)
     limits = {
@@ -70,15 +84,18 @@ def test_multi_rank_workers(mpi_tmp_path: pathlib.Path) -> None:
         generations=10,  # Overall number of generations
         num_islands=2,  # Number of islands
         migration_probability=0.9,  # Migration probability
-        pollination=False,  # Whether to use pollination or migration
+        pollination=pollination,  # Whether to use pollination or migration
         checkpoint_path=mpi_tmp_path,  # Checkpoint path
         # ----- SPECIFIC FOR MULTI-RANK UCS ----
         ranks_per_worker=2,  # Number of ranks per (multi rank) worker
     )
 
     # Run actual optimization.
+    log.debug("initialized islands")
     islands.propulate(
         logging_interval=10,  # Logging interval
-        debug=1,  # Debug level
     )
-    islands.summarize(top_n=1, debug=1)
+    log.handlers.clear()
+
+
+# TODO surrogate

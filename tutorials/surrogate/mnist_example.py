@@ -316,9 +316,4 @@ if __name__ == "__main__":
     )
     islands.propulate(  # Run evolutionary optimization.
         logging_interval=1,  # Logging interval
-        debug=2,  # Verbosity level
-    )
-    islands.summarize(
-        top_n=1,  # Print top-n best individuals on each island in summary.
-        debug=2,  # Verbosity level
     )
