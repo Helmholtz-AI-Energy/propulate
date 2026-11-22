@@ -113,6 +113,7 @@ def test_static_island(mpi_tmp_path: Path) -> None:
 
 def test_dynamic(mpi_tmp_path: Path) -> None:
     """Test static surrogate using a dummy function."""
+    pytest.importorskip("sklearn")
     pop_size = 2 * MPI.COMM_WORLD.size  # Breeding population size
     limits: Dict[str, Union[Tuple[int, int], Tuple[float, float], Tuple[str, ...]]] = {
         "start": (0.1, 7.0),
@@ -148,6 +149,7 @@ def test_dynamic(mpi_tmp_path: Path) -> None:
 )
 def test_dynamic_island(mpi_tmp_path: Path) -> None:
     """Test dynamic surrogate using a dummy function."""
+    pytest.importorskip("sklearn")
     num_generations = 4  # Number of generations
     pop_size = 2 * MPI.COMM_WORLD.size  # Breeding population size
     limits: Dict[str, Union[Tuple[int, int], Tuple[float, float], Tuple[str, ...]]] = {

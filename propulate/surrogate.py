@@ -1,9 +1,6 @@
-import random
-from typing import Any, Dict, Tuple, TypeVar, Union
+from typing import Any, Dict, Optional, Tuple, TypeVar, Union
 
-import GPy
 import numpy as np
-from mpi4py import MPI
 
 from propulate.population import Individual
 
@@ -314,7 +311,11 @@ class DynamicSurrogate(Surrogate):
 
     The first global model is trained on the configurations with their final losses.
     The second local model is trained on the interim losses of the current run.
-    The local model uses the global model's prediction as the mean function.
+    The local model uses the global model's prediction to initialize a trainable constant mean.
+    Install the optional dependency with ``pip install "propulate[surrogate]"``.
+
+    This backend migration preserves the existing pruning threshold and history rules.
+    The local mean and kernel parameters are optimized jointly by marginal likelihood.
 
     Loosely based on the paper:
     Freeze-Thaw Bayesian Optimization
@@ -334,15 +335,15 @@ class DynamicSurrogate(Surrogate):
         An array containing the interim losses of the current run.
     current_encoding : np.ndarray
         The encoded configuration of the current run.
-    global_kernel : GPy.kern.Kern
+    global_kernel : sklearn.gaussian_process.kernels.Kernel
         The kernel for the global Gaussian Process Regression model.
-    local_kernel : GPy.kern.Kern
+    local_kernel : sklearn.gaussian_process.kernels.Kernel
         The kernel for the local Gaussian Process Regression model.
-    mean_function : GPy.mappings.Mapping
+    mean_function : float
         The calculated mean function for the local model.
-    global_gpr : GPy.models.GPRegression
+    global_gpr : GaussianProcessRegressor
         The global Gaussian Process Regression model.
-    local_gpr : GPy.models.GPRegression
+    local_gpr : GaussianProcessRegressor
         The local Gaussian Process Regression model.
     first_run : bool
         A boolean indicating if this is the first run.
@@ -399,25 +400,72 @@ class DynamicSurrogate(Surrogate):
         self.current_run_data: np.ndarray = np.array([[]])
         self.current_encoding: np.ndarray = np.array([[]])
 
-        self.global_kernel = GPy.kern.Matern32(input_dim=len(limits)) + GPy.kern.White(input_dim=len(limits))
-        self.local_kernel = GPy.kern.Matern52(1, variance=1.0, lengthscale=1.0, ARD=True) + GPy.kern.White(1, variance=1e-5)
+        try:
+            from sklearn.gaussian_process import GaussianProcessRegressor
+            from sklearn.gaussian_process.kernels import ConstantKernel, Matern, WhiteKernel
+        except ModuleNotFoundError as exc:
+            if exc.name not in {"sklearn", "sklearn.gaussian_process"}:
+                raise
+            raise ImportError(
+                'DynamicSurrogate requires scikit-learn. Install it with pip install "propulate[surrogate]".'
+            ) from exc
 
-        self.mean_function: GPy.Mapping = None
-
-        # Mean loss
-        self.global_gpr: GPy.models.GPRegression = None
-        # Newly created for every run
-        self.local_gpr: GPy.models.GPRegression = None
-
+        # GPy GPRegression adds Gaussian likelihood noise in addition to kernel white noise.
+        # Combine those independent diagonal terms into one learnable WhiteKernel.
+        self.global_kernel = ConstantKernel(1.0) * Matern(nu=1.5) + WhiteKernel(2.0)
+        self.local_kernel = ConstantKernel(1.0) * Matern(nu=2.5) + WhiteKernel(1.0 + 1e-5)
+        self.mean_function: float = 0.0
+        self.global_gpr: Optional[GaussianProcessRegressor] = None
+        self.local_gpr: Optional[GaussianProcessRegressor] = None
         self.first_run: bool = True
         self.max_idx: int = 0
-
         self.allowed_loss_margin: float = 0.8
 
-        # Set seed for reproducibility.
-        rank = MPI.COMM_WORLD.Get_rank()
-        np.random.seed(42 * rank)
-        random.seed(42 * rank)
+    def _fit_global(self) -> None:
+        """Refit the global GP, retaining learned kernel parameters between fits."""
+        from sklearn.gaussian_process import GaussianProcessRegressor
+
+        kernel = self.global_kernel if self.global_gpr is None else self.global_gpr.kernel_
+        self.global_gpr = GaussianProcessRegressor(kernel=kernel, alpha=1e-10, normalize_y=False)
+        self.global_gpr.fit(self.history_X, self.history_Y.ravel())
+
+    def _fit_local(self) -> None:
+        """Jointly optimize the constant mean and kernel by marginal likelihood."""
+        from scipy.linalg import cho_solve, cholesky
+        from scipy.optimize import minimize
+        from sklearn.gaussian_process import GaussianProcessRegressor
+
+        x = np.arange(1, self.current_run_data.shape[0] + 1).reshape(-1, 1)
+        y = self.current_run_data.ravel()
+        starting_kernel = self.local_kernel if self.local_gpr is None else self.local_gpr.kernel_
+        kernel = starting_kernel.clone_with_theta(starting_kernel.theta)
+
+        def objective(parameters: np.ndarray) -> Tuple[float, np.ndarray]:
+            kernel.theta = parameters[:-1]
+            covariance, gradient = kernel(x, eval_gradient=True)
+            covariance[np.diag_indices_from(covariance)] += 1e-10
+            factor = cholesky(covariance, lower=True)
+            residual = y - parameters[-1]
+            weights = cho_solve((factor, True), residual)
+            value = 0.5 * residual @ weights + np.log(np.diag(factor)).sum() + 0.5 * len(y) * np.log(2 * np.pi)
+            inverse = cho_solve((factor, True), np.eye(len(y)))
+            kernel_gradient = 0.5 * np.einsum("ij,ijk->k", inverse - np.outer(weights, weights), gradient)
+            return float(value), np.append(kernel_gradient, -weights.sum())
+
+        initial = np.append(kernel.theta, self.mean_function)
+        result = minimize(
+            objective,
+            initial,
+            jac=True,
+            method="L-BFGS-B",
+            bounds=[*kernel.bounds, (None, None)],
+        )
+        # Keep the starting point if optimization returns a worse or non-finite objective.
+        parameters = result.x if np.isfinite(result.fun) and result.fun <= objective(initial)[0] else initial
+        self.mean_function = float(parameters[-1])
+        kernel.theta = parameters[:-1]
+        self.local_gpr = GaussianProcessRegressor(kernel=kernel, alpha=1e-10, optimizer=None, normalize_y=False)
+        self.local_gpr.fit(x, y - self.mean_function)
 
     def start_run(self, ind: Individual) -> None:
         """
@@ -434,10 +482,8 @@ class DynamicSurrogate(Surrogate):
             return
 
         # Use global model's prediction as the mean function for the local model.
-        self.mean_function = GPy.mappings.Constant(input_dim=1, output_dim=1)
-        mean, variance = self.global_gpr.predict(self.current_encoding)
-
-        self.mean_function.C = mean[0]
+        assert self.global_gpr is not None
+        self.mean_function = float(self.global_gpr.predict(self.current_encoding)[0])
 
         # Reset the local model and run data.
         self.local_gpr = None
@@ -465,8 +511,7 @@ class DynamicSurrogate(Surrogate):
                 self.history_Y = np.vstack([self.history_Y, [loss]])
 
             # Create global model and fit with the new data.
-            self.global_gpr = GPy.models.GPRegression(self.history_X, self.history_Y, self.global_kernel)
-            self.global_gpr.optimize()
+            self._fit_global()
 
             self.first_run = False
             return
@@ -483,8 +528,7 @@ class DynamicSurrogate(Surrogate):
                 self.history_Y = np.vstack([self.history_Y, [loss]])
 
             # Fit global model with the new data.
-            self.global_gpr.set_XY(self.history_X, self.history_Y)
-            self.global_gpr.optimize()
+            self._fit_global()
             return
 
     def cancel(self, loss: float) -> bool:
@@ -513,24 +557,13 @@ class DynamicSurrogate(Surrogate):
         else:
             self.current_run_data = np.vstack([self.current_run_data, [loss]])
 
-        if self.local_gpr is None:
-            self.local_gpr = GPy.models.GPRegression(
-                np.arange(1, self.current_run_data.shape[0] + 1).reshape(-1, 1),
-                self.current_run_data,
-                self.local_kernel,
-                mean_function=self.mean_function,
-            )
-        else:
-            # Retrain the local model with X consisting of synthetic indices.
-            self.local_gpr.set_XY(
-                np.arange(1, self.current_run_data.shape[0] + 1).reshape(-1, 1),
-                self.current_run_data,
-            )
+        self._fit_local()
 
-        self.local_gpr.optimize()
-
-        # Predict the final loss.
-        final_loss, final_variance = self.local_gpr.predict(np.array([[self.max_idx]]))
+        # Preserve the existing variance-based pruning rule (not a standard-deviation bound).
+        assert self.local_gpr is not None
+        mean, std = self.local_gpr.predict(np.array([[self.max_idx]]), return_std=True)
+        final_loss = float(mean[0]) + self.mean_function
+        final_variance = float(std[0]) ** 2
         # Check if the final loss is lower than the best loss with margin so far.
         if ((final_loss - final_variance) * self.allowed_loss_margin) > max(self.history_Y)[0]:
             return True
@@ -563,12 +596,7 @@ class DynamicSurrogate(Surrogate):
             self.history_Y = np.vstack([self.history_Y, [data[1]]])
 
         # Fit global model with the new data.
-        if self.global_gpr is None:
-            self.global_gpr = GPy.models.GPRegression(self.history_X, self.history_Y, self.global_kernel)
-        else:
-            self.global_gpr.set_XY(self.history_X, self.history_Y)
-
-        self.global_gpr.optimize()
+        self._fit_global()
 
     def data(self) -> Tuple[np.ndarray, float]:
         """

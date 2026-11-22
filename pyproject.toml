@@ -21,16 +21,17 @@ classifiers = [
 ]
 dependencies = [
 	"deepdiff",
-    "matplotlib ~= 3.8.4",
 	"mpi4py",
 	"numpy",
     "colorlog",
-    "Gpy ~= 1.13.2",
     "h5py",
 ]
 
 [project.optional-dependencies]
+surrogate = ["scikit-learn>=1.2", "scipy>=1.8"]
 dev = [
+    "scikit-learn>=1.2",
+    "scipy>=1.8",
     "pre-commit",
     "coverage",
     "ruff",
@@ -55,6 +56,8 @@ test = [
 ]
 
 tutorials = [
+    "scikit-learn>=1.2",
+    "scipy>=1.8",
     "torch",
     "torchvision",
     "torchmetrics",
@@ -66,7 +69,8 @@ Homepage = "https://github.com/Helmholtz-AI-Energy/propulate"
 Issues = "https://github.com/Helmholtz-AI-Energy/propulate/issues"
 
 [tool.mypy]
-python_version = "3.9"
+# Current mypy supports analysis targets >=3.10; this does not change requires-python.
+python_version = "3.10"
 modules = ["propulate"]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true

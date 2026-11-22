@@ -62,6 +62,10 @@ You can check whether your installation was successful by importing ``Propulate`
    import propulate
 
 
+GP-based surrogate models require the optional scikit-learn dependency.
+Install it with ``pip install "propulate[surrogate]"``. The base package and
+static surrogate models do not require scikit-learn or Matplotlib.
+
 .. Links
 .. _PyPI: https://pypi.org/project/propulate/
 .. _Github master branch: https://github.com/Helmholtz-AI-Energy/propulate
