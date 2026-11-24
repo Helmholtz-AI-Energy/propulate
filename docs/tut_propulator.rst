@@ -258,6 +258,12 @@ optimizer flavors are available, along with example scripts showing how to use t
   works. Check out the example script for how to use Nelder-Mead in ``Propulate`` |:dna:|:
   https://github.com/Helmholtz-AI-Energy/propulate/blob/master/tutorials/nm_example.py
 
+**Bayesian Optimization (BO)**
+  Uses a Gaussian-process surrogate and an acquisition function to propose sample-efficient evaluations for expensive
+  black-box objectives. :ref:`Here<bayesopt>` you can find a more detailed explanation of the implementation in
+  ``Propulate`` |:dna:|. Check out the example script:
+  https://github.com/Helmholtz-AI-Energy/propulate/blob/master/tutorials/bayesian_optimizer_example.py
+
 
 [1] *N. Hansen and A. Ostermeier (2001), "Completely Derandomized Self-Adaptation in Evolution Strategies", Evolutionary Computation, 9(2), 159-195.*
 https://doi.org/10.1162/106365601750190398

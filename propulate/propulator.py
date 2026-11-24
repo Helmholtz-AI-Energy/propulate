@@ -164,6 +164,8 @@ class Propulator:
         self.island_counts = island_counts  # Number of workers on each island
         self.emigration_propagator = emigration_propagator  # Emigration propagator
         self.rng = rng  # Generator for inter-island communication
+        # Configure worker-rank context explicitly for propagators that need it.
+        self.propagator.set_worker_context(self.island_comm.rank, self.island_comm.size)
 
         self.intra_requests: list[MPI.Request] = []  # Keep track of intra-island send requests.
         self.intra_buffers: list[Individual] = []  # Send buffers for intra-island communication
