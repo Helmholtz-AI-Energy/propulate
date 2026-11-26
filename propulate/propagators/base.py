@@ -1,5 +1,5 @@
 import random
-from typing import Dict, List, Mapping, MutableMapping, Optional, Tuple, Union
+from collections.abc import Mapping, MutableMapping
 
 import numpy as np
 
@@ -46,7 +46,7 @@ class Propagator:
         Apply the propagator.
     """
 
-    def __init__(self, parents: int = 0, offspring: int = 0, rng: Optional[random.Random] = None) -> None:
+    def __init__(self, parents: int = 0, offspring: int = 0, rng: random.Random | None = None) -> None:
         """
         Initialize a propagator with given parameters.
 
@@ -72,7 +72,7 @@ class Propagator:
             rng = random.Random()
         self.rng = rng  # Random number generator
 
-    def __call__(self, inds: List[Individual]) -> Union[List[Individual], Individual]:
+    def __call__(self, inds: list[Individual]) -> list[Individual] | Individual:
         """
         Apply the propagator (not implemented for abstract base class).
 
@@ -121,7 +121,7 @@ class Stochastic(Propagator):
         parents: int = 0,
         offspring: int = 0,
         probability: float = 1.0,
-        rng: Optional[random.Random] = random.Random(),
+        rng: random.Random | None = random.Random(),
     ) -> None:
         """
         Initialize a stochastic propagator that is only applied with a specified probability.
@@ -202,7 +202,7 @@ class Conditional(Propagator):
         self.true_prop = true_prop
         self.false_prop = false_prop
 
-    def __call__(self, inds: List[Individual]) -> Union[List[Individual], Individual]:
+    def __call__(self, inds: list[Individual]) -> list[Individual] | Individual:
         """
         Apply conditional propagator.
 
@@ -240,7 +240,7 @@ class Compose(Propagator):
     :class:`Propagator` : The parent class.
     """
 
-    def __init__(self, propagators: List[Propagator]) -> None:
+    def __init__(self, propagators: list[Propagator]) -> None:
         """
         Initialize a composed propagator.
 
@@ -270,7 +270,7 @@ class Compose(Propagator):
                 )
         self.propagators = propagators
 
-    def __call__(self, inds: List[Individual]) -> Union[List[Individual], Individual]:
+    def __call__(self, inds: list[Individual]) -> list[Individual] | Individual:
         """
         Apply the composed propagator.
 
@@ -316,7 +316,7 @@ class SelectMin(Propagator):
         """
         super().__init__(-1, offspring)
 
-    def __call__(self, inds: List[Individual]) -> List[Individual]:
+    def __call__(self, inds: list[Individual]) -> list[Individual]:
         """
         Apply the elitist-selection propagator.
 
@@ -370,7 +370,7 @@ class SelectMax(Propagator):
         """
         super().__init__(-1, offspring)
 
-    def __call__(self, inds: List[Individual]) -> List[Individual]:
+    def __call__(self, inds: list[Individual]) -> list[Individual]:
         """
         Apply the anti-elitist-selection propagator.
 
@@ -410,7 +410,7 @@ class SelectUniform(Propagator):
     :class:`Propagator` : The parent class.
     """
 
-    def __init__(self, offspring: int, rng: Optional[random.Random] = None) -> None:
+    def __init__(self, offspring: int, rng: random.Random | None = None) -> None:
         """
         Initialize a random-selection propagator.
 
@@ -423,7 +423,7 @@ class SelectUniform(Propagator):
         """
         super().__init__(-1, offspring, rng)
 
-    def __call__(self, inds: List[Individual]) -> List[Individual]:
+    def __call__(self, inds: list[Individual]) -> list[Individual]:
         """
         Apply the uniform-selection propagator.
 
@@ -469,10 +469,10 @@ class InitUniform(Stochastic):
 
     def __init__(
         self,
-        limits: Mapping[str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]],
+        limits: Mapping[str, tuple[float, float] | tuple[int, int] | tuple[str, ...]],
         parents: int = 0,
         probability: float = 1.0,
-        rng: Optional[random.Random] = random.Random(),
+        rng: random.Random | None = random.Random(),
     ) -> None:
         """
         Initialize a random-initialization propagator.
@@ -510,7 +510,7 @@ class InitUniform(Stochastic):
         ValueError
             If a parameter's type is invalid, i.e., not float (continuous), int (ordinal), or str (categorical).
         """
-        position: MutableMapping[str, Union[int, float, str]] = {}
+        position: MutableMapping[str, int | float | str] = {}
         if self.rng.random() < self.probability:  # Apply only with specified probability.
             for limit in self.limits:  # Randomly sample from specified limits for each trait.
                 if isinstance(self.limits[limit][0], int):  # If ordinal trait of type integer.
@@ -537,7 +537,7 @@ class Gaussian(Propagator):
 
     def __init__(
         self,
-        limits: Dict[str, Tuple[float, float]],
+        limits: dict[str, tuple[float, float]],
         scale: float,
         rng: np.random.Generator,
     ):
@@ -559,7 +559,7 @@ class Gaussian(Propagator):
         self.rng: np.random.Generator = rng  # type:ignore
         self.scale = scale
 
-    def __call__(self, inds: List[Individual]) -> Individual:
+    def __call__(self, inds: list[Individual]) -> Individual:
         """
         Apply the Gaussian propagator.
 

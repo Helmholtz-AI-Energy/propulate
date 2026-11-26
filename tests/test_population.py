@@ -1,5 +1,3 @@
-from typing import Dict, Tuple, Union
-
 import pytest
 
 from propulate.population import Individual
@@ -8,7 +6,7 @@ from propulate.population import Individual
 @pytest.mark.mpi_skip
 def test_individual() -> None:
     """Test the mapping between dictionary and embedded vector representation of individuals."""
-    limits: Dict[str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]] = {
+    limits: dict[str, tuple[float, float] | tuple[int, int] | tuple[str, ...]] = {
         "float1": (0.0, 1.0),
         "float2": (-1.0, 1.0),
         "int1": (0, 5),
@@ -41,7 +39,7 @@ def test_individual() -> None:
 @pytest.mark.mpi_skip
 def test_individual_order() -> None:
     """Test the mapping between dictionary and embedded vector representation of individuals at different ordering."""
-    limits: Dict[str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]] = {
+    limits: dict[str, tuple[float, float] | tuple[int, int] | tuple[str, ...]] = {
         "float1": (0.0, 1.0),
         "cat1": ("a", "b", "c", "d", "e"),
         "float2": (-1.0, 1.0),
@@ -75,7 +73,7 @@ def test_individual_order() -> None:
 @pytest.mark.mpi_skip
 def test_special_key() -> None:
     """Test that using ``_``-prefixed keys does not trigger the categorical embedding correctly."""
-    limits: Dict[str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]] = {
+    limits: dict[str, tuple[float, float] | tuple[int, int] | tuple[str, ...]] = {
         "float1": (0.0, 1.0),
         "float2": (-1.0, 1.0),
         "int1": (0, 5),
@@ -106,7 +104,7 @@ def test_special_key() -> None:
 
 def test_surrogate_key() -> None:
     """Test that deleting surrogate information is handled correctly."""
-    limits: Dict[str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]] = {
+    limits: dict[str, tuple[float, float] | tuple[int, int] | tuple[str, ...]] = {
         "float1": (0.0, 1.0),
         "float2": (-1.0, 1.0),
         "int1": (0, 5),

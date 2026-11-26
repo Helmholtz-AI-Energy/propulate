@@ -3,7 +3,7 @@ import logging
 import os
 import random
 import sys
-from typing import Dict, Generator, Tuple, Union
+from collections.abc import Generator
 
 import torch
 from mpi4py import MPI
@@ -195,7 +195,7 @@ class Net(nn.Module):
         out = self.classifier(out)
         return out
 
-    def training_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor:
+    def training_step(self, batch: tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor:
         """
         Calculate loss for training step in Lightning train loop.
 
@@ -216,7 +216,7 @@ class Net(nn.Module):
         loss_val = self.loss_fn(pred, y)
         return loss_val
 
-    def validation_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor:
+    def validation_step(self, batch: tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor:
         """
         Calculate loss for validation step in Lightning validation loop during training.
 
@@ -250,7 +250,7 @@ class Net(nn.Module):
         return torch.optim.Adam(self.parameters(), lr=self.lr, weight_decay=self.weight_decay)
 
 
-def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
+def get_data_loaders(batch_size: int) -> tuple[DataLoader, DataLoader]:
     """
     Get CIFAR10 train and validation dataloaders.
 
@@ -303,7 +303,7 @@ def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
 
 
 def ind_loss(
-    params: Dict[str, Union[int, float, str]],
+    params: dict[str, int | float | str],
 ) -> Generator[float, None, None]:
     """
     Loss function for evolutionary optimization with Propulate. Minimize the model's negative validation accuracy.
@@ -421,7 +421,7 @@ def set_seeds(seed_value: int = 42) -> None:
 if __name__ == "__main__":
     num_generations = 3  # Number of generations
     pop_size = 2 * MPI.COMM_WORLD.size  # Breeding population size
-    limits: Dict[str, Union[Tuple[int, int], Tuple[float, float], Tuple[str, ...]]] = {
+    limits: dict[str, tuple[int, int] | tuple[float, float] | tuple[str, ...]] = {
         "lr": (0.01, 0.0001),
         "perm": ("ABC", "ACB", "BAC", "BCA", "CAB", "CBA"),
     }  # Define search space.

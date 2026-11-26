@@ -1,7 +1,7 @@
 import copy
 import pathlib
 import random
-from typing import Callable, Dict, Tuple
+from collections.abc import Callable
 
 import deepdiff
 import numpy as np
@@ -15,7 +15,7 @@ from propulate.utils.benchmark_functions import get_function_search_space
 
 
 @pytest.fixture(scope="module")
-def global_variables() -> Tuple[random.Random, Callable, Dict, Propagator]:
+def global_variables() -> tuple[random.Random, Callable, dict, Propagator]:
     """Get global variables used by most of the tests in this module."""
     rng = random.Random(42 + MPI.COMM_WORLD.rank)  # Set up separate random number generator for optimization.
     benchmark_function, limits = get_function_search_space("sphere")  # Get function and search space to optimize.
@@ -40,7 +40,7 @@ def pollination(request: pytest.FixtureRequest) -> bool:
 
 @pytest.mark.mpi(min_size=4)
 def test_islands(
-    global_variables: Tuple[random.Random, Callable, Dict[str, Tuple[float, float]], Propagator],
+    global_variables: tuple[random.Random, Callable, dict[str, tuple[float, float]], Propagator],
     pollination: bool,
     mpi_tmp_path: pathlib.Path,
 ) -> None:
@@ -80,7 +80,7 @@ def test_islands(
 
 @pytest.mark.mpi(min_size=4)
 def test_checkpointing_isolated(
-    global_variables: Tuple[random.Random, Callable, Dict[str, Tuple[float, float]], Propagator],
+    global_variables: tuple[random.Random, Callable, dict[str, tuple[float, float]], Propagator],
     mpi_tmp_path: pathlib.Path,
 ) -> None:
     """
@@ -129,7 +129,7 @@ def test_checkpointing_isolated(
 
 @pytest.mark.mpi(min_size=4)
 def test_checkpointing(
-    global_variables: Tuple[random.Random, Callable, Dict[str, Tuple[float, float]], Propagator],
+    global_variables: tuple[random.Random, Callable, dict[str, tuple[float, float]], Propagator],
     pollination: bool,
     mpi_tmp_path: pathlib.Path,
 ) -> None:
@@ -183,7 +183,7 @@ def test_checkpointing(
 
 @pytest.mark.mpi(min_size=8)
 def test_checkpointing_unequal_populations(
-    global_variables: Tuple[random.Random, Callable, Dict[str, Tuple[float, float]], Propagator],
+    global_variables: tuple[random.Random, Callable, dict[str, tuple[float, float]], Propagator],
     pollination: bool,
     mpi_tmp_path: pathlib.Path,
 ) -> None:

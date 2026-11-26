@@ -5,9 +5,10 @@ import os
 import pickle
 import random
 import time
+from collections.abc import Callable, Generator
 from operator import attrgetter
 from pathlib import Path
-from typing import Callable, Final, Generator, List, Optional, Tuple, Type, Union
+from typing import Final
 
 import deepdiff
 import numpy as np
@@ -78,7 +79,7 @@ class Propulator:
 
     def __init__(
         self,
-        loss_fn: Union[Callable, Generator[float, None, None]],
+        loss_fn: Callable | Generator[float, None, None],
         propagator: Propagator,
         rng: random.Random,
         island_idx: int = 0,
@@ -86,13 +87,13 @@ class Propulator:
         propulate_comm: MPI.Comm = MPI.COMM_WORLD,
         worker_sub_comm: MPI.Comm = MPI.COMM_SELF,
         generations: int = -1,
-        checkpoint_path: Union[str, Path] = Path("./"),
-        migration_topology: Optional[np.ndarray] = None,
+        checkpoint_path: str | Path = Path("./"),
+        migration_topology: np.ndarray | None = None,
         migration_prob: float = 0.0,
-        emigration_propagator: Type[Propagator] = SelectMin,
-        island_displs: Optional[np.ndarray] = None,
-        island_counts: Optional[np.ndarray] = None,
-        surrogate_factory: Optional[Callable[[], Surrogate]] = None,
+        emigration_propagator: type[Propagator] = SelectMin,
+        island_displs: np.ndarray | None = None,
+        island_counts: np.ndarray | None = None,
+        surrogate_factory: Callable[[], Surrogate] | None = None,
     ) -> None:
         """
         Initialize Propulator with given parameters.
@@ -191,7 +192,7 @@ class Propulator:
             if self.island_comm.rank == 0:
                 log.info("No valid checkpoint file given. Initializing population randomly...")
 
-    def _get_active_individuals(self) -> Tuple[List[Individual], int]:
+    def _get_active_individuals(self) -> tuple[list[Individual], int]:
         """
         Get active individuals in current population list.
 
@@ -367,7 +368,7 @@ class Propulator:
         """
         raise NotImplementedError
 
-    def _get_unique_individuals(self) -> List[Individual]:
+    def _get_unique_individuals(self) -> list[Individual]:
         """
         Get unique individuals in terms of traits and loss in current population.
 
@@ -376,7 +377,7 @@ class Propulator:
         List[propulate.population.Individual]
             All unique individuals in the current population.
         """
-        unique_inds: List[Individual] = []
+        unique_inds: list[Individual] = []
         for individual in self.population:
             considered = False
             for ind in unique_inds:
@@ -389,7 +390,7 @@ class Propulator:
                 unique_inds.append(individual)
         return unique_inds
 
-    def _check_intra_island_synchronization(self, populations: List[List[Individual]]) -> bool:
+    def _check_intra_island_synchronization(self, populations: list[list[Individual]]) -> bool:
         """
         Check synchronization of populations of workers within one island.
 
@@ -537,7 +538,7 @@ class Propulator:
             with open(save_ckpt_file, "wb") as f:
                 pickle.dump(self.population, f)
 
-    def _check_for_duplicates(self, active: bool, debug: int = 1) -> Tuple[List[List[Union[Individual, int]]], List[Individual]]:
+    def _check_for_duplicates(self, active: bool, debug: int = 1) -> tuple[list[list[Individual | int]], list[Individual]]:
         """
         Check for duplicates in current population.
 
@@ -562,8 +563,8 @@ class Propulator:
             population, _ = self._get_active_individuals()
         else:
             population = self.population
-        unique_inds: List[Individual] = []
-        occurrences: List[List[Union[Individual, int]]] = []
+        unique_inds: list[Individual] = []
+        occurrences: list[list[Individual | int]] = []
         for individual in population:
             considered = False
             for ind in unique_inds:
@@ -580,7 +581,7 @@ class Propulator:
                 occurrences.append([individual, num_copies])
         return occurrences, unique_inds
 
-    def summarize(self, top_n: int = 1, debug: int = 1) -> Union[List[Union[List[Individual], Individual]], None]:
+    def summarize(self, top_n: int = 1, debug: int = 1) -> list[list[Individual] | Individual] | None:
         """
         Get top-n results from Propulate optimization.
 

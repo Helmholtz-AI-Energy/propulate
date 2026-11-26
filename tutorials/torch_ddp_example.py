@@ -11,7 +11,6 @@ import pathlib
 import random
 import socket
 import time
-from typing import Dict, Tuple, Union
 
 import torch
 import torch.distributed as dist
@@ -107,7 +106,7 @@ class Net(nn.Module):
         return output
 
 
-def get_data_loaders(batch_size: int, subgroup_comm: MPI.Comm) -> Tuple[DataLoader, DataLoader]:
+def get_data_loaders(batch_size: int, subgroup_comm: MPI.Comm) -> tuple[DataLoader, DataLoader]:
     """
     Get MNIST train and validation dataloaders.
 
@@ -256,7 +255,7 @@ def torch_process_group_init(subgroup_comm: MPI.Comm, method: str) -> None:
     log.info(f"Finish subgroup torch.dist init: world size: {dist.get_world_size()}, rank: {dist.get_rank()}")
 
 
-def ind_loss(params: Dict[str, Union[int, float, str]], subgroup_comm: MPI.Comm) -> float:
+def ind_loss(params: dict[str, int | float | str], subgroup_comm: MPI.Comm) -> float:
     """
     Loss function for evolutionary optimization with Propulate. Minimize the model's negative validation accuracy.
 
@@ -396,7 +395,7 @@ if __name__ == "__main__":
         MNIST(download=True, root=".", transform=None, train=False)
     comm.Barrier()
     pop_size = 2 * comm.size  # Breeding population size
-    limits: Dict[str, Union[Tuple[int, int], Tuple[float, float], Tuple[str, ...]]] = {
+    limits: dict[str, tuple[int, int] | tuple[float, float] | tuple[str, ...]] = {
         "conv_layers": (2, 10),
         "activation": ("relu", "sigmoid", "tanh"),
         "lr": (0.01, 0.0001),

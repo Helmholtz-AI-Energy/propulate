@@ -1,6 +1,6 @@
 import copy
 import random
-from typing import Dict, List, Mapping, Optional, Tuple, Union
+from collections.abc import Mapping
 
 import numpy as np
 
@@ -30,10 +30,10 @@ class PointMutation(Stochastic):
 
     def __init__(
         self,
-        limits: Mapping[str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]],
+        limits: Mapping[str, tuple[float, float] | tuple[int, int] | tuple[str, ...]],
         points: int = 1,
         probability: float = 1.0,
-        rng: Optional[random.Random] = None,
+        rng: random.Random | None = None,
     ) -> None:
         """
         Initialize point-mutation propagator.
@@ -123,15 +123,11 @@ class RandomPointMutation(Stochastic):
 
     def __init__(
         self,
-        limits: Union[
-            Dict[str, Tuple[float, float]],
-            Dict[str, Tuple[int, int]],
-            Dict[str, Tuple[str, ...]],
-        ],
+        limits: dict[str, tuple[float, float]] | dict[str, tuple[int, int]] | dict[str, tuple[str, ...]],
         min_points: int = 1,
         max_points: int = 1,
         probability: float = 1.0,
-        rng: Optional[random.Random] = None,
+        rng: random.Random | None = None,
     ) -> None:
         """
         Initialize random point-mutation propagator.
@@ -231,11 +227,11 @@ class IntervalMutationNormal(Stochastic):
 
     def __init__(
         self,
-        limits: Mapping[str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]],
+        limits: Mapping[str, tuple[float, float] | tuple[int, int] | tuple[str, ...]],
         sigma_factor: float = 0.1,
         points: int = 1,
         probability: float = 1.0,
-        rng: Optional[random.Random] = None,
+        rng: random.Random | None = None,
     ) -> None:
         """
         Initialize interval-mutation propagator.
@@ -284,9 +280,9 @@ class IntervalMutationNormal(Stochastic):
             ind = copy.deepcopy(ind)
             ind.loss = float("inf")  # Initialize individual's loss attribute.
             # Determine traits of type float.
-            interval_keys: List[str] = [x for x in ind.keys() if isinstance(ind[x], float)]
+            interval_keys: list[str] = [x for x in ind.keys() if isinstance(ind[x], float)]
             # Determine ´self.points` traits to mutate.
-            to_mutate: List[str] = self.rng.sample(interval_keys, self.points)
+            to_mutate: list[str] = self.rng.sample(interval_keys, self.points)
             # Mutate traits by sampling from Gaussian distribution centered around current value
             # with `sigma_factor` scaled interval width as standard distribution.
             for key in to_mutate:
@@ -323,7 +319,7 @@ class CrossoverUniform(Stochastic):  # uniform crossover
         self,
         relative_parent_contribution: float = 0.5,
         probability: float = 1.0,
-        rng: Optional[random.Random] = None,
+        rng: random.Random | None = None,
     ) -> None:
         """
         Initialize uniform crossover propagator.
@@ -347,7 +343,7 @@ class CrossoverUniform(Stochastic):  # uniform crossover
             raise ValueError(f"Relative parent contribution must be within (0, 1) but was {relative_parent_contribution}.")
         self.rel_parent_contrib = relative_parent_contribution
 
-    def __call__(self, inds: List[Individual]) -> Individual:
+    def __call__(self, inds: list[Individual]) -> Individual:
         """
         Apply the uniform-crossover propagator.
 
@@ -388,7 +384,7 @@ class CrossoverMultiple(Stochastic):  # uniform crossover
         self,
         parents: int = -1,
         probability: float = 1.0,
-        rng: Optional[random.Random] = None,
+        rng: random.Random | None = None,
     ) -> None:
         """
         Initialize a multiple-crossover propagator.
@@ -404,7 +400,7 @@ class CrossoverMultiple(Stochastic):  # uniform crossover
         """
         super().__init__(parents, 1, probability, rng)  # Breed 1 offspring from specified number of parents.
 
-    def __call__(self, inds: List[Individual]) -> Individual:
+    def __call__(self, inds: list[Individual]) -> Individual:
         """
         Apply the multi-crossover propagator.
 
@@ -452,7 +448,7 @@ class CrossoverSigmoid(Stochastic):
         self,
         temperature: float = 1.0,
         probability: float = 1.0,
-        rng: Optional[random.Random] = None,
+        rng: random.Random | None = None,
     ) -> None:
         """
         Initialize a sigmoid-crossover propagator.
@@ -469,7 +465,7 @@ class CrossoverSigmoid(Stochastic):
         super(CrossoverSigmoid, self).__init__(2, 1, probability, rng)  # Breed 1 offspring from 2 parents.
         self.temperature = temperature
 
-    def __call__(self, inds: List[Individual]) -> Individual:
+    def __call__(self, inds: list[Individual]) -> Individual:
         """
         Apply the sigmoid-crossover propagator.
 

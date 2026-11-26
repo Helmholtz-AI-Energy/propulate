@@ -2,8 +2,8 @@
 import logging
 import random
 import sys
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Mapping, Optional, Tuple, Union
 
 import colorlog
 from mpi4py import MPI
@@ -30,12 +30,12 @@ __all__ = [
 
 def get_default_propagator(
     pop_size: int,
-    limits: Mapping[str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]],
+    limits: Mapping[str, tuple[float, float] | tuple[int, int] | tuple[str, ...]],
     crossover_prob: float = 0.7,
     mutation_prob: float = 0.4,
     random_init_prob: float = 0.1,
     sigma_factor: float = 0.05,
-    rng: Optional[random.Random] = None,
+    rng: random.Random | None = None,
 ) -> Propagator:
     """
     Get Propulate's default evolutionary optimization propagator.
@@ -93,7 +93,7 @@ def get_default_propagator(
 
 def set_logger_config(
     level: int = logging.INFO,
-    log_file: Optional[Union[str, Path]] = None,
+    log_file: str | Path | None = None,
     log_to_stdout: bool = True,
     log_rank: bool = False,
     colors: bool = True,

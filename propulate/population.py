@@ -1,15 +1,7 @@
+from collections.abc import Generator, ItemsView, KeysView, Mapping, MutableMapping, ValuesView
 from decimal import Decimal
 from typing import (
     Any,
-    Generator,
-    ItemsView,
-    KeysView,
-    Mapping,
-    MutableMapping,
-    Optional,
-    Tuple,
-    Union,
-    ValuesView,
 )
 
 import numpy as np
@@ -20,9 +12,9 @@ class Individual:
 
     def __init__(
         self,
-        position: Union[MutableMapping[str, Union[str, int, float, Any]], np.ndarray],
-        limits: Mapping[str, Union[Tuple[float, float], Tuple[int, int], Tuple[str, ...]]],
-        velocity: Optional[np.ndarray] = None,
+        position: MutableMapping[str, str | int | float | Any] | np.ndarray,
+        limits: Mapping[str, tuple[float, float] | tuple[int, int] | tuple[str, ...]],
+        velocity: np.ndarray | None = None,
         generation: int = -1,
         rank: int = -1,
     ) -> None:
@@ -37,7 +29,7 @@ class Individual:
             The rank (-1 if unset).
         """
         self.limits = limits
-        self.mapping: MutableMapping[str, Union[str, int, float, Any]]  # NOTE the Any is here for surrogate info
+        self.mapping: MutableMapping[str, str | int | float | Any]  # NOTE the Any is here for surrogate info
         for key in limits:
             if key.startswith("_"):
                 raise ValueError("Keys starting with '_' are reserved.")
@@ -85,7 +77,7 @@ class Individual:
                 print(self.position.shape, self.velocity.shape)
                 raise ValueError("Position and velocity shape do not match.")
 
-    def __getitem__(self, key: str) -> Union[float, int, str]:
+    def __getitem__(self, key: str) -> float | int | str:
         """Return decoded value for input key."""
         if key.startswith("_"):
             return self.mapping[key]
@@ -102,7 +94,7 @@ class Individual:
             else:
                 raise ValueError("Unknown type")
 
-    def __setitem__(self, key: str, newvalue: Union[float, int, str, Any]) -> None:
+    def __setitem__(self, key: str, newvalue: float | int | str | Any) -> None:
         """Encode and set value for given key."""
         self.mapping[key] = newvalue
         if key.startswith("_"):

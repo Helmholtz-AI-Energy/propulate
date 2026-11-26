@@ -1,5 +1,4 @@
 from random import Random
-from typing import Dict, List, Tuple
 
 import numpy as np
 
@@ -33,7 +32,7 @@ class ParallelNelderMead(Propagator):
 
     def __init__(
         self,
-        limits: Dict[str, Tuple[float, float]],
+        limits: dict[str, tuple[float, float]],
         rng: Random,
         start: np.ndarray,
         alpha: float = 1.0,
@@ -71,7 +70,7 @@ class ParallelNelderMead(Propagator):
         self.rho = rho
         self.sigma = sigma
         self.generation = 0
-        self.simplex: List[Individual]
+        self.simplex: list[Individual]
 
         self.problem_dimension = len(start)
         self.start = start
@@ -84,7 +83,7 @@ class ParallelNelderMead(Propagator):
         )
         self.select_simplex = SelectMin(self.problem_dimension + 1)
 
-    def __call__(self, inds: List[Individual]) -> Individual:
+    def __call__(self, inds: list[Individual]) -> Individual:
         """
         Apply the Nelder-Mead propagator.
 

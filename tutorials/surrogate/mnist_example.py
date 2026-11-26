@@ -2,7 +2,7 @@ import logging
 import os
 import random
 import sys
-from typing import Dict, Generator, Tuple, Union
+from collections.abc import Generator
 
 import torch
 from mpi4py import MPI
@@ -87,7 +87,7 @@ class Net(nn.Module):
         x = self.fc(x)
         return x
 
-    def training_step(self, batch: Tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
+    def training_step(self, batch: tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
         """
         Calculate loss for training step in Lightning train loop.
 
@@ -106,7 +106,7 @@ class Net(nn.Module):
         loss_val = self.loss_fn(pred, y)
         return loss_val
 
-    def validation_step(self, batch: Tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
+    def validation_step(self, batch: tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
         """
         Calculate loss for validation step in Lightning validation loop during training.
 
@@ -137,7 +137,7 @@ class Net(nn.Module):
         return torch.optim.SGD(self.parameters(), lr=self.lr)
 
 
-def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
+def get_data_loaders(batch_size: int) -> tuple[DataLoader, DataLoader]:
     """
     Get MNIST train and validation dataloaders.
 
@@ -178,7 +178,7 @@ def get_data_loaders(batch_size: int) -> Tuple[DataLoader, DataLoader]:
 
 
 def ind_loss(
-    params: Dict[str, Union[int, float, str]],
+    params: dict[str, int | float | str],
 ) -> Generator[float, None, None]:
     """
     Loss function for evolutionary optimization with Propulate. Minimize the model's negative validation accuracy.
@@ -289,7 +289,7 @@ if __name__ == "__main__":
 
     num_generations = 3  # Number of generations
     pop_size = 2 * comm.size  # Breeding population size
-    limits: Dict[str, Union[Tuple[int, int], Tuple[float, float], Tuple[str, ...]]] = {
+    limits: dict[str, tuple[int, int] | tuple[float, float] | tuple[str, ...]] = {
         "conv_layers": (2, 10),
         "activation": ("relu", "sigmoid", "tanh"),
         "lr": (0.01, 0.0001),
